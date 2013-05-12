@@ -3,6 +3,7 @@ import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Position
 import scalaz._
 import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
 
 case class ParseTree(defs: List[Def])
 
@@ -14,7 +15,7 @@ sealed trait SimpleTerm
 case class Let(binds: NonEmptyList[Bind], body: Term[SimpleTerm]) extends SimpleTerm
 case class Lambda(args: NonEmptyList[Arg], body: Term[SimpleTerm]) extends SimpleTerm
 case class Var(sym: Symbol) extends SimpleTerm
-case class Literal() extends SimpleTerm
+case class Literal(value: LiteralValue) extends SimpleTerm
 
 case class Bind(name: String, body: Term[SimpleTerm], pos: Position)
 

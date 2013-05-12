@@ -5,6 +5,7 @@ import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
 import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
 
 object Parser extends StandardTokenParsers with PackratParsers
 {
@@ -114,7 +115,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var(s), NoPosition) })
-    lazy val literal = p("literal"										^^^ Simple(Literal(), NoPosition))
+    lazy val literal = p("literal"										^^^ Simple(Literal(BooleanValue(false)), NoPosition))
   }
   
   val nlParsers = Parsers()(NlMode.Nl)
