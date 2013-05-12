@@ -9,6 +9,8 @@ import pl.luckboy.purfuncor.frontend._
 
 object Parser extends StandardTokenParsers with PackratParsers
 {
+  override val lexical = Lexer()
+  
   object NlMode extends Enumeration
   {
     val Nl, NoNl = Value
@@ -97,11 +99,27 @@ object Parser extends StandardTokenParsers with PackratParsers
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
 
   lazy val semi = rep1("\n") | (rep("\n") ~ ";" ~ rep("\n"))
+
+  def parseInteger[T](s: String)(f: (String, Int) => T) =
+    if(s.startsWith("0x") || s.startsWith("0X"))
+      f(s, 16)
+    else if(s.startsWith("0") && s.length >= 2)
+      f(s, 8)
+    else
+      f(s, 10)
+      
+  lazy val charValue = elem("char", _.isInstanceOf[lexical.CharLit])	^^ { t => CharValue(t.chars.head) }
+  lazy val byteValue = elem("byte", _.isInstanceOf[lexical.ByteLit])	^^ { t => ByteValue(parseInteger(t.chars)(java.lang.Byte.parseByte)) }
+  lazy val shortValue = elem("short", _.isInstanceOf[lexical.ShortLit]) ^^ { t => ShortValue(parseInteger(t.chars)(java.lang.Short.parseShort)) }
+  lazy val intValue = elem("int", _.isInstanceOf[lexical.IntLit])		^^ { t => IntValue(parseInteger(t.chars)(Integer.parseInt)) }
+  lazy val longValue = elem("long", _.isInstanceOf[lexical.LongLit])	^^ { t => LongValue(parseInteger(t.chars)(java.lang.Long.parseLong)) }  
+  lazy val floatValue = elem("float", _.isInstanceOf[lexical.FloatLit]) ^^ { t => FloatValue(java.lang.Float.parseFloat(t.chars)) }
+  lazy val doubleValue = elem("double", _.isInstanceOf[lexical.DoubleLit]) ^^ { t => DoubleValue(java.lang.Double.parseDouble(t.chars)) }
   
   lazy val bind = p(ident ~ ("=" ~-> noNlParsers.expr)					^^ { case s ~ t => Bind(s, t, NoPosition) })
   lazy val binds = bind ~ ((semi ~> bind) *)							^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
   lazy val arg = p(ident	 											^^ { Arg(_, NoPosition) })
-  
+    
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
     lazy val symbol = p(ident ~~ (("." ~~> ident) *)					^^ { case s ~ ss => Symbol(NonEmptyList.nel(s, ss), NoPosition) })
