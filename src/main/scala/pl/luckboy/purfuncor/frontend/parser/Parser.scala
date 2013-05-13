@@ -141,7 +141,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var(s), NoPosition) })
-    lazy val literal = p(literalValue									^^^ Simple(Literal(BooleanValue(false)), NoPosition))
+    lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
   }
   
   val nlParsers = Parsers()(NlMode.Nl)
