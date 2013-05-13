@@ -2,7 +2,7 @@ package pl.luckboy.purfuncor.frontend.parser
 import scala.util.parsing.combinator.lexical.StdLexical
 import scala.util.parsing.input.CharArrayReader.EofCh
 
-case class Lexer extends StdLexical
+case class Lexer() extends StdLexical
 {
   delimiters ++= List("(", ")", "{", "}", "#", ".", "=", ";", "\n")
   reserved ++= List("false", "true", "let", "in", "module", "import")

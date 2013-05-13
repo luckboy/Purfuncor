@@ -4,6 +4,7 @@ import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
+import Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
@@ -107,7 +108,11 @@ object Parser extends StandardTokenParsers with PackratParsers
       f(s, 8)
     else
       f(s, 10)
-      
+
+  lazy val literalValue = booleanValue | charValue | byteValue | shortValue | intValue | longValue | floatValue | doubleValue | builtinFunValue
+  lazy val booleanValue = falseValue | trueValue
+  lazy val falseValue = "false"											^^^ BooleanValue(false)
+  lazy val trueValue = "true"											^^^ BooleanValue(true)
   lazy val charValue = elem("char", _.isInstanceOf[lexical.CharLit])	^^ { t => CharValue(t.chars.head) }
   lazy val byteValue = elem("byte", _.isInstanceOf[lexical.ByteLit])	^^ { t => ByteValue(parseInteger(t.chars)(java.lang.Byte.parseByte)) }
   lazy val shortValue = elem("short", _.isInstanceOf[lexical.ShortLit]) ^^ { t => ShortValue(parseInteger(t.chars)(java.lang.Short.parseShort)) }
@@ -115,6 +120,9 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val longValue = elem("long", _.isInstanceOf[lexical.LongLit])	^^ { t => LongValue(parseInteger(t.chars)(java.lang.Long.parseLong)) }  
   lazy val floatValue = elem("float", _.isInstanceOf[lexical.FloatLit]) ^^ { t => FloatValue(java.lang.Float.parseFloat(t.chars)) }
   lazy val doubleValue = elem("double", _.isInstanceOf[lexical.DoubleLit]) ^^ { t => DoubleValue(java.lang.Double.parseDouble(t.chars)) }
+  lazy val builtinFunValue = "#" ~-> ident								^? ({
+    case s if BuiltinFunction.values.forall { _.toString =/= s } => BuiltinFunValue(BuiltinFunction.withName(s))
+  }, "unknown built-in function " + _)
   
   lazy val bind = p(ident ~ ("=" ~-> noNlParsers.expr)					^^ { case s ~ t => Bind(s, t, NoPosition) })
   lazy val binds = bind ~ ((semi ~> bind) *)							^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
@@ -133,7 +141,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var(s), NoPosition) })
-    lazy val literal = p("literal"										^^^ Simple(Literal(BooleanValue(false)), NoPosition))
+    lazy val literal = p(literalValue									^^^ Simple(Literal(BooleanValue(false)), NoPosition))
   }
   
   val nlParsers = Parsers()(NlMode.Nl)
