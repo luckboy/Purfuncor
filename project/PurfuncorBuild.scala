@@ -10,9 +10,10 @@ object PurfuncorBuild extends Build {
       name := "Purfuncor",
       organization := "pl.luckboy.purfuncor",
       version := "0.1-SNAPSHOT",
-      scalaVersion := "2.9.2",
+      scalaVersion := "2.10.1",
       // add other settings here
-      libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.0",
+      libraryDependencies += "org.scalaz" % "scalaz-core_2.10" % "7.0.0",
+      scalacOptions ++= Seq("-feature", "-language:postfixOps", "-language:higherKinds", "-language:implicitConversions"),
       initialCommands in console := "import scalaz._, Scalaz._, pl.luckboy.purfuncor._"
     )
   )
