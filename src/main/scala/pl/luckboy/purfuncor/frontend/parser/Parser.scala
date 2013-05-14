@@ -109,7 +109,18 @@ object Parser extends StandardTokenParsers with PackratParsers
     else
       f(s, 10)
 
-  lazy val literalValue = booleanValue | charValue | byteValue | shortValue | intValue | longValue | floatValue | doubleValue | builtinFunValue
+  lazy val literalValue = (
+      booleanValue
+      | charValue
+      | byteValue
+      | shortValue
+      | intValue
+      | longValue
+      | floatValue
+      | doubleValue
+      | tupleFunValue
+      | tupleFieldFunValue
+      | builtinFunValue)
   lazy val booleanValue = falseValue | trueValue
   lazy val falseValue = "false"											^^^ BooleanValue(false)
   lazy val trueValue = "true"											^^^ BooleanValue(true)
@@ -120,17 +131,23 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val longValue = elem("long", _.isInstanceOf[lexical.LongLit])	^^ { t => LongValue(parseInteger(t.chars)(java.lang.Long.parseLong)) }  
   lazy val floatValue = elem("float", _.isInstanceOf[lexical.FloatLit]) ^^ { t => FloatValue(java.lang.Float.parseFloat(t.chars)) }
   lazy val doubleValue = elem("double", _.isInstanceOf[lexical.DoubleLit]) ^^ { t => DoubleValue(java.lang.Double.parseDouble(t.chars)) }
+  lazy val tupleFunValue = "tuple" ~-> integer 							^^ TupleFunValue
+  lazy val tupleFieldFunValue = "#" ~-> integer							^^ TupleFieldFunValue 
   lazy val builtinFunValue = "#" ~-> ident								^? ({
-    case s if BuiltinFunction.values.forall { _.toString =/= s } => BuiltinFunValue(BuiltinFunction.withName(s))
+    case s if BuiltinFunction.values.exists { _.toString === s } => BuiltinFunValue(BuiltinFunction.withName(s))
   }, "unknown built-in function " + _)
+  
+  lazy val integer = elem("integer", _.isInstanceOf[lexical.IntLit])	^^ { t => parseInteger(t.chars)(Integer.parseInt)}
   
   lazy val bind = p(ident ~ ("=" ~-> noNlParsers.expr)					^^ { case s ~ t => Bind(s, t, NoPosition) })
   lazy val binds = bind ~ ((semi ~> bind) *)							^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
-  lazy val arg = p(ident	 											^^ { Arg(_, NoPosition) })
+  lazy val arg = wildcardArg | namedArg
+  lazy val wildcardArg = p("_"											^^^ Arg(none, NoPosition))
+  lazy val namedArg = p(ident	 										^^ { case s => Arg(some(s), NoPosition) })
     
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
-    lazy val symbol = p(ident ~~ (("." ~~> ident) *)					^^ { case s ~ ss => Symbol(NonEmptyList.nel(s, ss), NoPosition) })
+    lazy val symbol = p(ident ~~ (("." ~-> ident) ~*)					^^ { case s ~ ss => Symbol(NonEmptyList.nel(s, ss), NoPosition) })
     
     lazy val expr: PackratParser[TermWrapper] = exprN
 
@@ -147,11 +164,12 @@ object Parser extends StandardTokenParsers with PackratParsers
   val nlParsers = Parsers()(NlMode.Nl)
   val noNlParsers = Parsers()(NlMode.NoNl)
 
-  lazy val definition: PackratParser[Def] = combinatorDef | moduleDef
+  lazy val definition: PackratParser[Def] = importDef | combinatorDef | moduleDef
   lazy val defs = definition ~ ((semi ~> definition) *)					^^ { case d ~ ds => d :: ds }
 
+  lazy val importDef = "import" ~-> noNlParsers.symbol					^^ { ImportDef(_) }
   lazy val combinatorDef = noNlParsers.symbol ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ as ~ t => CombinatorDef(s, as, t) }
-  lazy val moduleDef = "module" ~> noNlParsers.symbol ~- ("{" ~-> defs <~- ")") ^^ { case s ~ ds => ModuleDef(s, ds) }
+  lazy val moduleDef = "module" ~-> noNlParsers.symbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
   
   lazy val parseTree = rep("\n") ~> defs <~ rep("\n")					^^ ParseTree
 }
