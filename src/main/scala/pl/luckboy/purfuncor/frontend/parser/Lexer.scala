@@ -1,6 +1,8 @@
 package pl.luckboy.purfuncor.frontend.parser
 import scala.util.parsing.combinator.lexical.StdLexical
 import scala.util.parsing.input.CharArrayReader.EofCh
+import scalaz._
+import scalaz.Scalaz._
 
 case class Lexer() extends StdLexical
 {
@@ -26,7 +28,7 @@ case class Lexer() extends StdLexical
       | doubleLit
       | delim)
   
-  override def whitespaceChar = elem("space char",  c => c <= ' ' && c != '\n' && c != EofCh)
+  override def whitespaceChar = elem("space char",  c => c <= ' ' && c =/= '\n' && c =/= EofCh)
   
   def esc = (
       elem('\\') ~ 'b'												^^^ '\b'
