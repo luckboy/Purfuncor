@@ -11,7 +11,7 @@ package object parser
         case CombinatorDef(sym, args, body) =>
           sym + " " + args.map { _ + " " }.mkString("") + "= "+ termIndenting.indentedStringFrom(body)(n + 2)
         case ModuleDef(sym, defs)           =>
-          "module " + sym + " {\n" + defs.map { (" " * (n + 2)) + _ }.mkString("\n\n") + (" " * n) + "}"
+          "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { (" " * (n + 2)) + _ }.mkString("\n\n") + "\n" + (" " * n) + "}"
       }
   }
 }

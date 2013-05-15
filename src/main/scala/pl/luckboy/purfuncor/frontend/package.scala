@@ -22,7 +22,7 @@ package object frontend
     override def indentedStringFrom(x: SimpleTerm[T, U])(n: Int) =
       x match {
         case Let(binds, body, letInfo)   =>
-          "let\n" + binds.list.map { (" " * (n + 2)) + localBindIndenting.indentedStringFrom(_)(n + 2) } +
+          "let\n" + binds.map { (" " * (n + 2)) + localBindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
           (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting.indentedStringFrom(body)(n + 2)
         case Lambda(args, body, letInfo) =>
           "\\" + args.map { _ + " " }.list.mkString("") + "=> " + termIndenting.indentedStringFrom(body)(n + 2)

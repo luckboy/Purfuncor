@@ -16,7 +16,7 @@ sealed trait LiteralValue
       case DoubleValue(x)        => x.toString
       case TupleFunValue(n)      => "tuple " + n
       case TupleFieldFunValue(i) => "#" + (i + 1)
-      case BuiltinFunValue(f)    => f.toString
+      case BuiltinFunValue(f)    => "#" + f.toString
     }
 }
 case class BooleanValue(x: Boolean) extends LiteralValue

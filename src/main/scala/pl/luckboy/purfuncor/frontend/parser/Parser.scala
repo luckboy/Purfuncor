@@ -5,6 +5,7 @@ import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
 import Scalaz._
+import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
@@ -152,7 +153,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val expr: PackratParser[TermWrapper] = exprN
 
     lazy val exprN = app | let | lambda | simpleExpr
-    lazy val simpleExpr: PackratParser[TermWrapper] = variable | "(" ~-> expr <~- ")"
+    lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | "(" ~-> expr <~- ")"
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val let = p("let" ~-> localBinds ~- ("in" ~-> expr)			^^ { case bs ~ t => Simple(Let(bs, t, ()), NoPosition) })
@@ -172,4 +173,11 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val moduleDef = "module" ~-> noNlParsers.symbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
   
   lazy val parseTree = rep("\n") ~> defs <~ rep("\n")					^^ ParseTree
+  
+  def parseString(s: String): Validation[Vector[frontend.Error], ParseTree] =
+    phrase(parseTree)(new lexical.Scanner(s)) match {
+      case Success(parseTree, _) => parseTree.success
+      case Failure(msg, next)    => Vector(frontend.Error(none, next.pos, msg)).failure
+      case Error(msg, next)      => Vector(frontend.Error(none, next.pos, "fatal: " + msg)).failure
+    }
 }
