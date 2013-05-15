@@ -76,7 +76,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   case class TermWrapper(term: Term[SimpleTerm[Symbol, Unit]]) extends Positional
   case class SymbolWrapper(sym: Symbol) extends Positional
-  case class VarBindWrapper(bind: VarBind[Symbol, Unit]) extends Positional
+  case class LocalBindWrapper(bind: LocalBind[Symbol, Unit]) extends Positional
   case class ArgWrapper(arg: Arg) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
@@ -86,15 +86,15 @@ object Parser extends StandardTokenParsers with PackratParsers
     }
   implicit def termWrapperNelToTermNel(wrappers: NonEmptyList[TermWrapper]) = wrappers.map { termWrapperToTerm(_) }
   implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = wrapper.sym.copy(pos = wrapper.pos)
-  implicit def varBindWrapperToVarBind(wrapper: VarBindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
-  implicit def varBindWrapperNelToVarBindNel(wrappers: NonEmptyList[VarBindWrapper]) = wrappers.map { varBindWrapperToVarBind(_) }
+  implicit def localBindWrapperToLocalBind(wrapper: LocalBindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
+  implicit def localBindWrapperNelToLocalBindNel(wrappers: NonEmptyList[LocalBindWrapper]) = wrappers.map { localBindWrapperToLocalBind(_) }
   implicit def argWrapperToArg(wrapper: ArgWrapper) = wrapper.arg.copy(pos = wrapper.pos)
   implicit def argWrapperNelToArgNel(wrappers: NonEmptyList[ArgWrapper]) = wrappers.map { argWrapperToArg(_) }
   implicit def argWrappersToArgs(wrappers: List[ArgWrapper]) = wrappers.map { argWrapperToArg(_)}
   
   implicit def termToWrapperTerm(term: Term[SimpleTerm[Symbol, Unit]]) = TermWrapper(term)
   implicit def symbolWrapperToSymbol(sym: Symbol) = SymbolWrapper(sym)
-  implicit def varBindWrapperToBind(bind: VarBind[Symbol, Unit]) = VarBindWrapper(bind)
+  implicit def localBindWrapperToLocalBind(bind: LocalBind[Symbol, Unit]) = LocalBindWrapper(bind)
   implicit def argWrapperToArg(arg: Arg) = ArgWrapper(arg)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
@@ -139,8 +139,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val integer = elem("integer", _.isInstanceOf[lexical.IntLit])	^^ { t => parseInteger(t.chars)(Integer.parseInt)}
   
-  lazy val varBind = p(ident ~ ("=" ~-> noNlParsers.expr)				^^ { case s ~ t => VarBind(s, t, NoPosition) })
-  lazy val varBinds = varBind ~ ((semi ~> varBind) *)					^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
+  lazy val localBind = p(ident ~ ("=" ~-> noNlParsers.expr)				^^ { case s ~ t => LocalBind(s, t, NoPosition) })
+  lazy val localBinds = localBind ~ ((semi ~> localBind) *)				^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
   lazy val arg = wildcardArg | namedArg
   lazy val wildcardArg = p("_"											^^^ Arg(none, NoPosition))
   lazy val namedArg = p(ident	 										^^ { case s => Arg(some(s), NoPosition) })
@@ -154,8 +154,8 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val exprN = app | let | lambda | simpleExpr
     lazy val simpleExpr: PackratParser[TermWrapper] = variable | "(" ~-> expr <~- ")"
     
-    lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t1 ~ ts2 => App(t1, ts2, NoPosition) })
-    lazy val let = p("let" ~-> varBinds ~- ("in" ~-> expr)				^^ { case bs ~ t => Simple(Let(bs, t, ()), NoPosition) })
+    lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
+    lazy val let = p("let" ~-> localBinds ~- ("in" ~-> expr)			^^ { case bs ~ t => Simple(Let(bs, t, ()), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t, ()), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, Unit](s), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
