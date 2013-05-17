@@ -5,7 +5,7 @@ import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
 import Scalaz._
-import pl.luckboy.purfuncor.frontend
+import pl.luckboy.purfuncor.common
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
@@ -174,10 +174,10 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val parseTree = rep("\n") ~> defs <~ rep("\n")					^^ ParseTree
   
-  def parseString(s: String): Validation[Vector[frontend.Error], ParseTree] =
+  def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
       case Success(parseTree, _) => parseTree.success
-      case Failure(msg, next)    => Vector(frontend.Error(none, next.pos, msg)).failure
-      case Error(msg, next)      => Vector(frontend.Error(none, next.pos, "fatal: " + msg)).failure
+      case Failure(msg, next)    => common.Error(msg, none, next.pos).failureNel
+      case Error(msg, next)      => common.FatalError(msg, none, next.pos).failureNel
     }
 }
