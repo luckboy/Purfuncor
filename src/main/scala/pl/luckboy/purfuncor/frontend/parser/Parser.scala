@@ -4,7 +4,7 @@ import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
-import Scalaz._
+import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
