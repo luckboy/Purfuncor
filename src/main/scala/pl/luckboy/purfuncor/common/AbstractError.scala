@@ -15,5 +15,5 @@ sealed trait AbstractError
 case class Error(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
 case class FatalError(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
 {
-  def stackTrace = Thread.currentThread().getStackTrace().toList
+  val stackTrace = Thread.currentThread().getStackTrace().toList
 }
