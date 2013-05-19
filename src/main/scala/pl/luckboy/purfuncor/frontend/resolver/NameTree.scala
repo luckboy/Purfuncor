@@ -5,7 +5,7 @@ case class NameTree(nameTables: Map[ModuleSymbol, NameTable])
   def getNameTable(sym: ModuleSymbol) =
     nameTables.get(sym)
   
-  def containsCombinator(sym: Symbol) =
+  def containsCombinator(sym: GlobalSymbol) =
     getNameTable(ModuleSymbol(sym.names.list.init)).map { _.combNames.contains(sym.names.list.last) }.getOrElse(false)
 
   def containsModile(sym: ModuleSymbol) =
