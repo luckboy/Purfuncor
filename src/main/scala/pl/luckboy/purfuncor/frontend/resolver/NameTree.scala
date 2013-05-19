@@ -1,15 +1,15 @@
 package pl.luckboy.purfuncor.frontend.resolver
 
-case class NameTree(nameTables: Map[ModuleSymbol, NameTable])
+case class NameTree(nameTabs: Map[ModuleSymbol, NameTable])
 {
   def getNameTable(sym: ModuleSymbol) =
-    nameTables.get(sym)
+    nameTabs.get(sym)
   
   def containsCombinator(sym: GlobalSymbol) =
     getNameTable(ModuleSymbol(sym.names.list.init)).map { _.combNames.contains(sym.names.list.last) }.getOrElse(false)
 
-  def containsModile(sym: ModuleSymbol) =
-    nameTables.contains(sym)
+  def containsModule(sym: ModuleSymbol) =
+    nameTabs.contains(sym)
 }
 
 object NameTree

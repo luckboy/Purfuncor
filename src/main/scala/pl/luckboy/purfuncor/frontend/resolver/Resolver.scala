@@ -1,6 +1,103 @@
 package pl.luckboy.purfuncor.frontend.resolver
+import scala.util.parsing.input.Position
+import scalaz._
+import scalaz.Scalaz._
+import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
 
 object Resolver
 {
+  def transformTermNel[T](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+    terms.tail.foldLeft(transformTerm(terms.head)(scope).map { NonEmptyList(_) }) { 
+      (res, t) => (transformTerm(t)(scope) |@| res)(_ <:: _)
+    }.map { _.reverse }
+  
+  def transformLocalBind[T](bind: LocalBind[parser.Symbol, T])(scope: Scope) =
+    bind match {
+      case LocalBind(name, body, pos) => transformTerm(body)(scope).map { LocalBind(name, _, pos) }
+    }
 
+  def transformLocalBindNel[T](binds: NonEmptyList[LocalBind[parser.Symbol, T]])(scope: Scope) =
+    binds.tail.foldLeft((transformLocalBind(binds.head)(scope).map { NonEmptyList(_) }, Set(binds.head.name))) {
+      case ((res, usedNames), b) => 
+        val res2 = if(usedNames.contains(b.name))
+          (res |@| Error("already defined local variable " + b.name, none, b.pos).failureNel[Unit]) { (bs, _) => bs }
+        else 
+          res
+        ((transformLocalBind(b)(scope) |@| res2)(_ <:: _), usedNames + b.name)
+    }._1.map { _.reverse }
+    
+  def transformArgNel(args: NonEmptyList[Arg]) =
+    args.foldLeft((().successNel[AbstractError], Set() ++ args.head.name)) { 
+      case (p @ (res, usedNames), a) =>
+        a.name.map {
+          name =>
+            val res2 = if(usedNames.contains(name))
+              (res |@| Error("already defined argument " + name, none, a.pos).failureNel[Unit]) { (_, _) => () }
+            else
+              res
+            (res2, usedNames + name)
+        }.getOrElse(p)
+    }._1.map { _ => args }
+  
+  def transformTerm[T](term: Term[SimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T]]] =
+    term match {
+      case App(fun, args, pos) =>
+        (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
+      case Simple(Let(binds, body, letInfo), pos) =>
+        val newScope = scope.withLocalVariables(binds.map { _.name }.toSet)
+        (transformLocalBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, letInfo), pos) }
+      case Simple(Lambda(args, body, letInfo), pos) =>
+        val newScope = scope.withLocalVariables(args.list.flatMap { _.name }.toSet)
+        (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, letInfo), pos) }
+      case Simple(Var(sym), pos) =>
+        transformSymbol(sym)(scope).map { s => Simple(Var(s), pos) }
+      case Simple(Literal(value), pos) =>
+        Simple(Literal(value), pos).successNel
+    }
+  
+  def getSymbol3[T](name: String, pos: Position)(scope: Scope)(prefix: String)(f: (NameTable, String) => Boolean, g: (ModuleSymbol, String) => T, h: Scope => Map[String, NonEmptyList[T]]) =
+    scope.currentModuleSyms.foldLeft((Error("undefined " + prefix + " " + name, none, pos): AbstractError).failureNel[T]) {
+      (res, moduleSym) =>
+        scope.nameTree.getNameTable(moduleSym).map {
+          nameTable => if(f(nameTable, name)) g(moduleSym, name).successNel[AbstractError] else res
+        }.getOrElse(res)
+    }.orElse {
+      h(scope).get(name).map { 
+        case NonEmptyList(x) => x.successNel[AbstractError]
+        case _               => Error("reference to " + name + " is ambiguous", none, pos).failureNel[T]
+      }.getOrElse {
+        Error("undefined " + prefix + " " + name, none, pos).failureNel[T]
+      }
+   }
+    
+  def getCombinatorSymbol(name: String, pos: Position)(scope: Scope) =
+    getSymbol3(name, pos)(scope)("variable")(_.combNames.contains(_), _.globalSymbol(_), _.importedCombSyms)
+  
+  def getModuleSymbol(name: String, pos: Position)(scope: Scope) =
+    getSymbol3(name, pos)(scope)("variable")(_.moduleNames.contains(_), _ + _, _.importedModuleSyms)
+  
+  def transformSymbol(sym: parser.Symbol)(scope: Scope) =
+    sym match {
+      case parser.GlobalSymbol(names, pos) =>
+        val combSym = GlobalSymbol(names)
+        if(scope.nameTree.containsCombinator(GlobalSymbol(names)))
+          combSym.successNel
+        else
+          Error("undefined global variable " + combSym, none, pos).failureNel
+      case parser.NormalSymbol(NonEmptyList(name), pos) =>
+        if(scope.localVarNames.contains(name))
+          LocalSymbol(name).successNel
+        else
+          getCombinatorSymbol(name, pos)(scope)
+      case parser.NormalSymbol(names, pos) =>
+        getModuleSymbol(names.head, pos)(scope).flatMap {
+          moduleSym =>
+            val combSym = moduleSym.globalSymbolFromNames(names)
+            if(scope.nameTree.containsCombinator(GlobalSymbol(names)))
+              combSym.successNel
+            else
+              Error("undefined global variable " + combSym, none, pos).failureNel
+        }
+    }
 }

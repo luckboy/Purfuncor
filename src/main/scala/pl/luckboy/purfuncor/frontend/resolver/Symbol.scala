@@ -6,10 +6,13 @@ sealed trait Symbol
 {
   override def toString =
     this match {
-      case GlobalSymbol(names) =>"_root_." + names.list.mkString(".")
+      case GlobalSymbol(names) =>"#." + names.list.mkString(".")
       case LocalSymbol(name)   => name
     }
 }
 
 case class GlobalSymbol(names: NonEmptyList[String]) extends Symbol
+{
+  def ++ (ss: List[String]) = GlobalSymbol(names :::> ss)
+}
 case class LocalSymbol(name: String) extends Symbol

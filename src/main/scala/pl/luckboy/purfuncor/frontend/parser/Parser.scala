@@ -86,7 +86,11 @@ object Parser extends StandardTokenParsers with PackratParsers
       case term @ Simple(_, info) => term.copy(pos = wrapper.pos)
     }
   implicit def termWrapperNelToTermNel(wrappers: NonEmptyList[TermWrapper]) = wrappers.map { termWrapperToTerm(_) }
-  implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = wrapper.sym.copy(pos = wrapper.pos)
+  implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = 
+    wrapper.sym match {
+      case sym @ GlobalSymbol(names, _) => sym.copy(pos = wrapper.pos)
+      case sym @ NormalSymbol(names, _) => sym.copy(pos = wrapper.pos)
+    }
   implicit def localBindWrapperToLocalBind(wrapper: LocalBindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
   implicit def localBindWrapperNelToLocalBindNel(wrappers: NonEmptyList[LocalBindWrapper]) = wrappers.map { localBindWrapperToLocalBind(_) }
   implicit def argWrapperToArg(wrapper: ArgWrapper) = wrapper.arg.copy(pos = wrapper.pos)
@@ -148,7 +152,9 @@ object Parser extends StandardTokenParsers with PackratParsers
     
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
-    lazy val symbol = p(ident ~~ (("." ~-> ident) ~*)					^^ { case s ~ ss => Symbol(NonEmptyList.nel(s, ss), NoPosition) })
+    lazy val symbol = globalSymbol | normalSymbol
+    lazy val normalSymbol = p(ident ~~ (("." ~-> ident) ~*)				^^ { case s ~ ss => NormalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
+    lazy val globalSymbol = p("#" ~~ "." ~-> ident ~~ (("." ~-> ident) ~*) ^^ { case s ~ ss => GlobalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
     
     lazy val expr: PackratParser[TermWrapper] = exprN
 
