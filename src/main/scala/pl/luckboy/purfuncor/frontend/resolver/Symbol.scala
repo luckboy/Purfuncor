@@ -14,5 +14,7 @@ sealed trait Symbol
 case class GlobalSymbol(names: NonEmptyList[String]) extends Symbol
 {
   def ++ (ss: List[String]) = GlobalSymbol(names :::> ss)
+  
+  def moduleSymbol = ModuleSymbol(names.list.init)
 }
 case class LocalSymbol(name: String) extends Symbol

@@ -77,6 +77,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   case class TermWrapper(term: Term[SimpleTerm[Symbol, Unit]]) extends Positional
   case class SymbolWrapper(sym: Symbol) extends Positional
+  case class ModuleSymbolWrapper(sym: ModuleSymbol) extends Positional
   case class LocalBindWrapper(bind: LocalBind[Symbol, Unit]) extends Positional
   case class ArgWrapper(arg: Arg) extends Positional
 
@@ -91,6 +92,11 @@ object Parser extends StandardTokenParsers with PackratParsers
       case sym @ GlobalSymbol(names, _) => sym.copy(pos = wrapper.pos)
       case sym @ NormalSymbol(names, _) => sym.copy(pos = wrapper.pos)
     }
+  implicit def moduleSymbolWrapperToModuleSymbol(wrapper: ModuleSymbolWrapper) = 
+    wrapper.sym match {
+      case sym @ GlobalModuleSymbol(names, _) => sym.copy(pos = wrapper.pos)
+      case sym @ NormalModuleSymbol(names, _) => sym.copy(pos = wrapper.pos)
+    }
   implicit def localBindWrapperToLocalBind(wrapper: LocalBindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
   implicit def localBindWrapperNelToLocalBindNel(wrappers: NonEmptyList[LocalBindWrapper]) = wrappers.map { localBindWrapperToLocalBind(_) }
   implicit def argWrapperToArg(wrapper: ArgWrapper) = wrapper.arg.copy(pos = wrapper.pos)
@@ -99,6 +105,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   implicit def termToWrapperTerm(term: Term[SimpleTerm[Symbol, Unit]]) = TermWrapper(term)
   implicit def symbolWrapperToSymbol(sym: Symbol) = SymbolWrapper(sym)
+  implicit def modulesymbolWrapperToSymbol(sym: ModuleSymbol) = ModuleSymbolWrapper(sym)
   implicit def localBindWrapperToLocalBind(bind: LocalBind[Symbol, Unit]) = LocalBindWrapper(bind)
   implicit def argWrapperToArg(arg: Arg) = ArgWrapper(arg)
   
@@ -156,6 +163,10 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val normalSymbol = p(ident ~~ (("." ~-> ident) ~*)				^^ { case s ~ ss => NormalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
     lazy val globalSymbol = p("#" ~~ "." ~-> ident ~~ (("." ~-> ident) ~*) ^^ { case s ~ ss => GlobalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
     
+    lazy val moduleSymbol = globalModuleSymbol | normalModuleSymbol
+    lazy val normalModuleSymbol = p(ident ~~ (("." ~-> ident) ~*)		^^ { case s ~ ss => NormalModuleSymbol(NonEmptyList.nel(s, ss), NoPosition) })
+    lazy val globalModuleSymbol = p("#" ~~> (("." ~-> ident) ~*)			^^ { case ss => GlobalModuleSymbol(ss, NoPosition) })
+    
     lazy val expr: PackratParser[TermWrapper] = exprN
 
     lazy val exprN = app | let | lambda | simpleExpr
@@ -174,9 +185,9 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val definition: PackratParser[Def] = importDef | combinatorDef | moduleDef
   lazy val defs = definition ~ ((semi ~> definition) *)					^^ { case d ~ ds => d :: ds }
 
-  lazy val importDef = "import" ~-> noNlParsers.symbol					^^ { ImportDef(_) }
+  lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = noNlParsers.symbol ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ as ~ t => CombinatorDef(s, as, t) }
-  lazy val moduleDef = "module" ~-> noNlParsers.symbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
+  lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
   
   lazy val parseTree = rep("\n") ~> defs <~ rep("\n")					^^ ParseTree
   

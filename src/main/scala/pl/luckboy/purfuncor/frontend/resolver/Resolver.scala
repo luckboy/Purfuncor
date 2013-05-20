@@ -56,7 +56,7 @@ object Resolver
         Simple(Literal(value), pos).successNel
     }
   
-  def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, NonEmptyList[T]]) =
+  private def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, NonEmptyList[T]]) =
     scope.currentModuleSyms.foldLeft((Error("undefined " + prefix + " " + name, none, pos): AbstractError).failureNel[T]) {
       (res, moduleSym) =>
         scope.nameTree.getNameTable(moduleSym).map {
@@ -100,4 +100,42 @@ object Resolver
               Error("undefined global variable " + combSym, none, pos).failureNel
         }
     }
+  
+  def addDefToNameTreeS(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
+    definition match {
+      case parser.ImportDef(sym) =>
+        (nameTree, ().successNel[AbstractError])
+      case parser.CombinatorDef(sym, _, _) =>
+        val sym2 = sym match {
+          case parser.GlobalSymbol(names, _) => GlobalSymbol(names)
+          case parser.NormalSymbol(names, _) => currentModuleSym.globalSymbolFromNames(names)
+        }
+        if(nameTree.containsCombinator(sym2))
+          (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
+        else
+          (nameTree |+| NameTree.fromCombinatorSymbol(sym2), ().successNel[AbstractError])
+      case parser.ModuleDef(sym, defs) =>
+        val sym2 = sym match {
+          case parser.GlobalModuleSymbol(names, _) => ModuleSymbol(names)
+          case parser.NormalModuleSymbol(names, _) => currentModuleSym ++ names.list
+        }
+        defs.foldLeft((nameTree, ().successNel[AbstractError])) {
+          case ((nt, res), d) =>
+            val (nt2, res2) = addDefToNameTreeS(d)(sym2)(nt)
+            (nt2, res |+| res2)
+        }
+    }
+  
+  def addDefToNameTree(definition: parser.Def)(currentModuleSym: ModuleSymbol) =
+    State(addDefToNameTreeS(definition)(currentModuleSym))
+  
+  def addParseTreeToNameTreeS(parseTree: parser.ParseTree)(nameTree: NameTree) =
+    parseTree.defs.foldLeft((nameTree, ().successNel[AbstractError])) {
+      case ((nt, res), d) =>
+        val (nt2, res2) = addDefToNameTreeS(d)(ModuleSymbol.root)(nt)
+        (nt2, res |+| res2)
+    }
+  
+  def addParseTreeToNameTree(parseTree: parser.ParseTree) =
+    State(addParseTreeToNameTreeS(parseTree))
 }
