@@ -56,14 +56,14 @@ object Resolver
         Simple(Literal(value), pos).successNel
     }
   
-  def getSymbol3[T](name: String, pos: Position)(scope: Scope)(prefix: String)(f: (NameTable, String) => Boolean, g: (ModuleSymbol, String) => T, h: Scope => Map[String, NonEmptyList[T]]) =
+  def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, NonEmptyList[T]]) =
     scope.currentModuleSyms.foldLeft((Error("undefined " + prefix + " " + name, none, pos): AbstractError).failureNel[T]) {
       (res, moduleSym) =>
         scope.nameTree.getNameTable(moduleSym).map {
-          nameTable => if(f(nameTable, name)) g(moduleSym, name).successNel[AbstractError] else res
+          nameTable => if(contains(nameTable, name)) make(moduleSym, name).successNel[AbstractError] else res
         }.getOrElse(res)
     }.orElse {
-      h(scope).get(name).map { 
+      importedSyms(scope).get(name).map { 
         case NonEmptyList(x) => x.successNel[AbstractError]
         case _               => Error("reference to " + name + " is ambiguous", none, pos).failureNel[T]
       }.getOrElse {
@@ -72,10 +72,10 @@ object Resolver
    }
     
   def getCombinatorSymbol(name: String, pos: Position)(scope: Scope) =
-    getSymbol3(name, pos)(scope)("variable")(_.combNames.contains(_), _.globalSymbol(_), _.importedCombSyms)
+    getSymbol4(name, pos)(scope)("variable", _.combNames.contains(_), _.globalSymbol(_), _.importedCombSyms)
   
   def getModuleSymbol(name: String, pos: Position)(scope: Scope) =
-    getSymbol3(name, pos)(scope)("variable")(_.moduleNames.contains(_), _ + _, _.importedModuleSyms)
+    getSymbol4(name, pos)(scope)("module", _.moduleNames.contains(_), _ + _, _.importedModuleSyms)
   
   def transformSymbol(sym: parser.Symbol)(scope: Scope) =
     sym match {
