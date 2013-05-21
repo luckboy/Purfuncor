@@ -3,6 +3,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.common.Tree
 
 case class NameTree(nameTabs: Map[ModuleSymbol, NameTable])
 {
@@ -20,8 +21,8 @@ object NameTree
 {
   val empty = NameTree(Map())
   
-  def fromProgramTree[T, U](progTree: ProgramTree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, T], U]) =
-    progTree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromCombinatorSymbol(_) }
+  def fromTree[T, U](tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, T], U]) =
+    tree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromCombinatorSymbol(_) }
   
   def fromCombinatorSymbol(sym: GlobalSymbol) =
     fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set())))

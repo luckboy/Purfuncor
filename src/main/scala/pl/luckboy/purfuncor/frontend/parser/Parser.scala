@@ -8,6 +8,7 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.Bind
 
 object Parser extends StandardTokenParsers with PackratParsers
 {
@@ -78,7 +79,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class TermWrapper(term: Term[SimpleTerm[Symbol, Unit]]) extends Positional
   case class SymbolWrapper(sym: Symbol) extends Positional
   case class ModuleSymbolWrapper(sym: ModuleSymbol) extends Positional
-  case class LocalBindWrapper(bind: LocalBind[Symbol, Unit]) extends Positional
+  case class BindWrapper(bind: Bind[Symbol, Unit]) extends Positional
   case class ArgWrapper(arg: Arg) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
@@ -97,8 +98,8 @@ object Parser extends StandardTokenParsers with PackratParsers
       case sym @ GlobalModuleSymbol(names, _) => sym.copy(pos = wrapper.pos)
       case sym @ NormalModuleSymbol(names, _) => sym.copy(pos = wrapper.pos)
     }
-  implicit def localBindWrapperToLocalBind(wrapper: LocalBindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
-  implicit def localBindWrapperNelToLocalBindNel(wrappers: NonEmptyList[LocalBindWrapper]) = wrappers.map { localBindWrapperToLocalBind(_) }
+  implicit def bindWrapperToBind(wrapper: BindWrapper) = wrapper.bind.copy(pos = wrapper.pos)
+  implicit def bindWrapperNelToBindNel(wrappers: NonEmptyList[BindWrapper]) = wrappers.map { bindWrapperToBind(_) }
   implicit def argWrapperToArg(wrapper: ArgWrapper) = wrapper.arg.copy(pos = wrapper.pos)
   implicit def argWrapperNelToArgNel(wrappers: NonEmptyList[ArgWrapper]) = wrappers.map { argWrapperToArg(_) }
   implicit def argWrappersToArgs(wrappers: List[ArgWrapper]) = wrappers.map { argWrapperToArg(_)}
@@ -106,7 +107,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def termToWrapperTerm(term: Term[SimpleTerm[Symbol, Unit]]) = TermWrapper(term)
   implicit def symbolWrapperToSymbol(sym: Symbol) = SymbolWrapper(sym)
   implicit def modulesymbolWrapperToSymbol(sym: ModuleSymbol) = ModuleSymbolWrapper(sym)
-  implicit def localBindWrapperToLocalBind(bind: LocalBind[Symbol, Unit]) = LocalBindWrapper(bind)
+  implicit def bindWrapperToBind(bind: Bind[Symbol, Unit]) = BindWrapper(bind)
   implicit def argWrapperToArg(arg: Arg) = ArgWrapper(arg)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
@@ -151,8 +152,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val integer = elem("integer", _.isInstanceOf[lexical.IntLit])	^^ { t => parseInteger(t.chars)(Integer.parseInt)}
   
-  lazy val localBind = p(ident ~ ("=" ~-> noNlParsers.expr)				^^ { case s ~ t => LocalBind(s, t, NoPosition) })
-  lazy val localBinds = localBind ~ ((semi ~> localBind) *)				^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
+  lazy val bind = p(ident ~ ("=" ~-> noNlParsers.expr)					^^ { case s ~ t => Bind(s, t, NoPosition) })
+  lazy val binds = bind ~ ((semi ~> bind) *)							^^ { case b ~ bs => NonEmptyList.nel(b, bs) }
   lazy val arg = wildcardArg | namedArg
   lazy val wildcardArg = p("_"											^^^ Arg(none, NoPosition))
   lazy val namedArg = p(ident	 										^^ { case s => Arg(some(s), NoPosition) })
@@ -173,7 +174,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | "(" ~-> expr <~- ")"
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
-    lazy val let = p("let" ~-> localBinds ~- ("in" ~-> expr)			^^ { case bs ~ t => Simple(Let(bs, t, ()), NoPosition) })
+    lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t, ()), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t, ()), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, Unit](s), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })

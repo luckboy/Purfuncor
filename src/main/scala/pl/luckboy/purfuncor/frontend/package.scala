@@ -22,7 +22,7 @@ package object frontend
     override def indentedStringFrom(x: SimpleTerm[T, U])(n: Int) =
       x match {
         case Let(binds, body, letInfo)   =>
-          "let\n" + binds.map { (" " * (n + 2)) + localBindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
+          "let\n" + binds.map { (" " * (n + 2)) + bindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
           (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting.indentedStringFrom(body)(n + 2)
         case Lambda(args, body, letInfo) =>
           "\\" + args.map { _ + " " }.list.mkString("") + "=> " + termIndenting.indentedStringFrom(body)(n + 2)
@@ -33,10 +33,10 @@ package object frontend
       }
   }
 
-  implicit def localBindIndenting[T, U]: Indenting[LocalBind[T, U]] = new Indenting[LocalBind[T, U]] {
-    override def indentedStringFrom(x: LocalBind[T, U])(n: Int) =
+  implicit def bindIndenting[T, U]: Indenting[Bind[T, U]] = new Indenting[Bind[T, U]] {
+    override def indentedStringFrom(x: Bind[T, U])(n: Int) =
       x match {
-        case LocalBind(name, body, _) => name + " = " + termIndenting.indentedStringFrom(body)(n + 2)
+        case Bind(name, body, _) => name + " = " + termIndenting.indentedStringFrom(body)(n + 2)
       }
   }
 }

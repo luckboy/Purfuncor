@@ -4,6 +4,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.Bind
 
 object Resolver
 {
@@ -12,19 +13,19 @@ object Resolver
       (res, t) => (transformTerm(t)(scope) |@| res)(_ <:: _)
     }.map { _.reverse }
   
-  def transformLocalBind[T](bind: LocalBind[parser.Symbol, T])(scope: Scope) =
+  def transformBind[T](bind: Bind[parser.Symbol, T])(scope: Scope) =
     bind match {
-      case LocalBind(name, body, pos) => transformTerm(body)(scope).map { LocalBind(name, _, pos) }
+      case Bind(name, body, pos) => transformTerm(body)(scope).map { Bind(name, _, pos) }
     }
 
-  def transformLocalBindNel[T](binds: NonEmptyList[LocalBind[parser.Symbol, T]])(scope: Scope) =
-    binds.tail.foldLeft((transformLocalBind(binds.head)(scope).map { NonEmptyList(_) }, Set(binds.head.name))) {
+  def transformBindNel[T](binds: NonEmptyList[Bind[parser.Symbol, T]])(scope: Scope) =
+    binds.tail.foldLeft((transformBind(binds.head)(scope).map { NonEmptyList(_) }, Set(binds.head.name))) {
       case ((res, usedNames), b) => 
         val res2 = if(usedNames.contains(b.name))
           (res |@| Error("already defined local variable " + b.name, none, b.pos).failureNel[Unit]) { (bs, _) => bs }
         else 
           res
-        ((transformLocalBind(b)(scope) |@| res2)(_ <:: _), usedNames + b.name)
+        ((transformBind(b)(scope) |@| res2)(_ <:: _), usedNames + b.name)
     }._1.map { _.reverse }
     
   def transformArgNel(args: NonEmptyList[Arg]) =
@@ -46,7 +47,7 @@ object Resolver
         (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
       case Simple(Let(binds, body, letInfo), pos) =>
         val newScope = scope.withLocalVariables(binds.map { _.name }.toSet)
-        (transformLocalBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, letInfo), pos) }
+        (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, letInfo), pos) }
       case Simple(Lambda(args, body, letInfo), pos) =>
         val newScope = scope.withLocalVariables(args.list.flatMap { _.name }.toSet)
         (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, letInfo), pos) }
