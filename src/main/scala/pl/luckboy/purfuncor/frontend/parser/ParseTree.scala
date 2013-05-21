@@ -33,6 +33,13 @@ case class NormalSymbol(names: NonEmptyList[String], pos: Position) extends Symb
 
 sealed trait ModuleSymbol
 {
+  def pos: Position
+
+  override def toString =
+    this match {
+      case GlobalModuleSymbol(names, _) => "#." + names.mkString(".")
+      case NormalModuleSymbol(names, _) => names.list.mkString(".")
+    }
 }
 case class GlobalModuleSymbol(names: List[String], pos: Position) extends ModuleSymbol
 case class NormalModuleSymbol(names: NonEmptyList[String], pos: Position) extends ModuleSymbol

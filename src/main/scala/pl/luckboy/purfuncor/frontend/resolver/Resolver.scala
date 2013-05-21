@@ -4,6 +4,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
 
 object Resolver
@@ -40,6 +41,9 @@ object Resolver
             (res2, usedNames + name)
         }.getOrElse(p)
     }._1.map { _ => args }
+    
+  def transformArgs(args: List[Arg]) =
+    toNel(args).map { transformArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
   
   def transformTerm[T](term: Term[SimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T]]] =
     term match {
@@ -102,27 +106,32 @@ object Resolver
         }
     }
   
+  def transformGlobalSymbolInModule(sym: parser.Symbol)(currentModuleSym: ModuleSymbol) =
+    sym match {
+      case parser.GlobalSymbol(names, _) => GlobalSymbol(names)
+      case parser.NormalSymbol(names, _) => currentModuleSym.globalSymbolFromNames(names)
+    }
+  
+  def transformModuleSymbol(sym: parser.ModuleSymbol)(currentModuleSym: ModuleSymbol) =
+    sym match {
+      case parser.GlobalModuleSymbol(names, _) => ModuleSymbol(names)
+      case parser.NormalModuleSymbol(names, _) => currentModuleSym ++ names.list
+    }
+  
   def addDefToNameTreeF(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
     definition match {
       case parser.ImportDef(sym) =>
         (nameTree, ().successNel[AbstractError])
       case parser.CombinatorDef(sym, _, _) =>
-        val sym2 = sym match {
-          case parser.GlobalSymbol(names, _) => GlobalSymbol(names)
-          case parser.NormalSymbol(names, _) => currentModuleSym.globalSymbolFromNames(names)
-        }
+        val sym2 = transformGlobalSymbolInModule(sym)(currentModuleSym)
         if(nameTree.containsCombinator(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
       case parser.ModuleDef(sym, defs) =>
-        val sym2 = sym match {
-          case parser.GlobalModuleSymbol(names, _) => ModuleSymbol(names)
-          case parser.NormalModuleSymbol(names, _) => currentModuleSym ++ names.list
-        }
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
-            val (nt2, res2) = addDefToNameTreeF(d)(sym2)(nt)
+            val (nt2, res2) = addDefToNameTreeF(d)(transformModuleSymbol(sym)(currentModuleSym))(nt)
             (nt2, res |+| res2)
         }
     }
@@ -139,4 +148,40 @@ object Resolver
   
   def addParseTreeToNameTree(parseTree: parser.ParseTree) =
     State(addParseTreeToNameTreeF(parseTree))
+    
+  def transformDefsF[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
+    defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
+      case ((p @ (t, res), scope), d) =>
+        d match {
+          case parser.ImportDef(sym) =>
+            val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
+            scope.nameTree.getNameTable(sym2).map {
+              nt => 
+                val combSyms = nt.combNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
+                val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
+                (p, scope.withImportedCombinators(combSyms).withImportedModules(moduleSyms))
+            }.getOrElse {
+              ((t, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
+            }
+          case parser.CombinatorDef(sym, args, body) =>
+            val sym2 = transformGlobalSymbolInModule(sym)(scope.currentModuleSyms.head)
+            val newScope = scope.withLocalVariables(args.flatMap { _.name }.toSet)
+            val res2 = transformTerm(body)(newScope)
+            res2 match {
+              case Success(t) => 
+                ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, ()))), (res |@| res2) { (u, _) => u }), scope)
+              case Failure(_) =>
+                ((tree, (res |@| res2) { (u, _) => u }), scope)
+            }
+          case parser.ModuleDef(sym, defs2) =>
+            val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
+            (transformDefsF(defs2)(scope.withCurrentModule(sym2))(tree), scope)
+        }
+    }._1
+    
+  def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
+    State(transformDefsF(defs)(scope))
+    
+  def transformParseTree[T](parseTree: parser.ParseTree)(scope: Scope) =
+    transformDefs(parseTree.defs)(scope)
 }
