@@ -102,7 +102,7 @@ object Resolver
         }
     }
   
-  def addDefToNameTreeS(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
+  def addDefToNameTreeF(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
     definition match {
       case parser.ImportDef(sym) =>
         (nameTree, ().successNel[AbstractError])
@@ -122,21 +122,21 @@ object Resolver
         }
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
-            val (nt2, res2) = addDefToNameTreeS(d)(sym2)(nt)
+            val (nt2, res2) = addDefToNameTreeF(d)(sym2)(nt)
             (nt2, res |+| res2)
         }
     }
   
   def addDefToNameTree(definition: parser.Def)(currentModuleSym: ModuleSymbol) =
-    State(addDefToNameTreeS(definition)(currentModuleSym))
+    State(addDefToNameTreeF(definition)(currentModuleSym))
   
-  def addParseTreeToNameTreeS(parseTree: parser.ParseTree)(nameTree: NameTree) =
+  def addParseTreeToNameTreeF(parseTree: parser.ParseTree)(nameTree: NameTree) =
     parseTree.defs.foldLeft((nameTree, ().successNel[AbstractError])) {
       case ((nt, res), d) =>
-        val (nt2, res2) = addDefToNameTreeS(d)(ModuleSymbol.root)(nt)
+        val (nt2, res2) = addDefToNameTreeF(d)(ModuleSymbol.root)(nt)
         (nt2, res |+| res2)
     }
   
   def addParseTreeToNameTree(parseTree: parser.ParseTree) =
-    State(addParseTreeToNameTreeS(parseTree))
+    State(addParseTreeToNameTreeF(parseTree))
 }
