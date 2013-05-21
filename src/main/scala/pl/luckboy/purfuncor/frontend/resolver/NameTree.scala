@@ -22,9 +22,9 @@ object NameTree
   val empty = NameTree(Map())
   
   def fromTree[T, U](tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, T], U]) =
-    tree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromCombinatorSymbol(_) }
+    tree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromGlobalSymbol(_) }
   
-  def fromCombinatorSymbol(sym: GlobalSymbol) =
+  def fromGlobalSymbol(sym: GlobalSymbol) =
     fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set())))
 
   def fromModuleSymbol(sym: ModuleSymbol) = {

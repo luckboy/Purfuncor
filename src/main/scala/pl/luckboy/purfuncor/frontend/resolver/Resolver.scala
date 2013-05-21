@@ -72,8 +72,8 @@ object Resolver
       }
    }
     
-  def getCombinatorSymbol(name: String, pos: Position)(scope: Scope) =
-    getSymbol4(name, pos)(scope)("variable", _.combNames.contains(_), _.globalSymbol(_), _.importedCombSyms)
+  def getGlobalSymbol(name: String, pos: Position)(scope: Scope) =
+    getSymbol4(name, pos)(scope)("variable", _.combNames.contains(_), _.globalSymbolFromName(_), _.importedCombSyms)
   
   def getModuleSymbol(name: String, pos: Position)(scope: Scope) =
     getSymbol4(name, pos)(scope)("module", _.moduleNames.contains(_), _ + _, _.importedModuleSyms)
@@ -90,7 +90,7 @@ object Resolver
         if(scope.localVarNames.contains(name))
           LocalSymbol(name).successNel
         else
-          getCombinatorSymbol(name, pos)(scope)
+          getGlobalSymbol(name, pos)(scope)
       case parser.NormalSymbol(names, pos) =>
         getModuleSymbol(names.head, pos)(scope).flatMap {
           moduleSym =>
@@ -114,7 +114,7 @@ object Resolver
         if(nameTree.containsCombinator(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
         else
-          (nameTree |+| NameTree.fromCombinatorSymbol(sym2), ().successNel[AbstractError])
+          (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
       case parser.ModuleDef(sym, defs) =>
         val sym2 = sym match {
           case parser.GlobalModuleSymbol(names, _) => ModuleSymbol(names)

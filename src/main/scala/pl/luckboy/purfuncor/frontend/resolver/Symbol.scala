@@ -13,7 +13,7 @@ sealed trait Symbol
 
 case class GlobalSymbol(names: NonEmptyList[String]) extends Symbol
 {
-  def ++ (ss: List[String]) = GlobalSymbol(names :::> ss)
+  def ++ (names: List[String]) = GlobalSymbol(this.names :::> names)
   
   def moduleSymbol = ModuleSymbol(names.list.init)
 }

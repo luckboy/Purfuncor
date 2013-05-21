@@ -6,11 +6,11 @@ case class ModuleSymbol(names: List[String])
 {
   def + (name: String) = ModuleSymbol(names :+ name)
   
-  def ++ (ss: List[String]) = ModuleSymbol(names ++ ss)
+  def ++ (names: List[String]) = ModuleSymbol(this.names ++ names)
   
-  def globalSymbol(name: String) = GlobalSymbol(toNel(names).map { _ :::> List(name) }.getOrElse(NonEmptyList(name)) )
+  def globalSymbolFromName(name: String) = GlobalSymbol(toNel(names).map { _ :::> List(name) }.getOrElse(NonEmptyList(name)) )
 
-  def globalSymbolFromNames(ss: NonEmptyList[String]) = GlobalSymbol(names <::: ss)
+  def globalSymbolFromNames(names: NonEmptyList[String]) = GlobalSymbol(this.names <::: names)
   
   override def toString = "#." + names.mkString(".")
 }
