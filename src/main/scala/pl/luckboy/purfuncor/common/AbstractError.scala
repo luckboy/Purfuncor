@@ -3,6 +3,8 @@ import scala.util.parsing.input.Position
 
 sealed trait AbstractError
 {
+  def withFile(file: Option[java.io.File]): AbstractError
+  
   override def toString =
     this match {
       case Error(msg, file, pos)            =>
@@ -13,7 +15,12 @@ sealed trait AbstractError
     }
 }
 case class Error(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
+{
+  override def withFile(file: Option[java.io.File]) = Error(msg, file, pos)
+}
 case class FatalError(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
 {
   val stackTrace = Thread.currentThread().getStackTrace().toList
+
+  override def withFile(file: Option[java.io.File]) = FatalError(msg, file, pos)
 }

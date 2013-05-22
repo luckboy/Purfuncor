@@ -6,9 +6,13 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
+import pl.luckboy.purfuncor.common.Result._
 
 object Resolver
 {
+  def treeForFile[T](tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], file: Option[java.io.File]) =
+    tree.copy(tree.combs.mapValues { _.copy(file = file) })
+        
   def transformTermNel[T](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T]]])(scope: Scope) =
     terms.tail.foldLeft(transformTerm(terms.head)(scope).map { NonEmptyList(_) }) { 
       (res, t) => (transformTerm(t)(scope) |@| res)(_ <:: _)
@@ -170,7 +174,7 @@ object Resolver
               val res2 = transformTerm(body)(newScope)
               res2 match {
                 case Success(t) => 
-                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, ()))), (res |@| res2) { (u, _) => u }), scope)
+                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, (), none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree, (res |@| res2) { (u, _) => u }), scope)
               }
@@ -189,13 +193,22 @@ object Resolver
     transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
   def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
-    State(transformParseTreeS(parseTree)(nameTree))
-    
-  def transformS[T](parseTree: parser.ParseTree)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]) = {
-    val (nameTree, res) = nameTreeFromParseTreeS(parseTree)(NameTree.fromTree(tree))
-    transformParseTreeS[T](parseTree)(nameTree)(tree)
+    State(transformParseTreeS[T](parseTree)(nameTree))
+
+  def transform(parseTrees: List[(Option[java.io.File], parser.ParseTree)])(nameTree: NameTree) = {
+    val (newNameTree, res1) = parseTrees.foldLeft((nameTree, ().successNel[AbstractError])) {
+      case (p @ (nt, res), (file, pt)) =>
+        nameTreeFromParseTree(pt).map { 
+          res2 => res |+| resultForFile(res2, file)
+        }.run(nt)
+    }
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], Unit](Map(), ()), res1)) {
+      case (p @ (t, res), (file, pt)) => 
+        val (newTree, newRes) = transformParseTree[Unit](pt)(newNameTree).map {
+          res2 => res |+| resultForFile(res2, file)
+        }.run(t)
+        (treeForFile(newTree, file), newRes)
+    }
+    res2.map { _ => newTree }
   }
-    
-  def transform[T](parseTree: parser.ParseTree) =
-    State(transformS[T](parseTree))
 }
