@@ -185,11 +185,17 @@ object Resolver
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
     State(transformDefsS[T](defs)(scope))
     
-  def transformParseTree[T](parseTree: parser.ParseTree)(scope: Scope) =
-    transformDefs[T](parseTree.defs)(scope)
+  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]) =
+    transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
-  def transform[T](parseTree: parser.ParseTree)(scope: Scope) = {
-    val (nameTree, res) = nameTreeFromParseTree(parseTree).run(scope.nameTree)
-    transformParseTree[T](parseTree)(scope.copy(nameTree = nameTree)).map { res |+| _ }
+  def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
+    State(transformParseTreeS(parseTree)(nameTree))
+    
+  def transformS[T](parseTree: parser.ParseTree)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]) = {
+    val (nameTree, res) = nameTreeFromParseTreeS(parseTree)(NameTree.fromTree(tree))
+    transformParseTreeS[T](parseTree)(nameTree)(tree)
   }
+    
+  def transform[T](parseTree: parser.ParseTree) =
+    State(transformS[T](parseTree))
 }
