@@ -16,7 +16,7 @@ case class Scope(
   
   def withImportedModules(syms: Map[String, ModuleSymbol]) = copy(importedModuleSyms = importedModuleSyms |+| syms.mapValues { NonEmptyList(_) })
   
-  def withLocalVariables(names: Set[String]) = copy(localVarNames = localVarNames ++ names)  
+  def withLocalVars(names: Set[String]) = copy(localVarNames = localVarNames ++ names)  
 }
 
 object Scope

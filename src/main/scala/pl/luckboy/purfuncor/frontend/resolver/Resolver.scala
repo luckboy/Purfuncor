@@ -50,10 +50,10 @@ object Resolver
       case App(fun, args, pos) =>
         (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
       case Simple(Let(binds, body, letInfo), pos) =>
-        val newScope = scope.withLocalVariables(binds.map { _.name }.toSet)
+        val newScope = scope.withLocalVars(binds.map { _.name }.toSet)
         (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, letInfo), pos) }
       case Simple(Lambda(args, body, letInfo), pos) =>
-        val newScope = scope.withLocalVariables(args.list.flatMap { _.name }.toSet)
+        val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
         (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, letInfo), pos) }
       case Simple(Var(sym), pos) =>
         transformSymbol(sym)(scope).map { s => Simple(Var(s), pos) }
@@ -165,7 +165,7 @@ object Resolver
             }
           case parser.CombinatorDef(sym, args, body) =>
             val sym2 = transformGlobalSymbolInModule(sym)(scope.currentModuleSyms.head)
-            val newScope = scope.withLocalVariables(args.flatMap { _.name }.toSet)
+            val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
             val res2 = transformTerm(body)(newScope)
             res2 match {
               case Success(t) => 
