@@ -118,7 +118,7 @@ object Resolver
       case parser.NormalModuleSymbol(names, _) => currentModuleSym ++ names.list
     }
   
-  def addDefToNameTreeF(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
+  def addDefToNameTreeS(definition: parser.Def)(currentModuleSym: ModuleSymbol)(nameTree: NameTree): (NameTree, ValidationNel[AbstractError, Unit]) =
     definition match {
       case parser.ImportDef(sym) =>
         (nameTree, ().successNel[AbstractError])
@@ -131,23 +131,23 @@ object Resolver
       case parser.ModuleDef(sym, defs) =>
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
-            val (nt2, res2) = addDefToNameTreeF(d)(transformModuleSymbol(sym)(currentModuleSym))(nt)
+            val (nt2, res2) = addDefToNameTreeS(d)(transformModuleSymbol(sym)(currentModuleSym))(nt)
             (nt2, res |+| res2)
         }
     }
   
   def addDefToNameTree(definition: parser.Def)(currentModuleSym: ModuleSymbol) =
-    State(addDefToNameTreeF(definition)(currentModuleSym))
+    State(addDefToNameTreeS(definition)(currentModuleSym))
   
-  def addParseTreeToNameTreeF(parseTree: parser.ParseTree)(nameTree: NameTree) =
+  def nameTreeFromParseTreeS(parseTree: parser.ParseTree)(nameTree: NameTree) =
     parseTree.defs.foldLeft((nameTree, ().successNel[AbstractError])) {
       case ((nt, res), d) =>
-        val (nt2, res2) = addDefToNameTreeF(d)(ModuleSymbol.root)(nt)
+        val (nt2, res2) = addDefToNameTreeS(d)(ModuleSymbol.root)(nt)
         (nt2, res |+| res2)
     }
   
-  def addParseTreeToNameTree(parseTree: parser.ParseTree) =
-    State(addParseTreeToNameTreeF(parseTree))
+  def nameTreeFromParseTree(parseTree: parser.ParseTree) =
+    State(nameTreeFromParseTreeS(parseTree))
     
   def transformDefsF[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
