@@ -149,7 +149,7 @@ object Resolver
   def nameTreeFromParseTree(parseTree: parser.ParseTree) =
     State(nameTreeFromParseTreeS(parseTree))
     
-  def transformDefsF[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
+  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (t, res), scope), d) =>
         d match {
@@ -165,23 +165,31 @@ object Resolver
             }
           case parser.CombinatorDef(sym, args, body) =>
             val sym2 = transformGlobalSymbolInModule(sym)(scope.currentModuleSyms.head)
-            val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
-            val res2 = transformTerm(body)(newScope)
-            res2 match {
-              case Success(t) => 
-                ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, ()))), (res |@| res2) { (u, _) => u }), scope)
-              case Failure(_) =>
-                ((tree, (res |@| res2) { (u, _) => u }), scope)
-            }
+            if(scope.nameTree.containsCombinator(sym2)) {
+              val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
+              val res2 = transformTerm(body)(newScope)
+              res2 match {
+                case Success(t) => 
+                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, ()))), (res |@| res2) { (u, _) => u }), scope)
+                case Failure(_) =>
+                  ((tree, (res |@| res2) { (u, _) => u }), scope)
+              }
+            } else
+              ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.ModuleDef(sym, defs2) =>
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
-            (transformDefsF(defs2)(scope.withCurrentModule(sym2))(tree), scope)
+            (transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree), scope)
         }
     }._1
     
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
-    State(transformDefsF(defs)(scope))
+    State(transformDefsS[T](defs)(scope))
     
   def transformParseTree[T](parseTree: parser.ParseTree)(scope: Scope) =
-    transformDefs(parseTree.defs)(scope)
+    transformDefs[T](parseTree.defs)(scope)
+    
+  def transform[T](parseTree: parser.ParseTree)(scope: Scope) = {
+    val (nameTree, res) = nameTreeFromParseTree(parseTree).run(scope.nameTree)
+    transformParseTree[T](parseTree)(scope.copy(nameTree = nameTree)).map { res |+| _ }
+  }
 }
