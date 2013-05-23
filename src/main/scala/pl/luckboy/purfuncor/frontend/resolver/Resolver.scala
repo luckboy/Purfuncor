@@ -211,4 +211,10 @@ object Resolver
     }
     res2.map { _ => newTree }
   }
+  
+  def transformString(s: String)(nameTree: NameTree) =
+    for {
+      parseTree <- parser.Parser.parseString(s)
+      tree <- transform(List(none -> parseTree))(nameTree)
+    } yield tree
 }

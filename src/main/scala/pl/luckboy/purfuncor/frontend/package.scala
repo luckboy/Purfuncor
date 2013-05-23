@@ -2,6 +2,7 @@ package pl.luckboy.purfuncor
 import scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.util._
+import pl.luckboy.purfuncor.common.Tree
 
 package object frontend
 {
@@ -37,6 +38,22 @@ package object frontend
     override def indentedStringFrom(x: Bind[T, U])(n: Int) =
       x match {
         case Bind(name, body, _) => name + " = " + termIndenting.indentedStringFrom(body)(n + 2)
+      }
+  }
+  
+  implicit def treeShowing[T, U, V, W](implicit T: Equal[T]) = new Showing[Tree[T, Combinator[T, U, V], W]] {
+    override def stringFrom(x: Tree[T, Combinator[T, U, V], W]) =
+      x match {
+        case Tree(combs, treeInfo) =>
+          combs.groupBy { case (_, comb) => comb.file }.map {
+            case (file, combs2) =>
+              "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n" +
+              combs2.map {
+                case (loc, comb) => 
+                  (if(T.equal(comb.loc, loc)) "" else "// " + comb.loc + " =/= " + loc) +
+                  comb.copy(loc = loc) + "\n" 
+                }.mkString("\n")
+          }.mkString("\n")
       }
   }
 }

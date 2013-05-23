@@ -16,7 +16,7 @@ object PurfuncorBuild extends Build {
       scalacOptions ++= Seq("-feature", "-language:postfixOps", "-language:higherKinds", "-language:implicitConversions"),
       initialCommands in console := "import scalaz._, Scalaz._;",
       initialCommands in console += "import pl.luckboy.purfuncor._;",
-      initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.Parser.parseString;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.Parser;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.resolver.Resolver"
     )
   )
