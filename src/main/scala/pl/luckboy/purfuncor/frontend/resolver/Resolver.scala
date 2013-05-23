@@ -90,7 +90,7 @@ object Resolver
     sym match {
       case parser.GlobalSymbol(names, pos) =>
         val combSym = GlobalSymbol(names)
-        if(scope.nameTree.containsCombinator(GlobalSymbol(names)))
+        if(scope.nameTree.containsComb(GlobalSymbol(names)))
           combSym.successNel
         else
           Error("undefined global variable " + combSym, none, pos).failureNel
@@ -103,14 +103,14 @@ object Resolver
         getModuleSymbol(names.head, pos)(scope).flatMap {
           moduleSym =>
             val combSym = moduleSym.globalSymbolFromNames(names)
-            if(scope.nameTree.containsCombinator(GlobalSymbol(names)))
+            if(scope.nameTree.containsComb(GlobalSymbol(names)))
               combSym.successNel
             else
               Error("undefined global variable " + combSym, none, pos).failureNel
         }
     }
   
-  def transformGlobalSymbolInModule(sym: parser.Symbol)(currentModuleSym: ModuleSymbol) =
+  def transformGlobalSymbol(sym: parser.Symbol)(currentModuleSym: ModuleSymbol) =
     sym match {
       case parser.GlobalSymbol(names, _) => GlobalSymbol(names)
       case parser.NormalSymbol(names, _) => currentModuleSym.globalSymbolFromNames(names)
@@ -127,8 +127,8 @@ object Resolver
       case parser.ImportDef(sym) =>
         (nameTree, ().successNel[AbstractError])
       case parser.CombinatorDef(sym, _, _) =>
-        val sym2 = transformGlobalSymbolInModule(sym)(currentModuleSym)
-        if(nameTree.containsCombinator(sym2))
+        val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
+        if(nameTree.containsComb(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
@@ -163,13 +163,13 @@ object Resolver
               nt => 
                 val combSyms = nt.combNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
                 val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
-                (p, scope.withImportedCombinators(combSyms).withImportedModules(moduleSyms))
+                (p, scope.withImportedCombs(combSyms).withImportedModules(moduleSyms))
             }.getOrElse {
               ((t, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
             }
           case parser.CombinatorDef(sym, args, body) =>
-            val sym2 = transformGlobalSymbolInModule(sym)(scope.currentModuleSyms.head)
-            if(scope.nameTree.containsCombinator(sym2)) {
+            val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
+            if(scope.nameTree.containsComb(sym2)) {
               val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
               val res2 = transformTerm(body)(newScope)
               res2 match {
