@@ -41,18 +41,14 @@ package object frontend
       }
   }
   
-  implicit def treeShowing[T, U, V, W](implicit T: Equal[T]) = new Showing[Tree[T, Combinator[T, U, V], W]] {
-    override def stringFrom(x: Tree[T, Combinator[T, U, V], W]) =
+  implicit def treeShowing[T, U, V, W] = new Showing[Tree[T, Combinator[U, V], W]] {
+    override def stringFrom(x: Tree[T, Combinator[U, V], W]) =
       x match {
         case Tree(combs, treeInfo) =>
           combs.groupBy { case (_, comb) => comb.file }.map {
             case (file, combs2) =>
-              "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n" +
-              combs2.map {
-                case (loc, comb) => 
-                  (if(T.equal(comb.loc, loc)) "" else "// " + comb.loc + " =/= " + loc) +
-                  comb.copy(loc = loc) + "\n" 
-                }.mkString("\n")
+              "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
+              combs2.map { case (loc, comb) => comb.toStringForName(loc.toString) + "\n" }.mkString("\n")
           }.mkString("\n")
       }
   }

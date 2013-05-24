@@ -10,7 +10,7 @@ import pl.luckboy.purfuncor.common.Result._
 
 object Resolver
 {
-  def treeForFile[T](tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], file: Option[java.io.File]) =
+  def treeForFile[T](tree: Tree[GlobalSymbol, Combinator[Symbol, Unit], T], file: Option[java.io.File]) =
     tree.copy(tree.combs.mapValues { _.copy(file = file) })
         
   def transformTermNel[T](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T]]])(scope: Scope) =
@@ -153,7 +153,7 @@ object Resolver
   def nameTreeFromParseTree(parseTree: parser.ParseTree) =
     State(nameTreeFromParseTreeS(parseTree))
     
-  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
+  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (t, res), scope), d) =>
         d match {
@@ -174,7 +174,7 @@ object Resolver
               val res2 = transformTerm(body)(newScope)
               res2 match {
                 case Success(t) => 
-                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(sym2, args, t, (), none))), (res |@| res2) { (u, _) => u }), scope)
+                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(args, t, (), none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree, (res |@| res2) { (u, _) => u }), scope)
               }
@@ -189,7 +189,7 @@ object Resolver
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
     State(transformDefsS[T](defs)(scope))
     
-  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], T]) =
+  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, Unit], T]) =
     transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
   def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
@@ -202,7 +202,7 @@ object Resolver
           res2 => res |+| resultForFile(res2, file)
         }.run(nt)
     }
-    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, Unit], Unit](Map(), ()), res1)) {
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, Unit], Unit](Map(), ()), res1)) {
       case (p @ (t, res), (file, pt)) => 
         val (newTree, newRes) = transformParseTree[Unit](pt)(newNameTree).map {
           res2 => res |+| resultForFile(res2, file)

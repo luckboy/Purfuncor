@@ -21,7 +21,7 @@ object NameTree
 {
   val empty = NameTree(Map())
   
-  def fromTree[T, U](tree: Tree[GlobalSymbol, Combinator[GlobalSymbol, Symbol, T], U]) =
+  def fromTree[T, U](tree: Tree[GlobalSymbol, T, U]) =
     tree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromGlobalSymbol(_) }
   
   def fromGlobalSymbol(sym: GlobalSymbol) =
