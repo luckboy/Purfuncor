@@ -47,7 +47,7 @@ object Resolver
     }._1.map { _ => args }
     
   def transformArgs(args: List[Arg]) =
-    toNel(args).map { transformArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
+    args.toNel.map { transformArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
   
   def transformTerm[T](term: Term[SimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T]]] =
     term match {
