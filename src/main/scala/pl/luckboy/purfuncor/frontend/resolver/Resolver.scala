@@ -65,21 +65,26 @@ object Resolver
         Simple(Literal(value), pos).successNel
     }
   
-  private def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, NonEmptyList[T]]) =
-    scope.currentModuleSyms.foldLeft((Error("undefined " + prefix + " " + name, none, pos): AbstractError).failureNel[T]) {
+  private def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, Set[T]]) = {
+    val undefinedSymErrRes = (Error("undefined " + prefix + " " + name, none, pos): AbstractError).failureNel[T]
+    scope.currentModuleSyms.foldLeft(undefinedSymErrRes) {
       (res, moduleSym) =>
-        scope.nameTree.getNameTable(moduleSym).map {
-          nameTable => if(contains(nameTable, name)) make(moduleSym, name).successNel[AbstractError] else res
-        }.getOrElse(res)
+        res.orElse {
+          scope.nameTree.getNameTable(moduleSym).map {
+            nameTable => if(contains(nameTable, name)) make(moduleSym, name).successNel[AbstractError] else res
+          }.getOrElse(res)
+        }
     }.orElse {
       importedSyms(scope).get(name).map { 
-        case NonEmptyList(x) => x.successNel[AbstractError]
-        case _               => Error("reference to " + name + " is ambiguous", none, pos).failureNel[T]
-      }.getOrElse {
-        Error("undefined " + prefix + " " + name, none, pos).failureNel[T]
-      }
-   }
-    
+        syms =>
+          if(syms.size <= 1)
+            syms.headOption.map { _.successNel[AbstractError] }.getOrElse(undefinedSymErrRes)
+          else
+            Error("reference to " + name + " is ambiguous", none, pos).failureNel[T]
+      }.getOrElse(undefinedSymErrRes)
+    }
+  }
+  
   def getGlobalSymbol(name: String, pos: Position)(scope: Scope) =
     getSymbol4(name, pos)(scope)("variable", _.combNames.contains(_), _.globalSymbolFromName(_), _.importedCombSyms)
   
@@ -90,7 +95,7 @@ object Resolver
     sym match {
       case parser.GlobalSymbol(names, pos) =>
         val combSym = GlobalSymbol(names)
-        if(scope.nameTree.containsComb(GlobalSymbol(names)))
+        if(scope.nameTree.containsComb(combSym))
           combSym.successNel
         else
           Error("undefined global variable " + combSym, none, pos).failureNel
@@ -102,11 +107,14 @@ object Resolver
       case parser.NormalSymbol(names, pos) =>
         getModuleSymbol(names.head, pos)(scope).flatMap {
           moduleSym =>
-            val combSym = moduleSym.globalSymbolFromNames(names)
-            if(scope.nameTree.containsComb(GlobalSymbol(names)))
-              combSym.successNel
-            else
-              Error("undefined global variable " + combSym, none, pos).failureNel
+            names.tail.toNel.map {
+              tail =>
+                val combSym = moduleSym.globalSymbolFromNames(tail)
+                if(scope.nameTree.containsComb(combSym))
+                  combSym.successNel
+                else
+                  Error("undefined global variable " + combSym, none, pos).failureNel
+            }.getOrElse(FatalError("tail of list is empty", none, pos).failureNel)
         }
     }
   
@@ -153,19 +161,43 @@ object Resolver
   def nameTreeFromParseTree(parseTree: parser.ParseTree) =
     State(nameTreeFromParseTreeS(parseTree))
     
+  def transformImportModuleSymbol(sym: parser.ModuleSymbol)(scope: Scope) =
+    sym match {
+      case parser.GlobalModuleSymbol(names, pos) =>
+        val moduleSym = ModuleSymbol(names)
+        if(scope.nameTree.containsModule(moduleSym))
+          moduleSym.successNel
+        else
+          Error("undefined module " + moduleSym, none, pos).failureNel
+      case parser.NormalModuleSymbol(names, pos) =>
+        getModuleSymbol(names.head, pos)(scope).flatMap {
+          moduleSym =>
+            val moduleSym2 = moduleSym ++ names.tail
+            if(scope.nameTree.containsModule(moduleSym2))
+              moduleSym2.successNel
+            else
+              Error("undefined module " + moduleSym2, none, pos).failureNel
+        }
+    }
+    
   def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, Unit], T]): (Tree[GlobalSymbol, Combinator[Symbol, Unit], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (t, res), scope), d) =>
         d match {
           case parser.ImportDef(sym) =>
-            val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
-            scope.nameTree.getNameTable(sym2).map {
-              nt => 
-                val combSyms = nt.combNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
-                val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
-                (p, scope.withImportedCombs(combSyms).withImportedModules(moduleSyms))
-            }.getOrElse {
-              ((t, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
+            transformImportModuleSymbol(sym)(scope).map {
+              sym2 =>
+                scope.nameTree.getNameTable(sym2).map {
+                  nt => 
+                    val combSyms = nt.combNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
+                    val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
+                    (p, scope.withImportedCombs(combSyms).withImportedModules(moduleSyms))
+                }.getOrElse {
+                  ((t, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
+                }
+            } match {
+              case Success(pp) => pp
+              case res2        => ((t, res |+| res2.map { _ => () }), scope)
             }
           case parser.CombinatorDef(sym, args, body) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)

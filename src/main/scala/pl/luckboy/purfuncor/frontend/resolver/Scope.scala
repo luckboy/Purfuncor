@@ -6,15 +6,15 @@ import pl.luckboy.purfuncor.frontend._
 case class Scope(
     nameTree: NameTree,
     currentModuleSyms: NonEmptyList[ModuleSymbol],
-    importedCombSyms: Map[String, NonEmptyList[GlobalSymbol]],
-    importedModuleSyms: Map[String, NonEmptyList[ModuleSymbol]],
+    importedCombSyms: Map[String, Set[GlobalSymbol]],
+    importedModuleSyms: Map[String, Set[ModuleSymbol]],
     localVarNames: Set[String])
 {
   def withCurrentModule(sym: ModuleSymbol) = copy(currentModuleSyms = sym <:: currentModuleSyms)
 
-  def withImportedCombs(syms: Map[String, GlobalSymbol]) = copy(importedCombSyms = importedCombSyms |+| syms.mapValues { NonEmptyList(_) })
+  def withImportedCombs(syms: Map[String, GlobalSymbol]) = copy(importedCombSyms = importedCombSyms |+| syms.mapValues { Set(_) })
   
-  def withImportedModules(syms: Map[String, ModuleSymbol]) = copy(importedModuleSyms = importedModuleSyms |+| syms.mapValues { NonEmptyList(_) })
+  def withImportedModules(syms: Map[String, ModuleSymbol]) = copy(importedModuleSyms = importedModuleSyms |+| syms.mapValues { Set(_) })
   
   def withLocalVars(names: Set[String]) = copy(localVarNames = localVarNames ++ names)  
 }
