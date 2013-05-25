@@ -13,6 +13,7 @@ object PurfuncorBuild extends Build {
       scalaVersion := "2.10.1",
       // add other settings here
       libraryDependencies += "org.scalaz" % "scalaz-core_2.10" % "7.0.0",
+      libraryDependencies += "org.scalatest" % "scalatest_2.10" % "1.9.1" % "test",
       scalacOptions ++= Seq("-feature", "-language:postfixOps", "-language:higherKinds", "-language:implicitConversions"),
       initialCommands in console := "import scalaz._, Scalaz._;",
       initialCommands in console += "import pl.luckboy.purfuncor._;",
