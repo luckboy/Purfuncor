@@ -29,7 +29,8 @@ object NameTree
 
   def fromModuleSymbol(sym: ModuleSymbol) = {
     val nameTables = sym.names.reverse match {
-      case Nil           => Map[ModuleSymbol, NameTable]()
+      case Nil           =>
+        Map[ModuleSymbol, NameTable]()
       case name :: names =>
         names.reverse.zip(names.reverse.inits.toList.tail).map {
       	  case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(name))
@@ -37,7 +38,6 @@ object NameTree
     }
     NameTree(nameTables)
   }
-  
 }
 
 case class NameTable(
