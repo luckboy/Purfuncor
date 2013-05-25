@@ -182,7 +182,7 @@ object Resolver
     
   def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
-      case ((p @ (t, res), scope), d) =>
+      case ((p @ (tree2, res), scope), d) =>
         d match {
           case parser.ImportDef(sym) =>
             transformImportModuleSymbol(sym)(scope).map {
@@ -193,11 +193,11 @@ object Resolver
                     val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
                     (p, scope.withImportedCombs(combSyms).withImportedModules(moduleSyms))
                 }.getOrElse {
-                  ((t, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
+                  ((tree2, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
                 }
             } match {
               case Success(pp) => pp
-              case res2        => ((t, res |+| res2.map { _ => () }), scope)
+              case res2        => ((tree2, res |+| res2.map { _ => () }), scope)
             }
           case parser.CombinatorDef(sym, args, body) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
@@ -206,9 +206,9 @@ object Resolver
               val res2 = transformTerm(body)(newScope)
               res2 match {
                 case Success(t) => 
-                  ((tree.copy(combs = tree.combs + (sym2 -> Combinator(args, t, parser.LetInfo, none))), (res |@| res2) { (u, _) => u }), scope)
+                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(args, t, parser.LetInfo, none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
-                  ((tree, (res |@| res2) { (u, _) => u }), scope)
+                  ((tree2, (res |@| res2) { (u, _) => u }), scope)
               }
             } else
               ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
