@@ -28,10 +28,14 @@ object NameTree
     fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set())))
 
   def fromModuleSymbol(sym: ModuleSymbol) = {
-    val nameTabs = sym.names.init.zip(sym.names.init.inits.toList.tail).map {
-      case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(name))
-    }.toMap
-    NameTree(nameTabs)
+    val nameTables = sym.names.reverse match {
+      case Nil           => Map[ModuleSymbol, NameTable]()
+      case name :: names =>
+        names.reverse.zip(names.reverse.inits.toList.tail).map {
+      	  case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(name))
+        }.toMap
+    }
+    NameTree(nameTables)
   }
   
 }
