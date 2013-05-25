@@ -15,8 +15,14 @@ sealed trait Def
   override def toString = defIndenting.indentedStringFrom(this)(0)
 }
 case class ImportDef(sym: ModuleSymbol) extends Def
-case class CombinatorDef(sym: Symbol, args: List[Arg], body: Term[SimpleTerm[Symbol, Unit]]) extends Def
+case class CombinatorDef(sym: Symbol, args: List[Arg], body: Term[SimpleTerm[Symbol, LetInfo]]) extends Def
 case class ModuleDef(sym: ModuleSymbol, defs: List[Def]) extends Def
+
+sealed trait LetInfo
+{
+  override def toString = ""
+}
+case object LetInfo extends LetInfo
 
 sealed trait Symbol
 {

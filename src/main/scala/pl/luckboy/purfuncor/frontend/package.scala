@@ -1,5 +1,6 @@
 package pl.luckboy.purfuncor
 import scalaz._
+import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.util._
 import pl.luckboy.purfuncor.common.Tree
@@ -26,7 +27,9 @@ package object frontend
           "let\n" + binds.map { (" " * (n + 2)) + bindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
           (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting.indentedStringFrom(body)(n + 2)
         case Lambda(args, body, letInfo) =>
-          "\\" + args.map { _ + " " }.list.mkString("") + "=> " + termIndenting.indentedStringFrom(body)(n + 2)
+          "\\" + args.map { _ + " " }.list.mkString("") +
+          (if(letInfo.toString =/= "")  "/*" + letInfo.toString + "*/ " else "") +
+          "=> " + termIndenting.indentedStringFrom(body)(n + 2)
         case Var(loc)                    =>
           loc.toString
         case Literal(value)              =>
@@ -49,7 +52,8 @@ package object frontend
             case (file, combs2) =>
               "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
               combs2.map { case (loc, comb) => comb.toStringForName(loc.toString) + "\n" }.mkString("\n")
-          }.mkString("\n")
+          }.mkString("\n") +
+          (if(treeInfo.toString =/= "") "//// treeInfo\n" + treeInfo else "")
       }
   }
 }
