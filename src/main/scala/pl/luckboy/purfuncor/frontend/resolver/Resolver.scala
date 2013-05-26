@@ -138,8 +138,9 @@ object Resolver
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsComb(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
-        else
+        else {
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
+        }
       case parser.ModuleDef(sym, defs) =>
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
@@ -214,7 +215,8 @@ object Resolver
               ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.ModuleDef(sym, defs2) =>
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
-            (transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree), scope)
+            val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
+            ((newTree2, res |+| res2), scope)
         }
     }._1
     

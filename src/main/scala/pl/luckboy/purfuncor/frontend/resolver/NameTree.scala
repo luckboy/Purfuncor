@@ -32,7 +32,7 @@ object NameTree
       case Nil           =>
         Map[ModuleSymbol, NameTable]()
       case name :: names =>
-        names.reverse.zip(names.reverse.inits.toList.tail).map {
+        (name :: names).reverse.zip(names.reverse.inits.toList.reverse).map {
       	  case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(name))
         }.toMap
     }
