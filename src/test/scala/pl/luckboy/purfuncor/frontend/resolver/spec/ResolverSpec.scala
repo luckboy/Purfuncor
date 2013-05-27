@@ -134,4 +134,85 @@ module m2 {
         }
     }
   }
+  
+  it should "transform the string to a tree for imports" in {
+    val res = Resolver.transformString("""
+module a {
+  import b.c.d.e.f
+  import b.d
+  
+  f = g 10 (h 5)
+  g x y = #iMod x i
+}
+module b.c.d.e.f {
+  g x y = #iSub x y
+  h x = #iNeg x
+}
+module b.d {
+  i = 10
+}
+""")(NameTree.empty)
+    inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        combs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("a", "f")),
+            GlobalSymbol(NonEmptyList("a", "g")),
+            GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "g")),
+            GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h")),
+            GlobalSymbol(NonEmptyList("b", "d", "i"))
+            ))
+        // a.f
+        inside(combs.get(GlobalSymbol(NonEmptyList("a", "f")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(Var(GlobalSymbol(NonEmptyList("a", "g"))), _) => () }
+                inside(args1) {
+                  case NonEmptyList(arg11, arg12) =>
+                    inside(arg11) { case Simple(Literal(IntValue(10)), _) => () }
+                    inside(arg12) { 
+                      case App(fun2, args2, _) =>
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h"))), _) => () }
+                        inside(args2) { case NonEmptyList(Simple(Literal(IntValue(5)), _)) => () }
+                    }
+                }
+            }
+        }
+        // a.g
+        inside(combs.get(GlobalSymbol(NonEmptyList("a", "g")))) {
+          case Some(Combinator(args, body, parser.LetInfo, None)) =>
+            inside(args) { case List(Arg(Some("x"), _), Arg(Some("y"), _)) => () }
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IMod)), _) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(GlobalSymbol(NonEmptyList("b", "d", "i"))), _)) => () }
+            }
+        }
+        // b.c.d.e.f.g
+        inside(combs.get(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "g")))) {
+          case Some(Combinator(args, body, parser.LetInfo, None)) =>
+            inside(args) { case List(Arg(Some("x"), _), Arg(Some("y"), _)) => () }
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.ISub)), _) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(LocalSymbol("y")), _)) => () }
+            }
+        }
+        // b.c.d.e.f.h
+        inside(combs.get(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h")))) {
+          case Some(Combinator(args, body, parser.LetInfo, None)) =>
+            inside(args) { case List(Arg(Some("x"), _)) => () }
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.INeg)), _) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _)) => () }
+            }
+        }
+        // b.d.i
+        inside(combs.get(GlobalSymbol(NonEmptyList("b", "d", "i")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) { case Simple(Literal(IntValue(10)), _) => () }
+        }
+    }
+  }
 }
