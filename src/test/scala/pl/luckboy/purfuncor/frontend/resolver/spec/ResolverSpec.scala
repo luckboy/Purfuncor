@@ -251,4 +251,18 @@ module m2.m3 {
             ))
     }
   }
+  
+  it should "resolve the symbols of the covering local variables" is (pending)
+  
+  it should "resolve the symbols of the covering global variables" is (pending)
+  
+  it should "resolve the symbols of the covering modules" is (pending)
+  
+  it should "complain on undefined variables" is (pending)
+  
+  it should "complain on already defined variables" is (pending)
+
+  it should "complain on already defined arguments" is (pending)
+  
+  it should "resolve the symbols which are defined at other tree" is (pending)
 }
