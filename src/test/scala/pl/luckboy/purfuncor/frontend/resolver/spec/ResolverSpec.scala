@@ -215,4 +215,40 @@ module b.d {
         }
     }
   }
+  
+  it should "resolve the symbols of the combinator definitions" in {
+    val res = Resolver.transformString("""
+f = 1
+module m1 {
+  #.m10.g = 2
+  module m2 {
+    h = 3
+    m3.m4.i = 4
+    m5.j = 5
+  }
+  k = 6
+  #.l = 7
+}
+module m2.m3 {
+  m = 8
+  #.n = 9
+  #.m1.m2.o = 10
+}
+""")(NameTree.empty)
+    inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        combs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("f")),
+            GlobalSymbol(NonEmptyList("m10", "g")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "h")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "m3", "m4", "i")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "m5", "j")), 
+            GlobalSymbol(NonEmptyList("m1", "k")),
+            GlobalSymbol(NonEmptyList("l")),
+            GlobalSymbol(NonEmptyList("m2", "m3", "m")),
+            GlobalSymbol(NonEmptyList("n")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "o"))
+            ))
+    }
+  }
 }
