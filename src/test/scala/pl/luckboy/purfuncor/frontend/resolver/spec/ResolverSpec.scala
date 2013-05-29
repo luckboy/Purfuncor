@@ -423,5 +423,36 @@ g = \x y y => #iAdd x y
     }
   }
   
-  it should "resolve the symbols which are defined at other tree" is (pending)
+  it should "resolve the symbols which are defined at other tree" in {
+    val res = Resolver.transformString("""
+f2 = m1.m2.f
+module m1 {
+  g2 = g
+}
+m3.h2 = #.m2.h
+""")(
+    NameTree.empty |+|
+    NameTree.fromGlobalSymbol(GlobalSymbol(NonEmptyList("m1", "m2", "f"))) |+|
+    NameTree.fromGlobalSymbol(GlobalSymbol(NonEmptyList("m1", "g"))) |+|
+    NameTree.fromGlobalSymbol(GlobalSymbol(NonEmptyList("m2", "h"))))
+    inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        combs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("f2")),
+            GlobalSymbol(NonEmptyList("m1", "g2")),
+            GlobalSymbol(NonEmptyList("m3", "h2"))))
+        inside(combs.get(GlobalSymbol(NonEmptyList("f2")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "f"))), _) => () }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m1", "g2")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "g"))), _) => () }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m3", "h2")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m2", "h"))), _) => () }
+        }
+    }
+  }
 }
