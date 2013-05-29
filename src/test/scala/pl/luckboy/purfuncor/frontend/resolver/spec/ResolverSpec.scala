@@ -474,6 +474,32 @@ g = \x y y => #iAdd x y
             "already defined argument y"))
     }
   }
+
+  it should "complain on ambiguous references" in {
+    val res = Resolver.transformString("""
+module m1.m2 {
+  f = 10
+  g = 20
+  m3.h = 40
+}
+module m4.m2 {
+  f = 50
+  m3.h = 60
+}
+module m5 {
+  import m1.m2
+  import m4.m2
+  i = f
+  j = #iAdd m3.h g
+}
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "reference to f is ambiguous",
+            "reference to m3 is ambiguous"))
+    }
+  }
   
   it should "resolve the symbols which are defined at other tree" in {
     val res = Resolver.transformString("""
