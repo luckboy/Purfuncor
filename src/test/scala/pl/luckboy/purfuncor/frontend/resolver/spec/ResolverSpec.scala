@@ -252,11 +252,122 @@ module m2.m3 {
     }
   }
   
-  it should "resolve the symbols of the covering local variables" is (pending)
+  it should "resolve the symbols of the covering local variables" in {
+    val res = Resolver.transformString("""
+z1 = 1
+z2 = 2
+f x y = let
+    z1 = 3
+  in
+    let 
+      z2 = 4
+    in
+      #iAdd z1 z2
+g z1 x = #iMul z1 x
+h x y = \z1 => \z2 => #iSub z1 z2
+""")(NameTree.empty)
+	inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
+          case Some(Combinator(_, body, _, None)) =>
+            inside(body) {
+              case Simple(Let(_, body1, _), _) =>
+                inside(body1) {
+                  case Simple(Let(_, App(_, args2, _), _), _) =>
+                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("z2")), _)) => () }
+                }
+            }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("g")))) {
+          case Some(Combinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("x")), _)) => () }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("h")))) {
+          case Some(Combinator(_, body, _, None)) =>
+            inside(body) {
+              case Simple(Lambda(NonEmptyList(Arg(Some("z1"), _)), body1, _), _) =>
+                inside(body1) {
+                  case Simple(Lambda(NonEmptyList(Arg(Some("z2"), _)), App(_, args3, _), _), _) =>
+                    inside(args3) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("z2")), _)) => () }
+                }
+            }
+        }
+    }
+  }
   
-  it should "resolve the symbols of the covering global variables" is (pending)
+  it should "resolve the symbols of the covering global variables" in {
+    val res = Resolver.transformString("""
+module m1 {
+  z1 = 1
+  module m2 {
+    z1 = 2
+    f = #iAdd z1 z2
+    g = #iMul z3 z10
+    z3 = 3
+  }
+  z10 = 10
+  h = z2
+  z2 = 4
+}
+z2 = 5
+z3 = 6
+""")(NameTree.empty)
+	inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m2", "f")))) {
+          case Some(Combinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z1"))), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2"))), _)) => () }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m2", "g")))) {
+          case Some(Combinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z3"))), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z10"))), _)) => () }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m1", "h")))) {
+          case Some(Combinator(_, body, _, None)) =>
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2"))), _) => () }
+        }
+    }
+  }
   
-  it should "resolve the symbols of the covering modules" is (pending)
+  it should "resolve the symbols of the covering modules" in {
+    val res = Resolver.transformString("""
+module m1 {
+  module m2 {
+    z1 = 10
+  }
+  module m3 {
+    f = m2.z1
+    m2.z1 = 20
+  }
+  z2 = 30
+}
+module m4 {
+  module m5 {
+    g = m1.m2.z1
+  }
+  h = m1.z2
+  module m1 {
+    module m2 {
+      z1 = 40
+    }
+    m3.m2.z1 = 50
+    z2 = 60
+  }
+}
+""")(NameTree.empty)
+	inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m3", "f")))) {
+          case Some(Combinator(_, Simple(Var(GlobalSymbol(NonEmptyList("m1", "m3", "m2", "z1"))), _), _, None)) => ()
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m4", "m5", "g")))) {
+          case Some(Combinator(_, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "m2", "z1"))), _), _, None)) => ()          
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("m4", "h")))) {
+          case Some(Combinator(_, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "z2"))), _), _, None)) => ()          
+        }
+    }
+  }
   
   it should "complain on undefined variables" is (pending)
   
