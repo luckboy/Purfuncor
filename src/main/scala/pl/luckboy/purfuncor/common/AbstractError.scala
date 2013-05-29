@@ -3,6 +3,8 @@ import scala.util.parsing.input.Position
 
 sealed trait AbstractError
 {
+  def msg: String
+  
   def withFile(file: Option[java.io.File]): AbstractError
   
   override def toString =

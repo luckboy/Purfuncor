@@ -247,8 +247,7 @@ module m2.m3 {
             GlobalSymbol(NonEmptyList("l")),
             GlobalSymbol(NonEmptyList("m2", "m3", "m")),
             GlobalSymbol(NonEmptyList("n")),
-            GlobalSymbol(NonEmptyList("m1", "m2", "o"))
-            ))
+            GlobalSymbol(NonEmptyList("m1", "m2", "o"))))
     }
   }
   
@@ -369,11 +368,60 @@ module m4 {
     }
   }
   
-  it should "complain on undefined variables" is (pending)
+  it should "complain on undefined variables" in {
+    val res = Resolver.transformString("""
+f x y = z
+g x y = m1.i
+h = #.m2.j
+i = m2.k
+j = m2.m1.l
+m2.i = 10
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "undefined variable z",
+            "undefined module m1",
+            "undefined global variable #.m2.j",
+            "undefined global variable #.m2.k",
+            "undefined global variable #.m2.m1.l"))
+    }
+  }
   
-  it should "complain on already defined variables" is (pending)
+  it should "complain on already defined variables" in {
+    val res = Resolver.transformString("""
+z1 = 10
+m1.z2 = 20      
+f = let a = 1; a = 2 in a
+g = let
+    a = 1
+  in
+    let a = 2; b = 3; c = 4; b = 5 in a
+z1 = 30
+#.m1.z2 = 40
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "already defined global variable #.z1",
+            "already defined global variable #.m1.z2",
+            "already defined local variable a",
+            "already defined local variable b"))
+    }
+  }
 
-  it should "complain on already defined arguments" is (pending)
+  it should "complain on already defined arguments" in {
+    val res = Resolver.transformString("""
+f x y z x = 10
+g = \x y y => #iAdd x y
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "already defined argument x",
+            "already defined argument y"))
+    }
+  }
   
   it should "resolve the symbols which are defined at other tree" is (pending)
 }
