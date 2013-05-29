@@ -215,6 +215,58 @@ module b.d {
         }
     }
   }
+
+  it should "transform let-expression and lambda-expression" in {
+    val res = Resolver.transformString("""
+f = let a = 1; b = 2 in let c = g 2 3 in #iAdd a c
+g = \x _ y => #iDiv x y
+""")(NameTree.empty)    
+    inside(res) {
+      case Success(Tree(combs, treeInfo)) =>
+        combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g"))))
+        // f
+        inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) {
+              case Simple(Let(binds1, body1, parser.LetInfo), _) =>
+                inside(binds1) {
+                  case NonEmptyList(bind11, bind12) =>
+                    inside(bind11) { case Bind("a", Simple(Literal(IntValue(1)), _), _) => () }
+                    inside(bind12) { case Bind("b", Simple(Literal(IntValue(2)), _), _) => () }
+                }
+                inside(body1) {
+                  case Simple(Let(binds2, body2, parser.LetInfo), _) =>
+                    inside(binds2) {
+                      case NonEmptyList(bind21) =>
+                        inside(bind21) {
+                          case Bind("c", App(fun3, args3, _), _) =>
+                            inside(fun3) { case Simple(Var(GlobalSymbol(NonEmptyList("g"))), _) => () }
+                            inside(args3) { case NonEmptyList(Simple(Literal(IntValue(2)), _), Simple(Literal(IntValue(3)), _)) => () }
+                        }
+                    }
+                    inside(body2) {
+                      case App(fun4, args4, _) =>
+                        inside(fun4) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
+                        inside(args4) { case NonEmptyList(Simple(Var(LocalSymbol("a")), _), Simple(Var(LocalSymbol("c")), _)) => () }
+                    }
+                }
+            }
+        }
+        // g
+        inside(combs.get(GlobalSymbol(NonEmptyList("g")))) {
+          case Some(Combinator(Nil, body, parser.LetInfo, None)) =>
+            inside(body) {
+              case Simple(Lambda(args1, body1, parser.LetInfo), _) =>
+                inside(args1) { case NonEmptyList(Arg(Some("x"), _), Arg(None, _), Arg(Some("y"), _)) => () }
+                inside(body1) {
+                  case App(fun2, args2, _) =>
+                    inside(fun2) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IDiv)), _) => () }
+                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(LocalSymbol("y")), _)) => () }
+                }
+            }
+        }
+    }
+  }
   
   it should "resolve the symbols of the combinator definitions" in {
     val res = Resolver.transformString("""
