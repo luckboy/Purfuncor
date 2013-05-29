@@ -34,7 +34,7 @@ object Resolver
     }._1.map { _.reverse }
     
   def transformArgNel(args: NonEmptyList[Arg]) =
-    args.foldLeft((().successNel[AbstractError], Set() ++ args.head.name)) { 
+    args.foldLeft((().successNel[AbstractError], Set[String]())) { 
       case (p @ (res, usedNames), a) =>
         a.name.map {
           name =>
@@ -204,7 +204,7 @@ object Resolver
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsComb(sym2)) {
               val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
-              val res2 = transformTerm(body)(newScope)
+              val res2 = (transformArgs(args) |@| transformTerm(body)(newScope)) { (_, t) => t}
               res2 match {
                 case Success(t) => 
                   ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(args, t, parser.LetInfo, none))), (res |@| res2) { (u, _) => u }), scope)
