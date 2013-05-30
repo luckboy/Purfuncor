@@ -3,7 +3,7 @@ import pl.luckboy.purfuncor.util._
 
 package object parser
 {
-  implicit val defIndenting = new Indenting[Def] {
+  implicit val defIndenting: Indenting[Def] = new Indenting[Def] {
     override def indentedStringFrom(x: Def)(n: Int) =
       x match {
         case ImportDef(sym)                 =>
@@ -11,7 +11,7 @@ package object parser
         case CombinatorDef(sym, args, body) =>
           sym + " " + args.map { _ + " " }.mkString("") + "= "+ termIndenting.indentedStringFrom(body)(n + 2)
         case ModuleDef(sym, defs)           =>
-          "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { (" " * (n + 2)) + _ }.mkString("\n\n") + "\n" + (" " * n) + "}"
+          "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { d => (" " * (n + 2)) + defIndenting.indentedStringFrom(d)(n + 2) }.mkString("\n\n") + "\n" + (" " * n) + "}"
       }
   }
 }
