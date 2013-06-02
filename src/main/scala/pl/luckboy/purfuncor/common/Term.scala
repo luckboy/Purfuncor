@@ -3,5 +3,8 @@ import scala.util.parsing.input.Position
 import scalaz._
 
 sealed trait Term[+T]
+{
+  def pos: Position
+}
 case class App[+T](fun: Term[T], args: NonEmptyList[Term[T]], pos: Position) extends Term[T]
 case class Simple[+T](simpleTerm: T, pos: Position) extends Term[T]
