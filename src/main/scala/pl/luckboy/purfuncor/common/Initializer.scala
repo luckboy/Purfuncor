@@ -57,15 +57,15 @@ object Initializer
   @tailrec
   private def dfs[E, L, C, I, F](tree: Tree[L, C, I], stck: Stack[(L, List[L])], locs: List[L])(markedLocs: Set[L])(implicit init: Initializer[E, L, C, F]): Validation[E, (Set[L], List[L])] =
     if(!stck.isEmpty) {
-      val ((loc, childLocs), stck2) = stck.pop2
-      childLocs match {
-        case childLoc :: nextChildLocs =>
-          val stck3 = stck.push((loc, nextChildLocs))
-          if(!markedLocs.contains(childLoc)) {
-            val markedLocs2 = markedLocs + childLoc
-            tree.combs.get(childLoc) match {
+      val ((loc, neighborLocs), stck2) = stck.pop2
+      neighborLocs match {
+        case neighborLoc :: nextNeighborLocs =>
+          val stck3 = stck.push((loc, nextNeighborLocs))
+          if(!markedLocs.contains(neighborLoc)) {
+            val markedLocs2 = markedLocs + neighborLoc
+            tree.combs.get(neighborLoc) match {
               case Some(comb) =>
-                dfs(tree, stck3.push((childLoc, init.usedGlobalVars(comb).toList)), locs)(markedLocs2)
+                dfs(tree, stck3.push((neighborLoc, init.usedGlobalVars(comb).toList)), locs)(markedLocs2)
               case None       =>
                 init.undefinedGlobalVarError.failure
             }
