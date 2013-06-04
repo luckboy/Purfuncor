@@ -4,24 +4,24 @@ import scala.util.parsing.input.Position
 import scalaz._
 import scalaz.Scalaz._
 
-trait Evaluator[-T, U, V]
+trait Evaluator[-T, E, V]
 {
-  def evaluateSimpleTermS(simpleTerm: T)(env: U): (U, V)
+  def evaluateSimpleTermS(simpleTerm: T)(env: E): (E, V)
   
-  def valueFromTermS(term: Term[T])(env: U): (U, V)
+  def valueFromTermS(term: Term[T])(env: E): (E, V)
   
   def valueArgCount(value: V): Int
   
-  def fullyAppS(funValue: V, argValues: Seq[V])(env: U): (U, V)
+  def fullyAppS(funValue: V, argValues: Seq[V])(env: E): (E, V)
   
-  def partiallyAppS(funValue: V, argValues: Seq[V])(env: U): (U, V)
+  def partiallyAppS(funValue: V, argValues: Seq[V])(env: E): (E, V)
   
-  def withPos(res: (U, V))(pos: Position): (U, V)
+  def withPos(res: (E, V))(pos: Position): (E, V)
 }
 
 object Evaluator
 {
-  def evaluateS[T, U, V](term: Term[T])(env: U)(implicit eval: Evaluator[T, U, V]): (U, V) = {
+  def evaluateS[T, E, V](term: Term[T])(env: E)(implicit eval: Evaluator[T, E, V]): (E, V) = {
     val res = term match {
       case App(fun, args, _)     =>
         val (env2, funValue) = evaluateS(fun)(env)
@@ -33,11 +33,11 @@ object Evaluator
     eval.withPos(res)(term.pos)
   }
     
-  def evaluate[T, U, V](term: Term[T])(implicit eval: Evaluator[T, U, V]) =
-    State(evaluateS[T, U, V](term))
+  def evaluate[T, E, V](term: Term[T])(implicit eval: Evaluator[T, E, V]) =
+    State(evaluateS[T, E, V](term))
     
   @tailrec
-  def appS[T, U, V](funValue: V, argValues: Seq[V])(env: U)(implicit eval: Evaluator[T, U, V]): (U, V) = {
+  def appS[T, E, V](funValue: V, argValues: Seq[V])(env: E)(implicit eval: Evaluator[T, E, V]): (E, V) = {
     val argCount = eval.valueArgCount(funValue)
     if(argCount == argValues.size) {
       eval.fullyAppS(funValue, argValues)(env)
@@ -46,14 +46,14 @@ object Evaluator
     } else {
       val (passedArgValues, otherArgValues) = argValues.splitAt(argCount)
       val (env2, retValue) = eval.fullyAppS(funValue, passedArgValues)(env)
-      appS[T, U, V](retValue, otherArgValues)(env2)
+      appS[T, E, V](retValue, otherArgValues)(env2)
     }
   }
   
-  def app[T, U, V](funValue: V, argValues: Seq[V])(implicit eval: Evaluator[T, U, V]) =
-    State(appS[T, U, V](funValue, argValues))
+  def app[T, E, V](funValue: V, argValues: Seq[V])(implicit eval: Evaluator[T, E, V]) =
+    State(appS[T, E, V](funValue, argValues))
     
-  def valuesFromTermNelS[T, U, V](terms: NonEmptyList[Term[T]])(env: U)(implicit eval: Evaluator[T, U, V]) =
+  def valuesFromTermNelS[T, E, V](terms: NonEmptyList[Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
     terms.list.foldLeft((env, Seq[V]())) {
       case ((newEnv, values), term) =>
         val (newEnv2, value) = eval.valueFromTermS(terms.head)(newEnv)
