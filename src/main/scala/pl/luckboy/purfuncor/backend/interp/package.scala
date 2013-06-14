@@ -69,4 +69,34 @@ package object interp
     override def withPos(res: (SymbolEnvironment[T], Value[Symbol, T, LocalSymbol]))(pos: Position) =
       (res._1, res._2.withPos(pos))
   }
+  
+  implicit def symbolCombinatorInitializer[T] = new Initializer[NoValue[Symbol, T, LocalSymbol], GlobalSymbol, Combinator[Symbol, T], SymbolEnvironment[T]] {
+    override def globalVarsFromEnvironment(env: SymbolEnvironment[T]) = env.globalVarValues.keySet
+        
+    private def usedGlobalVarsFromTerm(term: Term[SimpleTerm[Symbol, T]]): Set[GlobalSymbol] =
+      term match {
+        case App(fun, args, _)                 => usedGlobalVarsFromTerm(fun) | args.list.flatMap(usedGlobalVarsFromTerm).toSet
+        case Simple(Var(sym: GlobalSymbol), _) => Set(sym)
+        case Simple(_, _)                      => Set()
+      }
+    
+    override def usedGlobalVarsFromCombinator(comb: Combinator[Symbol, T]) = usedGlobalVarsFromTerm(comb.body)
+      
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolEnvironment[T]) = 
+      (env.withGlobalVar(loc, NoValue.fromString("initialization cycle")), ())
+    
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: Combinator[Symbol, T])(env: SymbolEnvironment[T]) = {
+      val (env2, value: Value[Symbol, T, LocalSymbol]) = if(comb.args.isEmpty)
+        evaluateS(comb.body)(env.withCurrentFile(comb.file))
+      else
+        (env, CombinatorValue(comb, loc))
+      value match {
+        case noValue: NoValue[Symbol, T, LocalSymbol] => (env2, noValue.failure)
+        case _                                        => (env2.withGlobalVar(loc, value), ().success)
+      }
+    }
+
+    override def undefinedGlobalVarError: NoValue[Symbol, T, LocalSymbol] =
+      NoValue.fromString("undefined global variable")
+  }
 }

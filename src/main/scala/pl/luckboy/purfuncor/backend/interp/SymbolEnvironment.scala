@@ -30,6 +30,8 @@ case class SymbolEnvironment[T](
     val (newEnv, value) = f(this.pushLocalVars(values))
     (newEnv.popLocalVars(values.keySet), value)
   }
-  
+
+  def withGlobalVar(sym: GlobalSymbol, value: Value[Symbol, T, LocalSymbol]) = copy(globalVarValues = globalVarValues + (sym -> value))
+    
   def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
 }
