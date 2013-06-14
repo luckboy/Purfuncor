@@ -56,6 +56,11 @@ package object interp
             (env2, retValue.forFileAndCombSym(file, none))
           } else
             (env, NoValue.fromString("invalid number of arguments"))
+        case PartialAppValue(funValue2, argValues2) =>
+          if(funValue2.argCount - argValues2.size === argValues.size)
+            fullyAppS(funValue2, argValues2 ++ argValues)(env)
+          else
+            (env, NoValue.fromString("invalid number of arguments"))
         case _ =>
           (env, NoValue.fromString("no applicable"))
       }

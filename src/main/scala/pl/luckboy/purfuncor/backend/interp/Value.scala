@@ -12,7 +12,13 @@ import pl.luckboy.purfuncor.common.Evaluator._
 
 sealed trait Value[+T, +U, V]
 {
-  def argCount = 1
+  def argCount: Int =
+    this match {
+      case CombinatorValue(comb, _)             => comb.args.size
+      case LambdaValue(lambda, _, _)            => lambda.args.size
+      case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
+      case _                                    => 1
+    }
   
   def isNoValue = isInstanceOf[NoValue[T, U, V]]
 
