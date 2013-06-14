@@ -16,6 +16,8 @@ trait Evaluator[-T, E, V]
   
   def partiallyAppS(funValue: V, argValues: Seq[V])(env: E): (E, V)
   
+  def isNoValue(value: V): Boolean
+  
   def withPos(res: (E, V))(pos: Position): (E, V)
 }
 
@@ -25,8 +27,10 @@ object Evaluator
     val res = term match {
       case App(fun, args, _)     =>
         val (env2, funValue) = evaluateS(fun)(env)
-        val (env3, argValues) = valuesFromTermNelS(args)(env2)
-        appS(funValue, argValues)(env3)
+        valuesFromTermsS(args.list)(env2) match {
+          case (env3, Success(argValues)) => appS(funValue, argValues)(env3)
+          case (env3, Failure(noValue))   => (env3, noValue)
+        }
       case Simple(simpleTerm, _) =>
         eval.evaluateSimpleTermS(simpleTerm)(env)
     }
@@ -39,27 +43,32 @@ object Evaluator
   @tailrec
   def appS[T, E, V](funValue: V, argValues: Seq[V])(env: E)(implicit eval: Evaluator[T, E, V]): (E, V) = {
     val argCount = eval.valueArgCount(funValue)
-    if(argCount == argValues.size) {
-      eval.fullyAppS(funValue, argValues)(env)
-    } else if(argCount > argValues.size) {
-      eval.partiallyAppS(funValue, argValues)(env)
-    } else {
-      val (passedArgValues, otherArgValues) = argValues.splitAt(argCount)
-      val (env2, retValue) = eval.fullyAppS(funValue, passedArgValues)(env)
-      appS[T, E, V](retValue, otherArgValues)(env2)
-    }
+    if(!eval.isNoValue(funValue))
+      if(argCount == argValues.size) {
+        eval.fullyAppS(funValue, argValues)(env)
+      } else if(argCount > argValues.size) {
+        eval.partiallyAppS(funValue, argValues)(env)
+      } else {
+        val (passedArgValues, otherArgValues) = argValues.splitAt(argCount)
+        val (env2, retValue) = eval.fullyAppS(funValue, passedArgValues)(env)
+        appS[T, E, V](retValue, otherArgValues)(env2)
+      }
+    else
+      (env, funValue)
   }
   
   def app[T, E, V](funValue: V, argValues: Seq[V])(implicit eval: Evaluator[T, E, V]) =
     State(appS[T, E, V](funValue, argValues))
     
-  def valuesFromTermNelS[T, E, V](terms: NonEmptyList[Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
-    terms.list.foldLeft((env, Seq[V]())) {
-      case ((newEnv, values), term) =>
+  def valuesFromTermsS[T, E, V](terms: List[Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
+    terms.foldLeft((env, Seq[V]().success[V])) {
+      case ((newEnv, Success(values)), term) =>
         val (newEnv2, value) = eval.valueFromTermS(terms.head)(newEnv)
-        (newEnv2, values :+ value)
+        (newEnv2, if(eval.isNoValue(value)) (values :+ value).success else value.failure)
+      case ((newEnv, Failure(noValue)), _)   =>
+        (newEnv, Failure(noValue))
     }
   
-  def valuesFromTermNel[T, U, V](terms: NonEmptyList[Term[T]])(implicit eval: Evaluator[T, U, V]) =
-    State(valuesFromTermNelS[T, U, V](terms))
+  def valuesFromTerms[T, U, V](terms: List[Term[T]])(implicit eval: Evaluator[T, U, V]) =
+    State(valuesFromTermsS[T, U, V](terms))
 }
