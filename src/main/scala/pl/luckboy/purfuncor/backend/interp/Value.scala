@@ -10,7 +10,7 @@ import pl.luckboy.purfuncor.frontend.Lambda
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.common.Evaluator._
 
-sealed trait Value[+T, +U, V]
+sealed trait Value[+T, +U, +V]
 {
   def argCount: Int =
     this match {
@@ -22,7 +22,7 @@ sealed trait Value[+T, +U, V]
   
   def isNoValue = isInstanceOf[NoValue[T, U, V]]
 
-  def apply[T2 >: T, U2 >: U, E](argValues: Seq[Value[T2, U2, V]])(implicit eval: Evaluator[SimpleTerm[T2, U2], E, Value[T2, U2, V]]) =
+  def apply[T2 >: T, U2 >: U, V2 >: V, E](argValues: Seq[Value[T2, U2, V2]])(implicit eval: Evaluator[SimpleTerm[T2, U2], E, Value[T2, U2, V2]]) =
     app(this, argValues)
     
   def withPos(pos: Position): Value[T, U, V] =
@@ -60,7 +60,7 @@ object Value
     }
 }
 
-case class NoValue[+T, +U, V](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElems: List[StackTraceElement]) extends Value[T, U, V]
+case class NoValue[+T, +U, +V](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElems: List[StackTraceElement]) extends Value[T, U, V]
 {
   val stackTrace = prevStackTraceElems ++ currentStackTraceElems
   
@@ -72,19 +72,19 @@ object NoValue
   def fromString[T, U, V](s: String) = NoValue[T, U, V](s, Nil, Nil)
 }
 
-case class BooleanValue[+T, +U, V](x: Boolean) extends Value[T, U, V]
-case class CharValue[+T, +U, V](x: Char) extends Value[T, U, V]
-case class ByteValue[+T, +U, V](x: Byte) extends Value[T, U, V]
-case class ShortValue[+T, +U, V](x: Short) extends Value[T, U, V]
-case class IntValue[+T, +U, V](x: Int) extends Value[T, U, V]
-case class LongValue[+T, +U, V](x: Long) extends Value[T, U, V]
-case class FloatValue[+T, +U, V](x: Float) extends Value[T, U, V]
-case class DoubleValue[+T, +U, V](x: Double) extends Value[T, U, V]
-case class TupleFunValue[+T, +U, V](n: Int) extends Value[T, U, V]
-case class TupleFieldFunValue[+T, +U, V](i: Int) extends Value[T, U, V]
-case class BuiltinFunValue[+T, +U, V](f: frontend.BuiltinFunction.Value) extends Value[T, U, V]
-case class TupleValue[+T, +U, V](xs: Vector[Value[T, U, V]]) extends Value[T, U, V]
-case class ArrayValue[+T, +U, V](xs: Vector[Value[T, U, V]]) extends Value[T, U, V]
-case class CombinatorValue[+T, +U, V](comb: Combinator[T, U], sym: GlobalSymbol) extends Value[T, U, V]
-case class LambdaValue[+T, +U, V](lambda: Lambda[T, U], closureVarValues: Map[V, Value[T, U, V]], file: Option[java.io.File]) extends Value[T, U, V]
-case class PartialAppValue[+T, +U, V](funValue: Value[T, U, V], argValues: Seq[Value[T, U, V]]) extends Value[T, U, V]
+case class BooleanValue[+T, +U, +V](x: Boolean) extends Value[T, U, V]
+case class CharValue[+T, +U, +V](x: Char) extends Value[T, U, V]
+case class ByteValue[+T, +U, +V](x: Byte) extends Value[T, U, V]
+case class ShortValue[+T, +U, +V](x: Short) extends Value[T, U, V]
+case class IntValue[+T, +U, +V](x: Int) extends Value[T, U, V]
+case class LongValue[+T, +U, +V](x: Long) extends Value[T, U, V]
+case class FloatValue[+T, +U, +V](x: Float) extends Value[T, U, V]
+case class DoubleValue[+T, +U, +V](x: Double) extends Value[T, U, V]
+case class TupleFunValue[+T, +U, +V](n: Int) extends Value[T, U, V]
+case class TupleFieldFunValue[+T, +U, +V](i: Int) extends Value[T, U, V]
+case class BuiltinFunValue[+T, +U, +V](f: frontend.BuiltinFunction.Value) extends Value[T, U, V]
+case class TupleValue[+T, +U, +V](xs: Vector[Value[T, U, V]]) extends Value[T, U, V]
+case class ArrayValue[+T, +U, +V](xs: Vector[Value[T, U, V]]) extends Value[T, U, V]
+case class CombinatorValue[+T, +U, +V](comb: Combinator[T, U], sym: GlobalSymbol) extends Value[T, U, V]
+case class LambdaValue[+T, +U, +V](lambda: Lambda[T, U], closure: V, file: Option[java.io.File]) extends Value[T, U, V]
+case class PartialAppValue[+T, +U, +V](funValue: Value[T, U, V], argValues: Seq[Value[T, U, V]]) extends Value[T, U, V]
