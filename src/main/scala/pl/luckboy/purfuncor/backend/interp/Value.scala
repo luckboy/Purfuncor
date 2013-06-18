@@ -18,6 +18,8 @@ sealed trait Value[+T, +U, +V]
       case CombinatorValue(comb, _)             => comb.args.size
       case LambdaValue(lambda, _, _)            => lambda.args.size
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
+      case TupleFunValue(n)                     => n
+      case TupleFieldFunValue(_)                => 1
       case BuiltinFunValue(bf, f)               => f.argCount
       case _                                    => 1
     }
@@ -82,8 +84,24 @@ case class IntValue[+T, +U, +V](x: Int) extends Value[T, U, V]
 case class LongValue[+T, +U, +V](x: Long) extends Value[T, U, V]
 case class FloatValue[+T, +U, +V](x: Float) extends Value[T, U, V]
 case class DoubleValue[+T, +U, +V](x: Double) extends Value[T, U, V]
+
 case class TupleFunValue[+T, +U, +V](n: Int) extends Value[T, U, V]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, E](argValues: Seq[Value[T2, U2, V2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2], E, Value[T2, U2, V2]]) =
+    if(argValues.size === n)
+      (env, TupleValue(argValues.toVector))
+    else
+      (env, NoValue.fromString("illegal application"))
+}
+
 case class TupleFieldFunValue[+T, +U, +V](i: Int) extends Value[T, U, V]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, E](argValues: Seq[Value[T2, U2, V2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2], E, Value[T2, U2, V2]]) =
+    argValues match {
+      case Seq(TupleValue(values)) => (env, values.lift(i).getOrElse(NoValue.fromString("no tuple field")))
+      case _                       => (env, NoValue.fromString("illegal application"))
+    }
+}
 
 case class BuiltinFunValue[+T, +U, +V](val bf: BuiltinFunction.Value, f: Function) extends Value[T, U, V]
 
