@@ -62,7 +62,7 @@ sealed trait Value[+T, +U, +V]
       case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
       case CombinatorValue(_, sym)              => sym.toString
-      case LambdaValue(lambda, _, _)            => "<lambda value>"
+      case LambdaValue(_, _, _)                 => "<lambda value>"
       case PartialAppValue(funValue, argValues) =>
         (List(funValue) ++ argValues).map {
           value =>
