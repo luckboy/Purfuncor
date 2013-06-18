@@ -29,4 +29,4 @@ case class FloatValue(x: Float) extends LiteralValue
 case class DoubleValue(x: Double) extends LiteralValue
 case class TupleFunValue(n: Int) extends LiteralValue
 case class TupleFieldFunValue(i: Int) extends LiteralValue
-case class BuiltinFunValue(f: BuiltinFunction.Value) extends LiteralValue
+case class BuiltinFunValue(bf: BuiltinFunction.Value) extends LiteralValue
