@@ -51,7 +51,7 @@ package object interp
             }
             (env2.popClosure, retValue.forFileAndCombSym(comb.file, some(sym)))
           } else
-            (env, NoValue.fromString("invalid number of arguments"))
+            (env, NoValue.fromString("illegal number of arguments"))
         case LambdaValue(lambda, closure, file) =>
           if(lambda.args.size === argValues.size) {
             val localVarValues = lambda.args.list.zip(argValues).flatMap { 
