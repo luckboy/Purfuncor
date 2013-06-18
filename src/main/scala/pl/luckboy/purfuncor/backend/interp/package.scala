@@ -29,7 +29,10 @@ package object interp
         case Var(loc)                  =>
           (env, env.varValue(loc))
         case Literal(value)            =>
-          (env, Value.fromLiteralValue(value))
+          Value.fromLiteralValue(value) match {
+            case BuiltinFunValue(_, f) if f.argCount === 0 => f.applyS(Vector())(env)
+            case value2                                    => (env, value2)
+          }
       }
     
     override def valueFromTermS(term: Term[SimpleTerm[Symbol, T]])(env: SymbolEnvironment[T]) = evaluateS(term)(env)
