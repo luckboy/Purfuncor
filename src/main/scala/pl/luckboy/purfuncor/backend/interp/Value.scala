@@ -44,6 +44,34 @@ sealed trait Value[+T, +U, +V]
       case _                         =>
         this
     }
+  
+  override def toString =
+    this match {
+      case NoValue(msg, _, _)                   => "<no value: " + msg + ">"
+      case BooleanValue(x)                      => if(x) "true" else "false"
+      case CharValue(x)                         => "'" + (if(x === '\'') "\\'" else x) + "'"
+      case ByteValue(x)                         => x + "b"
+      case ShortValue(x)                        => x + "s"
+      case IntValue(x)                          => x.toString
+      case LongValue(x)                         => x + "L"
+      case FloatValue(x)                        => x + "f"
+      case DoubleValue(x)                       => x.toString
+      case TupleFunValue(n)                     => "tuple " + n
+      case TupleFieldFunValue(i)                => "#" + (i + 1)
+      case BuiltinFunValue(f, _)                => "#" + f
+      case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
+      case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
+      case CombinatorValue(_, sym)              => sym.toString
+      case LambdaValue(lambda, _, _)            => "<lambda value>"
+      case PartialAppValue(funValue, argValues) =>
+        (List(funValue) ++ argValues).map {
+          value =>
+            value match {
+              case _: PartialAppValue[T, U, V] => "(" + value + ")"
+              case _                           => value.toString
+            }
+        }.mkString(" ")
+    }
 }
 
 object Value
