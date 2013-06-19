@@ -7,6 +7,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import pl.luckboy.purfuncor.frontend.resolver.NameTree
 import pl.luckboy.purfuncor.common.Evaluator._
 
 package object interp
@@ -119,5 +120,9 @@ package object interp
 
     override def undefinedGlobalVarError: NoValue[Symbol, T, SymbolClosure[T]] =
       NoValue.fromString("undefined global variable")
+  }
+  
+  implicit def symbolEnvironmental[T] = new Environmental[SymbolEnvironment[T]] {
+    override def nameTreeFromEnvironment(env: SymbolEnvironment[T]) = NameTree.fromGlobalSymbols(env.globalVarValues.keys)
   }
 }

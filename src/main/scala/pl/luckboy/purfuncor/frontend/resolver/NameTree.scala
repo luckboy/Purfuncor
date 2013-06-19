@@ -21,8 +21,9 @@ object NameTree
 {
   val empty = NameTree(Map())
   
-  def fromTree[T, U](tree: Tree[GlobalSymbol, T, U]) =
-    tree.combs.keys.foldLeft(NameTree.empty) { _ |+| fromGlobalSymbol(_) }
+  def fromTree[T, U](tree: Tree[GlobalSymbol, T, U]) = fromGlobalSymbols(tree.combs.keys)
+  
+  def fromGlobalSymbols(syms: Iterable[GlobalSymbol]) = syms.foldLeft(NameTree.empty) { _ |+| fromGlobalSymbol(_) }
   
   def fromGlobalSymbol(sym: GlobalSymbol) =
     fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set())))
