@@ -60,7 +60,7 @@ object Initializer
       val ((loc, neighborLocs), stck2) = stck.pop2
       neighborLocs match {
         case neighborLoc :: nextNeighborLocs =>
-          val stck3 = stck.push((loc, nextNeighborLocs))
+          val stck3 = stck2.push((loc, nextNeighborLocs))
           if(!markedLocs.contains(neighborLoc)) {
             val markedLocs2 = markedLocs + neighborLoc
             tree.combs.get(neighborLoc) match {
