@@ -252,9 +252,9 @@ object Resolver
       tree <- transform(List(none -> parseTree))(nameTree)
     } yield tree
     
-  def transformTermString(s: String)(nameTree: NameTree) =
+  def transformTermString(s: String)(scope: Scope) =
     for {
       term <- parser.Parser.parseTermString(s)
-      term2 <- transformTerm(term)(Scope.fromNameTree(nameTree))
+      term2 <- transformTerm(term)(scope)
     } yield term2
 }

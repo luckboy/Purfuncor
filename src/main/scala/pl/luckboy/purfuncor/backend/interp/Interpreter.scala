@@ -7,6 +7,7 @@ import pl.luckboy.purfuncor.frontend.SimpleTerm
 import pl.luckboy.purfuncor.frontend.Combinator
 import pl.luckboy.purfuncor.frontend.parser
 import pl.luckboy.purfuncor.frontend.resolver
+import pl.luckboy.purfuncor.frontend.resolver.Scope
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import Initializer._
@@ -39,7 +40,7 @@ object Interpreter
     State(interpretTreeStringS[T, E](s))
     
   def interpretTermStringS[T, E](s: String)(env: E)(implicit eval: Evaluator[SimpleTerm[Symbol, parser.LetInfo], E, Value[Symbol, parser.LetInfo, T]], enval: Environmental[E]) =
-    resolver.Resolver.transformTermString(s)(enval.nameTreeFromEnvironment(env)).map {
+    resolver.Resolver.transformTermString(s)(Scope.fromNameTree(enval.nameTreeFromEnvironment(env))).map {
       term =>
         val (env2, value) = interpretTermS(term)(env)
         (env2, value.success)
