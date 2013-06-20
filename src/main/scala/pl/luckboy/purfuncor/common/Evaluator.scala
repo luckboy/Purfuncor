@@ -44,7 +44,7 @@ object Evaluator
   def appS[T, E, V](funValue: V, argValues: Seq[V])(env: E)(implicit eval: Evaluator[T, E, V]): (E, V) = {
     val argCount = eval.valueArgCount(funValue)
     if(!eval.isNoValue(funValue))
-      if(argCount == argValues.size) {
+      if(argCount === argValues.size) {
         eval.fullyAppS(funValue, argValues)(env)
       } else if(argCount > argValues.size) {
         eval.partiallyAppS(funValue, argValues)(env)
@@ -64,7 +64,7 @@ object Evaluator
     terms.foldLeft((env, Seq[V]().success[V])) {
       case ((newEnv, Success(values)), term) =>
         val (newEnv2, value) = eval.valueFromTermS(terms.head)(newEnv)
-        (newEnv2, if(eval.isNoValue(value)) (values :+ value).success else value.failure)
+        (newEnv2, if(!eval.isNoValue(value)) (values :+ value).success else value.failure)
       case ((newEnv, Failure(noValue)), _)   =>
         (newEnv, Failure(noValue))
     }
