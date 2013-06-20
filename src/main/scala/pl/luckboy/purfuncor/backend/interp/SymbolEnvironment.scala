@@ -49,5 +49,13 @@ case class SymbolEnvironment[T](
   def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
 }
 
+object SymbolEnvironment
+{
+  def empty[T] = SymbolEnvironment[T](
+      globalVarValues = Map(),
+      closureStack = Nil,
+      currentFile = none)
+}
+
 case class SymbolClosure[T](
     localVarValues: Map[LocalSymbol, NonEmptyList[Value[Symbol, T, SymbolClosure[T]]]])
