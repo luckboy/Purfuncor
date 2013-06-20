@@ -27,21 +27,21 @@ object Interpreter
   def interpretTerm[T, E, V](term: Term[T])(implicit eval: Evaluator[T, E, V]) =
     State(interpretTermS[T, E, V](term))
   
-  def interpretTreeStringS[T, U, V, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, U, V]])(env: E)(implicit init: Initializer[NoValue[Symbol, parser.LetInfo, C], T, U, E], enval: Environmental[E]) =
+  def interpretTreeStringS[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E]) =
     (for {
       tree <- resolver.Resolver.transformString(s)(enval.nameTreeFromEnvironment(env))
       tree2 <- f(tree)
     } yield {
-      val (env2, value) = interpretTreeS(tree2)(env)
-      (env2, value.success)
+      val (env2, res) = interpretTreeS(tree2)(env)
+      (env2, res.success)
     }).valueOr {
       noValue => (env, noValue.failure)      
     }
     
-  def interpretTreeString[T, U, V, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, U, V]])(implicit init: Initializer[NoValue[Symbol, parser.LetInfo, C], T, U, E], enval: Environmental[E]) =
-    State(interpretTreeStringS[T, U, V, C, E](s)(f))
+  def interpretTreeString[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E]) =
+    State(interpretTreeStringS[T, U, V, W, C, E](s)(f))
     
-  def interpretTermStringS[T, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[T]])(env: E)(implicit eval: Evaluator[T, E, Value[Symbol, parser.LetInfo, C]], enval: Environmental[E]) =
+  def interpretTermStringS[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E]) =
     (for {
       term <- resolver.Resolver.transformTermString(s)(Scope.fromNameTree(enval.nameTreeFromEnvironment(env)))
       term2 <- f(term)
@@ -52,6 +52,6 @@ object Interpreter
       noValue => (env, noValue.failure)
     }
     
-  def interpretTermString[T, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[T]])(implicit eval: Evaluator[T, E, Value[Symbol, parser.LetInfo, C]], enval: Environmental[E]) =
-    State(interpretTermStringS[T, C, E](s)(f))  
+  def interpretTermString[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E]) =
+    State(interpretTermStringS[T, U, C, E](s)(f))  
 }
