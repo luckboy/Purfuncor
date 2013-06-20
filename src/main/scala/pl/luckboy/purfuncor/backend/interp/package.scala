@@ -122,7 +122,9 @@ package object interp
       NoValue.fromString("undefined global variable")
   }
   
-  implicit def symbolEnvironmental[T] = new Environmental[SymbolEnvironment[T]] {
+  implicit def symbolEnvironmental[T] = new Environmental[SymbolEnvironment[T], Value[Symbol, T, SymbolClosure[T]]] {
+    override def globalVarValueFromEnvironment(env: SymbolEnvironment[T])(sym: GlobalSymbol) = env.varValue(sym)
+    
     override def nameTreeFromEnvironment(env: SymbolEnvironment[T]) = NameTree.fromGlobalSymbols(env.globalVarValues.keys)
   }
 }
