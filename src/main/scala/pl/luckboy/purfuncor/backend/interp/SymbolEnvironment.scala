@@ -17,9 +17,11 @@ case class SymbolEnvironment[T](
   def varValue(sym: Symbol): Value[Symbol, T, SymbolClosure[T]] =
     sym match {
       case globalSym: GlobalSymbol =>
-        globalVarValues.getOrElse(globalSym, NoValue.fromString("undefined global variable"))
+        globalVarValues.getOrElse(globalSym, NoValue.fromString("undefined global variable "))
       case localSym: LocalSymbol   =>
-        closureStack.head.localVarValues.get(localSym).map { _.head }.getOrElse(NoValue.fromString("undefined local variable"))
+        closureStack.headOption.map {
+          _.localVarValues.get(localSym).map { _.head }.getOrElse(NoValue.fromString("undefined local variable"))
+        }.getOrElse(NoValue.fromString("closure stack is empty"))
     }
   
   def pushLocalVars(values: Map[LocalSymbol, Value[Symbol, T, SymbolClosure[T]]]): SymbolEnvironment[T] =

@@ -48,9 +48,9 @@ package object interp
               case (Arg(Some(name), _), v) => some((LocalSymbol(name), v))
             }.toMap
             val (env2, retValue) = env.withClosure(SymbolClosure(Map())) {
-              _.withLocalVars(localVarValues) { newEnv => evaluateS(comb.body)(env.withCurrentFile(comb.file)) }
+              _.withLocalVars(localVarValues) { newEnv => evaluateS(comb.body)(newEnv.withCurrentFile(comb.file)) }
             }
-            (env2.popClosure, retValue.forFileAndCombSym(comb.file, some(sym)))
+            (env2, retValue.forFileAndCombSym(comb.file, some(sym)))
           } else
             (env, NoValue.fromString("illegal number of arguments"))
         case LambdaValue(lambda, closure, file) =>
