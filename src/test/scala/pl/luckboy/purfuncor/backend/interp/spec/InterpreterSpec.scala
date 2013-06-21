@@ -64,13 +64,63 @@ l x = #iAdd x 3
       inside(enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("l")))) { case CombinatorValue(_, _) => () }
     }
     
-    it should "interpret the term string with the global variables" is (pending)
+    it should "interpret the term string with the global variables" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+f = 1
+g = 2
+h x = #iMul x 3 
+""")(f).run(emptyEnv)
+      val (env2, res2) = Interpreter.interpretTermString("#iAdd f (#iSub (h 10) g)")(g).run(env)
+      res2 should be ===(IntValue(29).success)
+    }
     
-    it should "interpret the let-expression" is (pending)
+    it should "interpret the let-expressions" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+f = let
+    a = 10
+    b = 20
+  in
+    #iMul (let
+      c = 30
+    in
+      #iAdd (#iAdd a b) c) a
+""")(f).run(emptyEnv)
+      res should be ===(().success.success)
+      enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("f"))) should be ===(IntValue(600))
+    }
     
-    it should "interpret the application of the lambda expression" is (pending)
+    it should "interpret the applications of the lambda expressions" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+f = let
+      a = 1
+    in
+      let
+        b = \x => #iAdd x a
+        c = 3
+        d = 4
+      in
+        (\x y => #iAdd (#iMul (b x) c) (#iMul x y)) d (#iAdd d 5)
+""")(f).run(emptyEnv)
+      res should be ===(().success.success)
+      enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("f"))) should be ===(IntValue(51))
+    }
 
-    it should "interpret the partial application" is (pending)
+    it should "interpret the partial applications" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+f x y z = #iAdd (#iMul x y) z
+g = let
+      a = f 3
+      b = \x y => #iSub x y
+    in
+      let
+        c = b 5
+        d = a 6
+      in
+        #iAdd (#iAdd (a 7 8) (a 9 10)) (#iMul (c 11) (d 12))
+""")(f).run(emptyEnv)
+      res should be ===(().success.success)
+      enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("g"))) should be ===(IntValue(-114))
+    }
   }
   
   "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LetInfo])(_.successNel, _.successNel)
