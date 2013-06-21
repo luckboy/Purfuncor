@@ -55,7 +55,7 @@ object SymbolEnvironment
 {
   def empty[T] = SymbolEnvironment[T](
       globalVarValues = Map(),
-      closureStack = Nil,
+      closureStack = List(SymbolClosure(Map())),
       currentFile = none)
 }
 
