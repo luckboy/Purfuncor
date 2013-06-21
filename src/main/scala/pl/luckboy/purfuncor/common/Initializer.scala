@@ -50,9 +50,15 @@ object Initializer
     State(initializeS[E, L, C, I, F](tree))
     
   def varDependenceS[E, L, C, I, F](tree: Tree[L, C, I])(loc: L)(markedLocs: Set[L])(implicit init: Initializer[E, L, C, F]): Validation[E, (Set[L], List[L])] =
-    tree.combs.get(loc).map {
-      comb => dfs(tree, Stack((loc, init.usedGlobalVarsFromCombinator(comb).toList)), Nil)(markedLocs)
-    }.getOrElse((markedLocs, Nil).success)
+    if(!markedLocs.contains(loc))
+      tree.combs.get(loc).map {
+        comb => 
+          dfs(tree, Stack((loc, init.usedGlobalVarsFromCombinator(comb).toList)), Nil)(markedLocs).map {
+            case (markedLocs2, locs2) => (markedLocs2, locs2.reverse)
+          }
+      }.getOrElse((markedLocs, Nil).success)
+    else
+      (markedLocs, Nil).success
 
   @tailrec
   private def dfs[E, L, C, I, F](tree: Tree[L, C, I], stck: Stack[(L, List[L])], locs: List[L])(markedLocs: Set[L])(implicit init: Initializer[E, L, C, F]): Validation[E, (Set[L], List[L])] =
