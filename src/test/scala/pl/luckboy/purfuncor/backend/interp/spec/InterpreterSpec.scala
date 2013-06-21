@@ -63,7 +63,15 @@ l x = #iAdd x 3
       enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("k"))) should be ===(IntValue(7))
       inside(enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("l")))) { case CombinatorValue(_, _) => () }
     }
+    
+    it should "interpret the term string with the global variables" is (pending)
+    
+    it should "interpret the let-expression" is (pending)
+    
+    it should "interpret the application of the lambda expression" is (pending)
+
+    it should "interpret the partial application" is (pending)
   }
   
-  "A Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LetInfo])(_.successNel, _.successNel)
+  "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LetInfo])(_.successNel, _.successNel)
 }
