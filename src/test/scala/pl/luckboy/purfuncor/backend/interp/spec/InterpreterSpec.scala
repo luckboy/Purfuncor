@@ -44,7 +44,7 @@ h = #iSub 7 4
       enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("h"))) should be ===(IntValue(30))
     }
     
-    it should "initialize all dependent variables " in {
+    it should "initialize all dependent variables" in {
       val (env, res) = Interpreter.interpretTreeString("""
 f = #iAdd (#iAdd k (g 1 2)) (j 3 4)
 g x y = #iMul (h x) y
