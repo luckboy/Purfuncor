@@ -32,7 +32,7 @@ sealed trait Value[+T, +U, +V]
   def withPos(pos: Position): Value[T, U, V] =
     this match {
       case noValue: NoValue[T, U, V] =>
-        noValue.copy(currentStackTraceElems = noValue.currentStackTraceElems :+ StackTraceElement(none, none, pos))
+        noValue.copy(currentStackTraceElem = noValue.currentStackTraceElem.orElse(some(StackTraceElement(none, none, pos))))
       case _                         =>
         this
     }
@@ -40,7 +40,7 @@ sealed trait Value[+T, +U, +V]
   def forFileAndCombSym(file: Option[java.io.File], combSym: Option[GlobalSymbol]): Value[T, U, V] =
     this match {
       case noValue: NoValue[T, U, V] =>
-        noValue.copy(prevStackTraceElems = noValue.prevStackTraceElems ++ noValue.currentStackTraceElems.map { _.copy(file = file, combSym = combSym) }, currentStackTraceElems = Nil)
+        noValue.copy(prevStackTraceElems = noValue.prevStackTraceElems ++ noValue.currentStackTraceElem.map { _.copy(file = file, combSym = combSym) }, currentStackTraceElem = none)
       case _                         =>
         this
     }
@@ -92,16 +92,16 @@ object Value
     }
 }
 
-case class NoValue[+T, +U, +V](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElems: List[StackTraceElement]) extends Value[T, U, V]
+case class NoValue[+T, +U, +V](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElem: Option[StackTraceElement]) extends Value[T, U, V]
 {
-  val stackTrace = prevStackTraceElems ++ currentStackTraceElems
+  val stackTrace = prevStackTraceElems ++ currentStackTraceElem
   
   val systemStackTrace = Thread.currentThread().getStackTrace().toList  
 }
 
 object NoValue
 {
-  def fromString[T, U, V](s: String) = NoValue[T, U, V](s, Nil, Nil)
+  def fromString[T, U, V](s: String) = NoValue[T, U, V](s, Nil, none)
 }
 
 case class BooleanValue[+T, +U, +V](x: Boolean) extends Value[T, U, V]
