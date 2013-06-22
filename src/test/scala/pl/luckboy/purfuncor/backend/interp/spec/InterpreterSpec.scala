@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.backend.interp.spec
+import scala.util.parsing.input.OffsetPosition
 import scalaz._
 import scalaz.Scalaz._
 import org.scalatest.FlatSpec
@@ -120,6 +121,15 @@ g = let
 """)(f).run(emptyEnv)
       res should be ===(().success.success)
       enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("g"))) should be ===(IntValue(-114))
+    }
+    
+    it should "complain at the term" in {
+      val (env, res) = Interpreter.interpretTermString("#iAdd (#iDiv 1 0) 2")(g).run(emptyEnv)
+      inside(res) {
+        case Success(noValue: NoValue[U, V, C]) =>
+          noValue.msg should be ===("divided by zero")
+          inside(noValue.stackTrace) { case List(StackTraceElement(None, None, OffsetPosition(_, _))) => () }
+      }
     }
   }
   
