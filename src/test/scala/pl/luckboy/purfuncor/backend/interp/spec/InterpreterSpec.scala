@@ -123,6 +123,21 @@ g = let
       enval.globalVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("g"))) should be ===(IntValue(-114))
     }
     
+    it should "interpret the term with the covered local variables" in {
+      val (env, res) = Interpreter.interpretTermString("""
+let
+  a = 1
+  b = 2
+in
+  #iMul (let
+    a = 3
+    b = 4
+  in
+    #iAdd a b) (#iAdd a b)
+""")(g).run(emptyEnv)
+      res should be ===(IntValue(21).success)
+    }
+    
     it should "complain at the term" in {
       val (env, res) = Interpreter.interpretTermString("#iAdd (#iDiv 1 0) 2")(g).run(emptyEnv)
       inside(res) {
