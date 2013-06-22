@@ -131,6 +131,60 @@ g = let
           inside(noValue.stackTrace) { case List(StackTraceElement(None, None, OffsetPosition(_, _))) => () }
       }
     }
+    
+    it should "complain at the combinator without the arguments" in {
+      val (env, res) = Interpreter.interpretTreeString("f = #iSub 1 (#iDiv 2 0)")(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noValue)) =>
+          noValue.msg should be ===("divided by zero")
+          inside(noValue.stackTrace) { case List(StackTraceElement(None, Some(GlobalSymbol(NonEmptyList("f"))), OffsetPosition(_, _))) => () }
+      }
+    }
+    
+    it should "complain at the combinator with the two arguments" in {
+      val (env, res) = Interpreter.interpretTreeString("f x y = #iAdd (#iDiv x y) y")(f).run(emptyEnv)
+      val (env2, res2) = Interpreter.interpretTermString("f 10 0")(g).run(env)
+      inside(res2) {
+        case Success(noValue: NoValue[U, V, C]) =>
+          noValue.msg should be ===("divided by zero")
+          inside(noValue.stackTrace) { 
+            case List(stackTraceElem1, stackTraceElem2) =>
+              inside(stackTraceElem1) { case StackTraceElement(None, Some(GlobalSymbol(NonEmptyList("f"))), OffsetPosition(_, _)) => () }
+              inside(stackTraceElem2) { case StackTraceElement(None, None, OffsetPosition(_, _)) => () }              
+          }
+      }
+    }
+    
+    it should "complain at the combinator that is applied at the other combinator" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+f x y = #iAdd (#iDiv x y) y
+g x = f x 0
+""")(f).run(emptyEnv)
+      val (env2, res2) = Interpreter.interpretTermString("g 10")(g).run(env)
+      inside(res2) {
+        case Success(noValue: NoValue[U, V, C]) =>
+          noValue.msg should be ===("divided by zero")
+          inside(noValue.stackTrace) { 
+            case List(stackTraceElem1, stackTraceElem2, stackTraceElem3) =>
+              inside(stackTraceElem1) { case StackTraceElement(None, Some(GlobalSymbol(NonEmptyList("f"))), OffsetPosition(_, _)) => () }
+              inside(stackTraceElem2) { case StackTraceElement(None, Some(GlobalSymbol(NonEmptyList("g"))), OffsetPosition(_, _)) => () }
+              inside(stackTraceElem3) { case StackTraceElement(None, None, OffsetPosition(_, _)) => () }              
+          }
+      }
+    }
+    
+    it should "complain at the lambda expression" in {
+      val (env, res) = Interpreter.interpretTermString("(\\x => #iDiv 1 x) 0")(g).run(emptyEnv)
+      inside(res) {
+        case Success(noValue: NoValue[U, V, C]) =>
+          noValue.msg should be ===("divided by zero")
+          inside(noValue.stackTrace) { 
+            case List(stackTraceElem1, stackTraceElem2) =>
+              inside(stackTraceElem1) { case StackTraceElement(None, None, OffsetPosition(_, _)) => () }
+              inside(stackTraceElem2) { case StackTraceElement(None, None, OffsetPosition(_, _)) => () }
+          }
+      }
+    }
   }
   
   "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LetInfo])(_.successNel, _.successNel)
