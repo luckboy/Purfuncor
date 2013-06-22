@@ -35,7 +35,7 @@ object Interpreter
       val (env2, res) = interpretTreeS(tree2)(env)
       (env2, res.success)
     }).valueOr {
-      noValue => (env, noValue.failure)      
+      errs => (env, errs.failure)      
     }
     
   def interpretTreeString[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
