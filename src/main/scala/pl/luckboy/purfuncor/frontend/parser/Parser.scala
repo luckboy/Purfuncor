@@ -201,7 +201,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   def parseTermString(s: String) =
     phrase(noNlParsers.expr)(new lexical.Scanner(s)) match {
-      case Success(termWrapper, _) => termWrapper.term.success
+      case Success(termWrapper, _) => termWrapperToTerm(termWrapper).success
       case Failure(msg, next)      => common.Error(msg, none, next.pos).failureNel
       case Error(msg, next)        => common.FatalError(msg, none, next.pos).failureNel
     }
