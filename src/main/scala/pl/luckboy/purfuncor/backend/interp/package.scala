@@ -56,7 +56,8 @@ package object interp
         case LambdaValue(lambda, closure, file) =>
           if(lambda.args.size === argValues.size) {
             val localVarValues = lambda.args.list.zip(argValues).flatMap { 
-              case (Arg(Some(name), _), v) => some((LocalSymbol(name), v))
+              case (Arg(Some(name), _), v) => List((LocalSymbol(name), v))
+              case (_, _)                  => Nil
             }.toMap
             val (env2, retValue) = env.withClosure(closure) {
               _.withLocalVars(localVarValues) { newEnv => evaluateS(lambda.body)(newEnv.withCurrentFile(file)) }
