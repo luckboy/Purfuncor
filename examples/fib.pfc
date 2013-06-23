@@ -1,0 +1,1 @@
+fib n = #cond (\_ => n) (\_ => #iAdd (fib (#iSub n 1)) (fib (#iSub n 2))) (#iLe n 1)
