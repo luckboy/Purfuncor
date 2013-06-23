@@ -8,7 +8,6 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend.parser
 import pl.luckboy.purfuncor.frontend.resolver
 import pl.luckboy.purfuncor.backend.interp
-import pl.luckboy.purfuncor.backend.interp
 
 object Main
 {
