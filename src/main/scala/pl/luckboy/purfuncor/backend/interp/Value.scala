@@ -47,7 +47,12 @@ sealed trait Value[+T, +U, +V]
   
   override def toString =
     this match {
-      case NoValue(msg, _, _)                   => "<no value: " + msg + ">"
+      case noValue @ NoValue(msg, _, _)         =>
+        "<no value: " + msg + ">\n" +
+        "system stack trace:\n" +
+        noValue.systemStackTrace.map { (" " * 8) + "at " + _ }.mkString("\n") + "\n" +
+        "stack trace:\n" +
+        noValue.stackTrace.map { (" " * 8) + _ }.mkString("\n") + "\n"
       case BooleanValue(x)                      => if(x) "true" else "false"
       case CharValue(x)                         => "'" + (if(x === '\'') "\\'" else x) + "'"
       case ByteValue(x)                         => x + "b"

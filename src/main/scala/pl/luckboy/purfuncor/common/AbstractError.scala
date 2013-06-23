@@ -13,7 +13,7 @@ sealed trait AbstractError
         file.map { _.getPath() }.getOrElse("<no file>") + ": " + pos + ": " + msg
       case err @ FatalError(msg, file, pos) =>
         file.map { _.getPath() }.getOrElse("<no file>") + ": " + pos + ": fatal: " + msg + "\n" +
-        err.stackTrace.map { "\tat " + _ }.mkString("\n") + "\n"
+        err.stackTrace.map { (" " * 8) + "at " + _ }.mkString("\n") + "\n"
       case IOError(msg, file)               =>
         file.map { _.getPath() }.getOrElse("<no file>") + ": io error: " + msg
     }
