@@ -53,12 +53,12 @@ object Resolver
     term match {
       case App(fun, args, pos) =>
         (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
-      case Simple(Let(binds, body, letInfo), pos) =>
+      case Simple(Let(binds, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(binds.map { _.name }.toSet)
-        (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, letInfo), pos) }
-      case Simple(Lambda(args, body, letInfo), pos) =>
+        (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, lambdaInfo), pos) }
+      case Simple(Lambda(args, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
-        (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, letInfo), pos) }
+        (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, lambdaInfo), pos) }
       case Simple(Var(sym), pos) =>
         transformSymbol(sym)(scope).map { s => Simple(Var(s), pos) }
       case Simple(Literal(value), pos) =>
@@ -181,7 +181,7 @@ object Resolver
         }
     }
     
-  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], T], ValidationNel[AbstractError, Unit]) =
+  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (tree2, res), scope), d) =>
         d match {
@@ -207,7 +207,7 @@ object Resolver
               val res2 = (transformArgs(args) |@| transformTerm(body)(newScope)) { (_, t) => t}
               res2 match {
                 case Success(t) => 
-                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(args, t, parser.LetInfo, none))), (res |@| res2) { (u, _) => u }), scope)
+                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(args, t, parser.LambdaInfo, none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree2, (res |@| res2) { (u, _) => u }), scope)
               }
@@ -223,7 +223,7 @@ object Resolver
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
     State(transformDefsS[T](defs)(scope))
     
-  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], T]) =
+  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T]) =
     transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
   def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
@@ -236,7 +236,7 @@ object Resolver
           res2 => res |+| resultForFile(res2, file)
         }.run(nt)
     }
-    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], TreeInfo](Map(), TreeInfo), res1)) {
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], TreeInfo](Map(), TreeInfo), res1)) {
       case (p @ (t, res), (file, pt)) => 
         val (newTree, newRes) = transformParseTree[TreeInfo](pt)(newNameTree).map {
           res2 => res |+| resultForFile(res2, file)

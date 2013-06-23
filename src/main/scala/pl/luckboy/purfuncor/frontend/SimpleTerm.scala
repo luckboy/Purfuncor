@@ -7,9 +7,9 @@ sealed trait SimpleTerm[+T, +U]
 {
   override def toString = simpleTermIndenting.indentedStringFrom(this)(0)
 }
-// A letInfo field for types.
-case class Let[+T, +U](binds: NonEmptyList[Bind[T, U]], body: Term[SimpleTerm[T, U]], letInfo: U) extends SimpleTerm[T, U]
-case class Lambda[+T, +U](args: NonEmptyList[Arg], body: Term[SimpleTerm[T, U]], letInfo: U) extends SimpleTerm[T, U]
+// A lambdaInfo field for types.
+case class Let[+T, +U](binds: NonEmptyList[Bind[T, U]], body: Term[SimpleTerm[T, U]], lambdaInfo: U) extends SimpleTerm[T, U]
+case class Lambda[+T, +U](args: NonEmptyList[Arg], body: Term[SimpleTerm[T, U]], lambdaInfo: U) extends SimpleTerm[T, U]
 case class Var[+T, +U](loc: T) extends SimpleTerm[T, U]
 case class Literal[+T, +U](value: LiteralValue) extends SimpleTerm[T, U]
 

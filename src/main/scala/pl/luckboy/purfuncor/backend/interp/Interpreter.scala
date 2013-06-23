@@ -27,7 +27,7 @@ object Interpreter
   def interpretTerm[T, E, V](term: Term[T])(implicit eval: Evaluator[T, E, V]) =
     State(interpretTermS[T, E, V](term))
   
-  def interpretTreeStringS[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+  def interpretTreeStringS[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
     (for {
       tree <- resolver.Resolver.transformString(s)(enval.nameTreeFromEnvironment(env))
       tree2 <- f(tree)
@@ -38,10 +38,10 @@ object Interpreter
       errs => (env, errs.failure)      
     }
     
-  def interpretTreeString[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+  def interpretTreeString[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
     State(interpretTreeStringS[T, U, V, W, C, E](s)(f))
 
-  def interpretTreeFilesS[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+  def interpretTreeFilesS[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
     (for {
       tree <- resolver.Resolver.transformFiles(files)(enval.nameTreeFromEnvironment(env))
       tree2 <- f(tree)
@@ -52,10 +52,10 @@ object Interpreter
       errs => (env, errs.failure)
     }
   
-  def interpretTreeFiles[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+  def interpretTreeFiles[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
     State(interpretTreeFilesS[T, U, V, W, C, E](files)(f))
     
-  def interpretTermStringS[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
+  def interpretTermStringS[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
     (for {
       term <- resolver.Resolver.transformTermString(s)(Scope.fromNameTree(enval.nameTreeFromEnvironment(env)))
       term2 <- f(term)
@@ -66,6 +66,6 @@ object Interpreter
       noValue => (env, noValue.failure)
     }
   
-  def interpretTermString[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
+  def interpretTermString[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
     State(interpretTermStringS[T, U, C, E](s)(f))  
 }

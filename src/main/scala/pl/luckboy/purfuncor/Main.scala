@@ -11,9 +11,9 @@ import pl.luckboy.purfuncor.backend.interp
 
 object Main
 {
-  type Environment = interp.SymbolEnvironment[parser.LetInfo]
+  type Environment = interp.SymbolEnvironment[parser.LambdaInfo]
   
-  type NoValue = interp.NoValue[resolver.Symbol, parser.LetInfo, interp.SymbolClosure[parser.LetInfo]]  
+  type NoValue = interp.NoValue[resolver.Symbol, parser.LambdaInfo, interp.SymbolClosure[parser.LambdaInfo]]  
 
   object ExitFlag extends Enumeration
   {
@@ -75,7 +75,7 @@ object Main
     s
   }
 
-  def printResult(res: ValidationNel[AbstractError, Validation[interp.NoValue[resolver.Symbol, parser.LetInfo, interp.SymbolClosure[parser.LetInfo]], Unit]]) =
+  def printResult(res: ValidationNel[AbstractError, Validation[interp.NoValue[resolver.Symbol, parser.LambdaInfo, interp.SymbolClosure[parser.LambdaInfo]], Unit]]) =
     res match {
       case Success(Success(()))      => ()
       case Success(Failure(noValue)) => consoleReader.println(noValue.toString)
