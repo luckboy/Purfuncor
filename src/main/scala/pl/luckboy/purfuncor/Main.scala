@@ -22,6 +22,18 @@ object Main
   }
   
   val commands = Map[String, List[String] => State[Environment, ExitFlag.Value]](
+      "help" -> {
+        _ => State({ env =>
+          consoleReader.println("Commands:")
+          consoleReader.println()
+          consoleReader.println(":help                   display this text")
+          consoleReader.println(":load <path> ...        load files")
+          consoleReader.println(":paste                  enable the paste mode (exit from this mode is ctrl-D)")
+          consoleReader.println(":quit                   exit this interpreter")
+          consoleReader.println()
+          (env, ExitFlag.NoExit)
+        })
+      },
       "load" -> {
         args => State({ env =>
           val (env2, res) = interpretTreeFiles(args.map { s => new java.io.File(s)}).run(env)
@@ -86,9 +98,10 @@ object Main
     if(line =/= null) {
       val (env2, exitFlag) = parseCommandLine(line) match {
         case Some((cmdName, args)) =>
-          commands.get(cmdName) match {
-            case Some(cmd) => cmd(args).run(env)
-            case None      => consoleReader.println("unknown command"); (env, ExitFlag.NoExit)
+          commands.filter { _._1.startsWith(cmdName) }.map { _._2 }.toList match {
+            case List(cmd) => cmd(args).run(env)
+            case Nil       => consoleReader.println("unknown command"); (env, ExitFlag.NoExit)
+            case _         => consoleReader.println("ambiguous command"); (env, ExitFlag.NoExit)
           }
         case None                  =>
           val (newEnv, res) = interpretTermString(line).run(env)
