@@ -32,6 +32,7 @@ object Main
       "paste" -> {
         _ => State({ env =>
           val (env2, res) = interpretTreeString(readString()).run(env)
+          printResult(res)
           (env2, ExitFlag.NoExit)
         })
       },
