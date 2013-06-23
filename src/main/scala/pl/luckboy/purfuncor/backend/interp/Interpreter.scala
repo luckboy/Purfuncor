@@ -40,6 +40,20 @@ object Interpreter
     
   def interpretTreeString[T, U, V, W, C, E](s: String)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
     State(interpretTreeStringS[T, U, V, W, C, E](s)(f))
+
+  def interpretTreeFilesS[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(env: E)(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+    (for {
+      tree <- resolver.Resolver.transformFiles(files)(enval.nameTreeFromEnvironment(env))
+      tree2 <- f(tree)
+    } yield {
+      val (env2, res) = interpretTreeS(tree2)(env)
+      (env2, res.success)
+    }).valueOr {
+      errs => (env, errs.failure)
+    }
+  
+  def interpretTreeFiles[T, U, V, W, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LetInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], enval: Environmental[E, Value[U, V, C]]) =
+    State(interpretTreeFilesS[T, U, V, W, C, E](files)(f))
     
   def interpretTermStringS[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
     (for {
@@ -51,7 +65,7 @@ object Interpreter
     }).valueOr { 
       noValue => (env, noValue.failure)
     }
-    
+  
   def interpretTermString[T, U, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LetInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U]]])(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, C]], enval: Environmental[E, Value[T, U, C]]) =
     State(interpretTermStringS[T, U, C, E](s)(f))  
 }

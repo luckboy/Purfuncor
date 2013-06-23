@@ -252,6 +252,19 @@ object Resolver
       tree <- transform(List(none -> parseTree))(nameTree)
     } yield tree
     
+  def transformFile(file: java.io.File)(nameTree: NameTree) =
+    for {
+      parseTree <- parser.Parser.parseFile(file)
+      tree <- transform(List(some(file) -> parseTree))(nameTree)      
+    } yield tree
+    
+  def transformFiles(files: List[java.io.File])(nameTree: NameTree) = {
+    val res1 = files.foldLeft(List[(Option[java.io.File], parser.ParseTree)]().successNel[AbstractError]) {
+      case (res, file) => (res |@| parser.Parser.parseFile(file)) { (pts, pt) => pts :+ (some(file) -> pt) }
+    }
+    res1.flatMap { transform(_)(nameTree) }
+  }
+    
   def transformTermString(s: String)(scope: Scope) =
     for {
       term <- parser.Parser.parseTermString(s)

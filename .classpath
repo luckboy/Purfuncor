@@ -5,6 +5,8 @@
   <classpathentry output="target/scala-2.10.1/test-classes" path="src/test/java" kind="src"></classpathentry>
   <classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"></classpathentry>
   <classpathentry path="/home/luck/.ivy2/cache/org.scalaz/scalaz-core_2.10/bundles/scalaz-core_2.10-7.0.0.jar" kind="lib"></classpathentry>
+  <classpathentry path="/home/luck/.ivy2/cache/org.scala-lang/jline/jars/jline-2.10.1.jar" kind="lib"></classpathentry>
+  <classpathentry path="/home/luck/.ivy2/cache/org.fusesource.jansi/jansi/jars/jansi-1.4.jar" kind="lib"></classpathentry>
   <classpathentry path="/home/luck/.ivy2/cache/org.scalatest/scalatest_2.10/jars/scalatest_2.10-1.9.1.jar" kind="lib"></classpathentry>
   <classpathentry path="/home/luck/.ivy2/cache/org.scala-lang/scala-actors/jars/scala-actors-2.10.0.jar" kind="lib"></classpathentry>
   <classpathentry path="/home/luck/.ivy2/cache/org.scala-lang/scala-reflect/jars/scala-reflect-2.10.0.jar" kind="lib"></classpathentry>

@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.parser
+import scala.io.Source
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.input.NoPosition
@@ -200,6 +201,23 @@ object Parser extends StandardTokenParsers with PackratParsers
       case Failure(msg, next)    => common.Error(msg, none, next.pos).failureNel
       case Error(msg, next)      => common.FatalError(msg, none, next.pos).failureNel
     }
+  
+  def parseInputStream(in: java.io.InputStream) =
+    parseString(Source.fromInputStream(in).mkString(""))
+    
+  def parseFile(file: java.io.File) = {
+    val res = try {
+      val in = new java.io.FileInputStream(file)
+      try {
+        parseInputStream(in)
+      } finally {
+        in.close()
+      }
+    } catch {
+      case e: java.io.IOException => common.IOError(e.getMessage(), none).failureNel
+    }
+    common.Result.resultForFile(res, some(file))
+  }
   
   def parseTermString(s: String) =
     phrase(parseTerm)(new lexical.Scanner(s)) match {
