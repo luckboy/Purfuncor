@@ -6,8 +6,8 @@ import pl.luckboy.purfuncor.frontend.SimpleTerm
 
 abstract class Function(val argCount: Int)
 {
-  def applyS[T, U, V, E](argValues: Seq[Value[T, U, V]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, V]]): (E, Value[T, U, V])
+  def applyS[T, U, V, W, E](argValues: Seq[Value[T, U, V, W]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U, V], E, Value[T, U, V, W]]): (E, Value[T, U, V, W])
   
-  def apply[T, U, V, E](argValues: Seq[Value[T, U, V]])(implicit eval: Evaluator[SimpleTerm[T, U], E, Value[T, U, V]]) =
-    State(applyS[T, U, V, E](argValues))
+  def apply[T, U, V, W, E](argValues: Seq[Value[T, U, V, W]])(implicit eval: Evaluator[SimpleTerm[T, U, V], E, Value[T, U, V, W]]) =
+    State(applyS[T, U, V, W, E](argValues))
 }

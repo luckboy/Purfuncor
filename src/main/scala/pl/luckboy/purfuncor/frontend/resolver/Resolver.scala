@@ -10,20 +10,20 @@ import pl.luckboy.purfuncor.common.Result._
 
 object Resolver
 {
-  def treeForFile[T, U](tree: Tree[GlobalSymbol, Combinator[Symbol, T], U], file: Option[java.io.File]) =
+  def treeForFile[T, U, V](tree: Tree[GlobalSymbol, Combinator[Symbol, T, V], U], file: Option[java.io.File]) =
     tree.copy(tree.combs.mapValues { _.copy(file = file) })
         
-  def transformTermNel[T](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+  def transformTermNel[T, U](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]]])(scope: Scope) =
     terms.tail.foldLeft(transformTerm(terms.head)(scope).map { NonEmptyList(_) }) { 
       (res, t) => (transformTerm(t)(scope) |@| res)(_ <:: _)
     }.map { _.reverse }
   
-  def transformBind[T](bind: Bind[parser.Symbol, T])(scope: Scope) =
+  def transformBind[T, U](bind: Bind[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
     bind match {
       case Bind(name, body, pos) => transformTerm(body)(scope).map { Bind(name, _, pos) }
     }
 
-  def transformBindNel[T](binds: NonEmptyList[Bind[parser.Symbol, T]])(scope: Scope) =
+  def transformBindNel[T, U](binds: NonEmptyList[Bind[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope) =
     binds.tail.foldLeft((transformBind(binds.head)(scope).map { NonEmptyList(_) }, Set(binds.head.name))) {
       case ((res, usedNames), b) => 
         val res2 = if(usedNames.contains(b.name))
@@ -49,7 +49,7 @@ object Resolver
   def transformArgs(args: List[Arg]) =
     args.toNel.map { transformArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
   
-  def transformTerm[T](term: Term[SimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T]]] =
+  def transformTerm[T, U](term: Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T, TypeSimpleTerm[Symbol, U]]]] =
     term match {
       case App(fun, args, pos) =>
         (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
@@ -181,7 +181,7 @@ object Resolver
         }
     }
     
-  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T], ValidationNel[AbstractError, Unit]) =
+  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (tree2, res), scope), d) =>
         d match {
@@ -223,7 +223,7 @@ object Resolver
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
     State(transformDefsS[T](defs)(scope))
     
-  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], T]) =
+  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T]) =
     transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
   def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
@@ -236,7 +236,7 @@ object Resolver
           res2 => res |+| resultForFile(res2, file)
         }.run(nt)
     }
-    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], TreeInfo](Map(), TreeInfo), res1)) {
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo](Map(), TreeInfo), res1)) {
       case (p @ (t, res), (file, pt)) => 
         val (newTree, newRes) = transformParseTree[TreeInfo](pt)(newNameTree).map {
           res2 => res |+| resultForFile(res2, file)

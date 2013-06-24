@@ -7,8 +7,8 @@ import pl.luckboy.purfuncor.common.Tree
 
 package object frontend
 {
-  implicit def termIndenting[T, U]: Indenting[Term[SimpleTerm[T, U]]] = new Indenting[Term[SimpleTerm[T, U]]] {
-    override def indentedStringFrom(x: Term[SimpleTerm[T, U]])(n: Int) =
+  implicit def termIndenting[T, U, V]: Indenting[Term[SimpleTerm[T, U, V]]] = new Indenting[Term[SimpleTerm[T, U, V]]] {
+    override def indentedStringFrom(x: Term[SimpleTerm[T, U, V]])(n: Int) =
       x match {
         case App(fun, args, _)     =>
           (fun :: args.list).map {
@@ -20,8 +20,8 @@ package object frontend
       }
   }
   
-  implicit def simpleTermIndenting[T, U]: Indenting[SimpleTerm[T, U]] = new Indenting[SimpleTerm[T, U]] {
-    override def indentedStringFrom(x: SimpleTerm[T, U])(n: Int) =
+  implicit def simpleTermIndenting[T, U, V]: Indenting[SimpleTerm[T, U, V]] = new Indenting[SimpleTerm[T, U, V]] {
+    override def indentedStringFrom(x: SimpleTerm[T, U, V])(n: Int) =
       x match {
         case Let(binds, body, letInfo)   =>
           "let\n" + binds.map { (" " * (n + 2)) + bindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
@@ -37,15 +37,15 @@ package object frontend
       }
   }
 
-  implicit def bindIndenting[T, U]: Indenting[Bind[T, U]] = new Indenting[Bind[T, U]] {
-    override def indentedStringFrom(x: Bind[T, U])(n: Int) =
+  implicit def bindIndenting[T, U, V]: Indenting[Bind[T, U, V]] = new Indenting[Bind[T, U, V]] {
+    override def indentedStringFrom(x: Bind[T, U, V])(n: Int) =
       x match {
         case Bind(name, body, _) => name + " = " + termIndenting.indentedStringFrom(body)(n + 2)
       }
   }
   
-  implicit def treeShowing[T, U, V, W] = new Showing[Tree[T, Combinator[U, V], W]] {
-    override def stringFrom(x: Tree[T, Combinator[U, V], W]) =
+  implicit def treeShowing[T, U, V, W, X] = new Showing[Tree[T, Combinator[U, V, W], X]] {
+    override def stringFrom(x: Tree[T, Combinator[U, V, W], X]) =
       x match {
         case Tree(combs, treeInfo) =>
           combs.groupBy { case (_, comb) => comb.file }.map {

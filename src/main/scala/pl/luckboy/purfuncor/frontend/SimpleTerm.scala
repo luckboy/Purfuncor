@@ -3,17 +3,17 @@ import scala.util.parsing.input.Position
 import scalaz._
 import pl.luckboy.purfuncor.common._
 
-sealed trait SimpleTerm[+T, +U]
+sealed trait SimpleTerm[+T, +U, +V]
 {
   override def toString = simpleTermIndenting.indentedStringFrom(this)(0)
 }
 // A lambdaInfo field for types.
-case class Let[+T, +U](binds: NonEmptyList[Bind[T, U]], body: Term[SimpleTerm[T, U]], lambdaInfo: U) extends SimpleTerm[T, U]
-case class Lambda[+T, +U](args: NonEmptyList[Arg], body: Term[SimpleTerm[T, U]], lambdaInfo: U) extends SimpleTerm[T, U]
-case class Var[+T, +U](loc: T) extends SimpleTerm[T, U]
-case class Literal[+T, +U](value: LiteralValue) extends SimpleTerm[T, U]
+case class Let[+T, +U, +V](binds: NonEmptyList[Bind[T, U, V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
+case class Lambda[+T, +U, +V](args: NonEmptyList[Arg], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
+case class Var[+T, +U, +V](loc: T) extends SimpleTerm[T, U, V]
+case class Literal[+T, +U, +V](value: LiteralValue) extends SimpleTerm[T, U, V]
 
-case class Bind[+T, +U](name: String, body: Term[SimpleTerm[T, U]], pos: Position)
+case class Bind[+T, +U, +V](name: String, body: Term[SimpleTerm[T, U, V]], pos: Position)
 {
   override def toString = bindIndenting.indentedStringFrom(Bind.this)(0)
 }

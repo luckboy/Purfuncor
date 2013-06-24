@@ -6,8 +6,9 @@ import org.scalatest.FlatSpec
 import org.scalatest.Inside
 import org.scalatest.matchers.ShouldMatchers
 import pl.luckboy.purfuncor.common._
-import pl.luckboy.purfuncor.frontend.Combinator
 import pl.luckboy.purfuncor.frontend.SimpleTerm
+import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
+import pl.luckboy.purfuncor.frontend.Combinator
 import pl.luckboy.purfuncor.frontend.parser
 import pl.luckboy.purfuncor.frontend.resolver
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
@@ -18,7 +19,7 @@ import pl.luckboy.purfuncor.backend.interp.Value
 
 class InterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def interpreter[T, U, V, W, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V], W]], g: Term[SimpleTerm[Symbol, parser.LambdaInfo]] => ValidationNel[AbstractError, Term[SimpleTerm[U, V]]])(implicit init: Initializer[NoValue[U, V, C], T, Combinator[U, V], E], eval: Evaluator[SimpleTerm[U, V], E, Value[U, V, C]], enval: Environmental[E, Value[U, V, C]])
+  def interpreter[T, U, V, W, X, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V, W], X]], g: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, V, W]]])(implicit init: Initializer[NoValue[U, V, W, C], T, Combinator[U, V, W], E], eval: Evaluator[SimpleTerm[U, V, W], E, Value[U, V, W, C]], enval: Environmental[E, Value[U, V, W, C]])
   {
     it should "interpret the term string" in {
       val (env, res) = Interpreter.interpretTermString("#iAdd 2 (#iMul 3 4)")(g).run(emptyEnv)
@@ -141,7 +142,7 @@ in
     it should "complain at the term" in {
       val (env, res) = Interpreter.interpretTermString("#iAdd (#iDiv 1 0) 2")(g).run(emptyEnv)
       inside(res) {
-        case Success(noValue: NoValue[U, V, C]) =>
+        case Success(noValue: NoValue[U, V, W, C]) =>
           noValue.msg should be ===("divided by zero")
           inside(noValue.stackTrace) { case List(StackTraceElement(None, None, OffsetPosition(_, _))) => () }
       }
@@ -160,7 +161,7 @@ in
       val (env, res) = Interpreter.interpretTreeString("f x y = #iAdd (#iDiv x y) y")(f).run(emptyEnv)
       val (env2, res2) = Interpreter.interpretTermString("f 10 0")(g).run(env)
       inside(res2) {
-        case Success(noValue: NoValue[U, V, C]) =>
+        case Success(noValue: NoValue[U, V, W, C]) =>
           noValue.msg should be ===("divided by zero")
           inside(noValue.stackTrace) { 
             case List(stackTraceElem1, stackTraceElem2) =>
@@ -177,7 +178,7 @@ g x = f x 0
 """)(f).run(emptyEnv)
       val (env2, res2) = Interpreter.interpretTermString("g 10")(g).run(env)
       inside(res2) {
-        case Success(noValue: NoValue[U, V, C]) =>
+        case Success(noValue: NoValue[U, V, W, C]) =>
           noValue.msg should be ===("divided by zero")
           inside(noValue.stackTrace) { 
             case List(stackTraceElem1, stackTraceElem2, stackTraceElem3) =>
@@ -191,7 +192,7 @@ g x = f x 0
     it should "complain at the lambda expression" in {
       val (env, res) = Interpreter.interpretTermString("(\\x => #iDiv 1 x) 0")(g).run(emptyEnv)
       inside(res) {
-        case Success(noValue: NoValue[U, V, C]) =>
+        case Success(noValue: NoValue[U, V, W, C]) =>
           noValue.msg should be ===("divided by zero")
           inside(noValue.stackTrace) { 
             case List(stackTraceElem1, stackTraceElem2) =>
@@ -202,5 +203,5 @@ g x = f x 0
     }
   }
   
-  "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LambdaInfo])(_.successNel, _.successNel)
+  "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]])(_.successNel, _.successNel)
 }
