@@ -78,17 +78,26 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def stringToRichParser(s: String) = RichParser(s)
   
   case class TermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Positional
+  case class TypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class SymbolWrapper(sym: Symbol) extends Positional
   case class ModuleSymbolWrapper(sym: ModuleSymbol) extends Positional
   case class BindWrapper(bind: Bind[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class ArgWrapper(arg: Arg) extends Positional
+  case class TypeArgWrapper(typeArg: TypeArg) extends Positional
+  case class KindWrapper(kind: Kind[StarKind[String]]) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
     wrapper.term match {
-      case term @ App(_, _, info) => term.copy(pos = wrapper.pos) 
-      case term @ Simple(_, info) => term.copy(pos = wrapper.pos)
+      case term @ App(_, _, _) => term.copy(pos = wrapper.pos) 
+      case term @ Simple(_, _) => term.copy(pos = wrapper.pos)
     }
   implicit def termWrapperNelToTermNel(wrappers: NonEmptyList[TermWrapper]) = wrappers.map { termWrapperToTerm(_) }
+  implicit def typeTermWrapperToTypeTerm(wrapper: TypeTermWrapper) =
+    wrapper.typeTerm match {
+      case term @ App(_, _, _) => term.copy(pos = wrapper.pos)
+      case term @ Simple(_, _) => term.copy(pos = wrapper.pos)
+    }
+  implicit def typeTermNelWrapperToTypeTermNel(wrappers: NonEmptyList[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
   implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = 
     wrapper.sym match {
       case sym @ GlobalSymbol(names, _) => sym.copy(pos = wrapper.pos)
@@ -103,13 +112,18 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def bindWrapperNelToBindNel(wrappers: NonEmptyList[BindWrapper]) = wrappers.map { bindWrapperToBind(_) }
   implicit def argWrapperToArg(wrapper: ArgWrapper) = wrapper.arg.copy(pos = wrapper.pos)
   implicit def argWrapperNelToArgNel(wrappers: NonEmptyList[ArgWrapper]) = wrappers.map { argWrapperToArg(_) }
-  implicit def argWrappersToArgs(wrappers: List[ArgWrapper]) = wrappers.map { argWrapperToArg(_)}
+  implicit def argWrappersToArgs(wrappers: List[ArgWrapper]) = wrappers.map { argWrapperToArg(_) }
+  implicit def typeArgWrapperToTypeArg(wrapper: TypeArgWrapper) = wrapper.typeArg.copy(pos = wrapper.pos)
+  implicit def typeArgWrapperNelToTypeArgNel(wrappers: NonEmptyList[TypeArgWrapper]) = wrappers.map { typeArgWrapperToTypeArg(_) }
+  implicit def typeArgWrappersToTypeArgs(wrappers: List[TypeArgWrapper]) = wrappers.map { typeArgWrapperToTypeArg(_) }
   
-  implicit def termToWrapperTerm(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
-  implicit def symbolWrapperToSymbol(sym: Symbol) = SymbolWrapper(sym)
-  implicit def modulesymbolWrapperToSymbol(sym: ModuleSymbol) = ModuleSymbolWrapper(sym)
-  implicit def bindWrapperToBind(bind: Bind[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = BindWrapper(bind)
-  implicit def argWrapperToArg(arg: Arg) = ArgWrapper(arg)
+  implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
+  implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
+  implicit def symbolToSymbolWrapper(sym: Symbol) = SymbolWrapper(sym)
+  implicit def moduleSymbolToModuleSymbolWrapper(sym: ModuleSymbol) = ModuleSymbolWrapper(sym)
+  implicit def bindToBindWrapper(bind: Bind[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = BindWrapper(bind)
+  implicit def argToArgWrapper(arg: Arg) = ArgWrapper(arg)
+  implicit def typeArgToTypeArgWrapper(typeArg: TypeArg) = TypeArgWrapper(typeArg)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
 
@@ -158,7 +172,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val arg = wildcardArg | namedArg
   lazy val wildcardArg = p("_"											^^^ Arg(none, NoPosition))
   lazy val namedArg = p(ident	 										^^ { case s => Arg(some(s), NoPosition) })
-    
+  
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
     lazy val symbol = globalSymbol | normalSymbol
