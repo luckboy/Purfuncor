@@ -8,7 +8,8 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 case class SymbolEnvironment[T, U](
     globalVarValues: Map[GlobalSymbol, Value[Symbol, T, U, SymbolClosure[T, U]]],
     closureStack: List[SymbolClosure[T, U]],
-    currentFile: Option[java.io.File])
+    currentFile: Option[java.io.File],
+    typeCombSyms: Set[GlobalSymbol])
 {
   def localVarValues = closureStack.headOption.map { _.localVarValues.mapValues { _.head } }.getOrElse(Map())
   
@@ -56,7 +57,8 @@ object SymbolEnvironment
   def empty[T, U] = SymbolEnvironment[T, U](
       globalVarValues = Map(),
       closureStack = List(SymbolClosure(Map())),
-      currentFile = none)
+      currentFile = none,
+      typeCombSyms = Set())
 }
 
 case class SymbolClosure[T, U](

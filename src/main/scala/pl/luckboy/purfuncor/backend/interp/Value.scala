@@ -4,7 +4,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend
-import pl.luckboy.purfuncor.frontend.Combinator
+import pl.luckboy.purfuncor.frontend.AbstractCombinator
 import pl.luckboy.purfuncor.frontend.SimpleTerm
 import pl.luckboy.purfuncor.frontend.Lambda
 import pl.luckboy.purfuncor.frontend.BuiltinFunction
@@ -15,7 +15,7 @@ sealed trait Value[+T, +U, +V, +W]
 {
   def argCount: Int =
     this match {
-      case CombinatorValue(comb, _)             => comb.args.size
+      case CombinatorValue(comb, _)             => comb.argCount
       case LambdaValue(lambda, _, _)            => lambda.args.size
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
       case TupleFunValue(n)                     => n
@@ -146,6 +146,6 @@ object BuiltinFunValue
 
 case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
 case class ArrayValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
-case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
+case class CombinatorValue[+T, +U, +V, +W](comb: AbstractCombinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
 case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file: Option[java.io.File]) extends Value[T, U, V, W]
 case class PartialAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], argValues: Seq[Value[T, U, V, W]]) extends Value[T, U, V, W]

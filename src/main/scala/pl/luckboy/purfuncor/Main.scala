@@ -59,9 +59,9 @@ object Main
     if(line =/= null) readStringLoop(s + line + "\n") else s
   }
 
-  def interpretTreeString(s: String) = interp.Interpreter.interpretTreeString(s)(_.successNel)
+  def interpretTreeString(s: String) = interp.Interpreter.interpretTreeString(s)(t => State((e: Environment) => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel))) 
   
-  def interpretTreeFiles(files: List[java.io.File]) = interp.Interpreter.interpretTreeFiles(files)(_.successNel)
+  def interpretTreeFiles(files: List[java.io.File]) = interp.Interpreter.interpretTreeFiles(files)(t => State((e: Environment) => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel)))
 
   def interpretTermString(s: String) = interp.Interpreter.interpretTermString(s)(_.successNel)
 

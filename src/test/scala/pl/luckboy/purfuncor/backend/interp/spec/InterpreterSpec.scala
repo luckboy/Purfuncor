@@ -8,7 +8,7 @@ import org.scalatest.matchers.ShouldMatchers
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend.SimpleTerm
 import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
-import pl.luckboy.purfuncor.frontend.Combinator
+import pl.luckboy.purfuncor.frontend.AbstractCombinator
 import pl.luckboy.purfuncor.frontend.parser
 import pl.luckboy.purfuncor.frontend.resolver
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
@@ -19,7 +19,7 @@ import pl.luckboy.purfuncor.backend.interp.Value
 
 class InterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def interpreter[T, U, V, W, X, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo] => ValidationNel[AbstractError, Tree[T, Combinator[U, V, W], X]], g: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, V, W]]])(implicit init: Initializer[NoValue[U, V, W, C], T, Combinator[U, V, W], E], eval: Evaluator[SimpleTerm[U, V, W], E, Value[U, V, W, C]], enval: Environmental[E, Value[U, V, W, C]])
+  def interpreter[T, U, V, W, X, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]], g: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, V, W]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], eval: Evaluator[SimpleTerm[U, V, W], E, Value[U, V, W, C]], enval: Environmental[E, Value[U, V, W, C]])
   {
     it should "interpret the term string" in {
       val (env, res) = Interpreter.interpretTermString("#iAdd 2 (#iMul 3 4)")(g).run(emptyEnv)
@@ -203,5 +203,5 @@ g x = f x 0
     }
   }
   
-  "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]])(_.successNel, _.successNel)
+  "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]])(t => State(e => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel)), _.successNel)
 }

@@ -7,12 +7,15 @@ case class Scope(
     nameTree: NameTree,
     currentModuleSyms: NonEmptyList[ModuleSymbol],
     importedCombSyms: Map[String, Set[GlobalSymbol]],
+    importedTypeCombSyms: Map[String, Set[GlobalSymbol]],
     importedModuleSyms: Map[String, Set[ModuleSymbol]],
     localVarNames: Set[String])
 {
   def withCurrentModule(sym: ModuleSymbol) = copy(currentModuleSyms = sym <:: currentModuleSyms)
 
   def withImportedCombs(syms: Map[String, GlobalSymbol]) = copy(importedCombSyms = importedCombSyms |+| syms.mapValues { Set(_) })
+
+  def withImportedTypeCombs(syms: Map[String, GlobalSymbol]) = copy(importedTypeCombSyms = importedTypeCombSyms |+| syms.mapValues { Set(_) })
   
   def withImportedModules(syms: Map[String, ModuleSymbol]) = copy(importedModuleSyms = importedModuleSyms |+| syms.mapValues { Set(_) })
   
@@ -25,6 +28,7 @@ object Scope
       nameTree = nameTree,
       currentModuleSyms = NonEmptyList(ModuleSymbol.root),
       importedCombSyms = Map(),
+      importedTypeCombSyms = Map(),
       importedModuleSyms = Map(),
       localVarNames = Set())
 }

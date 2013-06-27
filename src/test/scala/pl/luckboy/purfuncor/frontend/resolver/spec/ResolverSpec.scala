@@ -20,7 +20,7 @@ class ResolverSpec extends FlatSpec with ShouldMatchers with Inside
         // f
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _)) => () } 
+            inside(args) { case List(Arg(Some("x"), None, _)) => () } 
             inside(body) { 
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
@@ -72,7 +72,7 @@ module m2 {
         // m1.m2.f
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m2", "f")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _), Arg(Some("y"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IDiv)), _) => () }
@@ -111,13 +111,13 @@ module m2 {
         // m1.h
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "h")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _)) => () }
             inside(body) { case Simple(Var(LocalSymbol("x")), _) => () }
         }
         // m2.f
         inside(combs.get(GlobalSymbol(NonEmptyList("m2", "f")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _)) => () }
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
@@ -181,7 +181,7 @@ module b.d {
         // a.g
         inside(combs.get(GlobalSymbol(NonEmptyList("a", "g")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _), Arg(Some("y"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IMod)), _) => () }
@@ -191,7 +191,7 @@ module b.d {
         // b.c.d.e.f.g
         inside(combs.get(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "g")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _), Arg(Some("y"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.ISub)), _) => () }
@@ -201,7 +201,7 @@ module b.d {
         // b.c.d.e.f.h
         inside(combs.get(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h")))) {
           case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
-            inside(args) { case List(Arg(Some("x"), _)) => () }
+            inside(args) { case List(Arg(Some("x"), None, _)) => () }
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.INeg)), _) => () }
@@ -257,7 +257,7 @@ g = \x _ y => #iDiv x y
           case Some(Combinator(Nil, body, parser.LambdaInfo, None)) =>
             inside(body) {
               case Simple(Lambda(args1, body1, parser.LambdaInfo), _) =>
-                inside(args1) { case NonEmptyList(Arg(Some("x"), _), Arg(None, _), Arg(Some("y"), _)) => () }
+                inside(args1) { case NonEmptyList(Arg(Some("x"), None, _), Arg(None, None, _), Arg(Some("y"), None, _)) => () }
                 inside(body1) {
                   case App(fun2, args2, _) =>
                     inside(fun2) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IDiv)), _) => () }
@@ -336,9 +336,9 @@ h x y = \z1 => \z2 => #iSub z1 z2
         inside(combs.get(GlobalSymbol(NonEmptyList("h")))) {
           case Some(Combinator(_, body, _, None)) =>
             inside(body) {
-              case Simple(Lambda(NonEmptyList(Arg(Some("z1"), _)), body1, _), _) =>
+              case Simple(Lambda(NonEmptyList(Arg(Some("z1"), None, _)), body1, _), _) =>
                 inside(body1) {
-                  case Simple(Lambda(NonEmptyList(Arg(Some("z2"), _)), App(_, args3, _), _), _) =>
+                  case Simple(Lambda(NonEmptyList(Arg(Some("z2"), None, _)), App(_, args3, _), _), _) =>
                     inside(args3) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("z2")), _)) => () }
                 }
             }

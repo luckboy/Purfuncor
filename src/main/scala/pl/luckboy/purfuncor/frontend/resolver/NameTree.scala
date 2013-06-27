@@ -12,6 +12,9 @@ case class NameTree(nameTables: Map[ModuleSymbol, NameTable])
   
   def containsComb(sym: GlobalSymbol) =
     getNameTable(ModuleSymbol(sym.names.list.init)).map { _.combNames.contains(sym.names.list.last) }.getOrElse(false)
+    
+  def containsTypeComb(sym: GlobalSymbol) =
+    getNameTable(ModuleSymbol(sym.names.list.init)).map { _.typeCombNames.contains(sym.names.list.last) }.getOrElse(false)
 
   def containsModule(sym: ModuleSymbol) =
     nameTables.contains(sym)
@@ -26,7 +29,12 @@ object NameTree
   def fromGlobalSymbols(syms: Iterable[GlobalSymbol]) = syms.foldLeft(NameTree.empty) { _ |+| fromGlobalSymbol(_) }
   
   def fromGlobalSymbol(sym: GlobalSymbol) =
-    fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set())))
+    fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(sym.names.reverse.head), Set(), Set())))
+    
+  def fromTypeGlobalSymbols(syms: Iterable[GlobalSymbol]) = syms.foldLeft(NameTree.empty) { _ |+| fromTypeGlobalSymbol(_) }
+
+  def fromTypeGlobalSymbol(sym: GlobalSymbol) =
+    fromModuleSymbol(sym.moduleSymbol) |+| NameTree(Map(ModuleSymbol(sym.names.list.init) -> NameTable(Set(), Set(sym.names.reverse.head), Set())))
 
   def fromModuleSymbol(sym: ModuleSymbol) = {
     val nameTables = sym.names.reverse match {
@@ -34,7 +42,7 @@ object NameTree
         Map[ModuleSymbol, NameTable]()
       case name :: names =>
         (name :: names).reverse.zip(names.reverse.inits.toList.reverse).map {
-      	  case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(name))
+      	  case (name, parentNames) => ModuleSymbol(parentNames) -> NameTable(Set(), Set(), Set(name))
         }.toMap
     }
     NameTree(nameTables)
@@ -43,9 +51,10 @@ object NameTree
 
 case class NameTable(
     combNames: Set[String],
+    typeCombNames: Set[String],
     moduleNames: Set[String])
     
 object NameTable
 {
-  val empty = NameTable(Set(), Set())
+  val empty = NameTable(Set(), Set(), Set())
 }

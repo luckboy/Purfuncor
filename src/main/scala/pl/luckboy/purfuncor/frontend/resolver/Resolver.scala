@@ -2,6 +2,7 @@ package pl.luckboy.purfuncor.frontend.resolver
 import scala.util.parsing.input.Position
 import scalaz._
 import scalaz.Scalaz._
+import pl.luckboy.purfuncor.util._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Tree
@@ -10,13 +11,36 @@ import pl.luckboy.purfuncor.common.Result._
 
 object Resolver
 {
-  def treeForFile[T, U, V](tree: Tree[GlobalSymbol, Combinator[Symbol, T, V], U], file: Option[java.io.File]) =
-    tree.copy(tree.combs.mapValues { _.copy(file = file) })
-        
-  def transformTermNel[T, U](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]]])(scope: Scope) =
-    terms.tail.foldLeft(transformTerm(terms.head)(scope).map { NonEmptyList(_) }) { 
-      (res, t) => (transformTerm(t)(scope) |@| res)(_ <:: _)
+  def treeForFile[T, U, V, W](tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, T, U], TreeInfo[V, W]], file: Option[java.io.File])(implicit showing: Showing[Tree[GlobalSymbol, AbstractCombinator[Symbol, T, U], TreeInfo[V, W]]]) =
+    tree.copy(
+        combs = tree.combs.mapValues { _.withFile(file) },
+        treeInfo = tree.treeInfo.copy(
+            typeTree = tree.treeInfo.typeTree.copy(
+                combs = tree.treeInfo.typeTree.combs.mapValues { _.withFile(file) }
+                )
+            )
+        )
+
+  private def transformTermNel1[T, U](terms: NonEmptyList[Term[T]])(transform: Term[T] => ValidationNel[AbstractError, Term[U]]) =
+    terms.tail.foldLeft(transform(terms.head).map { NonEmptyList(_) }) {
+      (res, t) => (transform(t) |@| res)(_ <:: _)
     }.map { _.reverse }
+    
+  private def transformArgNel4[T, U](args: NonEmptyList[T])(prefix: String, getName: T => Option[String], getPos: T => Position, transform: T => ValidationNel[AbstractError, U]) =
+    args.tail.foldLeft((transform(args.head).map { NonEmptyList(_) }, Set() ++ getName(args.head))) {
+      case (p @ (res, usedNames), a) =>
+        getName(a).map {
+          name =>
+            val res2 = if(usedNames.contains(name))
+              (res |@| Error("already defined " + prefix + " " + name, none, getPos(a)).failureNel[Unit]) { (as, _) => as }
+            else
+              (transform(a) |@| res) { _ <:: _ }
+            (res2, usedNames + name)
+        }.getOrElse(((transform(a) |@| res) { _ <:: _ }, usedNames))
+    }._1.map { _.reverse }
+    
+  def transformTermNel[T, U](terms: NonEmptyList[Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]]])(scope: Scope) =
+    transformTermNel1(terms)(transformTerm(_)(scope))
   
   def transformBind[T, U](bind: Bind[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
     bind match {
@@ -33,36 +57,57 @@ object Resolver
         ((transformBind(b)(scope) |@| res2)(_ <:: _), usedNames + b.name)
     }._1.map { _.reverse }
     
-  def transformArgNel(args: NonEmptyList[Arg]) =
-    args.foldLeft((().successNel[AbstractError], Set[String]())) { 
-      case (p @ (res, usedNames), a) =>
-        a.name.map {
-          name =>
-            val res2 = if(usedNames.contains(name))
-              (res |@| Error("already defined argument " + name, none, a.pos).failureNel[Unit]) { (_, _) => () }
-            else
-              res
-            (res2, usedNames + name)
-        }.getOrElse(p)
-    }._1.map { _ => args }
+  def transformArgNel[T](args: NonEmptyList[Arg[TypeSimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+    transformArgNel4(args)("argument", _.name, _.pos, transformArg(_)(scope))
+
+  def transformArgs[T](args: List[Arg[TypeSimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+    args.toNel.map { transformArgNel(_)(scope).map { _.list } }.getOrElse(Nil.successNel)
+
+  def transformArg[T](arg: Arg[TypeSimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Arg[TypeSimpleTerm[Symbol, T]]] =
+    arg.typ.map {
+      transformTypeTerm(_)(scope.copy(localVarNames = Set())).map { tt => Arg(arg.name, some(tt), arg.pos) }
+    }.getOrElse(Arg(arg.name, none, arg.pos).successNel)
     
-  def transformArgs(args: List[Arg]) =
-    args.toNel.map { transformArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
-  
   def transformTerm[T, U](term: Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T, TypeSimpleTerm[Symbol, U]]]] =
     term match {
       case App(fun, args, pos) =>
         (transformTerm(fun)(scope) |@| transformTermNel(args)(scope)) { App(_, _, pos) }
       case Simple(Let(binds, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(binds.map { _.name }.toSet)
-        (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { case (bs, t) => Simple(Let(bs, t, lambdaInfo), pos) }
+        (transformBindNel(binds)(scope) |@| transformTerm(body)(newScope)) { (bs, t) => Simple(Let(bs, t, lambdaInfo), pos) }
       case Simple(Lambda(args, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
-        (transformArgNel(args) |@| transformTerm(body)(newScope)) { case (as, t) => Simple(Lambda(as, t, lambdaInfo), pos) }
+        (transformArgNel(args)(scope) |@| transformTerm(body)(newScope)) { (as, t) => Simple(Lambda(as, t, lambdaInfo), pos) }
       case Simple(Var(sym), pos) =>
         transformSymbol(sym)(scope).map { s => Simple(Var(s), pos) }
       case Simple(Literal(value), pos) =>
         Simple(Literal(value), pos).successNel
+      case Simple(TypedTerm(term, typ), pos) =>
+        (transformTerm(term)(scope) |@| transformTypeTerm(typ)(scope.copy(localVarNames = Set()))) { (t, tt) => Simple(TypedTerm(t, tt), pos) }
+    }
+  
+  def transformTypeTermNel[T](terms: NonEmptyList[Term[TypeSimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+    transformTermNel1(terms)(transformTypeTerm(_)(scope))
+    
+  def transformTypeArgNel(args: NonEmptyList[TypeArg]) =
+    transformArgNel4(args)("type argument", _.name, _.pos, _.successNel)
+    
+  def transformTypeArgs(args: List[TypeArg]) =
+    args.toNel.map { transformTypeArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
+
+  def transformTypeTerm[T](term: Term[TypeSimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[TypeSimpleTerm[Symbol, T]]] =
+    term match {
+      case App(fun, args, pos) =>
+        (transformTypeTerm(fun)(scope) |@| transformTypeTermNel(args)(scope)) { App(_, _, pos)}
+      case Simple(TypeLambda(args, body, lambdaInfo), pos) =>
+        val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
+        (transformTypeArgNel(args) |@| transformTypeTerm(body)(newScope)) { case (as, t) => Simple(TypeLambda(as, t, lambdaInfo), pos) }
+      case Simple(TypeVar(sym), pos) =>
+        transformTypeSymbol(sym)(scope).map { s => Simple(TypeVar(s), pos) }
+      case Simple(TypeLiteral(value), pos) =>
+        Simple(TypeLiteral(value), pos).successNel
+      case Simple(KindedTypeTerm(term, kind), pos) =>
+        transformTypeTerm(term)(scope).map { t => Simple(KindedTypeTerm(t, kind), pos) }
     }
   
   private def getSymbol4[T](name: String, pos: Position)(scope: Scope)(prefix: String, contains: (NameTable, String) => Boolean, make: (ModuleSymbol, String) => T, importedSyms: Scope => Map[String, Set[T]]) = {
@@ -88,6 +133,9 @@ object Resolver
   def getGlobalSymbol(name: String, pos: Position)(scope: Scope) =
     getSymbol4(name, pos)(scope)("variable", _.combNames.contains(_), _.globalSymbolFromName(_), _.importedCombSyms)
   
+  def getTypeGlobalSymbol(name: String, pos: Position)(scope: Scope) =
+    getSymbol4(name, pos)(scope)("type variable", _.typeCombNames.contains(_), _.globalSymbolFromName(_), _.importedTypeCombSyms)
+
   def getModuleSymbol(name: String, pos: Position)(scope: Scope) =
     getSymbol4(name, pos)(scope)("module", _.moduleNames.contains(_), _ + _, _.importedModuleSyms)
   
@@ -118,6 +166,33 @@ object Resolver
         }
     }
   
+  def transformTypeSymbol(sym: parser.Symbol)(scope: Scope) =
+    sym match {
+      case parser.GlobalSymbol(names, pos) =>
+        val typeCombSym = GlobalSymbol(names)
+        if(scope.nameTree.containsTypeComb(typeCombSym))
+          typeCombSym.successNel
+        else
+          Error("undefined global type variable " + typeCombSym, none, pos).failureNel
+      case parser.NormalSymbol(NonEmptyList(name), pos) =>
+        if(scope.localVarNames.contains(name))
+          LocalSymbol(name).successNel
+        else
+          getTypeGlobalSymbol(name, pos)(scope)
+      case parser.NormalSymbol(names, pos) =>
+        getModuleSymbol(names.head, pos)(scope).flatMap {
+          moduleSym =>
+            names.tail.toNel.map {
+              tail =>
+                val typeCombSym = moduleSym.globalSymbolFromNames(tail)
+                if(scope.nameTree.containsTypeComb(typeCombSym))
+                  typeCombSym.successNel
+                else
+                  Error("undefined global type variable " + typeCombSym, none, pos).failureNel
+            }.getOrElse(FatalError("tail of list is empty", none, pos).failureNel)
+        }
+    }
+  
   def transformGlobalSymbol(sym: parser.Symbol)(currentModuleSym: ModuleSymbol) =
     sym match {
       case parser.GlobalSymbol(names, _) => GlobalSymbol(names)
@@ -138,9 +213,20 @@ object Resolver
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsComb(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
-        else {
+        else
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
-        }
+      case parser.TypeCombinatorDef(sym, _, _) =>
+        val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
+        if(nameTree.containsTypeComb(sym2))
+          (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
+        else
+          (nameTree |+| NameTree.fromTypeGlobalSymbol(sym2), ().successNel[AbstractError])
+      case parser.UnittypeCombinatorDef(_, sym) =>
+        val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
+        if(nameTree.containsTypeComb(sym2))
+          (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
+        else
+          (nameTree |+| NameTree.fromTypeGlobalSymbol(sym2), ().successNel[AbstractError])
       case parser.ModuleDef(sym, defs) =>
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
@@ -181,7 +267,7 @@ object Resolver
         }
     }
     
-  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T]): (Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T], ValidationNel[AbstractError, Unit]) =
+  def transformDefsS[T](defs: List[parser.Def])(scope: Scope)(tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, T]]): (Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, T]], ValidationNel[AbstractError, Unit]) =
     defs.foldLeft(((tree, ().successNel[AbstractError]), scope)) {
       case ((p @ (tree2, res), scope), d) =>
         d match {
@@ -191,8 +277,9 @@ object Resolver
                 scope.nameTree.getNameTable(sym2).map {
                   nt => 
                     val combSyms = nt.combNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
+                    val typeCombSyms = nt.typeCombNames.map { name => (name, sym2.globalSymbolFromName(name)) }.toMap
                     val moduleSyms = nt.moduleNames.map { name => (name, sym2 + name) }.toMap
-                    (p, scope.withImportedCombs(combSyms).withImportedModules(moduleSyms))
+                    (p, scope.withImportedCombs(combSyms).withImportedCombs(typeCombSyms).withImportedModules(moduleSyms))
                 }.getOrElse {
                   ((tree2, res |+| Error("undefined module " + sym2, none, sym.pos).failureNel), scope)
                 }
@@ -204,15 +291,38 @@ object Resolver
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsComb(sym2)) {
               val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
-              val res2 = (transformArgs(args) |@| transformTerm(body)(newScope)) { (_, t) => t}
+              val res2 = (transformArgs(args)(scope) |@| transformTerm(body)(newScope)) { (as, t) => (as, t) }
               res2 match {
-                case Success(t) => 
-                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(args, t, parser.LambdaInfo, none))), (res |@| res2) { (u, _) => u }), scope)
+                case Success((as, t)) => 
+                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(as, t, parser.LambdaInfo, none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree2, (res |@| res2) { (u, _) => u }), scope)
               }
             } else
               ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
+          case parser.TypeCombinatorDef(sym, args, body) =>
+            val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
+            if(scope.nameTree.containsTypeComb(sym2)) {
+              val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
+              val res2 = (transformTypeArgs(args) |@| transformTypeTerm(body)(newScope)) { (as, t) => (as, t) }
+              res2 match {
+                case Success((as, t)) => 
+                  val treeInfo2 = tree2.treeInfo
+                  val typeTree2 = treeInfo2.typeTree
+                  ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> TypeCombinator(as, t, parser.TypeLambdaInfo, none))))), (res |@| res2) { (u, _) => u }), scope)
+                case Failure(_) =>
+                  ((tree2, (res |@| res2) { (u, _) => u }), scope)
+              } 
+            } else
+              ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
+          case parser.UnittypeCombinatorDef(n, sym) =>
+            val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
+            if(scope.nameTree.containsTypeComb(sym2)) {
+              val treeInfo2 = tree2.treeInfo
+              val typeTree2 = treeInfo2.typeTree
+              ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> UnittypeCombinator(n, none))))), res), scope)
+            } else
+              ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.ModuleDef(sym, defs2) =>
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
@@ -223,7 +333,7 @@ object Resolver
   def transformDefs[T](defs: List[parser.Def])(scope: Scope) =
     State(transformDefsS[T](defs)(scope))
     
-  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], T]) =
+  def transformParseTreeS[T](parseTree: parser.ParseTree)(nameTree: NameTree)(tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, T]]) =
     transformDefsS[T](parseTree.defs)(Scope.fromNameTree(nameTree))(tree)
     
   def transformParseTree[T](parseTree: parser.ParseTree)(nameTree: NameTree) =
@@ -236,9 +346,9 @@ object Resolver
           res2 => res |+| resultForFile(res2, file)
         }.run(nt)
     }
-    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, Combinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo](Map(), TreeInfo), res1)) {
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, TypeTreeInfo]](Map(), TreeInfo(Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, parser.TypeLambdaInfo], TypeTreeInfo](Map(), TypeTreeInfo))), res1)) {
       case (p @ (t, res), (file, pt)) => 
-        val (newTree, newRes) = transformParseTree[TreeInfo](pt)(newNameTree).map {
+        val (newTree, newRes) = transformParseTree[TypeTreeInfo](pt)(newNameTree).map {
           res2 => res |+| resultForFile(res2, file)
         }.run(t)
         (treeForFile(newTree, file), newRes)

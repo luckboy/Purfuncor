@@ -1,7 +1,8 @@
 package pl.luckboy.purfuncor.frontend.resolver
+import scalaz._
+import scalaz.Scalaz._
+import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.common.Tree
 
-sealed trait TreeInfo
-{
-  override def toString = ""
-}
-case object TreeInfo extends TreeInfo
+case class TreeInfo[+T, +U](typeTree: Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U])
