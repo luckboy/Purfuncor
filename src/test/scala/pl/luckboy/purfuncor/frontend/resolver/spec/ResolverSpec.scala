@@ -533,4 +533,16 @@ m3.h2 = #.m2.h
         }
     }
   }
+  
+  it should "transform the string to a tree for types" is (pending)
+  
+  it should "transform the type lambda-expression" is (pending)
+  
+  it should "resolve the symbols of the type combinator definitions" is (pending)
+  
+  it should "resolve the symbols of the covering local type variables" is (pending)
+  
+  it should "resolve the symbols of the convering global type variables" is (pending)
+  
+  it should "complain on undefined type variables" is (pending)
 }
