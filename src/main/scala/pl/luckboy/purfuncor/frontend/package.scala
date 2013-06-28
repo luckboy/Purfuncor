@@ -29,7 +29,7 @@ package object frontend
           (" " * (n + 2)) + (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting(showing).indentedStringFrom(body)(n + 2)
         case Lambda(args, body, lambdaInfo) =>
-          "\\" + args.map { a => a.typ.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.list.mkString("") +
+          "\\" + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.list.mkString("") +
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
         case Var(loc)                       =>
@@ -47,6 +47,13 @@ package object frontend
         case Bind(name, body, _) => name + " = " + termIndenting(showing).indentedStringFrom(body)(n + 2)
       }
   }
+  
+  implicit def argShowing[V](implicit showing: Showing[Term[V]]): Showing[Arg[V]] = new Showing[Arg[V]] {
+    override def stringFrom(x: Arg[V]) =
+      x match {
+        case Arg(name, typ, _) => name.map { _.toString }.getOrElse("_") + typ.map { t => ": " + showing.stringFrom(t) }.getOrElse("")
+      }
+  }
 
   implicit def treeShowing[T, U, V, W, X](implicit showing: Showing[Term[W]]) = new Showing[Tree[T, AbstractCombinator[U, V, W], X]] {
     override def stringFrom(x: Tree[T, AbstractCombinator[U, V, W], X]) =
@@ -55,7 +62,7 @@ package object frontend
           combs.groupBy { case (_, comb) => comb.file }.map {
             case (file, combs2) =>
               "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
-              combs2.map { case (loc, comb) => comb.toStringForName(loc.toString) + "\n" }.mkString("\n")
+              combs2.map { case (loc, comb) => comb.toStringForName(loc.toString)(showing) + "\n" }.mkString("\n")
           }.mkString("\n") +
           (if(treeInfo.toString =/= "") "//// treeInfo\n" + treeInfo else "")
       }
@@ -93,7 +100,7 @@ package object frontend
         case Arrow(arg, ret, _)         =>
           arg match {
             case Arrow(_, _, _) => "(" + kindShowing.stringFrom(arg) + ") -> " + kindShowing.stringFrom(ret)
-            case Star(_, _)     => kindShowing.stringFrom(arg) + " ->" + kindShowing.stringFrom(ret)
+            case Star(_, _)     => kindShowing.stringFrom(arg) + " -> " + kindShowing.stringFrom(ret)
           }
         case Star(KindParam(param), _)  =>
           param.toString

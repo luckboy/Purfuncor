@@ -9,7 +9,7 @@ package object parser
         case ImportDef(sym)                     =>
           "import " + sym
         case CombinatorDef(sym, args, body)     =>
-          sym + " " + args.map { a => a.typ.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ termIndenting[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]].indentedStringFrom(body)(n + 2)
+          sym + " " + args.map { a => a.typ.map { _ => "(" + argShowing[TypeSimpleTerm[Symbol, TypeLambdaInfo]].stringFrom(a) + ")" }.getOrElse(argShowing[TypeSimpleTerm[Symbol, TypeLambdaInfo]].stringFrom(a)) + " " }.mkString("") + "= "+ termIndenting[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]].indentedStringFrom(body)(n + 2)
         case TypeCombinatorDef(sym, args, body) =>
           "type " + sym + " " + args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ typeTermShowing.stringFrom(body)
         case UnittypeCombinatorDef(n, sym)      =>

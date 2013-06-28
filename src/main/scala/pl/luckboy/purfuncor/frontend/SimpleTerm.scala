@@ -14,6 +14,3 @@ case class TypedTerm[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], typ: Term[V]) 
 case class Bind[+T, +U, +V](name: String, body: Term[SimpleTerm[T, U, V]], pos: Position)
 
 case class Arg[+V](name: Option[String], typ: Option[Term[V]], pos: Position)
-{
-  override def toString = name.map { _.toString }.getOrElse("_") + typ.map { ": " + _ }.getOrElse("")
-}

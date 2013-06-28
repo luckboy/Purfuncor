@@ -226,7 +226,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
     
-    lazy val typeExpr: PackratParser[TypeTermWrapper] = typeExprN
+    lazy val typeExpr: PackratParser[TypeTermWrapper] = typeExpr1
     
     lazy val typeExpr1 = kindedTypeExpr | typeExprN
     lazy val kindedTypeExpr = p(typeExprN ~~ (":" ~-> kindExpr)			^^ { case t ~ k => Simple(KindedTypeTerm(t, k), NoPosition) })

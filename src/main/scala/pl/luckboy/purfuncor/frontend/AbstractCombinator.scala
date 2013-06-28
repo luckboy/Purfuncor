@@ -12,12 +12,12 @@ sealed trait AbstractCombinator[+T, +U, +V]
   
   def withFile(file: Option[java.io.File]): AbstractCombinator[T, U, V]
   
-  def toStringForName[T2 >: T, U2 >: U, V2 >: V](name: String)(implicit indenting: Indenting[Term[SimpleTerm[T2, U2, V2]]]) = 
+  def toStringForName[V2 >: V](name: String)(implicit showing: Showing[Term[V2]]): String = 
     this match {
       case Combinator(args, body, lambdaInfo, _) =>
-        name + " " + args.map { a => a.typ.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") +
+        name + " " + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.mkString("") +
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
-        "= " + indenting.indentedStringFrom(body)(2)
+        "= " + termIndenting(showing).indentedStringFrom(body)(2)
     }
 }
 
