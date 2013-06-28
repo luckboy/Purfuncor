@@ -534,15 +534,236 @@ m3.h2 = #.m2.h
     }
   }
   
-  it should "transform the string to a tree for types" is (pending)
+  it should "transform the string to a tree for types" in {
+    val res = Resolver.transformString("""
+f (x: #Int) = #iAdd (x: #Int) (10: T #Any)
+type T t = ##& (##& #Int #NonZero) t
+unittype 1 U
+""")(NameTree.empty) 
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f"))))
+        typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U"))))
+        inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
+          case Some(Combinator(args, body, parser.LambdaInfo, None)) =>
+            inside(args) {
+              case List(Arg(Some("x"), Some(typ), _)) =>
+                inside(typ) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _) => () }
+            }
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
+                inside(args1) {
+                  case NonEmptyList(arg11, arg12) =>
+                    inside(arg11) {
+                      case Simple(TypedTerm(Simple(Var(LocalSymbol("x")), _), typ11), _) =>
+                        inside(typ11) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _) => () }
+                    }
+                    inside(arg12) {
+                      case Simple(TypedTerm(Simple(Literal(IntValue(10)), _), typ12), _) =>
+                        inside(typ12) { 
+                          case App(typFun12, typArgs12, _) =>
+                            inside(typFun12) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("T"))), _) => () }
+                            inside(typArgs12) { case NonEmptyList(Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Any)), _)) => () }
+                        }
+                    }
+                }
+            }
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
+          case Some(TypeCombinator(args, body, parser.TypeLambdaInfo, None)) =>
+            inside(args) { case List(TypeArg(Some("t"), None, _)) => () }
+            inside(body) {
+              case App(fun1, args1, _) =>
+                inside(fun1) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                inside(args1) {
+                  case NonEmptyList(arg11, arg12) =>
+                    inside(arg11) {
+                      case App(fun2, args2, _) =>
+                        inside(fun2) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                        inside(args2) { case NonEmptyList(Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _), Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.NonZero)), _)) => () }
+                    }
+                    inside(arg12) { case Simple(TypeVar(LocalSymbol("t")), _) => () }
+                }
+            }
+        }
+        typeCombs.get(GlobalSymbol(NonEmptyList("U"))) should be ===(Some(UnittypeCombinator(1, None)))
+    }
+  }
   
-  it should "transform the type lambda-expression" is (pending)
+  it should "transform the type lambda-expression" in {
+    val res = Resolver.transformString("type T = \\t _ u => ##| t u")(NameTree.empty)    
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T"))))
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
+          case Some(TypeCombinator(Nil, body, parser.TypeLambdaInfo, None)) =>
+            inside(body) {
+              case Simple(TypeLambda(args1, body1, lambdaInfo), _) =>
+                inside(args1) { case NonEmptyList(TypeArg(Some("t"), None, _), TypeArg(None, None, _), TypeArg(Some("u"), None, _)) => () }
+                inside(body1) {
+                  case App(fun2, args2, _) =>
+                    inside(fun2) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Disj)), _) => () }
+                    inside(args2) { case NonEmptyList(Simple(TypeVar(LocalSymbol("t")), _), Simple(TypeVar(LocalSymbol("u")), _)) => () }
+                }
+            }
+        }
+    }
+  }
   
-  it should "resolve the symbols of the type combinator definitions" is (pending)
+  it should "resolve the symbols of the combinator definitions and the type combinator definitions" in {
+    val res = Resolver.transformString("""
+f = 1
+type T = #Int
+module m1 {
+  type m10.U = #Int
+  module m2 {
+    m3.g = 2
+    type m4.V = #Byte
+  }
+  unittype 0 W
+}
+module m2.m3 {
+  h = 3
+  type X = #Char
+  type #.m1.m2.Y = #Boolean
+}
+""")(NameTree.empty)
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        combs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("f")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "m3", "g")),
+            GlobalSymbol(NonEmptyList("m2", "m3", "h"))))
+        typeCombs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("T")),
+            GlobalSymbol(NonEmptyList("m1", "m10", "U")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "m4", "V")),
+            GlobalSymbol(NonEmptyList("m1", "W")),
+            GlobalSymbol(NonEmptyList("m2", "m3", "X")),
+            GlobalSymbol(NonEmptyList("m1", "m2", "Y"))))
+    }
+  }
   
-  it should "resolve the symbols of the covering local type variables" is (pending)
+  it should "resolve the symbols of the covering local type variables" in {
+    val res = Resolver.transformString("""
+type t1 = #Int
+type t2 = #Int
+type T t1 t = ##-> t1 t
+type U t u = \t1 => \t2 => ##& t1 t2 
+""")(NameTree.empty)
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
+          case Some(TypeCombinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(TypeVar(LocalSymbol("t1")), _), Simple(TypeVar(LocalSymbol("t")), _)) => () }
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("U")))) {
+          case Some(TypeCombinator(_, Simple(TypeLambda(_, body1, _), _), _, None)) =>
+            inside(body1) {
+              case Simple(TypeLambda(_, App(_, args2, _), _), _) =>
+                inside(args2) { case NonEmptyList(Simple(TypeVar(LocalSymbol("t1")), _), Simple(TypeVar(LocalSymbol("t2")), _)) => () }
+            }
+        }
+    }
+  }
   
-  it should "resolve the symbols of the convering global type variables" is (pending)
+  it should "resolve the symbols of the convering global type variables" in {
+    val res = Resolver.transformString("""
+module m1 {
+  type t1 = #Int
+  module m2 {
+    type t1 = #Empty
+    type T = ##& t1 t2
+    type U = ##& t3 t10
+    type t2 = #Array
+  }
+  type t3 = #Int
+  type t10 = #Zero
+  type V = t3
+}
+type t2 = #Zero
+type t3 = #Boolean
+""")(NameTree.empty)    
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("m1", "m2", "T")))) {
+          case Some(TypeCombinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "m2", "t1"))), _), Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "m2", "t2"))), _)) => () }
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("m1", "m2", "U")))) {
+          case Some(TypeCombinator(_, App(_, args1, _), _, None)) =>
+            inside(args1) { case NonEmptyList(Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "t3"))), _), Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "t10"))), _)) => () }          
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("m1", "V")))) {
+          case Some(TypeCombinator(_, Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "t3"))), _), _, None)) => ()
+        }
+    }
+  }
   
-  it should "complain on undefined type variables" is (pending)
+  it should "complain on undefined type variables" in {
+    val res = Resolver.transformString("""
+type T x y = z
+type U x y = m1.T2
+type V = #.m2.U2
+type W = m2.V2
+type X = m2.m1.W2
+type m2.Y = #Int
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "undefined type variable z",
+            "undefined module m1",
+            "undefined global type variable #.m2.U2",
+            "undefined global type variable #.m2.V2",
+            "undefined global type variable #.m2.m1.W2"))
+    }    
+  }
+
+  it should "complain on already defined type arguments" in {
+    val res = Resolver.transformString("""
+type T t u v v = #Int
+type U = \t u u => ##-> t u
+""")(NameTree.empty)
+    inside(res) {
+      case Failure(errs) =>
+        errs.map { _.msg } should be ===(NonEmptyList(
+            "already defined type argument v",
+            "already defined type argument u"))
+    }
+  }
+
+  it should "should resolve the type symbols which are defined at other tree" in {
+    val res = Resolver.transformString("""
+type T2 = m1.m2.T
+module m1 {
+  type U2 = U
+}
+type m3.V2 = #.m2.V
+""")(
+    NameTree.empty |+|
+    NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("m1", "m2", "T"))) |+|
+    NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("m1", "U"))) |+|
+    NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("m2", "V"))))
+    inside(res) {
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+        typeCombs.keySet should be ===(Set(
+            GlobalSymbol(NonEmptyList("T2")),
+            GlobalSymbol(NonEmptyList("m1", "U2")),
+            GlobalSymbol(NonEmptyList("m3", "V2"))))
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("T2")))) {
+          case Some(TypeCombinator(Nil, body, parser.TypeLambdaInfo, None)) =>
+            inside(body) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "m2", "T"))), _) => () }
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("m1", "U2")))) {
+          case Some(TypeCombinator(Nil, body, parser.TypeLambdaInfo, None)) =>
+            inside(body) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "U"))), _) => () }
+        }
+        inside(typeCombs.get(GlobalSymbol(NonEmptyList("m3", "V2")))) {
+          case Some(TypeCombinator(Nil, body, parser.TypeLambdaInfo, None)) =>
+            inside(body) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("m2", "V"))), _) => () }
+        }
+    }
+  }
 }
