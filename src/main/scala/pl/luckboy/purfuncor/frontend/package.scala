@@ -37,7 +37,7 @@ package object frontend
         case Literal(value)                 =>
           value.toString
         case TypedTerm(term, typ)           =>
-          termIndenting(showing).indentedStringFrom(term)(n) + ": " + typeTermShowing
+          termIndenting(showing).indentedStringFrom(term)(n) + ": " + showing.stringFrom(typ)
       }
   }
 
