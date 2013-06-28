@@ -8,8 +8,8 @@ import pl.luckboy.purfuncor.common.Tree
 
 package object frontend
 {
-  implicit def termIndenting[T, U, V, W]: Indenting[Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]] = new Indenting[Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]] {
-    override def indentedStringFrom(x: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]])(n: Int) =
+  implicit def termIndenting[T, U, V](implicit showing: Showing[Term[V]]): Indenting[Term[SimpleTerm[T, U, V]]] = new Indenting[Term[SimpleTerm[T, U, V]]] {
+    override def indentedStringFrom(x: Term[SimpleTerm[T, U, V]])(n: Int) =
       x match {
         case App(fun, args, _)     =>
           (fun :: args.list).map {
@@ -17,39 +17,39 @@ package object frontend
             case term                                    => "(" + indentedStringFrom(term)(n + 2) + ")"
           }.mkString(" ")
         case Simple(simpleTerm, _) =>
-          simpleTermIndenting.indentedStringFrom(simpleTerm)(n)
+          simpleTermIndenting(showing).indentedStringFrom(simpleTerm)(n)
       }
   }
   
-  implicit def simpleTermIndenting[T, U, V, W]: Indenting[SimpleTerm[T, U, TypeSimpleTerm[V, W]]] = new Indenting[SimpleTerm[T, U, TypeSimpleTerm[V, W]]] {
-    override def indentedStringFrom(x: SimpleTerm[T, U, TypeSimpleTerm[V, W]])(n: Int) =
+  implicit def simpleTermIndenting[T, U, V](implicit showing: Showing[Term[V]]): Indenting[SimpleTerm[T, U, V]] = new Indenting[SimpleTerm[T, U, V]] {
+    override def indentedStringFrom(x: SimpleTerm[T, U, V])(n: Int) =
       x match {
         case Let(binds, body, lambdaInfo)   =>
-          "let\n" + binds.map { (" " * (n + 2)) + bindIndenting.indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
+          "let\n" + binds.map { (" " * (n + 2)) + bindIndenting(showing).indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
           (" " * (n + 2)) + (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
-          (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting.indentedStringFrom(body)(n + 2)
+          (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting(showing).indentedStringFrom(body)(n + 2)
         case Lambda(args, body, lambdaInfo) =>
           "\\" + args.map { a => a.typ.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.list.mkString("") +
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
-          "=> " + termIndenting.indentedStringFrom(body)(n + 2)
+          "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
         case Var(loc)                       =>
           loc.toString
         case Literal(value)                 =>
           value.toString
         case TypedTerm(term, typ)           =>
-          termIndenting.indentedStringFrom(term)(n) + ": " + typeTermShowing
+          termIndenting(showing).indentedStringFrom(term)(n) + ": " + typeTermShowing
       }
   }
 
-  implicit def bindIndenting[T, U, V, W]: Indenting[Bind[T, U, TypeSimpleTerm[V, W]]] = new Indenting[Bind[T, U, TypeSimpleTerm[V, W]]] {
-    override def indentedStringFrom(x: Bind[T, U, TypeSimpleTerm[V, W]])(n: Int) =
+  implicit def bindIndenting[T, U, V](implicit showing: Showing[Term[V]]): Indenting[Bind[T, U, V]] = new Indenting[Bind[T, U, V]] {
+    override def indentedStringFrom(x: Bind[T, U, V])(n: Int) =
       x match {
-        case Bind(name, body, _) => name + " = " + termIndenting.indentedStringFrom(body)(n + 2)
+        case Bind(name, body, _) => name + " = " + termIndenting(showing).indentedStringFrom(body)(n + 2)
       }
   }
 
-  implicit def treeShowing[T, U, V, W, X, Z] = new Showing[Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Z]] {
-    override def stringFrom(x: Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Z]) =
+  implicit def treeShowing[T, U, V, W, X](implicit showing: Showing[Term[W]]) = new Showing[Tree[T, AbstractCombinator[U, V, W], X]] {
+    override def stringFrom(x: Tree[T, AbstractCombinator[U, V, W], X]) =
       x match {
         case Tree(combs, treeInfo) =>
           combs.groupBy { case (_, comb) => comb.file }.map {
