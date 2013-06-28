@@ -201,6 +201,11 @@ g x = f x 0
           }
       }
     }
+    
+    it should "interpret the string of the typed term" in {
+      val (env, res) = Interpreter.interpretTermString("#iAdd 2 ((#iMul 3 4): #Int)")(g).run(emptyEnv)
+      res should be ===(IntValue(14).success)      
+    }
   }
   
   "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]])(t => State(e => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel)), _.successNel)
