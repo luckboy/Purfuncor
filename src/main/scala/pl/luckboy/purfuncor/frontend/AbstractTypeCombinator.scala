@@ -16,7 +16,7 @@ sealed trait AbstractTypeCombinator[+T, +U]
       case TypeCombinator(args, body, lambdaInfo, _) =>
         "type " + name + " " + args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + 
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
-        "= " + body
+        "= " + typeTermShowing.stringFrom(body)
       case UnittypeCombinator(argCount, _)           =>
         "unittype " + argCount + " " + name
     }

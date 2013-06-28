@@ -181,7 +181,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName(s))
   }, "unknown built-in type function " + _)
   lazy val typeBuiltinFunValue2 = "##" ~> ("&" | "|" | "->")			^? ({
-    case s if TypeBuiltinFunction.values.exists { _.toString === "#" + s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName("#" + s))
+    case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName(s))
   }, "unknown built-in type function " + _)
   
   lazy val integer = elem("integer", _.isInstanceOf[lexical.IntLit])	^^ { t => parseInteger(t.chars)(Integer.parseInt)}

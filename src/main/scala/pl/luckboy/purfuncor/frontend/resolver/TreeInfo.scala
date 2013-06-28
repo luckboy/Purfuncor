@@ -6,3 +6,6 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Tree
 
 case class TreeInfo[+T, +U](typeTree: Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U])
+{
+  override def toString = typeTree.toString
+}

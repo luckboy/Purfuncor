@@ -7,7 +7,7 @@ import scalaz.Scalaz._
 case class Lexer() extends StdLexical
 {
   delimiters ++= List("(", ")", "{", "}", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "&", "|", "->", "*")
-  reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import")
+  reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import", "type", "unittype")
   
   case class CharLit(chars: String) extends Token
   case class ByteLit(chars: String) extends Token

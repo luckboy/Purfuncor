@@ -11,7 +11,7 @@ package object parser
         case CombinatorDef(sym, args, body)     =>
           sym + " " + args.map { a => a.typ.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ termIndenting[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]].indentedStringFrom(body)(n + 2)
         case TypeCombinatorDef(sym, args, body) =>
-          "type " + sym + " " + args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ typeTermShowing.stringFrom(body)(n + 2)
+          "type " + sym + " " + args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ typeTermShowing.stringFrom(body)
         case UnittypeCombinatorDef(n, sym)      =>
           "unittype " + n + " " + sym 
         case ModuleDef(sym, defs)               =>
