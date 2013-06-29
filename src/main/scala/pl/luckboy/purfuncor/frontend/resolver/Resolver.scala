@@ -94,6 +94,9 @@ object Resolver
     
   def transformTypeArgs(args: List[TypeArg]) =
     args.toNel.map { transformTypeArgNel(_).map { _.list } }.getOrElse(Nil.successNel)
+    
+  def transformTypeTermOption[T](term: Option[Term[TypeSimpleTerm[parser.Symbol, T]]])(scope: Scope) =
+    term.map { transformTypeTerm(_)(scope).map(some) }.getOrElse(none.successNel)
 
   def transformTypeTerm[T](term: Term[TypeSimpleTerm[parser.Symbol, T]])(scope: Scope): ValidationNel[AbstractError, Term[TypeSimpleTerm[Symbol, T]]] =
     term match {
@@ -209,19 +212,19 @@ object Resolver
     definition match {
       case parser.ImportDef(sym) =>
         (nameTree, ().successNel[AbstractError])
-      case parser.CombinatorDef(sym, _, _) =>
+      case parser.CombinatorDef(sym, _, _, _) =>
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsComb(sym2))
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
-      case parser.TypeCombinatorDef(sym, _, _) =>
+      case parser.TypeCombinatorDef(sym, _, _, _) =>
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsTypeComb(sym2))
           (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromTypeGlobalSymbol(sym2), ().successNel[AbstractError])
-      case parser.UnittypeCombinatorDef(_, sym) =>
+      case parser.UnittypeCombinatorDef(_, sym, _) =>
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsTypeComb(sym2))
           (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
@@ -287,20 +290,20 @@ object Resolver
               case Success(pp) => pp
               case res2        => ((tree2, res |+| res2.map { _ => () }), scope)
             }
-          case parser.CombinatorDef(sym, args, body) =>
+          case parser.CombinatorDef(sym, typ, args, body) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsComb(sym2)) {
               val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
-              val res2 = (transformArgs(args)(scope) |@| transformTerm(body)(newScope)) { (as, t) => (as, t) }
+              val res2 = (transformTypeTermOption(typ)(scope) |@| transformArgs(args)(scope) |@| transformTerm(body)(newScope)) { (tt, as, t) => (tt, as, t) }
               res2 match {
-                case Success((as, t)) => 
-                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(as, t, parser.LambdaInfo, none))), (res |@| res2) { (u, _) => u }), scope)
+                case Success((tt, as, t)) => 
+                  ((tree2.copy(combs = tree2.combs + (sym2 -> Combinator(tt, as, t, parser.LambdaInfo, none))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree2, (res |@| res2) { (u, _) => u }), scope)
               }
             } else
               ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
-          case parser.TypeCombinatorDef(sym, args, body) =>
+          case parser.TypeCombinatorDef(sym, kind, args, body) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsTypeComb(sym2)) {
               val newScope = scope.withLocalVars(args.flatMap { _.name }.toSet)
@@ -309,18 +312,18 @@ object Resolver
                 case Success((as, t)) => 
                   val treeInfo2 = tree2.treeInfo
                   val typeTree2 = treeInfo2.typeTree
-                  ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> TypeCombinator(as, t, parser.TypeLambdaInfo, none))))), (res |@| res2) { (u, _) => u }), scope)
+                  ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> TypeCombinator(kind, as, t, parser.TypeLambdaInfo, none))))), (res |@| res2) { (u, _) => u }), scope)
                 case Failure(_) =>
                   ((tree2, (res |@| res2) { (u, _) => u }), scope)
               } 
             } else
               ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
-          case parser.UnittypeCombinatorDef(n, sym) =>
+          case parser.UnittypeCombinatorDef(n, sym, kind) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsTypeComb(sym2)) {
               val treeInfo2 = tree2.treeInfo
               val typeTree2 = treeInfo2.typeTree
-              ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> UnittypeCombinator(n, none))))), res), scope)
+              ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> UnittypeCombinator(n, kind, none))))), res), scope)
             } else
               ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.ModuleDef(sym, defs2) =>

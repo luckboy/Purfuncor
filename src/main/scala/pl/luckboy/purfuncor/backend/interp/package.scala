@@ -107,7 +107,7 @@ package object interp
     
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {
-        case Combinator(_, body, _, _) => usedGlobalVarsFromTerm(body)
+        case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body)
       }
       
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolEnvironment[T, U]) = 
@@ -116,7 +116,7 @@ package object interp
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, T, U])(env: SymbolEnvironment[T, U]) = {
       val (env2, value: Value[Symbol, T, U, SymbolClosure[T, U]]) = if(comb.argCount === 0) {
         comb match {
-          case Combinator(_, body, _, file) =>
+          case Combinator(_, _, body, _, file) =>
             val (newEnv, value) = evaluateS(body)(env.withCurrentFile(file))
             (newEnv, value.forFileAndCombSym(file, some(loc)))
         }

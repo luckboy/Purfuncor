@@ -81,19 +81,20 @@ object LambdaIndexer
 
   def transformTree[T, U, V, W](tree: Tree[T, AbstractCombinator[U, parser.LambdaInfo, TypeSimpleTerm[V, parser.TypeLambdaInfo]], W]) = {
     val combs2 = tree.combs.mapValues {
-      case Combinator(args, body, _, file) =>
+      case Combinator(typ, args, body, _, file) =>
+        val typ2 = typ.map { transformTypeTermFromIndex(_).run(0)._2 }
         val args2 = args.map { case Arg(name, typ, pos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
-        Combinator(args2, transformTermFromIndex(body).run(1)._2, LambdaInfo(0), file): AbstractCombinator[U, LambdaInfo, TypeSimpleTerm[V, TypeLambdaInfo]]
+        Combinator(typ2, args2, transformTermFromIndex(body).run(1)._2, LambdaInfo(0), file): AbstractCombinator[U, LambdaInfo, TypeSimpleTerm[V, TypeLambdaInfo]]
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
   
   def transformTypeTree[T, U, V](tree: Tree[T, AbstractTypeCombinator[U, parser.TypeLambdaInfo], V]) = {
     val combs2 = tree.combs.mapValues {
-      case TypeCombinator(args, body, _, file) =>
-        TypeCombinator(args, transformTypeTermFromIndex(body).run(1)._2, TypeLambdaInfo(0), file): AbstractTypeCombinator[U, TypeLambdaInfo]
-      case UnittypeCombinator(n, file)         =>
-        UnittypeCombinator(n, file): AbstractTypeCombinator[U, TypeLambdaInfo]
+      case TypeCombinator(kind, args, body, _, file) =>
+        TypeCombinator(kind, args, transformTypeTermFromIndex(body).run(1)._2, TypeLambdaInfo(0), file): AbstractTypeCombinator[U, TypeLambdaInfo]
+      case UnittypeCombinator(n, kind, file)         =>
+        UnittypeCombinator(n, kind, file): AbstractTypeCombinator[U, TypeLambdaInfo]
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }

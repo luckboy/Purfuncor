@@ -23,7 +23,7 @@ type T t1 = \t2 => \t3 => ##& (##| t1 t2) t3
         combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f"))))
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T"))))
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
-          case Some(Combinator(args, body, LambdaInfo(idx), _)) =>
+          case Some(Combinator(None, args, body, LambdaInfo(idx), _)) =>
             inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
             inside(body) {
               case Simple(Lambda(args1, body1, LambdaInfo(idx1)), _) =>
@@ -41,7 +41,7 @@ type T t1 = \t2 => \t3 => ##& (##| t1 t2) t3
             }
         }
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
-          case Some(TypeCombinator(args, body, TypeLambdaInfo(idx), _)) =>
+          case Some(TypeCombinator(None, args, body, TypeLambdaInfo(idx), _)) =>
             inside(args) { case List(TypeArg(Some("t1"), None, _)) => () }
             inside(body) {
               case Simple(TypeLambda(args1, body1, TypeLambdaInfo(idx1)), _) =>
@@ -79,7 +79,7 @@ f x y = (let
     inside(res) {
       case Success(Tree(combs, treeInfo)) =>
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
-          case Some(Combinator(_, App(fun1, NonEmptyList(arg11), _), LambdaInfo(idx), _)) =>
+          case Some(Combinator(None, _, App(fun1, NonEmptyList(arg11), _), LambdaInfo(idx), _)) =>
             inside(fun1) {
               case Simple(Let(NonEmptyList(Bind(_, body2, _)), body3, LambdaInfo(idx1)), _) =>
                 inside(body2) {
@@ -110,7 +110,7 @@ type T t1 = (\t2 => (\t3 => t3) (\t3 => ##& (##& t1 (t2 t1)) t3)) (\t2 => t2)
     inside(res) {
       case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
-          case Some(TypeCombinator(_, App(fun1, NonEmptyList(arg11), _), TypeLambdaInfo(idx), _)) =>
+          case Some(TypeCombinator(None, _, App(fun1, NonEmptyList(arg11), _), TypeLambdaInfo(idx), _)) =>
             inside(fun1) {
               case Simple(TypeLambda(_, App(fun2, NonEmptyList(arg21), _), TypeLambdaInfo(idx1)), _) =>
                 inside(fun2) {
@@ -135,7 +135,7 @@ f = #iAdd (10: (\t1 => \t2 => t1) #Int #Any) (20: (\t => t) #Int)
     inside(res) {
       case Success(Tree(combs, treeInfo)) =>
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
-          case Some(Combinator(_, App(_, NonEmptyList(arg11, arg12), _), _, _)) =>
+          case Some(Combinator(None, _, App(_, NonEmptyList(arg11, arg12), _), _, _)) =>
             inside(arg11) {
               case Simple(TypedTerm(_, App(typeFun1, _, _)), _) =>
                 inside(typeFun1) {
