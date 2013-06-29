@@ -5,7 +5,11 @@ import pl.luckboy.purfuncor.common._
 
 sealed trait AbstractTypeCombinator[+T, +U]
 {
-  def argCount: Int
+  def argCount =
+    this match {
+      case TypeCombinator(args, _, _, _) => args.size
+      case UnittypeCombinator(n, _)      => n
+    }
   
   def file: Option[java.io.File]
 
@@ -22,12 +26,10 @@ sealed trait AbstractTypeCombinator[+T, +U]
     }
 }
 case class TypeCombinator[+T, +U](args: List[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
-{
-  override def argCount = args.size
-  
+{ 
   override def withFile(file: Option[java.io.File]) = copy(file = file)
 }
-case class UnittypeCombinator[+T, +U](argCount: Int, file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
+case class UnittypeCombinator[+T, +U](n: Int, file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
 {
   override def withFile(file: Option[java.io.File]) = copy(file = file)
 }
