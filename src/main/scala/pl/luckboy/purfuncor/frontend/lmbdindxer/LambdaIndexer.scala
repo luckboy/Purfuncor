@@ -103,4 +103,11 @@ object LambdaIndexer
       tree2 <- transformTree(tree)
       treeInfo2 <- treeInfoTransformer.transformTreeInfo(tree.treeInfo)
     } yield Tree(combs = tree2.combs, treeInfo = treeInfo2)
+    
+  def transformString(s: String)(nameTree: resolver.NameTree) = 
+    for {
+      tree <- resolver.Resolver.transformString(s)(nameTree)
+      tree2 <- transform(tree)
+    } yield tree2
+    
 }
