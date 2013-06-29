@@ -537,12 +537,13 @@ m3.h2 = #.m2.h
   it should "transform the string to a tree for types" in {
     val res = Resolver.transformString("""
 f (x: #Int) = #iAdd (x: #Int) (10: T #Any)
+(g: ##-> #Int #Int) x = x
 type T t = ##& (##& #Int #NonZero) t
 unittype 1 U
 """)(NameTree.empty) 
     inside(res) {
       case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
-        combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f"))))
+        combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g"))))
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U"))))
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
           case Some(Combinator(None, args, body, parser.LambdaInfo, None)) =>
@@ -569,6 +570,16 @@ unittype 1 U
                     }
                 }
             }
+        }
+        inside(combs.get(GlobalSymbol(NonEmptyList("g")))) {
+          case Some(Combinator(typ, args, body, parser.LambdaInfo, None)) =>
+            inside(typ) {
+              case Some(App(typFun1, typArgs1, _)) =>
+                inside(typFun1) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Fun)), _) => () }
+                inside(typArgs1) { case NonEmptyList(Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _), Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _)) => () }
+            }
+            inside(args) { case List(Arg(Some("x"), None, _)) => () }
+            inside(body) { case Simple(Var(LocalSymbol("x")), _) => () }
         }
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
           case Some(TypeCombinator(None, args, body, parser.TypeLambdaInfo, None)) =>
