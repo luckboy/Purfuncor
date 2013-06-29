@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor.frontend.lmbdindxer
+package pl.luckboy.purfuncor.frontend.lmbdindexer
 
 case class LambdaInfo(idx: Int)
 {

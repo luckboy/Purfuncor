@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor.frontend.lmbdindxer
+package pl.luckboy.purfuncor.frontend.lmbdindexer
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.util._
