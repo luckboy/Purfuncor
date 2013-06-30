@@ -36,8 +36,10 @@ object Inferrer
   def appInfoS[T, E, I](funInfo: I, argInfos: Seq[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) =
     inferrer.argInfosFromInfo(funInfo, argInfos.size)(env) match {
       case Success(funArgInfos) =>
-        val (env2, _) = unifyTwoInfoListsS[T, E, I](funArgInfos.toList, argInfos.toList)(env)
-        (env2, inferrer.returnInfoFromInfo(funInfo, argInfos.size)(env2))
+        unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env) match {
+          case (env2, Success(_))      => (env2, inferrer.returnInfoFromInfo(funInfo, argInfos.size)(env2))
+          case (env2, Failure(noInfo)) => (env2, noInfo)
+        }
       case Failure(noInfo)      =>
         (env, noInfo)
     }
