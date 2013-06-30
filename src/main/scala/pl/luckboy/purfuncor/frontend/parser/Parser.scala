@@ -85,7 +85,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class BindWrapper(bind: Bind[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class ArgWrapper(arg: Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class TypeArgWrapper(typeArg: TypeArg) extends Positional
-  case class KindWrapper(kind: Kind[StarKind[String]]) extends Positional
+  case class KindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
     wrapper.term match {
@@ -118,12 +118,12 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def typeArgWrapperToTypeArg(wrapper: TypeArgWrapper) = wrapper.typeArg.copy(pos = wrapper.pos)
   implicit def typeArgWrapperNelToTypeArgNel(wrappers: NonEmptyList[TypeArgWrapper]) = wrappers.map { typeArgWrapperToTypeArg(_) }
   implicit def typeArgWrappersToTypeArgs(wrappers: List[TypeArgWrapper]) = wrappers.map { typeArgWrapperToTypeArg(_) }
-  implicit def kindWrapperToKind(wrapper: KindWrapper): Kind[StarKind[String]] =
-    wrapper.kind match {
-      case kind @ Arrow(_, _, _) => kind.copy(pos = wrapper.pos)
-      case kind @ Star(_, _)     => kind.copy(pos = wrapper.pos)
+  implicit def kindTermWrapperToKindTerm(wrapper: KindTermWrapper): KindTerm[StarKindTerm[String]] =
+    wrapper.kindTerm match {
+      case kindTerm @ Arrow(_, _, _) => kindTerm.copy(pos = wrapper.pos)
+      case kindTerm @ Star(_, _)     => kindTerm.copy(pos = wrapper.pos)
     }
-  implicit def kindWrapperOptionToKindOption(wrapper: Option[KindWrapper]) = wrapper.map(kindWrapperToKind)
+  implicit def kindTermWrapperOptionToKindTermOption(wrapper: Option[KindTermWrapper]) = wrapper.map(kindTermWrapperToKindTerm)
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
   implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
@@ -132,7 +132,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def bindToBindWrapper(bind: Bind[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = BindWrapper(bind)
   implicit def argToArgWrapper(arg: Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = ArgWrapper(arg)
   implicit def typeArgToTypeArgWrapper(typeArg: TypeArg) = TypeArgWrapper(typeArg)
-  implicit def kindToKindWrapper(kind: Kind[StarKind[String]]) = KindWrapper(kind)
+  implicit def kindTermToKindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) = KindTermWrapper(kindTerm)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
 
@@ -200,8 +200,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val wildcardTypeArg1 = p("_"										^^^ TypeArg(none, none, NoPosition))
   lazy val namedTypeArg1 = p(ident	 									^^ { case s => TypeArg(some(s), none, NoPosition) })
   lazy val typeArg2 = wildcardTypeArg2 | namedTypeArg2
-  lazy val wildcardTypeArg2 = p("(" ~- "_" ~-> ((":" ~-> nlParsers.kindExpr) ?) <~- ")" ^^ { case k => TypeArg(none, k, NoPosition) })
-  lazy val namedTypeArg2 = p("(" ~-> ident ~- ((":" ~-> nlParsers.kindExpr) ?) <~- ")" ^^ { case s ~ k => TypeArg(some(s), k, NoPosition) })
+  lazy val wildcardTypeArg2 = p("(" ~- "_" ~-> ((":" ~-> nlParsers.kindExpr) ?) <~- ")" ^^ { case kt => TypeArg(none, kt, NoPosition) })
+  lazy val namedTypeArg2 = p("(" ~-> ident ~- ((":" ~-> nlParsers.kindExpr) ?) <~- ")" ^^ { case s ~ kt => TypeArg(some(s), kt, NoPosition) })
   
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
@@ -229,7 +229,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val typeExpr: PackratParser[TypeTermWrapper] = typeExpr1
     
     lazy val typeExpr1 = kindedTypeExpr | typeExprN
-    lazy val kindedTypeExpr = p(typeExprN ~~ (":" ~-> kindExpr)			^^ { case t ~ k => Simple(KindedTypeTerm(t, k), NoPosition) })
+    lazy val kindedTypeExpr = p(typeExprN ~~ (":" ~-> kindExpr)			^^ { case t ~ kt => Simple(KindedTypeTerm(t, kt), NoPosition) })
     lazy val typeExprN = typeApp | typeLambda | simpleTypeExpr
     lazy val simpleTypeExpr = typeVariable | typeLiteral | "(" ~-> typeExpr <~- ")"
     
@@ -238,10 +238,10 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val typeVariable = p(symbol									^^ { case s => Simple(TypeVar[Symbol, TypeLambdaInfo](s), NoPosition) })
     lazy val typeLiteral = p(typeLiteralValue							^^ { case v => Simple(TypeLiteral(v), NoPosition) })
     
-    lazy val kindExpr: PackratParser[KindWrapper] = kindExpr1
+    lazy val kindExpr: PackratParser[KindTermWrapper] = kindExpr1
 
-    lazy val kindExpr1: PackratParser[KindWrapper] = arrow | kindExprN
-    lazy val arrow = p(kindExprN ~~ ("->" ~-> kindExpr1)				^^ { case k1 ~ k2 => Arrow(k1, k2, NoPosition) })
+    lazy val kindExpr1: PackratParser[KindTermWrapper] = arrow | kindExprN
+    lazy val arrow = p(kindExprN ~~ ("->" ~-> kindExpr1)				^^ { case t1 ~ t2 => Arrow(t1, t2, NoPosition) })
     lazy val kindExprN = kindParam | star | "(" ~-> kindExpr <~- ")"
 
     lazy val kindParam = p(ident										^^ { case s => Star(KindParam(s), NoPosition) })
@@ -261,8 +261,8 @@ object Parser extends StandardTokenParsers with PackratParsers
 
   lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = combinatorDefPart ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case (s, tt) ~ as ~ t => CombinatorDef(s, tt, as, t) }
-  lazy val typeCombinatorDef = "type" ~-> typeCombinatorDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, k) ~ as ~ t => TypeCombinatorDef(s, k, as, t) }
-  lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- typeCombinatorDefPart ^^ { case n ~ ((s, k)) => UnittypeCombinatorDef(n, s, k) }
+  lazy val typeCombinatorDef = "type" ~-> typeCombinatorDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s, kt, as, t) }
+  lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- typeCombinatorDefPart ^^ { case n ~ ((s, kt)) => UnittypeCombinatorDef(n, s, kt) }
   lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
 
   lazy val combinatorDefPart = combinatorDefPart1 | combinatorDefPart2
@@ -271,7 +271,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val typeCombinatorDefPart = typeCombinatorDefPart1 | typeCombinatorDefPart2
   lazy val typeCombinatorDefPart1 = noNlParsers.symbol					^^ { case s => (s, None) }
-  lazy val typeCombinatorDefPart2 = "(" ~-> noNlParsers.symbol ~- ((":" ~-> noNlParsers.kindExpr) ?) <~- ")" ^^ { case s ~ k => (s, k) }
+  lazy val typeCombinatorDefPart2 = "(" ~-> noNlParsers.symbol ~- ((":" ~-> noNlParsers.kindExpr) ?) <~- ")" ^^ { case s ~ kt => (s, kt) }
 
   
   lazy val parseTree = rep("\n") ~> defs <~ rep("\n")					^^ ParseTree

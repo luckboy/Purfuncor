@@ -17,16 +17,16 @@ sealed trait TypeSimpleTerm[+T, +U]
       case TypeLiteral(value)                 =>
         value.toString
       case KindedTypeTerm(term, kind)         =>
-        typeTermShowing.stringFrom(term) + ": " + kindShowing.stringFrom(kind)
+        typeTermShowing.stringFrom(term) + ": " + kindTermShowing.stringFrom(kind)
     }
 }
 
 case class TypeLambda[+T, +U](args: NonEmptyList[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U) extends TypeSimpleTerm[T, U]
 case class TypeVar[+T, +U](loc: T) extends TypeSimpleTerm[T, U]
 case class TypeLiteral[+T, +U](value: TypeLiteralValue) extends TypeSimpleTerm[T, U]
-case class KindedTypeTerm[+T, +U](term: Term[TypeSimpleTerm[T, U]], kind: Kind[StarKind[String]]) extends TypeSimpleTerm[T, U]
+case class KindedTypeTerm[+T, +U](term: Term[TypeSimpleTerm[T, U]], kind: KindTerm[StarKindTerm[String]]) extends TypeSimpleTerm[T, U]
 
-case class TypeArg(name: Option[String], kind: Option[Kind[StarKind[String]]], pos: Position)
+case class TypeArg(name: Option[String], kind: Option[KindTerm[StarKindTerm[String]]], pos: Position)
 {
-  override def toString = name.map { _.toString }.getOrElse("_") + kind.map { k => ": " + kindShowing.stringFrom(k) }.getOrElse("")
+  override def toString = name.map { _.toString }.getOrElse("_") + kind.map { k => ": " + kindTermShowing.stringFrom(k) }.getOrElse("")
 }
