@@ -16,6 +16,8 @@ trait Inferrer[-T, E, I]
   
   def functionInfo(argCount: Int): I
   
+  def concatErrors(info1: I, info2: I): I
+  
   def unequalListLengthNoInfo: I
 }
 
@@ -38,7 +40,7 @@ object Inferrer
     
   def appInfoS[T, E, I](funInfo: I, argInfos: Seq[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) = {
     val (env2, funInfo2) = inferrer.unifyTwoInfosS(funInfo, inferrer.functionInfo(argInfos.size))(env)
-    val (env3, res) = inferrer.argInfosFromInfoS(funInfo, argInfos.size)(env2)
+    val (env3, res) = inferrer.argInfosFromInfoS(funInfo2, argInfos.size)(env2)
     res match {
       case Success(funArgInfos) =>
         unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env3) match {
@@ -59,8 +61,9 @@ object Inferrer
         case ((newEnv, Success(unifiedInfos)), (info1, info2)) =>
           val (newEnv2, unifiedInfo) = inferrer.unifyTwoInfosS(info1, info2)(newEnv)
           (newEnv2, if(!inferrer.isNoInfo(unifiedInfo)) (unifiedInfos :+ unifiedInfo).success else unifiedInfo.failure)
-        case ((newEnv, Failure(noInfo)), _)                    =>
-          (newEnv, noInfo.failure)
+        case ((newEnv, Failure(noInfo)), (info1, info2))       =>
+          val (newEnv2, unifiedInfo) = inferrer.unifyTwoInfosS(info1, info2)(newEnv)
+          (newEnv2, inferrer.concatErrors(noInfo, unifiedInfo).failure)
       }
     else
       (env, inferrer.unequalListLengthNoInfo.failure)
@@ -70,11 +73,12 @@ object Inferrer
     
   def inferTermInfosS[T, E, I](terms: List[Term[T]])(env: E)(implicit inferrer: Inferrer[T, E, I]): (E, Validation[I, Seq[I]]) =
     terms.foldLeft((env, Seq[I]().success[I])) {
-      case ((newEnv, Success(infos)), term) =>
+      case ((newEnv, Success(infos)), term)  =>
         val (newEnv2, info) = inferS(term)(newEnv)
         (newEnv2, if(!inferrer.isNoInfo(info)) (infos :+ info).success else info.failure)
-      case ((newEnv, Failure(noInfo)), _)   =>
-        (newEnv, noInfo.failure)
+      case ((newEnv, Failure(noInfo)), term) =>
+        val (newEnv2, info) = inferS(term)(newEnv)
+        (newEnv, inferrer.concatErrors(noInfo, info).failure)
     }
 
   def inferTtermInfos[T, E, I](terms: List[Term[T]])(implicit inferrer: Inferrer[T, E, I]) =
