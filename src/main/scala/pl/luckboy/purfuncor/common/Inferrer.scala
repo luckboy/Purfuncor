@@ -12,7 +12,11 @@ trait Inferrer[-T, E, I]
   
   def returnInfoFromInfo(info: I, argCount: Int)(env: E): I
   
-  def isNoInfo(info: I): Boolean 
+  def isNoInfo(info: I): Boolean
+  
+  def functionInfo(argCount: Int): I
+  
+  def unequalListLengthNoInfo: I
 }
 
 object Inferrer
@@ -33,28 +37,33 @@ object Inferrer
   def infer[T, E, I](term: Term[T])(implicit inferrer: Inferrer[T, E, I]) =
     State(inferS[T, E, I](term))
     
-  def appInfoS[T, E, I](funInfo: I, argInfos: Seq[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) =
-    inferrer.argInfosFromInfo(funInfo, argInfos.size)(env) match {
+  def appInfoS[T, E, I](funInfo: I, argInfos: Seq[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) = {
+    val (env2, funInfo2) = inferrer.unifyTwoInfosS(funInfo, inferrer.functionInfo(argInfos.size))(env)
+    inferrer.argInfosFromInfo(funInfo, argInfos.size)(env2) match {
       case Success(funArgInfos) =>
-        unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env) match {
-          case (env2, Success(_))      => (env2, inferrer.returnInfoFromInfo(funInfo, argInfos.size)(env2))
-          case (env2, Failure(noInfo)) => (env2, noInfo)
+        unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env2) match {
+          case (env3, Success(_))      => (env3, inferrer.returnInfoFromInfo(funInfo, argInfos.size)(env3))
+          case (env3, Failure(noInfo)) => (env3, noInfo)
         }
       case Failure(noInfo)      =>
-        (env, noInfo)
+        (env2, noInfo)
     }
+  }
   
   def appInfo[T, E, I](funInfo: I, argInfos: Seq[I])(implicit inferrer: Inferrer[T, E, I]) =
     State(appInfoS[T, E, I](funInfo, argInfos))
   
   def unifyTwoInfoListsS[T, E, I](infos1: List[I], infos2: List[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) =
-    infos1.zip(infos2).foldLeft((env, Seq[I]().success[I])) {
-      case ((newEnv, Success(unifiedInfos)), (info1, info2)) =>
-        val (newEnv2, unifiedInfo) = inferrer.unifyTwoInfosS(info1, info2)(newEnv)
-        (newEnv2, if(!inferrer.isNoInfo(unifiedInfo)) (unifiedInfos :+ unifiedInfo).success else unifiedInfo.failure)
-      case ((newEnv, Failure(noInfo)), _)                    =>
-        (newEnv, noInfo.failure)
-    }
+    if(infos1.size === infos2.size)
+      infos1.zip(infos2).foldLeft((env, Seq[I]().success[I])) {
+        case ((newEnv, Success(unifiedInfos)), (info1, info2)) =>
+          val (newEnv2, unifiedInfo) = inferrer.unifyTwoInfosS(info1, info2)(newEnv)
+          (newEnv2, if(!inferrer.isNoInfo(unifiedInfo)) (unifiedInfos :+ unifiedInfo).success else unifiedInfo.failure)
+        case ((newEnv, Failure(noInfo)), _)                    =>
+          (newEnv, noInfo.failure)
+      }
+    else
+      (env, inferrer.unequalListLengthNoInfo.failure)
 
   def unifyTwoInfoLists[T, E, I](infos1: List[I], infos2: List[I])(implicit inferrer: Inferrer[T, E, I]) =
     State(unifyTwoInfoListsS[T, E, I](infos1, infos2))
