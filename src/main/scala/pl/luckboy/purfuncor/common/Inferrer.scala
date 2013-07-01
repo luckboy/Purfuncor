@@ -8,9 +8,9 @@ trait Inferrer[-T, E, I]
   
   def unifyTwoInfosS(info1: I, info2: I)(env: E): (E, I)
   
-  def argInfosFromInfo(info: I, argCount: Int)(env: E): Validation[I, Seq[I]]
+  def argInfosFromInfoS(info: I, argCount: Int)(env: E): (E, Validation[I, Seq[I]])
   
-  def returnInfoFromInfo(info: I, argCount: Int)(env: E): I
+  def returnInfoFromInfoS(info: I, argCount: Int)(env: E): (E, I)
   
   def isNoInfo(info: I): Boolean
   
@@ -29,7 +29,6 @@ object Inferrer
           case (env3, Success(argInfos))  => appInfoS(funInfo, argInfos)(env3)
           case (env3, Failure(noInfo))    => (env3, noInfo)
         }
-        throw new UnsupportedOperationException
       case Simple(simpleTerm, _) =>
         inferrer.inferSimpleTermInfoS(simpleTerm)(env)
     }
@@ -39,14 +38,15 @@ object Inferrer
     
   def appInfoS[T, E, I](funInfo: I, argInfos: Seq[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) = {
     val (env2, funInfo2) = inferrer.unifyTwoInfosS(funInfo, inferrer.functionInfo(argInfos.size))(env)
-    inferrer.argInfosFromInfo(funInfo, argInfos.size)(env2) match {
+    val (env3, res) = inferrer.argInfosFromInfoS(funInfo, argInfos.size)(env2)
+    res match {
       case Success(funArgInfos) =>
-        unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env2) match {
-          case (env3, Success(_))      => (env3, inferrer.returnInfoFromInfo(funInfo, argInfos.size)(env3))
-          case (env3, Failure(noInfo)) => (env3, noInfo)
+        unifyTwoInfoListsS(funArgInfos.toList, argInfos.toList)(env3) match {
+          case (env4, Success(_))      => inferrer.returnInfoFromInfoS(funInfo, argInfos.size)(env4)
+          case (env4, Failure(noInfo)) => (env4, noInfo)
         }
       case Failure(noInfo)      =>
-        (env2, noInfo)
+        (env3, noInfo)
     }
   }
   
