@@ -15,8 +15,6 @@ trait Unifier[E, T, F, P]
   
   def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Unit])
   
-  def notFoundParamError: E
-  
   def mismatchedTermErrorS(env: F): (F, E)
 }
 
