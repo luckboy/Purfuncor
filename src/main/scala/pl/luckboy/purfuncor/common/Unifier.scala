@@ -22,12 +22,9 @@ trait Unifier[E, T, F, P]
 
 object Unifier
 {
-  def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, T]) = {
+  def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]) = {
     val (env2, res) = fullyMatchesAndReplaceS(term1, term2)(env)
-    res match {
-      case Success(term) => (env2, term.success)
-      case Failure(err)  => (env, err.failure)
-    }
+    res.map { term => (env2, term.success) }.valueOr { err => (env, err.failure) }
   }
     
   def unify[E, T, F, P](term1: T, term2: T)(implicit unifier: Unifier[E, T, F, P]) =
@@ -50,8 +47,7 @@ object Unifier
         val (newEnv3, res2) = unifier.findRootParamS(param2)(newEnv2)
         (res1, res2) match {
           case (Success(rootParam1), Success(rootParam2)) =>
-            if(!markedParams.contains(rootParam1) && !markedParams.contains(rootParam2)) {
-              
+            if(!markedParams.contains(rootParam1) && !markedParams.contains(rootParam2)) {            
               val (newEnv4, optParamTerm1) = unifier.getParamTermS(rootParam1)(newEnv3)
               val (newEnv5, optParamTerm2) = unifier.getParamTermS(rootParam2)(newEnv4)
               (optParamTerm1, optParamTerm2) match {
