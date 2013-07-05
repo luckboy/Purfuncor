@@ -15,7 +15,7 @@ trait Unifier[E, T, F, P]
   
   def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Unit])
   
-  def mismatchedTermErrorS(env: F): (F, E)
+  def mismatchedTermError(env: F): E
 }
 
 object Unifier
@@ -62,7 +62,7 @@ object Unifier
                   (newEnv6, res3.map { _ => true })
               }
             } else
-              unifier.mismatchedTermErrorS(newEnv3).map { _.failure }
+              (newEnv3, unifier.mismatchedTermError(newEnv3).failure)
           case (_, Failure(err)) =>
             (newEnv3, err.failure)
           case (Failure(err), _) =>
@@ -82,7 +82,7 @@ object Unifier
                   (newEnv4, res2.map { _ => true })
               }
             } else 
-              unifier.mismatchedTermErrorS(newEnv2).map { _.failure }
+              (newEnv2, unifier.mismatchedTermError(newEnv2).failure)
           case Failure(err) =>
             (newEnv2, err.failure)
         }
