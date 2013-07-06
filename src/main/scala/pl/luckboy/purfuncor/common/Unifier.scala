@@ -5,7 +5,7 @@ import scalaz.Scalaz._
 
 trait Unifier[E, T, F, P]
 {
-  def matchesTermsS[U](term1: T, term2: T)(f: (P, Either[P, T], U, F) => (F, Validation[E, U]))(env: F): (F, Validation[E, U])
+  def matchesTermsS[U](term1: T, term2: T)(z: U)(f: (P, Either[P, T], U, F) => (F, Validation[E, U]))(env: F): (F, Validation[E, U])
 
   def getParamTermS(param: P)(env: F): (F, Option[T])
   
@@ -39,7 +39,7 @@ object Unifier
   }
     
   private def matchesAndReplaceS[E, T, F, P](term1: T, term2: T)(markedParams: Set[P], areChangedParams: Boolean)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, Boolean]) =
-    unifier.matchesTermsS[Boolean](term1, term2) {
+    unifier.matchesTermsS[Boolean](term1, term2)(areChangedParams) {
       case (param1, Left(param2), areChangedNewParams, newEnv) =>
         val (newEnv2, res1) = unifier.findRootParamS(param1)(newEnv)
         val (newEnv3, res2) = unifier.findRootParamS(param2)(newEnv2)
