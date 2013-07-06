@@ -5,7 +5,14 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
-sealed trait Kind[+T]
-case class NoKind[+T](errs: NonEmptyList[AbstractError]) extends Kind[T]
-case class InferredKind[+T](kindTerm: KindTerm[StarKindTerm[T]]) extends Kind[T]
-case class InferringKind[+T](paramKindIdx: Int) extends Kind[T]
+sealed trait Kind
+
+case class NoKind(errs: NonEmptyList[AbstractError]) extends Kind
+
+object NoKind
+{
+  def fromError(err: AbstractError) = NoKind(NonEmptyList(err))
+}
+
+case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
+case class InferringKind(paramKindIdx: Int) extends Kind
