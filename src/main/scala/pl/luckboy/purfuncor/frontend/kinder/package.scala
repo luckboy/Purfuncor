@@ -56,7 +56,7 @@ package object kinder
       else
         (env, NoKind.fromError(FatalError("kind parameter is already replaced", none, NoPosition)).failure)          
 
-    override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
+    override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment) =
       if(!env.kindParamForest.containsTerm(param1) && !env.kindParamForest.containsTerm(param2))
         env.kindParamForest.unionParams(param1, param2).map {
           kpf => (env.withKindParamForest(kpf), ().success)
