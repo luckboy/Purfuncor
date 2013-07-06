@@ -54,12 +54,15 @@ package object kinder
           kpf => (env.withKindParamForest(kpf), ().success)
         }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter or kind parameter is replaced", none, NoPosition)).failure))
       else
-        (env, mismatchedTermError(env).failure)
-          
+        (env, NoKind.fromError(FatalError("kind parameter is already replaced", none, NoPosition)).failure)          
+
     override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
-      env.kindParamForest.unionParams(param1, param2).map {
-        kpf => (env.withKindParamForest(kpf), ().success)
-      }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameters", none, NoPosition)).failure))
+      if(!env.kindParamForest.containsTerm(param1) && !env.kindParamForest.containsTerm(param2))
+        env.kindParamForest.unionParams(param1, param2).map {
+          kpf => (env.withKindParamForest(kpf), ().success)
+        }.getOrElse((env, NoKind.fromError(FatalError("not found one kind parameter or two kind parameters", none, NoPosition)).failure))
+      else
+        (env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure)
       
     override def mismatchedTermError(env: SymbolKindInferenceEnvironment): NoKind =
       throw new UnsupportedOperationException
