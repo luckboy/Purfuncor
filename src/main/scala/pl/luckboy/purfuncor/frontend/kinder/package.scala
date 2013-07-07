@@ -52,7 +52,7 @@ package object kinder
       if(!env.kindParamForest.containsTerm(param)) 
         env.kindParamForest.replaceParam(param, InferredParamTerm(term)).map {
           kpf => (env.withKindParamForest(kpf), ().success)
-        }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter or kind parameter is replaced", none, NoPosition)).failure))
+        }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
       else
         (env, NoKind.fromError(FatalError("kind parameter is already replaced", none, NoPosition)).failure)          
 
