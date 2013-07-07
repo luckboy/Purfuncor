@@ -16,6 +16,8 @@ trait Unifier[E, T, F, P]
   def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Unit])
   
   def mismatchedTermError(env: F): E
+  
+  def allocateParamS(env: F): (F, Validation[E, Int])
 }
 
 object Unifier

@@ -28,8 +28,11 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
     } yield copy(nodes.updated(rootParam1, ParamNode(some(rootParam2))))
   
   def allocateParam = {
-    val newForest = copy(nodes = nodes + (next -> ParamNode(None)), next = next + 1)
-    (newForest, next)
+    if(next < Integer.MAX_VALUE) {
+      val param = next
+      some((copy(nodes = nodes + (param -> ParamNode(None)), next = next + 1), param))
+    } else
+      none
   }
 }
 

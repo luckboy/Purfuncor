@@ -40,7 +40,7 @@ package object kinder
   
   implicit val symbolKindUnifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] = new Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] {
     override def matchesTermsS[U](term1: KindTerm[StarKindTerm[Int]], term2: KindTerm[StarKindTerm[Int]])(z: U)(f: (Int, Either[Int, KindTerm[StarKindTerm[Int]]], U, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, U]))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, U]) =
-      KindUnifier.matchesTermsS(term1, term2)(z)(f)(env)
+      KindUnifier.matchesKindTermsS(term1, term2)(z)(f)(env)
     
     override def getParamTermS(param: Int)(env: SymbolKindInferenceEnvironment) =
       (env, env.kindParamForest.getTerm(param).map { _.kindTerm })
@@ -66,5 +66,10 @@ package object kinder
       
     override def mismatchedTermError(env: SymbolKindInferenceEnvironment): NoKind =
       throw new UnsupportedOperationException
-  }
+      
+    override   def allocateParamS(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Int]) =
+      env.kindParamForest.allocateParam.map { 
+        case (kpf, p) => (env.withKindParamForest(kpf), p.success)
+      }.getOrElse((env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure))
+  }  
 }
