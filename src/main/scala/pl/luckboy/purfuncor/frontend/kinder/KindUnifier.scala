@@ -28,13 +28,6 @@ object KindUnifier
         (env, unifier.mismatchedTermError(env).failure)
     }
   
-  def paramsFromKindTerm[T](term: KindTerm[StarKindTerm[T]]): Set[T] =
-    term match {
-      case Arrow(arg, ret, _)        => paramsFromKindTerm(arg) | paramsFromKindTerm(ret)
-      case Star(KindParam(param), _) => Set(param)
-      case _                         => Set()
-    }
-  
   def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
     term match {
       case Arrow(arg, ret, pos) =>

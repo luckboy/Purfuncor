@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.NameTree
 import pl.luckboy.purfuncor.common.Evaluator._
+import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object interp
 {
@@ -98,13 +99,6 @@ package object interp
   implicit def symbolCombinatorInitializer[T, U] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U]] {
     override def globalVarsFromEnvironment(env: SymbolEnvironment[T, U]) = env.globalVarValues.keySet
         
-    private def usedGlobalVarsFromTerm(term: Term[SimpleTerm[Symbol, T, U]]): Set[GlobalSymbol] =
-      term match {
-        case App(fun, args, _)                 => usedGlobalVarsFromTerm(fun) | args.list.flatMap(usedGlobalVarsFromTerm).toSet
-        case Simple(Var(sym: GlobalSymbol), _) => Set(sym)
-        case Simple(_, _)                      => Set()
-      }
-    
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {
         case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body)
