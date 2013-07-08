@@ -35,23 +35,23 @@ object KindUnifier
       case _                         => Set()
     }
   
-  def paramKindTermFromKindTermS[T, E](term: KindTerm[StarKindTerm[T]])(params: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
+  def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
     term match {
       case Arrow(arg, ret, pos) =>
-        val (env2, argRes) = paramKindTermFromKindTermS(arg)(params)(env)
+        val (env2, argRes) = allocateKindTermParamsS(arg)(allocatedParams)(env)
         argRes match {
           case Success((params2, arg2)) =>
-            val (env3, retRes) = paramKindTermFromKindTermS(ret)(params2)(env)
+            val (env3, retRes) = allocateKindTermParamsS(ret)(params2)(env)
             retRes.map { case (ps, ret2) => (env3, (ps, Arrow(arg2, ret2, pos)).success) }.valueOr { nk => (env3, nk.failure) } 
           case Failure(noKind)          =>
             (env2, noKind.failure)
         }
       case Star(KindType, pos) =>
-        (env, (params, Star(KindType, pos)).success)
+        (env, (allocatedParams, Star(KindType, pos)).success)
       case Star(KindParam(param), pos) =>
-        params.get(param).map { param2 => (env, (params, Star(KindParam(param2), pos)).success) }.getOrElse {
+        allocatedParams.get(param).map { param2 => (env, (allocatedParams, Star(KindParam(param2), pos)).success) }.getOrElse {
           val (env2, res) = unifier.allocateParamS(env)
-          res.map { param2 => (env2, (params + (param -> param2), Star(KindParam(param2), pos)).success) }.valueOr {
+          res.map { param2 => (env2, (allocatedParams + (param -> param2), Star(KindParam(param2), pos)).success) }.valueOr {
             nk => (env2, nk.failure) 
           }
         }
