@@ -15,9 +15,11 @@ trait Unifier[E, T, F, P]
   
   def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Unit])
   
-  def mismatchedTermError(env: F): E
-  
   def allocateParamS(env: F): (F, Validation[E, Int])
+  
+  def replaceTermParamsS(term: T)(f: (P, F) => (F, Validation[E, Either[P, T]]))(env: F): (F, Validation[E, T])
+
+  def mismatchedTermError(env: F): E
 }
 
 object Unifier
@@ -29,6 +31,28 @@ object Unifier
     
   def unify[E, T, F, P](term1: T, term2: T)(implicit unifier: Unifier[E, T, F, P]) =
     State(unifyS[E, T, F, P](term1, term2))
+    
+  def instantiateS[E, T, F, P](term: T)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, T]) =
+    unifier.replaceTermParamsS(term) {
+      case (param, newEnv) =>
+        val (newEnv2, res) = unifier.findRootParamS(param)(newEnv)
+        res match {
+          case Success(rootParam) =>
+            val (newEnv3, optParamTerm) = unifier.getParamTermS(param)(newEnv2)
+            optParamTerm match {
+              case Some(paramTerm) => 
+                val (newEnv4, res2) = instantiateS(paramTerm)(newEnv3)
+                (newEnv4, res2.map { Right(_) })
+              case None            =>
+                (newEnv3, Left(param).success)
+            }
+          case Failure(err) =>
+            (newEnv2, err.failure)
+        }
+    } (env)
+  
+  def instantiate[E, T, F, P](term: T)(implicit unifier: Unifier[E, T, F, P]) =
+    State(instantiateS[E, T, F, P](term))
   
   @tailrec
   private def fullyMatchesAndReplaceS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, T]) = {

@@ -64,12 +64,15 @@ package object kinder
       else
         (env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure)
       
-    override def mismatchedTermError(env: SymbolKindInferenceEnvironment): NoKind =
-      throw new UnsupportedOperationException
-      
-    override   def allocateParamS(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Int]) =
+    override def allocateParamS(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Int]) =
       env.kindParamForest.allocateParam.map { 
         case (kpf, p) => (env.withKindParamForest(kpf), p.success)
       }.getOrElse((env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure))
-  }  
+
+    override def replaceTermParamsS(term: KindTerm[StarKindTerm[Int]])(f: (Int, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, KindTerm[StarKindTerm[Int]]]) =
+      KindUnifier.replaceKindTermParamsS(term)(f)(env)
+
+    override def mismatchedTermError(env: SymbolKindInferenceEnvironment): NoKind =
+      throw new UnsupportedOperationException
+  }
 }

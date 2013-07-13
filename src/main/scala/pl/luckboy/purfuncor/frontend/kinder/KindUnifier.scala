@@ -28,6 +28,29 @@ object KindUnifier
         (env, unifier.mismatchedTermError(env).failure)
     }
   
+  def replaceKindTermParamsS[E](term: KindTerm[StarKindTerm[Int]])(f: (Int, E) => (E, Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: E): (E, Validation[NoKind, KindTerm[StarKindTerm[Int]]]) = {
+    term match {
+      case Arrow(arg, ret, pos) =>
+        val (env2, argRes) = replaceKindTermParamsS(arg)(f)(env)
+        argRes match {
+          case Success(arg2)   =>
+            val (env3, retRes) = replaceKindTermParamsS(ret)(f)(env)
+            (env3, retRes.map { ret2 => Arrow(arg2, ret, NoPosition) })
+          case Failure(noKind) =>
+            (env2, noKind.failure)
+        }
+      case Star(KindParam(param), pos) =>
+        val (env2, res) = f(param, env)
+        res match {
+          case Success(Left(param2))     => (env2, Star(KindParam(param2), pos).success)
+          case Success(Right(paramTerm)) => (env2, paramTerm.success)
+          case Failure(noKind)           => (env2, noKind.failure)
+        }
+      case Star(KindType, pos) =>
+        (env, Star(KindType, pos).success)
+    }
+  }
+  
   def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
     term match {
       case Arrow(arg, ret, pos) =>
