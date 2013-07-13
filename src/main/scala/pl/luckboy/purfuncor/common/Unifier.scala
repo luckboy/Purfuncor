@@ -19,6 +19,8 @@ trait Unifier[E, T, F, P]
   
   def replaceTermParamsS(term: T)(f: (P, F) => (F, Validation[E, Either[P, T]]))(env: F): (F, Validation[E, T])
 
+  def checkParamsS(env: F): (F, Validation[E, Unit])
+  
   def mismatchedTermError(env: F): E
 }
 

@@ -72,6 +72,9 @@ package object kinder
     override def replaceTermParamsS(term: KindTerm[StarKindTerm[Int]])(f: (Int, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, KindTerm[StarKindTerm[Int]]]) =
       KindUnifier.replaceKindTermParamsS(term)(f)(env)
 
+    override def checkParamsS(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
+      throw new UnsupportedOperationException
+    
     override def mismatchedTermError(env: SymbolKindInferenceEnvironment): NoKind =
       throw new UnsupportedOperationException
   }
