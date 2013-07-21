@@ -18,12 +18,12 @@ sealed trait AbstractTypeCombinator[+T, +U]
   def toStringForName(name: String) =
     this match {
       case TypeCombinator(kind, args, body, lambdaInfo, _) =>
-        "type " + kind.map { k => "(" + name + ": " + kindTermShowing.stringFrom(k) + ")" }.getOrElse(name) + " " + 
+        "type " + kind.map { k => "(" + name + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(name) + " " + 
         args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + 
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
         "= " + typeTermShowing.stringFrom(body)
       case UnittypeCombinator(n, kind, _)           =>
-        "unittype " + n + " " + kind.map { k => "(" + name + ": " + kindTermShowing.stringFrom(k) + ")" }.getOrElse(name)
+        "unittype " + n + " " + kind.map { k => "(" + name + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(name)
     }
 }
 case class TypeCombinator[+T, +U](kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]

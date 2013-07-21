@@ -6,7 +6,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 
-object KindUnifier
+object KindTermUnifier
 {
   def matchesKindTermsS[T, E](term1: KindTerm[StarKindTerm[Int]], term2: KindTerm[StarKindTerm[Int]])(z: T)(f: (Int, Either[Int, KindTerm[StarKindTerm[Int]]], T, E) => (E, Validation[NoKind, T]))(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, T]) =
     (term1, term2) match {
@@ -25,7 +25,7 @@ object KindUnifier
       case (_, Star(KindParam(param2), _)) =>
         f(param2, Right(term1), z, env)
       case _ =>
-        (env, unifier.mismatchedTermError(env).failure)
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
   
   def replaceKindTermParamsS[E](term: KindTerm[StarKindTerm[Int]])(f: (Int, E) => (E, Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: E): (E, Validation[NoKind, KindTerm[StarKindTerm[Int]]]) = {
@@ -51,13 +51,13 @@ object KindUnifier
     }
   }
   
-  def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
+  private def unsafeAllocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, (Map[T, Int], KindTerm[StarKindTerm[Int]])]) =
     term match {
       case Arrow(arg, ret, pos) =>
-        val (env2, argRes) = allocateKindTermParamsS(arg)(allocatedParams)(env)
+        val (env2, argRes) = unsafeAllocateKindTermParamsS(arg)(allocatedParams)(env)
         argRes match {
           case Success((params2, arg2)) =>
-            val (env3, retRes) = allocateKindTermParamsS(ret)(params2)(env)
+            val (env3, retRes) = unsafeAllocateKindTermParamsS(ret)(params2)(env)
             retRes.map { case (ps, ret2) => (env3, (ps, Arrow(arg2, ret2, pos)).success) }.valueOr { nk => (env3, nk.failure) } 
           case Failure(noKind)          =>
             (env2, noKind.failure)
@@ -72,4 +72,10 @@ object KindUnifier
           }
         }
     }
+
+  def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
+    val (savedEnv, env2) = unifier.copyEnvironmentS(env)
+    val (env3, res) = unsafeAllocateKindTermParamsS(term)(allocatedParams)(env2)
+    res.map { p => (env3, p.success) }.valueOr { nk => (savedEnv, nk.failure) }
+  }
 }

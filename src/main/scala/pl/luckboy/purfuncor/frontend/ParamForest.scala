@@ -36,4 +36,9 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
   }
 }
 
+object ParamForest
+{
+  val empty = ParamForest(IntMap(), IntMap(), 0)
+}
+
 case class ParamNode(prev: Option[Int])

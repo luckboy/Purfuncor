@@ -17,7 +17,7 @@ sealed trait TypeSimpleTerm[+T, +U]
       case TypeLiteral(value)                 =>
         value.toString
       case KindedTypeTerm(term, kind)         =>
-        typeTermShowing.stringFrom(term) + ": " + kindTermShowing.stringFrom(kind)
+        typeTermShowing.stringFrom(term) + ": " + stringKindTermShowing.stringFrom(kind)
     }
 }
 
@@ -28,5 +28,5 @@ case class KindedTypeTerm[+T, +U](term: Term[TypeSimpleTerm[T, U]], kind: KindTe
 
 case class TypeArg(name: Option[String], kind: Option[KindTerm[StarKindTerm[String]]], pos: Position)
 {
-  override def toString = name.map { _.toString }.getOrElse("_") + kind.map { k => ": " + kindTermShowing.stringFrom(k) }.getOrElse("")
+  override def toString = name.map { _.toString }.getOrElse("_") + kind.map { k => ": " + stringKindTermShowing.stringFrom(k) }.getOrElse("")
 }

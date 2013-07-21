@@ -94,16 +94,31 @@ package object frontend
       }
   }
   
-  implicit val kindTermShowing: Showing[KindTerm[StarKindTerm[String]]] = new Showing[KindTerm[StarKindTerm[String]]] {
+  implicit val stringKindTermShowing: Showing[KindTerm[StarKindTerm[String]]] = new Showing[KindTerm[StarKindTerm[String]]] {
     override def stringFrom(x: KindTerm[StarKindTerm[String]]) =
       x match {
         case Arrow(arg, ret, _)         =>
           arg match {
-            case Arrow(_, _, _) => "(" + kindTermShowing.stringFrom(arg) + ") -> " + kindTermShowing.stringFrom(ret)
-            case Star(_, _)     => kindTermShowing.stringFrom(arg) + " -> " + kindTermShowing.stringFrom(ret)
+            case Arrow(_, _, _) => "(" + stringKindTermShowing.stringFrom(arg) + ") -> " + stringKindTermShowing.stringFrom(ret)
+            case Star(_, _)     => stringKindTermShowing.stringFrom(arg) + " -> " + stringKindTermShowing.stringFrom(ret)
           }
         case Star(KindParam(param), _)  =>
           param.toString
+        case Star(KindType, _)          =>
+          "*"
+      }
+  }
+
+  implicit val intKindTermShowing: Showing[KindTerm[StarKindTerm[Int]]] = new Showing[KindTerm[StarKindTerm[Int]]] {
+    override def stringFrom(x: KindTerm[StarKindTerm[Int]]) =
+      x match {
+        case Arrow(arg, ret, _)         =>
+          arg match {
+            case Arrow(_, _, _) => "(" + intKindTermShowing.stringFrom(arg) + ") -> " + intKindTermShowing.stringFrom(ret)
+            case Star(_, _)     => intKindTermShowing.stringFrom(arg) + " -> " + intKindTermShowing.stringFrom(ret)
+          }
+        case Star(KindParam(param), _)  =>
+          "k" + (param + 1)
         case Star(KindType, _)          =>
           "*"
       }

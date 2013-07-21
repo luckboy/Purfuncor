@@ -12,10 +12,10 @@ package object parser
           typ.map { t => "(" + sym + ": " + typeTermShowing.stringFrom(t) + ")" }.getOrElse(sym) + " " +
           args.map { a => a.typ.map { _ => "(" + argShowing[TypeSimpleTerm[Symbol, TypeLambdaInfo]].stringFrom(a) + ")" }.getOrElse(argShowing[TypeSimpleTerm[Symbol, TypeLambdaInfo]].stringFrom(a)) + " " }.mkString("") + "= "+ termIndenting[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]].indentedStringFrom(body)(n + 2)
         case TypeCombinatorDef(sym, kind, args, body) =>
-          "type " + kind.map { k => "(" + sym + ": " + kindTermShowing.stringFrom(k) + ")" }.getOrElse(sym) + " " +
+          "type " + kind.map { k => "(" + sym + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(sym) + " " +
           args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ typeTermShowing.stringFrom(body)
         case UnittypeCombinatorDef(n, sym, kind)      =>
-          "unittype " + n + " " + kind.map { k => "(" + sym + ": " + kindTermShowing.stringFrom(k) + ")" }.getOrElse(sym) 
+          "unittype " + n + " " + kind.map { k => "(" + sym + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(sym)
         case ModuleDef(sym, defs)                     =>
           "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { d => (" " * (n + 2)) + defIndenting.indentedStringFrom(d)(n + 2) }.mkString("\n\n") + "\n" + (" " * n) + "}"
       }
