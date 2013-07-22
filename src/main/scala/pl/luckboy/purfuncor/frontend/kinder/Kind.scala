@@ -13,10 +13,10 @@ sealed trait Kind
   
   def instantiatedKindTermS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     this match {
-      case noKind: NoKind              => (env, noKind.failure)
-      case InferredKind(kindTerm)      => (env, kindTerm.success)
-      case InferringKind(kindTerm)     => instantiateS(kindTerm)(env)
-      case RecursiveTypeKind(kindTerm) => (env, kindTerm.success)
+      case noKind: NoKind                  => (env, noKind.failure)
+      case InferredKind(kindTerm)          => (env, kindTerm.success)
+      case InferringKind(kindTerm)         => instantiateS(kindTerm)(env)
+      case TypeRecCombinatorKind(kindTerm) => (env, kindTerm.success)
     }
 }
 
@@ -29,4 +29,4 @@ object NoKind
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
 case class InferringKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
-case class RecursiveTypeKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
+case class TypeRecCombinatorKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind

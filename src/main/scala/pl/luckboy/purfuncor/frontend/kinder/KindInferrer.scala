@@ -13,14 +13,13 @@ object KindInferrer
   def unifyKindsS[E](kind1: Kind, kind2: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     (kind1, kind2) match {
       case (InferredKind(kindTerm1), InferredKind(kindTerm2)) =>
-        val (env2, newEnv) = unifier.createEnvironmentS(env)
-        val (newEnv2, res1) = allocateKindTermParamsS(kindTerm1)(Map())(newEnv)
-        val (newEnv3, res2) = allocateKindTermParamsS(kindTerm2)(Map())(newEnv2)
-        (env2, ((res1 |@| res2) {
+        val (env2, res1) = allocateKindTermParamsS(kindTerm1)(Map())(env)
+        val (env3, res2) = allocateKindTermParamsS(kindTerm2)(Map())(env2)
+        ((res1 |@| res2) {
           case ((_, inferringKindTerm1), (_, inferringKindTerm2)) =>
-            val (newEnv4, res3) = unifyS(inferringKindTerm1, inferringKindTerm2)(newEnv3)
-            res3.flatMap { instantiateS(_)(newEnv4)._2.map(InferredKind) }.valueOr(identity)
-        }).valueOr(identity))
+            val (env4, res3) = unifyS(inferringKindTerm1, inferringKindTerm2)(env3)
+            (env4, res3.map(InferringKind).valueOr(identity))
+        }).valueOr { (env3, _) }
       case (InferredKind(kindTerm1), InferringKind(inferringKindTerm2)) =>  
         val (env2, res) = allocateKindTermParamsS(kindTerm1)(Map())(env)
         res.map {
@@ -38,8 +37,8 @@ object KindInferrer
       case (InferringKind(inferringKindTerm1), InferringKind(inferringKindTerm2)) =>
         val (env2, res) = unifyS(inferringKindTerm1, inferringKindTerm2)(env)
         (env2, res.map(InferringKind).valueOr(identity))
-      case (_: RecursiveTypeKind, _) | (_, _: RecursiveTypeKind) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type", none, NoPosition)))
+      case (_: TypeRecCombinatorKind, _) | (_, _: TypeRecCombinatorKind) =>
+        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)))
       case (noKind: NoKind, _) =>
         (env, noKind)
       case (_, noKind: NoKind) =>
@@ -75,8 +74,8 @@ object KindInferrer
             (newEnv, nk.failure)
         }
         (env2, res.map { _._2.reverse.map(InferringKind) })
-      case RecursiveTypeKind(_) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type", none, NoPosition)).failure)
+      case TypeRecCombinatorKind(_) =>
+        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)).failure)
       case noKind: NoKind =>
         (env, noKind.failure)
     }
@@ -106,8 +105,8 @@ object KindInferrer
             }.valueOr { nk => (newEnv2, nk.failure) }
         }
         (env2, res.map(InferringKind).valueOr(identity))
-      case RecursiveTypeKind(_) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type", none, NoPosition)))
+      case TypeRecCombinatorKind(_) =>
+        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)))
       case noKind: NoKind =>
         (env, noKind)
     }
