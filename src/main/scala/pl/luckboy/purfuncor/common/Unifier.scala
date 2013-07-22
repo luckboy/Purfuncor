@@ -5,10 +5,6 @@ import scalaz.Scalaz._
 
 trait Unifier[E, T, F, P]
 {
-  def createEnvironmentS(env: F): (F, F)
-  
-  def copyEnvironmentS(env: F): (F, F)
-  
   def matchesTermsS[U](term1: T, term2: T)(z: U)(f: (P, Either[P, T], U, F) => (F, Validation[E, U]))(env: F): (F, Validation[E, U])
 
   def getParamTermS(param: P)(env: F): (F, Option[T])
@@ -24,15 +20,14 @@ trait Unifier[E, T, F, P]
   def replaceTermParamsS(term: T)(f: (P, F) => (F, Validation[E, Either[P, T]]))(env: F): (F, Validation[E, T])
 
   def mismatchedTermErrorS(env: F): (F, E)
+  
+  def withSaveS[U, V](f: F => (F, Validation[U, V]))(env: F): (F, Validation[U, V])
 }
 
 object Unifier
 {
-  def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]) = {
-    val (savedEnv, env2) = unifier.copyEnvironmentS(env)
-    val (env3, res) = fullyMatchesAndReplaceS(term1, term2)(env2)
-    res.map { term => (env3, term.success) }.valueOr { err => (savedEnv, err.failure) }
-  }
+  def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]) =
+    unifier.withSaveS(fullyMatchesAndReplaceS[E, T, F, P](term1, term2))(env)
     
   def unify[E, T, F, P](term1: T, term2: T)(implicit unifier: Unifier[E, T, F, P]) =
     State(unifyS[E, T, F, P](term1, term2))

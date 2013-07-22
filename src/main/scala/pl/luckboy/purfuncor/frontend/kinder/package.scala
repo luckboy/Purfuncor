@@ -20,12 +20,6 @@ package object kinder
   }
   
   implicit val symbolKindTermUnifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] = new Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] {
-    override def createEnvironmentS(env: SymbolKindInferenceEnvironment) =
-      (env, SymbolKindInferenceEnvironment.empty.withCurrentKindTermPair(env.currentKindTermPair))
-  
-    override def copyEnvironmentS(env: SymbolKindInferenceEnvironment) =
-      (env, env)
-
     override def matchesTermsS[U](term1: KindTerm[StarKindTerm[Int]], term2: KindTerm[StarKindTerm[Int]])(z: U)(f: (Int, Either[Int, KindTerm[StarKindTerm[Int]]], U, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, U]))(env: SymbolKindInferenceEnvironment) =
       matchesKindTermsS(term1, term2)(z)(f)(env)
     
@@ -64,6 +58,11 @@ package object kinder
         case (t1, t2) => (intKindTermShowing.stringFrom(t1), intKindTermShowing.stringFrom(t2))
       }.getOrElse(("<unknown kind>", "<unknown kind>"))
       (env, NoKind.fromError(Error("couldn't match kind " + s1 + " with kind " + s2, none, NoPosition)))
+    }
+      
+    override def withSaveS[U, V](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[U, V]))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[U, V]) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
     }
   }
   

@@ -73,9 +73,6 @@ object KindTermUnifier
         }
     }
 
-  def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
-    val (savedEnv, env2) = unifier.copyEnvironmentS(env)
-    val (env3, res) = unsafeAllocateKindTermParamsS(term)(allocatedParams)(env2)
-    res.map { p => (env3, p.success) }.valueOr { nk => (savedEnv, nk.failure) }
-  }
+  def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    unifier.withSaveS(unsafeAllocateKindTermParamsS(term)(allocatedParams))(env)
 }
