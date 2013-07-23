@@ -37,8 +37,8 @@ object KindInferrer
       case (InferringKind(inferringKindTerm1), InferringKind(inferringKindTerm2)) =>
         val (env2, res) = unifyS(inferringKindTerm1, inferringKindTerm2)(env)
         (env2, res.map(InferringKind).valueOr(identity))
-      case (_: TypeRecCombinatorKind, _) | (_, _: TypeRecCombinatorKind) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)))
+      case (UndefinedKind, _) | (_, UndefinedKind) =>
+        (env, NoKind.fromError(FatalError("undefined kind", none, NoPosition)))
       case (noKind: NoKind, _) =>
         (env, noKind)
       case (_, noKind: NoKind) =>
@@ -74,8 +74,8 @@ object KindInferrer
             (newEnv, nk.failure)
         }
         (env2, res.map { _._2.reverse.map(InferringKind) })
-      case TypeRecCombinatorKind(_) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)).failure)
+      case UndefinedKind =>
+        (env, NoKind.fromError(FatalError("undefined kind", none, NoPosition)).failure)
       case noKind: NoKind =>
         (env, noKind.failure)
     }
@@ -105,8 +105,8 @@ object KindInferrer
             }.valueOr { nk => (newEnv2, nk.failure) }
         }
         (env2, res.map(InferringKind).valueOr(identity))
-      case TypeRecCombinatorKind(_) =>
-        (env, NoKind.fromError(FatalError("kind of recursive type combinator", none, NoPosition)))
+      case UndefinedKind =>
+        (env, NoKind.fromError(FatalError("undefined kind", none, NoPosition)))
       case noKind: NoKind =>
         (env, noKind)
     }
