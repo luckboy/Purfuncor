@@ -110,4 +110,10 @@ object KindInferrer
       case noKind: NoKind =>
         (env, noKind)
     }
+  
+  def functionKind(argCount: Int) =
+    InferredKind((0 until argCount).foldRight(Star(KindParam(argCount), NoPosition): KindTerm[StarKindTerm[Int]]) { (p, kt) => Arrow(Star(KindParam(p), NoPosition), kt, NoPosition) })
+    
+  def functionKindFromKindsS[E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Kind) =
+    throw new UnsupportedOperationException
 }

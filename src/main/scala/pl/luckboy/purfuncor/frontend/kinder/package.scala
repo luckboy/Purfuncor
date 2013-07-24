@@ -70,13 +70,20 @@ package object kinder
     override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Kind) =
       simpleTerm match {
         case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
-          throw new UnsupportedOperationException
+          env.withTypeLambdaIdx(lambdaIdx) {
+            newEnv =>
+              val newEnv2 = newEnv.withLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap)
+              val (newEnv3, retInfo) = inferS(body)(newEnv2)
+              val argInfos = args.map { a => a.name.map { s => newEnv3.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
+              functionKindFromKindsS(argInfos, retInfo)(newEnv3)
+          }
         case TypeVar(loc) =>
           (env, env.typeVarKind(loc))
         case TypeLiteral(value) =>
           throw new UnsupportedOperationException
         case KindedTypeTerm(term, kind) =>
-          throw new UnsupportedOperationException          
+          val (env2, info) = inferS(term)(env)
+          unifyInfosS(info, InferredKind(intKindTermFromKindTerm(kind)))(env2)
       }
     
     override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment) = {
@@ -94,8 +101,8 @@ package object kinder
     override def isNoInfo(info: Kind) =
       info.isNoKind
 
-    override def functionInfo(argCount: Int): Kind =
-      throw new UnsupportedOperationException
+    override def functionInfo(argCount: Int) =
+      functionKind(argCount)
       
     override def concatErrors(info1: Kind, info2: Kind): Kind =
       (info1, info2) match {

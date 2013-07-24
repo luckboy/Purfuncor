@@ -44,7 +44,7 @@ case class SymbolKindInferenceEnvironment(
         }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)))
     }
   
-  def withLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[String]]]]): SymbolKindInferenceEnvironment =
+  def withLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]): SymbolKindInferenceEnvironment =
     throw new UnsupportedOperationException
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
