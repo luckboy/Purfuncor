@@ -114,6 +114,29 @@ object KindInferrer
   def functionKind(argCount: Int) =
     InferredKind((0 until argCount).foldRight(Star(KindParam(argCount), NoPosition): KindTerm[StarKindTerm[Int]]) { (p, kt) => Arrow(Star(KindParam(p), NoPosition), kt, NoPosition) })
     
-  def functionKindFromKindsS[E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Kind) =
-    throw new UnsupportedOperationException
+  private def noKindFromKind(kind: Kind) =
+    kind match {
+      case noKind: NoKind => noKind
+      case _              => NoKind.fromError(FatalError("undefined kind", none, NoPosition))
+    }
+    
+  def functionKindFromKindsS[E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    argKinds.foldRight((env, retKind)) {
+      case (InferredKind(argKindTerm), (newEnv, InferredKind(kindTerm)))                        =>
+        (newEnv, InferredKind(Arrow(argKindTerm, kindTerm, NoPosition)))
+      case (InferredKind(argKindTerm), (newEnv, InferringKind(inferringKindTerm)))              =>
+        val (newEnv2, argRes) = allocateKindTermParamsS(argKindTerm)(Map())(newEnv)
+        (newEnv2, argRes.map { p => InferringKind(Arrow(p._2, inferringKindTerm, NoPosition)) }.valueOr(identity))
+      case (InferringKind(argInferringKindTerm), (newEnv, InferredKind(kindTerm)))              =>
+        val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
+        (newEnv2, res.map { p => InferringKind(Arrow(argInferringKindTerm, p._2, NoPosition)) }.valueOr(identity))
+      case (InferringKind(argInferringKindTerm), (newEnv, InferringKind(inferringKindTerm)))    =>
+        (newEnv, InferringKind(Arrow(argInferringKindTerm, inferringKindTerm, NoPosition)))
+      case (kind1 @ (UndefinedKind | _: NoKind), (newEnv, kind2 @ (UndefinedKind | _: NoKind))) =>
+        (newEnv, noKindFromKind(kind1) |+| noKindFromKind(kind2))
+      case (kind @ (UndefinedKind | _: NoKind), (newEnv, _))                                    =>
+        (newEnv, noKindFromKind(kind))
+      case (_, (newEnv, kind @ (UndefinedKind | _: NoKind)))                                    =>
+        (newEnv, noKindFromKind(kind))
+    }
 }
