@@ -16,7 +16,7 @@ sealed trait Kind
       case noKind: NoKind          => (env, noKind.failure)
       case InferredKind(kindTerm)  => (env, kindTerm.success)
       case InferringKind(kindTerm) => instantiateS(kindTerm)(env)
-      case UndefinedKind           => (env, NoKind.fromError(FatalError("undefined kind", none, NoPosition)).failure)
+      case UninferredKind          => (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)).failure)
     }
 }
 
@@ -29,4 +29,4 @@ object NoKind
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
 case class InferringKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
-case object UndefinedKind extends Kind
+case object UninferredKind extends Kind
