@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import KindTermUnifier._
 
 case class SymbolKindInferenceEnvironment(
     currentTypeCombSym: Option[GlobalSymbol],
@@ -16,6 +17,7 @@ case class SymbolKindInferenceEnvironment(
     globalTypeVarKinds: Map[GlobalSymbol, Kind],
     localTypeVarKindMapMaps: Map[GlobalSymbol, IntMap[Map[LocalSymbol, Kind]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
+    definedKindTerms: Set[KindTerm[StarKindTerm[Int]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
@@ -44,10 +46,31 @@ case class SymbolKindInferenceEnvironment(
         }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)))
     }
   
-  def withLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]): SymbolKindInferenceEnvironment =
-    throw new UnsupportedOperationException
+  def setLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]) =
+    currentTypeCombSym.map {
+      typeCombSym =>
+        localTypeVarKindMapMaps.get(typeCombSym).map {
+          localTypeVarKindMap =>
+            localTypeVarKindMap.get(currentTypeLambdaIdx).map {
+              localTypeVarKinds =>
+                kindTerms.foldLeft((this: SymbolKindInferenceEnvironment, localTypeVarKinds).success[NoKind]) {
+                  case (Success((newEnv, newLocalTypeVarKinds)), (sym, kt)) =>
+                    val (newEnv2, kindTerm) = kt.map { kt2 => (newEnv.withDefinedKindTerm(kt2), kt2) } .getOrElse((newEnv, Star(KindParam(0), NoPosition)))
+                    val (newEnv3, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv2)
+                    res.map { case (_, kt2) => (newEnv3, newLocalTypeVarKinds + (sym -> InferringKind(kt2))) }
+                  case (Failure(nk), _)                                     =>
+                    nk.failure
+                }.map {
+                  case (newEnv, newLocalTypeVarKinds) =>
+                    newEnv.copy(localTypeVarKindMapMaps = newEnv.localTypeVarKindMapMaps + (typeCombSym -> (localTypeVarKindMap + (currentTypeLambdaIdx -> newLocalTypeVarKinds))))
+                }
+          }.getOrElse(NoKind.fromError(FatalError("current type lambda index is illegal", none, NoPosition)).failure)
+        }.getOrElse(NoKind.fromError(FatalError("current type combinator symbol is illegal", none, NoPosition)).failure)
+    }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)).failure)
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
+  
+  def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) = copy(definedKindTerms = definedKindTerms + kindTerm)
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
@@ -66,5 +89,6 @@ object SymbolKindInferenceEnvironment
       globalTypeVarKinds = Map(),
       localTypeVarKindMapMaps = Map(),
       kindParamForest = ParamForest.empty,
+      definedKindTerms = Set(),
       currentKindTermPair = none)
 }

@@ -67,15 +67,17 @@ package object kinder
   }
   
   implicit val symbolTypeSimpleTermKindInferrer: Inferrer[TypeSimpleTerm[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] = new Inferrer[TypeSimpleTerm[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] {
-    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Kind) =
+    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       simpleTerm match {
         case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
           env.withTypeLambdaIdx(lambdaIdx) {
             newEnv =>
-              val newEnv2 = newEnv.withLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap)
-              val (newEnv3, retInfo) = inferS(body)(newEnv2)
-              val argInfos = args.map { a => a.name.map { s => newEnv3.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
-              functionKindFromKindsS(argInfos, retInfo)(newEnv3)
+              newEnv.setLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap).map {
+                newEnv2 =>
+                  val (newEnv3, retInfo) = inferS(body)(newEnv2)
+                  val argInfos = args.map { a => a.name.map { s => newEnv3.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
+                  functionKindFromKindsS(argInfos, retInfo)(newEnv3)
+              }.valueOr { (newEnv, _) }
           }
         case TypeVar(loc) =>
           (env, env.typeVarKind(loc))
@@ -83,7 +85,8 @@ package object kinder
           throw new UnsupportedOperationException
         case KindedTypeTerm(term, kind) =>
           val (env2, info) = inferS(term)(env)
-          unifyInfosS(info, InferredKind(intKindTermFromKindTerm(kind)))(env2)
+          val info2 = InferredKind(intKindTermFromKindTerm(kind))
+          unifyInfosS(info, info2)(env2.withDefinedKindTerm(info2.kindTerm))
       }
     
     override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment) = {
