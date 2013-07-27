@@ -15,7 +15,7 @@ case class SymbolKindInferenceEnvironment(
     currentTypeCombSym: Option[GlobalSymbol],
     currentTypeLambdaIdx: Int,
     globalTypeVarKinds: Map[GlobalSymbol, Kind],
-    localTypeVarKindMapMaps: Map[GlobalSymbol, IntMap[Map[LocalSymbol, Kind]]],
+    localTypeVarKindMapMaps: Map[Option[GlobalSymbol], IntMap[Map[LocalSymbol, Kind]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
@@ -30,39 +30,38 @@ case class SymbolKindInferenceEnvironment(
     (env.withCurrentTypeLambdaIdx(oldLambdaIdx), res)
   }
   
-  def localTypeVarKinds = currentTypeCombSym.map { localTypeVarKindMapMaps.getOrElse(_, IntMap()).getOrElse(currentTypeLambdaIdx, Map()) }
+  def localTypeVarKinds = localTypeVarKindMapMaps.getOrElse(currentTypeCombSym, IntMap()).getOrElse(currentTypeLambdaIdx, Map())
   
   def typeVarKind(sym: Symbol) =
     sym match {
       case globalSym @ GlobalSymbol(_) =>
         globalTypeVarKinds.getOrElse(globalSym, NoKind.fromError(FatalError("undefined global type variable", none, NoPosition)))
       case localSym @ LocalSymbol(_)   =>
-        currentTypeCombSym.map {
-          localTypeVarKindMapMaps.get(_).map {
-            _.get(currentTypeLambdaIdx).map {
-              _.getOrElse(localSym, NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
-            }.getOrElse(NoKind.fromError(FatalError("current type lambda index is illegal", none, NoPosition)))
-          }.getOrElse(NoKind.fromError(FatalError("current type combinator symbol is illegal", none, NoPosition)))
-        }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)))
+        localTypeVarKindMapMaps.get(currentTypeCombSym).map {
+          _.get(currentTypeLambdaIdx).map {
+            _.getOrElse(localSym, NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
+          }.getOrElse(NoKind.fromError(FatalError("current type lambda index is illegal", none, NoPosition)))
+        }.getOrElse(NoKind.fromError(FatalError("current type combinator symbol is illegal", none, NoPosition)))
     }
   
-  def putLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]) =
-    currentTypeCombSym.map {
-      typeCombSym =>
-        val localTypeVarKindMap = localTypeVarKindMapMaps.getOrElse(typeCombSym, IntMap())
-        val localTypeVarKinds = localTypeVarKindMap.getOrElse(currentTypeLambdaIdx, Map())
-        kindTerms.foldLeft((this: SymbolKindInferenceEnvironment, localTypeVarKinds).success[NoKind]) {
-          case (Success((newEnv, newLocalTypeVarKinds)), (sym, kt)) =>
-            val (newEnv2, kindTerm) = kt.map { kt2 => (newEnv.withDefinedKindTerm(kt2), kt2) } .getOrElse((newEnv, Star(KindParam(0), NoPosition)))
-            val (newEnv3, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv2)
-            res.map { case (_, kt2) => (newEnv3, newLocalTypeVarKinds + (sym -> InferringKind(kt2))) }
-          case (Failure(nk), _)                                     =>
-            nk.failure
-        }.map {
-          case (newEnv, newLocalTypeVarKinds) =>
-            newEnv.copy(localTypeVarKindMapMaps = newEnv.localTypeVarKindMapMaps + (typeCombSym -> (localTypeVarKindMap + (currentTypeLambdaIdx -> newLocalTypeVarKinds))))
+  def putLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]) = {
+    val localTypeVarKindMap = localTypeVarKindMapMaps.getOrElse(currentTypeCombSym, IntMap())
+    val localTypeVarKinds = localTypeVarKindMap.getOrElse(currentTypeLambdaIdx, Map())
+    kindTerms.foldLeft((this: SymbolKindInferenceEnvironment, localTypeVarKinds).success[NoKind]) {
+      case (Success((newEnv, newLocalTypeVarKinds)), (sym, kt)) =>
+        val kindTerm = kt.getOrElse(Star(KindParam(0), NoPosition))
+        val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
+        res.map {
+          case (_, kt2) =>
+            (kt.map { _ => newEnv2.withDefinedKindTerm(kt2) }.getOrElse(newEnv2), newLocalTypeVarKinds + (sym -> InferringKind(kt2)))
         }
-    }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)).failure)
+      case (Failure(nk), _)                                     =>
+        nk.failure
+    }.map {
+      case (newEnv, newLocalTypeVarKinds) =>
+        newEnv.copy(localTypeVarKindMapMaps = newEnv.localTypeVarKindMapMaps + (currentTypeCombSym -> (localTypeVarKindMap + (currentTypeLambdaIdx -> newLocalTypeVarKinds))))
+    }
+  }
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
