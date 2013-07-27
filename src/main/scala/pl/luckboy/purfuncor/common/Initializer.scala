@@ -6,7 +6,7 @@ import scalaz.Scalaz._
 
 trait Initializer[E, L, C, F]
 {
-  def globalVarsFromEnvironment(env: F): Set[L]
+  def globalVarsFromEnvironment(env: F): (F, Set[L])
   
   def usedGlobalVarsFromCombinator(comb: C): Set[L]
   
@@ -15,36 +15,42 @@ trait Initializer[E, L, C, F]
   def initializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
   
   def undefinedGlobalVarError: E
+
+  def withSaveS[T, U](f: F => (F, Validation[T, U]))(env: F): (F, Validation[T, U])
 }
 
 object Initializer
 {
-  def initializeS[E, L, C, I, F](tree: Tree[L, C, I])(env: F)(implicit init: Initializer[E, L, C, F]): (F, Validation[E, Unit]) =
-    tree.combs.keys.foldLeft((init.globalVarsFromEnvironment(env), List[L]()).success[E]) {
-      case (Success((markedLocs, locs)), loc) => 
-        varDependenceS(tree)(loc)(markedLocs).map {
-          case (markedLocs2, locs2) => (markedLocs2, locs ++ locs2)
-        }
-      case (Failure(err), _)                  =>
-        err.failure
-    } match {
-      case Success((_, locs)) =>
-        val (env3, _) = locs.foldLeft((env, ())) { 
-          case ((env2, ()), loc) =>
-            init.prepareGlobalVarS(loc)(env2)
-        }
-        val (env5, res2) = locs.foldLeft((env3, ().success[E])) {
-          case ((env4, Success(_)), loc) =>
-            tree.combs.get(loc).map { init.initializeGlobalVarS(loc, _)(env4) }.getOrElse {
-              (env4, init.undefinedGlobalVarError.failure[Unit])
+  def initializeS[E, L, C, I, F](tree: Tree[L, C, I])(env: F)(implicit init: Initializer[E, L, C, F]) =
+    init.withSaveS {
+      env2 =>
+        val (env3, globalVars) = init.globalVarsFromEnvironment(env2)
+        tree.combs.keys.foldLeft((globalVars, List[L]()).success[E]) {
+          case (Success((markedLocs, locs)), loc) => 
+            varDependenceS(tree)(loc)(markedLocs).map {
+              case (markedLocs2, locs2) => (markedLocs2, locs ++ locs2)
             }
-          case (res, _)                  =>
-            res
+          case (Failure(err), _)                  =>
+            err.failure
+        } match {
+          case Success((_, locs)) =>
+            val (env5, _) = locs.foldLeft((env3, ())) { 
+              case ((env4, ()), loc) =>
+                init.prepareGlobalVarS(loc)(env4)
+            }
+            val (env7, res2) = locs.foldLeft((env5, ().success[E])) {
+              case ((env6, Success(_)), loc) =>
+                tree.combs.get(loc).map { init.initializeGlobalVarS(loc, _)(env6) }.getOrElse {
+                  (env6, init.undefinedGlobalVarError.failure[Unit])
+                }
+              case (res, _)                  =>
+                res
+            }
+            res2.map { u => (env7, u.success[E]) }.getOrElse((env7, res2))
+          case Failure(err)       =>
+            (env3, err.failure)
         }
-        res2.map { u => (env5, u.success[E]) }.getOrElse((env, res2))
-      case Failure(err)       =>
-        (env, err.failure)
-    }
+    } (env)
   
   def initialize[E, L, C, I, F](tree: Tree[L, C, I])(implicit init: Initializer[E, L, C, F]) =
     State(initializeS[E, L, C, I, F](tree))

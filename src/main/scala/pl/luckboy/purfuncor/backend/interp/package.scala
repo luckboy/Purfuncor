@@ -97,7 +97,7 @@ package object interp
   }
   
   implicit def symbolCombinatorInitializer[T, U] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U]] {
-    override def globalVarsFromEnvironment(env: SymbolEnvironment[T, U]) = env.globalVarValues.keySet
+    override def globalVarsFromEnvironment(env: SymbolEnvironment[T, U]) = (env, env.globalVarValues.keySet)
         
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {
@@ -124,6 +124,11 @@ package object interp
 
     override def undefinedGlobalVarError: NoValue[Symbol, T, U, SymbolClosure[T, U]] =
       NoValue.fromString("undefined global variable")
+    
+    override def withSaveS[V, W](f: SymbolEnvironment[T, U] => (SymbolEnvironment[T, U], Validation[V, W]))(env: SymbolEnvironment[T, U]) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
+    }
   }
   
   implicit def symbolEnvironmental[T, U] = new Environmental[SymbolEnvironment[T, U], Value[Symbol, T, U, SymbolClosure[T, U]]] {
