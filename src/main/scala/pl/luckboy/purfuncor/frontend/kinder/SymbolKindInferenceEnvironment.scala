@@ -46,7 +46,7 @@ case class SymbolKindInferenceEnvironment(
         }.getOrElse(NoKind.fromError(FatalError("no current type combinator symbol", none, NoPosition)))
     }
   
-  def setLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]) =
+  def putLocalTypeVarKinds(kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[Int]]]]) =
     currentTypeCombSym.map {
       typeCombSym =>
         val localTypeVarKindMap = localTypeVarKindMapMaps.getOrElse(typeCombSym, IntMap())

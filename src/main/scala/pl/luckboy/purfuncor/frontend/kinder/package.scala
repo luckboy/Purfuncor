@@ -72,7 +72,7 @@ package object kinder
         case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
           env.withTypeLambdaIdx(lambdaIdx) {
             newEnv =>
-              newEnv.setLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap).map {
+              newEnv.putLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap).map {
                 newEnv2 =>
                   val (newEnv3, retInfo) = inferS(body)(newEnv2)
                   val argInfos = args.map { a => a.name.map { s => newEnv3.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
