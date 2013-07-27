@@ -82,7 +82,10 @@ package object kinder
         case TypeVar(loc) =>
           (env, env.typeVarKind(loc))
         case TypeLiteral(value) =>
-          throw new UnsupportedOperationException
+          value match {
+            case TupleTypeFunValue(n)    => (env, InferredKind.tupleTypeFunKind(n))
+            case TypeBuiltinFunValue(bf) => (env, InferredKind.fromTypeBuiltinFunction(bf))
+          }
         case KindedTypeTerm(term, kind) =>
           val (env2, info) = inferS(term)(env)
           val info2 = InferredKind(intKindTermFromKindTerm(kind))

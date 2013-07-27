@@ -53,7 +53,7 @@ object KindInferrer
           case (Success((Star(_, _), kts)), _)      => NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure
           case (Failure(nk), _)                     => nk.failure
         }
-        (env, res.map { _._2.reverse.map(InferredKind) })
+        (env, res.map { _._2.reverse.map { InferredKind(_) } })
       case InferringKind(kindTerm) =>
         val (env2, res) = (0 until argCount).foldLeft((env, (kindTerm, List[KindTerm[StarKindTerm[Int]]]()).success[NoKind])) {
           case ((newEnv, Success((Arrow(a, r, _), kts))), _)        =>
@@ -88,7 +88,7 @@ object KindInferrer
           case (Success(Star(_, _)), _)     => NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure
           case (Failure(nk), _)             => nk.failure
         }
-        (env, res.map(InferredKind).valueOr(identity))
+        (env, res.map{ InferredKind(_) }.valueOr(identity))
       case InferringKind(kindTerm) =>
         val (env2, res) = (0 until argCount).foldLeft((env, kindTerm.success[NoKind])) {
           case ((newEnv, Success(Arrow(_, r, _))), _)        =>

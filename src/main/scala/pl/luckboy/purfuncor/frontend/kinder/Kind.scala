@@ -5,6 +5,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.common.Unifier._
 
 sealed trait Kind
@@ -28,5 +29,15 @@ object NoKind
 }
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
+
+object InferredKind
+{
+  def fromTypeBuiltinFunction(bf: TypeBuiltinFunction.Value) =
+    TypeBuiltinFunKindTerms.typeBuiltinFunKindTerms.get(bf).map { InferredKind(_) }.getOrElse(NoKind.fromError(FatalError("unsupported built-in type function", none, NoPosition)))
+    
+  def tupleTypeFunKind(n: Int) =
+    InferredKind((0 until n).foldRight(Star(KindType, NoPosition): KindTerm[StarKindTerm[Int]]) { (_, kt) => Arrow(Star(KindType, NoPosition), kt, NoPosition) })
+}
+
 case class InferringKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
 case object UninferredKind extends Kind
