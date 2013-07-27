@@ -17,7 +17,7 @@ case class SymbolKindInferenceEnvironment(
     globalTypeVarKinds: Map[GlobalSymbol, Kind],
     localTypeVarKindMapMaps: Map[GlobalSymbol, IntMap[Map[LocalSymbol, Kind]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    definedKindTerms: Set[KindTerm[StarKindTerm[Int]]],
+    definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
@@ -66,7 +66,7 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
-  def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) = copy(definedKindTerms = definedKindTerms + kindTerm)
+  def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) = copy(definedKindTerms = definedKindTerms :+ kindTerm)
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
@@ -85,6 +85,6 @@ object SymbolKindInferenceEnvironment
       globalTypeVarKinds = Map(),
       localTypeVarKindMapMaps = Map(),
       kindParamForest = ParamForest.empty,
-      definedKindTerms = Set(),
+      definedKindTerms = Nil,
       currentKindTermPair = none)
 }
