@@ -6,7 +6,7 @@ import scalaz.Scalaz._
 
 trait Initializer[E, L, C, F]
 {
-  def globalVarsFromEnvironment(env: F): (F, Set[L])
+  def globalVarsFromEnvironmentS(env: F): (F, Set[L])
   
   def usedGlobalVarsFromCombinator(comb: C): Set[L]
   
@@ -24,7 +24,7 @@ object Initializer
   def initializeS[E, L, C, I, F](tree: Tree[L, C, I])(env: F)(implicit init: Initializer[E, L, C, F]) =
     init.withSaveS {
       env2 =>
-        val (env3, globalVars) = init.globalVarsFromEnvironment(env2)
+        val (env3, globalVars) = init.globalVarsFromEnvironmentS(env2)
         tree.combs.keys.foldLeft((globalVars, List[L]()).success[E]) {
           case (Success((markedLocs, locs)), loc) => 
             varDependenceS(tree)(loc)(markedLocs).map {

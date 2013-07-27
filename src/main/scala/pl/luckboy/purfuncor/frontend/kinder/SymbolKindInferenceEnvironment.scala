@@ -75,6 +75,8 @@ case class SymbolKindInferenceEnvironment(
     val (env, res) = f(withCurrentKindTermPair(pair))
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
+  
+  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
 }
 
 object SymbolKindInferenceEnvironment

@@ -97,7 +97,7 @@ package object interp
   }
   
   implicit def symbolCombinatorInitializer[T, U] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U]] {
-    override def globalVarsFromEnvironment(env: SymbolEnvironment[T, U]) = (env, env.globalVarValues.keySet)
+    override def globalVarsFromEnvironmentS(env: SymbolEnvironment[T, U]) = (env, env.globalVarValues.keySet)
         
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {

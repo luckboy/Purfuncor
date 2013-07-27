@@ -37,6 +37,8 @@ object InferredKind
     
   def tupleTypeFunKind(n: Int) =
     InferredKind((0 until n).foldRight(Star(KindType, NoPosition): KindTerm[StarKindTerm[Int]]) { (_, kt) => Arrow(Star(KindType, NoPosition), kt, NoPosition) })
+    
+  def unittypeCombinatorKind(n: Int) = tupleTypeFunKind(n)
 }
 
 case class InferringKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind

@@ -6,12 +6,14 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
+import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.lmbdindexer.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
+import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object kinder
 {
@@ -121,5 +123,33 @@ package object kinder
 
     override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position): (SymbolKindInferenceEnvironment, Kind) =
       throw new UnsupportedOperationException
+  }
+  
+  implicit val symbolTypeCombinatorKindInitializer = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
+    override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = (env, env.globalTypeVarKinds.keySet)
+    
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo]) =
+      comb match {
+        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
+        case UnittypeCombinator(_, _, _)      => Set()
+      }
+    
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
+      (env.withGlobalTypeVarKind(loc, UninferredKind), ())
+    
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
+      comb match {
+        case TypeCombinator(kind, args, body, lambdaInfo, file) =>
+          throw new UnsupportedOperationException
+        case UnittypeCombinator(n, kind, file)                  =>
+          throw new UnsupportedOperationException
+      }
+    
+    override def undefinedGlobalVarError: NoKind = throw new UnsupportedOperationException
+
+    override def withSaveS[T, U](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[T, U]))(env: SymbolKindInferenceEnvironment) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
+    }
   }
 }
