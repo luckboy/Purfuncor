@@ -74,7 +74,7 @@ package object kinder
         case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
           env.withTypeLambdaIdx(lambdaIdx) {
             newEnv =>
-              newEnv.putLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind.map(intKindTermFromKindTerm)) } }.toMap).map {
+              newEnv.putLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap).map {
                 newEnv2 =>
                   val (newEnv3, retInfo) = inferS(body)(newEnv2)
                   val argInfos = args.map { a => a.name.map { s => newEnv3.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
@@ -90,14 +90,14 @@ package object kinder
           }
         case KindedTypeTerm(term, kind) =>
           val (env2, info) = inferS(term)(env)
-          val (env3, res) = allocateKindTermParamsS(intKindTermFromKindTerm(kind))(Map())(env2)
+          val (env3, res) = allocateKindTermParamsS(kind)(Map())(env2)
           res.map { p => unifyInfosS(info, InferringKind(p._2))(env3.withDefinedKindTerm(p._2)) }.valueOr { (env3, _) }
       }
     
     override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment) = {
       val (env2, res1) = info1.instantiatedKindTermS(env)
       val (env3, res2) = info2.instantiatedKindTermS(env2)
-      (res1 |@| res2) { (kt1, kt2) => env3.withKindTermPair(some((kt1, kt2)))(unifyKindsS(info1, info2)) }.valueOr { nk => (env3, nk) }
+      (res1 |@| res2) { (kt1, kt2) => env3.withKindTermPair(some((kt1, kt2)))(unifyKindsS(info1, info2)) }.valueOr { (env3, _) }
     }
       
     override def argInfosFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment) =
