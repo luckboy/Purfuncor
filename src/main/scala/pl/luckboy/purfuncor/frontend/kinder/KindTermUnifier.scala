@@ -1,10 +1,12 @@
 package pl.luckboy.purfuncor.frontend.kinder
+import scala.collection.immutable.BitSet
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
+import pl.luckboy.purfuncor.frontend.KindTermUtils._
 
 object KindTermUnifier
 {
@@ -75,4 +77,23 @@ object KindTermUnifier
 
   def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     unifier.withSaveS(unsafeAllocateKindTermParamsS(term)(allocatedParams))(env)
+    
+  def checkDefinedKindTermS[E](term: KindTerm[StarKindTerm[Int]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
+    val params = kindParamsFromKindTerm(term)
+    val (env2, res) = params.foldLeft((env, BitSet().success[NoKind])) {
+      case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
+      case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
+    }
+    res.map {
+      rootParams =>
+        val (env3, res2) = rootParams.foldLeft((env2, ().success[NoKind])) { 
+          case ((newEnv, newRes), rp) => 
+            val (newEnv2, paramTermOpt) = unifier.getParamTermS(rp)(newEnv)
+            paramTermOpt.map { _ => (newEnv2, ().success) }.getOrElse(unifier.mismatchedTermErrorS(newEnv2).mapElements(identity, _.failure))
+        }
+        res2.map {
+          _ => if(rootParams.size === params.size) (env3, ().success) else unifier.mismatchedTermErrorS(env3).mapElements(identity, _.failure)
+        }.valueOr { nk => (env3, nk.failure) }
+    }.valueOr { nk => (env2, nk.failure) }
+  }
 }
