@@ -26,6 +26,8 @@ case class NoKind(errs: NonEmptyList[AbstractError]) extends Kind
 object NoKind
 {
   def fromError(err: AbstractError) = NoKind(NonEmptyList(err))
+  
+  def fromErrors(errs: NonEmptyList[AbstractError]) = NoKind(errs)
 }
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind

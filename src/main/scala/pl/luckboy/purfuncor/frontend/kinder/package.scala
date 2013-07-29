@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
@@ -33,8 +34,15 @@ package object kinder
     
     override def replaceParamS(param: Int, term: KindTerm[StarKindTerm[Int]])(env: SymbolKindInferenceEnvironment) =
       if(!env.kindParamForest.containsTerm(param)) 
-        env.kindParamForest.replaceParam(param, term).map {
-          kpf => (env.withKindParamForest(kpf), ().success)
+        env.kindParamForest.findRootParam(param).map {
+          rootParam =>
+            env.definedKindTermNels.get(rootParam).map {
+              kts => (env, NoKind.fromErrors(kts.map { kt => Error("couldn't instantiate parameter at defined kind " + intKindTermFromKindTerm(kt), none, NoPosition) }).failure)
+            }.getOrElse {
+              env.kindParamForest.replaceParam(rootParam, term).map {
+                kpf => (env.withKindParamForest(kpf), ().success)
+              }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
+            }
         }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
       else
         (env, NoKind.fromError(FatalError("kind parameter is already replaced", none, NoPosition)).failure)          
@@ -42,7 +50,13 @@ package object kinder
     override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment) =
       if(!env.kindParamForest.containsTerm(param1) && !env.kindParamForest.containsTerm(param2))
         env.kindParamForest.unionParams(param1, param2).map {
-          kpf => (env.withKindParamForest(kpf), ().success)
+          kpf =>
+            kpf.findRootParam(param1).map {
+              rp =>
+                val definedKindTerms = env.definedKindTermNels.get(param1).map { _.list }.getOrElse(Nil) ++ env.definedKindTermNels.get(param1).map { _.list }.getOrElse(Nil)
+                val newDefinedKindTermNels = IntMap() ++ (env.definedKindTermNels ++ definedKindTerms.toNel.map { rp -> _ })
+                (env.withKindParamForest(kpf).copy(definedKindTermNels = newDefinedKindTermNels), ().success)
+            }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
         }.getOrElse((env, NoKind.fromError(FatalError("not found one kind parameter or two kind parameters", none, NoPosition)).failure))
       else
         (env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure)

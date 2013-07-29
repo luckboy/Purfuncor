@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.kinder
+import scala.collection.immutable.BitSet
 import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scala.annotation.tailrec
@@ -9,6 +10,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import KindTermUnifier._
 
 case class SymbolKindInferenceEnvironment(
@@ -18,6 +20,7 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKindMapMaps: Map[Option[GlobalSymbol], IntMap[Map[LocalSymbol, Kind]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
+    definedKindTermNels: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
@@ -47,7 +50,7 @@ case class SymbolKindInferenceEnvironment(
   def putLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]]) = {
     val localTypeVarKindMap = localTypeVarKindMapMaps.getOrElse(currentTypeCombSym, IntMap())
     val localTypeVarKinds = localTypeVarKindMap.getOrElse(currentTypeLambdaIdx, Map())
-    kindTerms.foldLeft((this: SymbolKindInferenceEnvironment, localTypeVarKinds).success[NoKind]) {
+    kindTerms.foldLeft((this, localTypeVarKinds).success[NoKind]) {
       case (Success((newEnv, newLocalTypeVarKinds)), (sym, kt)) =>
         val kindTerm = kt.getOrElse(Star(KindParam(0), NoPosition))
         val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
@@ -65,7 +68,10 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
-  def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) = copy(definedKindTerms = definedKindTerms :+ kindTerm)
+  def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) =
+    copy(
+        definedKindTerms = definedKindTerms :+ kindTerm,
+        definedKindTermNels = IntMap() ++ (definedKindTermNels.toMap |+| kindParamsFromKindTerm(kindTerm).map { (_, NonEmptyList(kindTerm)) }.toMap))
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
@@ -87,5 +93,6 @@ object SymbolKindInferenceEnvironment
       localTypeVarKindMapMaps = Map(),
       kindParamForest = ParamForest.empty,
       definedKindTerms = Nil,
+      definedKindTermNels = IntMap(),
       currentKindTermPair = none)
 }

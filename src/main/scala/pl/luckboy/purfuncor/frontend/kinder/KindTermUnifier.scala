@@ -84,16 +84,8 @@ object KindTermUnifier
       case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
       case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
     }
-    res.map {
-      rootParams =>
-        val (env3, res2) = rootParams.foldLeft((env2, ().success[NoKind])) { 
-          case ((newEnv, newRes), rp) => 
-            val (newEnv2, paramTermOpt) = unifier.getParamTermS(rp)(newEnv)
-            paramTermOpt.map { _ => (newEnv2, ().success) }.getOrElse(unifier.mismatchedTermErrorS(newEnv2).mapElements(identity, _.failure))
-        }
-        res2.map {
-          _ => if(rootParams.size === params.size) (env3, ().success) else unifier.mismatchedTermErrorS(env3).mapElements(identity, _.failure)
-        }.valueOr { nk => (env3, nk.failure) }
-    }.valueOr { nk => (env2, nk.failure) }
+    (env2, res.map {
+      rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters is distinct at defined kind " + intKindTermFromKindTerm(term), none, NoPosition))
+    }.valueOr { _. failure })
   }
 }
