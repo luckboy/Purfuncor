@@ -86,11 +86,13 @@ package object kinder
     override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       simpleTerm match {
         case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
-          env.withLocalTypeVarKinds(lambdaIdx, args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
-            newEnv =>
-              val (newEnv2, retInfo) = inferS(body)(newEnv)
-              val argInfos = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
-              functionKindFromKindsS(argInfos, retInfo)(newEnv2)
+          env.withTypeLambdaIdx(lambdaIdx) {
+            _.withLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
+              newEnv =>
+                val (newEnv2, retInfo) = inferS(body)(newEnv)
+                val argInfos = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }.list
+                functionKindFromKindsS(argInfos, retInfo)(newEnv2)
+            }
           }
         case TypeVar(loc) =>
           (env, env.typeVarKind(loc))
