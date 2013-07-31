@@ -21,7 +21,7 @@ case class SymbolKindInferenceEnvironment(
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
-    definedKindTermNels: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
+    irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
@@ -74,7 +74,7 @@ case class SymbolKindInferenceEnvironment(
   def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) =
     copy(
         definedKindTerms = definedKindTerms :+ kindTerm,
-        definedKindTermNels = IntMap() ++ (definedKindTermNels.toMap |+| kindParamsFromKindTerm(kindTerm).map { (_, NonEmptyList(kindTerm)) }.toMap))
+        irreplaceableKindParams = IntMap() ++ (irreplaceableKindParams.toMap |+| kindParamsFromKindTerm(kindTerm).map { (_, NonEmptyList(kindTerm)) }.toMap))
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
@@ -97,6 +97,6 @@ object SymbolKindInferenceEnvironment
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
       definedKindTerms = Nil,
-      definedKindTermNels = IntMap(),
+      irreplaceableKindParams = IntMap(),
       currentKindTermPair = none)
 }
