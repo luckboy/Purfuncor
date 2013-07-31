@@ -10,7 +10,9 @@ import pl.luckboy.purfuncor.common.Unifier._
 
 sealed trait Kind
 {
-  def isNoKind = isInstanceOf[NoKind]  
+  def isNoKind = isInstanceOf[NoKind]
+  
+  def isInferringKind = isInstanceOf[InferringKind]
   
   def instantiatedKindTermS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     this match {

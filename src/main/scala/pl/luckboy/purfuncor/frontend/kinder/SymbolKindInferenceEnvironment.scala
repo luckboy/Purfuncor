@@ -1,5 +1,4 @@
 package pl.luckboy.purfuncor.frontend.kinder
-import scala.collection.immutable.BitSet
 import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scala.annotation.tailrec
@@ -20,6 +19,7 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
+    globalInferringKindCount: Int,
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
@@ -46,9 +46,9 @@ case class SymbolKindInferenceEnvironment(
   
   def popLocalVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
   
-  def localKindTable = localKindTables.getOrElse(currentTypeCombSym, Map()).getOrElse(currentTypeLambdaIdx, KindTable.empty[LocalSymbol])
+  def currentLocalKindTable = localKindTables.getOrElse(currentTypeCombSym, Map()).getOrElse(currentTypeLambdaIdx, KindTable.empty[LocalSymbol])
   
-  def withLocalKindTable(kindTable: KindTable[LocalSymbol]) = copy(localKindTables = localKindTables ++ Map(currentTypeCombSym -> (localKindTables.getOrElse(currentTypeCombSym, IntMap()) + (currentTypeLambdaIdx -> kindTable))))
+  def withCurrentLocalKindTable(kindTable: KindTable[LocalSymbol]) = copy(localKindTables = localKindTables ++ Map(currentTypeCombSym -> (localKindTables.getOrElse(currentTypeCombSym, IntMap()) + (currentTypeLambdaIdx -> kindTable))))
   
   def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
     val kinds = localTypeVarKinds.mapValues { _.head }
@@ -64,7 +64,7 @@ case class SymbolKindInferenceEnvironment(
     }
     res.map {
       newKinds =>
-        val (env3, kind) = f(env2.pushLocalVarKinds(newKinds).withLocalKindTable(KindTable(localKindTable.kinds ++ newKinds)))
+        val (env3, kind) = f(env2.pushLocalVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds)))
         (env3.popLocalVarKinds(newKinds.keySet), kind)
     }.valueOr { (env2, _) } 
   }
@@ -84,7 +84,10 @@ case class SymbolKindInferenceEnvironment(
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
   
-  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
+  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment =
+    copy(
+        globalTypeVarKinds = globalTypeVarKinds + (sym -> kind),
+        globalInferringKindCount = globalInferringKindCount - (if(typeVarKind(sym).isInferringKind) 1 else 0) + (if(kind.isInferringKind) 1 else 0))
 }
 
 object SymbolKindInferenceEnvironment
@@ -96,6 +99,7 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
+      globalInferringKindCount = 0,
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
       currentKindTermPair = none)
