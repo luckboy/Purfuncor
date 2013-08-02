@@ -19,7 +19,6 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    globalInferringKindCount: Int,
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
@@ -84,10 +83,7 @@ case class SymbolKindInferenceEnvironment(
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
   
-  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment =
-    copy(
-        globalTypeVarKinds = globalTypeVarKinds + (sym -> kind),
-        globalInferringKindCount = globalInferringKindCount - (if(typeVarKind(sym).isInferringKind) 1 else 0) + (if(kind.isInferringKind) 1 else 0))
+  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
 }
 
 object SymbolKindInferenceEnvironment
@@ -99,7 +95,6 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
-      globalInferringKindCount = 0,
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
       currentKindTermPair = none)
