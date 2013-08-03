@@ -12,7 +12,7 @@ trait InferenceFinalizer[E, L, F]
   
   def usedGlobalVarsFromGlobalVarS(loc: L)(env: F): (F, Validation[E, Set[L]])
   
-  def finalizeGlobalVarInfoInferencesS(locs: Set[L])(env: F): (F, Validation[E, Unit])
+  def finalizeGlobalVarInfosS(locs: Set[L])(env: F): (F, Validation[E, Unit])
 
   def withSaveS[T, U](f: F => (F, Validation[T, U]))(env: F): (F, Validation[T, U])
 }
@@ -26,7 +26,7 @@ object InferenceFinalizer
         res.map {
           locs =>
             val (env4, inferringInfoGlobalVars) = inferenceFinal.inferringInfoGlobalVarsFromEnvironmentS(env3)
-            inferenceFinal.finalizeGlobalVarInfoInferencesS(inferringInfoGlobalVars &~ locs)(env4)
+            inferenceFinal.finalizeGlobalVarInfosS(inferringInfoGlobalVars &~ locs)(env4)
         }.valueOr { err => (env3, err.failure) }
     } (env)
 
