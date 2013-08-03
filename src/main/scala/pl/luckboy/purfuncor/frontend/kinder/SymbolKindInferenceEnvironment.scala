@@ -19,6 +19,8 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
+    inferringKindGlobalTypeVarDeps: Map[GlobalSymbol, Set[GlobalSymbol]],
+    recursiveGlobalTypeVarSyms: Set[GlobalSymbol],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
@@ -95,6 +97,8 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
+      inferringKindGlobalTypeVarDeps = Map(),
+      recursiveGlobalTypeVarSyms = Set(),
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
       currentKindTermPair = none)
