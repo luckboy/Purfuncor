@@ -8,8 +8,6 @@ trait InferenceFinalizer[E, L, F]
 {
   def inferringInfoGlobalVarsFromEnvironmentS(env: F): (F, Set[L])
 
-  def recursiveGlobalVarsFromEnvironmentS(env: F): (F, Set[L])
-  
   def usedGlobalVarsFromGlobalVarS(loc: L)(env: F): (F, Validation[E, Set[L]])
   
   def finalizeGlobalVarInfosS(locs: Set[L])(env: F): (F, Validation[E, Unit])
@@ -19,24 +17,25 @@ trait InferenceFinalizer[E, L, F]
 
 object InferenceFinalizer
 {
-  def finalizeInferenceS[E, L, F](env: F)(implicit inferenceFinal: InferenceFinalizer[E, L, F]): (F, Validation[E, Unit]) =
+  def finalizeInferenceS[E, L, F](loc: L)(env: F)(implicit inferenceFinal: InferenceFinalizer[E, L, F]): (F, Validation[E, Unit]) =
     inferenceFinal.withSaveS {
       env2 =>
-        val (env3, res) = recursiveGlobalVarDependencesS(env2)
+        val (env3, res) = inferringInfoVarDependencesS(loc)(env2)
         res.map {
           locs =>
             val (env4, inferringInfoGlobalVars) = inferenceFinal.inferringInfoGlobalVarsFromEnvironmentS(env3)
-            inferenceFinal.finalizeGlobalVarInfosS(inferringInfoGlobalVars &~ locs)(env4)
+            if((locs &~ inferringInfoGlobalVars).isEmpty)
+              inferenceFinal.finalizeGlobalVarInfosS(locs)(env4)
+            else
+              (env4, ().success)
         }.valueOr { err => (env3, err.failure) }
     } (env)
 
-  def finalizeInference[E, L, F](implicit inferenceFinal: InferenceFinalizer[E, L, F]) =
-    State(finalizeInferenceS[E, L, F])
+  def finalizeInference[E, L, F](loc: L)(implicit inferenceFinal: InferenceFinalizer[E, L, F]) =
+    State(finalizeInferenceS[E, L, F](loc))
     
-  def recursiveGlobalVarDependencesS[E, L, F](env: F)(implicit inferenceFinal: InferenceFinalizer[E, L, F]) = {
-    val (env2, locs) = inferenceFinal.recursiveGlobalVarsFromEnvironmentS(env)
-    bfsS(Queue[L]().enqueue(locs))(locs.toSet)(env2)
-  }
+  def inferringInfoVarDependencesS[E, L, F](loc: L)(env: F)(implicit inferenceFinal: InferenceFinalizer[E, L, F]) =
+    bfsS(Queue[L]().enqueue(loc))(Set(loc))(env)
   
   @tailrec
   private def bfsS[E, L, F](q: Queue[L])(markedLocs: Set[L])(env: F)(implicit inferenceFinal: InferenceFinalizer[E, L, F]): (F, Validation[E, Set[L]]) =
