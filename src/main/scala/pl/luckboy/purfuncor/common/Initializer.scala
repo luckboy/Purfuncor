@@ -27,7 +27,7 @@ object Initializer
         val (env3, globalVars) = init.globalVarsFromEnvironmentS(env2)
         tree.combs.keys.foldLeft((globalVars, List[L]()).success[E]) {
           case (Success((markedLocs, locs)), loc) => 
-            varDependenceS(tree)(loc)(markedLocs).map {
+            varDependencesS(tree)(loc)(markedLocs).map {
               case (markedLocs2, locs2) => (markedLocs2, locs ++ locs2)
             }
           case (Failure(err), _)                  =>
@@ -55,7 +55,7 @@ object Initializer
   def initialize[E, L, C, I, F](tree: Tree[L, C, I])(implicit init: Initializer[E, L, C, F]) =
     State(initializeS[E, L, C, I, F](tree))
     
-  def varDependenceS[E, L, C, I, F](tree: Tree[L, C, I])(loc: L)(markedLocs: Set[L])(implicit init: Initializer[E, L, C, F]): Validation[E, (Set[L], List[L])] =
+  def varDependencesS[E, L, C, I, F](tree: Tree[L, C, I])(loc: L)(markedLocs: Set[L])(implicit init: Initializer[E, L, C, F]): Validation[E, (Set[L], List[L])] =
     if(!markedLocs.contains(loc))
       tree.combs.get(loc).map {
         comb => 
