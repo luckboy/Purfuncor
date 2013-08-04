@@ -49,8 +49,8 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
   
   private def paramDependences(param: Int) = paramDependencesWithParams(param)(BitSet(param))
     
-  def freeUnusedParams(usedParams: Set[Int]) =
-    usedParams.foldLeft(some(BitSet())) {
+  def freeUnusedParams(params: Set[Int]) =
+    (nodes.keySet &~ params).foldLeft(some(BitSet())) {
       case (Some(ps), p) => paramDependences(p).map { ps | _ }
       case (None, _)     => none
     }.map {

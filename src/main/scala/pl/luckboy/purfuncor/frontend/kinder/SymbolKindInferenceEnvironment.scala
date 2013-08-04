@@ -19,7 +19,7 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    inferringKindGlobalTypeVarDeps: Map[GlobalSymbol, Set[GlobalSymbol]],
+    uninstantiatedKindGlobalTypeVarDeps: Map[GlobalSymbol, Set[GlobalSymbol]],
     recursiveGlobalTypeVarSyms: Set[GlobalSymbol],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
@@ -72,6 +72,10 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
+  def withoutUninstantiatedKindGlobalTypeVarDeps(syms: Set[GlobalSymbol]) = copy(uninstantiatedKindGlobalTypeVarDeps = uninstantiatedKindGlobalTypeVarDeps -- syms)
+    
+  def withoutRecursiveGlobalTypeVarSyms(syms: Set[GlobalSymbol]) = copy(recursiveGlobalTypeVarSyms = recursiveGlobalTypeVarSyms -- syms)
+  
   def withDefinedKindTerm(kindTerm: KindTerm[StarKindTerm[Int]]) =
     copy(
         definedKindTerms = definedKindTerms :+ kindTerm,
@@ -86,6 +90,8 @@ case class SymbolKindInferenceEnvironment(
   }
   
   def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
+  
+  def withGlobalTypeVarKinds(kinds: Map[GlobalSymbol, Kind]): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds ++ kinds)
 }
 
 object SymbolKindInferenceEnvironment
@@ -97,7 +103,7 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
-      inferringKindGlobalTypeVarDeps = Map(),
+      uninstantiatedKindGlobalTypeVarDeps = Map(),
       recursiveGlobalTypeVarSyms = Set(),
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),

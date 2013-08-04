@@ -11,6 +11,8 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.lmbdindexer.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Inferrer._
+import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.common.FinalInstantiator._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
@@ -136,6 +138,51 @@ package object kinder
 
     override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position): (SymbolKindInferenceEnvironment, Kind) =
       throw new UnsupportedOperationException
+  }
+  
+  implicit val symbolKindFinalInstantiator = new FinalInstantiator[NoKind, GlobalSymbol, SymbolKindInferenceEnvironment] {
+    override def uninstantiatedInfoGlobalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = 
+      (env, env.uninstantiatedKindGlobalTypeVarDeps.keySet)
+      
+    override def usedGlobalVarsFromGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
+      (env, env.uninstantiatedKindGlobalTypeVarDeps.get(loc).toSuccess { NoKind.fromError(FatalError("kind of global type variable already is instantiated", none, NoPosition)) })
+      
+    override def instantiateGlobalVarInfosS(locs: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
+      locs.foldLeft((Map[GlobalSymbol, KindTerm[StarKindTerm[Int]]]()).success[NoKind]) {
+        case (Success(kts), s) =>
+          env.typeVarKind(s) match {
+            case noKind: NoKind          => noKind.failure
+            case InferringKind(kindTerm) => (kts + (s -> kindTerm)).success
+            case UninferredKind          => kts.success
+            case _                       => NoKind.fromError(FatalError("already inferred kind", none, NoPosition)).failure
+          }
+        case (Failure(nk), _) =>
+          nk.failure
+      }.map {
+        kts =>
+          val unusedParams = kts.values.flatMap(kindParamsFromKindTerm)
+          val (env2, res) = kts.foldLeft((env, Map[GlobalSymbol, Kind]().success[NoKind])) {
+            case ((newEnv, Success(newKs)), (s, kt)) =>
+              val (newEnv2, newRes) = instantiateS(kt)(newEnv) 
+              (newEnv2, newRes.map { k => newKs + (s -> InferredKind(k)) })
+            case ((newEnv, Failure(nk)), _)          =>
+              (newEnv, nk.failure)
+          }
+          res.map {
+            ks =>
+              val env3 = env2.withGlobalTypeVarKinds(ks)
+              val env4 = env3.withoutUninstantiatedKindGlobalTypeVarDeps(kts.keySet)
+              val env5 = env4.withoutRecursiveGlobalTypeVarSyms(kts.keySet)
+              env5.kindParamForest.freeUnusedParams(unusedParams.toSet).map {
+                kpf => (env5.withKindParamForest(kpf), ().success)
+              }.getOrElse { (env5, NoKind.fromError(FatalError("can't free unused params", none, NoPosition)).failure) }
+          }.valueOr { nk => (env2, nk.failure) }
+      }.valueOr { nk => (env, nk.failure) }
+
+    override def withSaveS[T, U](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[T, U]))(env: SymbolKindInferenceEnvironment) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
+    }
   }
   
   implicit val symbolTypeCombinatorKindInitializer = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
