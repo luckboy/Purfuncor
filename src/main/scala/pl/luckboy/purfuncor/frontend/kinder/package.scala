@@ -106,7 +106,7 @@ package object kinder
         case KindedTypeTerm(term, kind) =>
           val (env2, info) = inferS(term)(env)
           val (env3, res) = allocateKindTermParamsS(kind)(Map())(env2)
-          res.map { p => unifyInfosS(info, InferringKind(p._2))(env3.withDefinedKindTerm(p._2)) }.valueOr { (env3, _) }
+          res.map { p => unifyInfosS(info, InferringKind(p._2))(env3.withDefinedKind(p._2)) }.valueOr { (env3, _) }
       }
     
     override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment) = {
@@ -142,10 +142,10 @@ package object kinder
   
   implicit val symbolKindFinalInstantiator = new FinalInstantiator[NoKind, GlobalSymbol, SymbolKindInferenceEnvironment] {
     override def uninstantiatedInfoGlobalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = 
-      (env, env.uninstantiatedKindGlobalTypeVarDeps.keySet)
+      (env, env.inferringKindGlobalTypeVarDepSyms.keySet)
       
     override def usedGlobalVarsFromGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
-      (env, env.uninstantiatedKindGlobalTypeVarDeps.get(loc).toSuccess { NoKind.fromError(FatalError("kind of global type variable already is instantiated", none, NoPosition)) })
+      (env, env.inferringKindGlobalTypeVarDepSyms.get(loc).toSuccess { NoKind.fromError(FatalError("kind of global type variable already is instantiated", none, NoPosition)) })
       
     override def instantiateGlobalVarInfosS(locs: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
       locs.foldLeft((Map[GlobalSymbol, KindTerm[StarKindTerm[Int]]]()).success[NoKind]) {
@@ -171,8 +171,8 @@ package object kinder
           res.map {
             ks =>
               val env3 = env2.withGlobalTypeVarKinds(ks)
-              val env4 = env3.withoutUninstantiatedKindGlobalTypeVarDeps(kts.keySet)
-              val env5 = env4.withoutRecursiveGlobalTypeVarSyms(kts.keySet)
+              val env4 = env3.withoutInferringKindGlobalTypeVarDeps(kts.keySet)
+              val env5 = env4.withoutRecursiveGlobalTypeVars(kts.keySet)
               env5.kindParamForest.freeUnusedParams(unusedParams.toSet).map {
                 kpf => (env5.withKindParamForest(kpf), ().success)
               }.getOrElse { (env5, NoKind.fromError(FatalError("can't free unused params", none, NoPosition)).failure) }
