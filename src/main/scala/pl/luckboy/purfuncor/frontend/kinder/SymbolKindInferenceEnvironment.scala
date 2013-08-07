@@ -19,8 +19,6 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    inferringKindGlobalTypeVarDepSyms: Map[GlobalSymbol, Set[GlobalSymbol]],
-    recursiveGlobalTypeVarSyms: Set[GlobalSymbol],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
@@ -51,7 +49,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withCurrentLocalKindTable(kindTable: KindTable[LocalSymbol]) = copy(localKindTables = localKindTables ++ Map(currentTypeCombSym -> (localKindTables.getOrElse(currentTypeCombSym, IntMap()) + (currentTypeLambdaIdx -> kindTable))))
   
-  def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
+  def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)): (SymbolKindInferenceEnvironment, Kind) = {
     val kinds = localTypeVarKinds.mapValues { _.head }
     val (env2, res) = kindTerms.foldLeft((this, kinds.success[NoKind])) {
       case ((newEnv, Success(newKinds)), (sym, kt)) =>
@@ -71,10 +69,6 @@ case class SymbolKindInferenceEnvironment(
   }
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
-  
-  def withoutInferringKindGlobalTypeVarDeps(syms: Set[GlobalSymbol]) = copy(inferringKindGlobalTypeVarDepSyms = inferringKindGlobalTypeVarDepSyms -- syms)
-    
-  def withoutRecursiveGlobalTypeVars(syms: Set[GlobalSymbol]) = copy(recursiveGlobalTypeVarSyms = recursiveGlobalTypeVarSyms -- syms)
   
   def withDefinedKind(kindTerm: KindTerm[StarKindTerm[Int]]) =
     copy(
@@ -103,8 +97,6 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
-      inferringKindGlobalTypeVarDepSyms = Map(),
-      recursiveGlobalTypeVarSyms = Set(),
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
       currentKindTermPair = none)

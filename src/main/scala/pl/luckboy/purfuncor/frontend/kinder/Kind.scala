@@ -14,6 +14,12 @@ sealed trait Kind
   
   def isInferringKind = isInstanceOf[InferringKind]
   
+  def isUninferredKind =
+    this match {
+      case UninferredKind => true
+      case _              => false
+    }
+  
   def instantiatedKindTermS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     this match {
       case noKind: NoKind          => (env, noKind.failure)

@@ -12,7 +12,6 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.lmbdindexer.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.common.Unifier._
-import pl.luckboy.purfuncor.common.FinalInstantiator._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
@@ -140,51 +139,6 @@ package object kinder
       throw new UnsupportedOperationException
   }
   
-  implicit val symbolKindFinalInstantiator = new FinalInstantiator[NoKind, GlobalSymbol, SymbolKindInferenceEnvironment] {
-    override def uninstantiatedInfoGlobalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = 
-      (env, env.inferringKindGlobalTypeVarDepSyms.keySet)
-      
-    override def usedGlobalVarsFromGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
-      (env, env.inferringKindGlobalTypeVarDepSyms.get(loc).toSuccess { NoKind.fromError(FatalError("kind of global type variable already is instantiated", none, NoPosition)) })
-      
-    override def instantiateGlobalVarInfosS(locs: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
-      locs.foldLeft((Map[GlobalSymbol, KindTerm[StarKindTerm[Int]]]()).success[NoKind]) {
-        case (Success(kts), s) =>
-          env.typeVarKind(s) match {
-            case noKind: NoKind          => noKind.failure
-            case InferringKind(kindTerm) => (kts + (s -> kindTerm)).success
-            case UninferredKind          => kts.success
-            case _                       => NoKind.fromError(FatalError("already inferred kind", none, NoPosition)).failure
-          }
-        case (Failure(nk), _) =>
-          nk.failure
-      }.map {
-        kts =>
-          val unusedParams = kts.values.flatMap(kindParamsFromKindTerm)
-          val (env2, res) = kts.foldLeft((env, Map[GlobalSymbol, Kind]().success[NoKind])) {
-            case ((newEnv, Success(newKs)), (s, kt)) =>
-              val (newEnv2, newRes) = instantiateS(kt)(newEnv) 
-              (newEnv2, newRes.map { k => newKs + (s -> InferredKind(k)) })
-            case ((newEnv, Failure(nk)), _)          =>
-              (newEnv, nk.failure)
-          }
-          res.map {
-            ks =>
-              val env3 = env2.withGlobalTypeVarKinds(ks)
-              val env4 = env3.withoutInferringKindGlobalTypeVarDeps(kts.keySet)
-              val env5 = env4.withoutRecursiveGlobalTypeVars(kts.keySet)
-              env5.kindParamForest.freeUnusedParams(unusedParams.toSet).map {
-                kpf => (env5.withKindParamForest(kpf), ().success)
-              }.getOrElse { (env5, NoKind.fromError(FatalError("can't free unused params", none, NoPosition)).failure) }
-          }.valueOr { nk => (env2, nk.failure) }
-      }.valueOr { nk => (env, nk.failure) }
-
-    override def withSaveS[T, U](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[T, U]))(env: SymbolKindInferenceEnvironment) = {
-      val (env2, res) = f(env)
-      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
-    }
-  }
-  
   implicit val symbolTypeCombinatorKindInitializer = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
     override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = (env, env.globalTypeVarKinds.keySet)
     
@@ -199,7 +153,7 @@ package object kinder
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
       comb match {
-        case TypeCombinator(kind, args, body, lambdaInfo, file) =>
+        case TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
           throw new UnsupportedOperationException
         case UnittypeCombinator(n, kind, file)                  =>
           throw new UnsupportedOperationException
