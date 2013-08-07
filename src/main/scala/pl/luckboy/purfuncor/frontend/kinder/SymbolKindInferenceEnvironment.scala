@@ -41,9 +41,9 @@ case class SymbolKindInferenceEnvironment(
         localTypeVarKinds.get(localSym).map { _ head}.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
     }
   
-  def pushLocalVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = localTypeVarKinds |+| kinds.mapValues { NonEmptyList(_) })
+  def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = localTypeVarKinds |+| kinds.mapValues { NonEmptyList(_) })
   
-  def popLocalVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
+  def popLocalTypeVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
   
   def currentLocalKindTable = localKindTables.getOrElse(currentTypeCombSym, Map()).getOrElse(currentTypeLambdaIdx, KindTable.empty[LocalSymbol])
   
@@ -63,8 +63,8 @@ case class SymbolKindInferenceEnvironment(
     }
     res.map {
       newKinds =>
-        val (env3, kind) = f(env2.pushLocalVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds)))
-        (env3.popLocalVarKinds(newKinds.keySet), kind)
+        val (env3, kind) = f(env2.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds)))
+        (env3.popLocalTypeVarKinds(newKinds.keySet), kind)
     }.valueOr { (env2, _) } 
   }
     
