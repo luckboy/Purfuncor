@@ -85,7 +85,13 @@ object KindTermUnifier
       case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
     }
     (env2, res.map {
-      rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters is distinct at defined kind " + intKindTermFromKindTerm(term), none, NoPosition))
-    }.valueOr { _. failure })
+      rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters is distinct at defined kind " + intKindTermFromKindTerm(term), none, NoPosition)).failure
+    }.valueOr { _.failure })
   }
+  
+  def checkDefinedKindTermsS[E](terms: Seq[KindTerm[StarKindTerm[Int]]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    terms.foldLeft((env, ().success[NoKind])) {
+      case ((newEnv, Success(_)), t)  => checkDefinedKindTermS(t)(newEnv)
+      case ((newEnv, Failure(nk)), _) => (newEnv, nk.failure)
+    }
 }

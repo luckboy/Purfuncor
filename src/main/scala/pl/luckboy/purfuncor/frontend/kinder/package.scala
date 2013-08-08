@@ -10,8 +10,10 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.lmbdindexer.TypeLambdaInfo
+import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.common.Initializer._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
@@ -139,7 +141,7 @@ package object kinder
       throw new UnsupportedOperationException
   }
   
-  implicit val symbolTypeCombinatorKindInitializer = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
+  implicit val symbolTypeCombinatorKindInitializer: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
     override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = (env, env.globalTypeVarKinds.keySet)
     
     override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo]) =
@@ -149,15 +151,108 @@ package object kinder
       }
     
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
-      (env.withGlobalTypeVarKind(loc, UninferredKind), ())
+      if(!env.isRecursive) {
+        (env.withGlobalTypeVarKind(loc, UninferredKind), ())
+      } else {
+        val (env2, res) = allocateKindTermParamsS(Star(KindType, NoPosition))(Map())(env)
+        res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
+      }
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[NoKind, Unit]) =
-      comb match {
-        case TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
-          throw new UnsupportedOperationException
-        case UnittypeCombinator(n, kind, file)                  =>
-          throw new UnsupportedOperationException
-      }
+      (comb match {
+        case typeComb @ TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
+          val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env.typeVarKind(_).isUninferredKind }
+          if(depSyms.isEmpty) {
+            val (env2, tmpTypeCombKind) = env.withTypeLambdaIdx(lambdaIdx) {
+              _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
+                newEnv =>
+                  val (newEnv2, retKind) = inferS(body)(newEnv)
+                  val argKinds = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }
+                  functionKindFromKindsS(argKinds, retKind)(newEnv2)
+              }
+            }
+            val (env4, tmpTypeCombKind2) = kind.map {
+              kt =>
+                val (env3, res) = allocateKindTermParamsS(kt)(Map())(env2)
+                res.map { 
+                  p => symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind, InferringKind(p._2))(env3.withDefinedKind(p._2))
+                }.valueOr { (env3, _) }
+            }.getOrElse((env2, tmpTypeCombKind))
+            tmpTypeCombKind2 match {
+              case noKind: NoKind =>
+                (env4, noKind.failure)
+              case _              =>
+                val (env5, res) = if(env4.isRecursive) checkDefinedKindTermsS(env4.definedKindTerms)(env4) else (env4, ().success)
+                res.map {
+                  _ =>
+                    val (env6, typeCombKind: Kind) = if(!env5.isRecursive)
+                      tmpTypeCombKind2.instantiatedKindTermS(env5).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
+                    else
+                      (env5, tmpTypeCombKind2)
+                    typeCombKind match {
+                      case noKind: NoKind => (env6, noKind.failure)
+                      case _              => (env6.withGlobalTypeVarKind(loc, typeCombKind), ().success)
+                    }
+                }.valueOr { nk => (env5, nk.failure) }
+            }
+          } else {
+            val (nonRecursiveDepSyms, recusiveDepSyms) = depSyms.partition(env.typeCombNodes.contains)
+            val recursiveTypeCombSyms = recusiveDepSyms ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.recursiveCombSyms } }
+            val markedRecTypeCombSyms = (recursiveTypeCombSyms & Set(loc)) ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.markedRecCombSyms } }
+            if((recursiveTypeCombSyms &~ markedRecTypeCombSyms).isEmpty) {
+              val combs = Map(loc -> comb) ++ env.typeCombNodes.flatMap {
+                case (s, n) => if(!(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty) some(s -> n.comb) else Map()
+              }
+              val (env2, res) = initializeS(Tree(combs, resolver.TypeTreeInfo))(env.withKindParamForest(ParamForest.empty))
+              res.map {
+                _ =>
+                  val newTypeCombNodes = env2.typeCombNodes.filterNot { case (_, n) => recursiveTypeCombSyms.subsetOf(n.recursiveCombSyms) }
+                  val (env3, res2) = checkDefinedKindTermsS(env2.definedKindTerms)(env2)
+                  res2.map {
+                    _ =>
+                      val (env4, res3) = newTypeCombNodes.keys.foldLeft((env3, ().success[NoKind])) {
+                        case ((newEnv, Success(_)), sym) =>
+                          val (newEnv2, kind) = newEnv.typeVarKind(sym).instantiatedKindTermS(newEnv).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
+                          kind match {
+                            case noKind: NoKind => (newEnv2, noKind.failure)
+                            case _              => (newEnv2.withGlobalTypeVarKind(sym, kind), ().success)
+                          }
+                        case ((newEnv, Failure(nk)), _)  =>
+                          (newEnv, nk.failure)
+                      }.mapElements(_.withKindParamForest(ParamForest.empty), identity)
+                      res3.map {
+                        _ => (env4.withRecursive(false).copy(typeCombNodes = newTypeCombNodes), ().success)
+                      }.valueOr { nk => (env4, nk.failure) }
+                  }.valueOr { nk => (env3, nk.failure) }
+              }.valueOr { nk => (env2, nk.failure) }
+            } else {
+              (env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms)), ().success)
+            }
+          }
+        case UnittypeCombinator(n, kind, file) =>
+          val tmpUnittypeCombKind = InferredKind.unittypeCombinatorKind(n)
+          val (env3, tmpUnittypeCombKind2) = kind.map {
+            kt =>
+              val (env2, res) = allocateKindTermParamsS(kt)(Map())(env)
+              res.map { 
+                p => symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpUnittypeCombKind, InferringKind(p._2))(env2.withDefinedKind(p._2))
+              }.valueOr { (env2, _) }
+          }.getOrElse((env, tmpUnittypeCombKind))
+          tmpUnittypeCombKind2 match {
+            case noKind: NoKind =>
+              (env3, noKind.failure)
+            case _              =>
+              val (env4, res) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
+              res.map {
+                _ =>
+                  val (env5, unittypeCombKind) = tmpUnittypeCombKind2.instantiatedKindTermS(env4).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
+                  unittypeCombKind match {
+                    case noKind: NoKind => (env5, noKind.failure)
+                    case _              => (env5.withGlobalTypeVarKind(loc, unittypeCombKind), ().success)
+                  }
+              }.valueOr { nk => (env4, nk.failure) }
+          }
+      }).mapElements(tmpEnv => if(!tmpEnv.isRecursive) tmpEnv.copy(definedKindTerms = Nil, kindParamForest = ParamForest.empty) else tmpEnv, identity)
     
     override def undefinedGlobalVarError: NoKind = throw new UnsupportedOperationException
 

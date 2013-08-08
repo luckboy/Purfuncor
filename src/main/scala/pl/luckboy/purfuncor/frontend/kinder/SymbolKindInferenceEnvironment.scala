@@ -19,9 +19,11 @@ case class SymbolKindInferenceEnvironment(
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
+    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, GlobalSymbol]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
-    currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])
+    currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])],
+    isRecursive: Boolean)
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
   
@@ -70,6 +72,10 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
+  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
+  
+  def withoutTypeCombs(syms: Set[GlobalSymbol]) = copy(typeCombNodes = typeCombNodes -- syms)
+  
   def withDefinedKind(kindTerm: KindTerm[StarKindTerm[Int]]) =
     copy(
         definedKindTerms = definedKindTerms :+ kindTerm,
@@ -83,9 +89,9 @@ case class SymbolKindInferenceEnvironment(
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
   
-  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
+  def withRecursive(isRecursive: Boolean): SymbolKindInferenceEnvironment  = copy(isRecursive = isRecursive)
   
-  def withGlobalTypeVarKinds(kinds: Map[GlobalSymbol, Kind]): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds ++ kinds)
+  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
 }
 
 object SymbolKindInferenceEnvironment
@@ -97,7 +103,9 @@ object SymbolKindInferenceEnvironment
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
+      typeCombNodes = Map(),
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
-      currentKindTermPair = none)
+      currentKindTermPair = none,
+      isRecursive = false)
 }
