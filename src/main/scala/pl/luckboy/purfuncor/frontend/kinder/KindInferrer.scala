@@ -139,4 +139,15 @@ object KindInferrer
       case (_, (newEnv, kind @ (UninferredKind | _: NoKind)))                                     =>
         (newEnv, noKindFromKind(kind))
     }
+  
+  def instantiateKindMapS[E, T](kinds: Map[T, Kind])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    kinds.foldLeft((env, Map[T, Kind]().success[NoKind])) {
+      case ((newEnv, Success(ks)), (l, k)) => 
+        k.instantiatedKindS(newEnv) match {
+          case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
+          case (newEnv2, kind: Kind)     => (newEnv2, (ks + (l -> kind)).success)
+        }
+      case ((newEnv, Failure(nk)), _)      =>
+        (newEnv, nk.failure)
+    }
 }

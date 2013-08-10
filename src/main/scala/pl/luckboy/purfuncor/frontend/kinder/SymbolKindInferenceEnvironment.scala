@@ -51,7 +51,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withCurrentLocalKindTable(kindTable: KindTable[LocalSymbol]) = copy(localKindTables = localKindTables ++ Map(currentTypeCombSym -> (localKindTables.getOrElse(currentTypeCombSym, IntMap()) + (currentTypeLambdaIdx -> kindTable))))
   
-  def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)): (SymbolKindInferenceEnvironment, Kind) = {
+  def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
     val kinds = localTypeVarKinds.mapValues { _.head }
     val (env2, res) = kindTerms.foldLeft((this, kinds.success[NoKind])) {
       case ((newEnv, Success(newKinds)), (sym, kt)) =>
@@ -72,6 +72,8 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
+  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
+  
   def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
   
   def withoutTypeCombs(syms: Set[GlobalSymbol]) = copy(typeCombNodes = typeCombNodes -- syms)
@@ -89,9 +91,19 @@ case class SymbolKindInferenceEnvironment(
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
   
-  def withRecursive(isRecursive: Boolean): SymbolKindInferenceEnvironment  = copy(isRecursive = isRecursive)
+  def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
   
-  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind): SymbolKindInferenceEnvironment = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
+  def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind) = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
+  
+  def withGlobalTypeVarKinds(kinds: Map[GlobalSymbol, Kind]) = copy(globalTypeVarKinds = globalTypeVarKinds ++ kinds)
+  
+  def withClear[T](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T)) =
+    if(!isRecursive) {
+      val (env, res) = f(copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()))
+      (env.copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()), res)
+    } else {
+      f(this)
+    }
 }
 
 object SymbolKindInferenceEnvironment

@@ -27,6 +27,9 @@ sealed trait Kind
       case InferringKind(kindTerm) => instantiateS(kindTerm)(env)
       case UninferredKind          => (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)).failure)
     }
+  
+  def instantiatedKindS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    instantiatedKindTermS(env).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
 }
 
 case class NoKind(errs: NonEmptyList[AbstractError]) extends Kind
