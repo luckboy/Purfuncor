@@ -136,7 +136,7 @@ case class TupleFieldFunValue[+T, +U, +V, W](i: Int) extends Value[T, U, V, W]
     }
 }
 
-case class BuiltinFunValue[+T, +U, +V, +W](val bf: BuiltinFunction.Value, f: Function) extends Value[T, U, V, W]
+case class BuiltinFunValue[+T, +U, +V, +W](bf: BuiltinFunction.Value, f: Function) extends Value[T, U, V, W]
 
 object BuiltinFunValue
 {
