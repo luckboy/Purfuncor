@@ -233,10 +233,7 @@ package object kinder
                   val (env4, res2) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
                   // Instantiates the inferred kinds.
                   (res |@| res2) {
-                    (_, _) =>
-                      res2.map {
-                        _ => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
-                      }.valueOr { nk => (env4, nk.failure) }
+                    (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
                   }.valueOr { nk => (env3, nk.failure) }
                 } else
                   (env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms)), ().success)
