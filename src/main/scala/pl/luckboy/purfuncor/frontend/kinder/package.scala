@@ -163,7 +163,7 @@ package object kinder
         env2 =>
           comb match {
             case typeComb @ TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
-              val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env.typeVarKind(_).isUninferredKind }
+              val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
               if(depSyms.isEmpty) {
                 val (env3, tmpTypeCombKind) = env2.withTypeLambdaIdx(lambdaIdx) {
                   _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
