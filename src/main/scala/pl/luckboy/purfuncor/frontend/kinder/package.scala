@@ -158,6 +158,27 @@ package object kinder
         res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
       }
     
+    private def instantiateKindsFromGlobalVarsS(kinds: Map[GlobalSymbol, Kind])(env: SymbolKindInferenceEnvironment) = {
+      val (env2, res) = instantiateKindMapS(kinds.keys.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
+      res.map {
+        ks =>
+         val (env3, res2) = kinds.keys.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
+           case ((newEnv, Success(ktMaps)), (s, kts)) =>
+             kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
+               case ((newEnv2, Success(kts)), (i, kt)) =>
+                 instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
+               case ((newEnv2, Failure(nk)), _)        =>
+                 (newEnv2, nk.failure)
+             }.mapElements(identity, _.map { kts2 => ktMaps + (some(s) -> kts2) })
+           case ((newEnv, Failure(nk)), _)            =>
+             (newEnv, nk.failure)
+         }
+         res2.map {
+           kts => (env3.withGlobalTypeVarKinds(ks).withLocalKindTables(env3.localKindTables ++ kts), ().success)
+         }.valueOr { nk => (env3, nk.failure) }
+      }.valueOr { nk => (env2, nk.failure) }
+    }
+    
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       env.withClear {
         env2 =>
@@ -184,13 +205,17 @@ package object kinder
                 }.getOrElse((env3, tmpTypeCombKind))
                 // Checks the defined kinds.
                 val (env6, res) = if(env5.isRecursive) checkDefinedKindTermsS(env5.definedKindTerms)(env5) else (env5, ().success)
-                // Instantiates the inferred kind.
+                // Instantiates the inferred kinds.
                 res.map {
                   _ =>
-                    val (env7, typeCombKind) = if(!env6.isRecursive) tmpTypeCombKind2.instantiatedKindS(env6) else (env6, tmpTypeCombKind2)
-                    typeCombKind match {
-                      case noKind: NoKind => (env7, noKind.failure)
-                      case _              => (env7.withGlobalTypeVarKind(loc, typeCombKind), ().success)
+                    tmpTypeCombKind2 match {
+                      case noKind: NoKind =>
+                        (env6, noKind.failure)
+                      case _              =>
+                        if(!env6.isRecursive)
+                          instantiateKindsFromGlobalVarsS(Map(loc -> tmpTypeCombKind2))(env6)
+                        else
+                          (env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ().success)
                     }
                 }.valueOr { nk => (env6, nk.failure) }
               } else {
@@ -210,9 +235,7 @@ package object kinder
                   (res |@| res2) {
                     (_, _) =>
                       res2.map {
-                        _ =>
-                          val (env5, res3) = instantiateKindMapS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
-                          res3.map { ks => (env5.withGlobalTypeVarKinds(ks), ().success) }.valueOr { nk => (env5, nk.failure) }
+                        _ => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
                       }.valueOr { nk => (env4, nk.failure) }
                   }.valueOr { nk => (env3, nk.failure) }
                 } else

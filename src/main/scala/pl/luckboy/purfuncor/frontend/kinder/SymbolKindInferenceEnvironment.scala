@@ -46,10 +46,12 @@ case class SymbolKindInferenceEnvironment(
   def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = localTypeVarKinds |+| kinds.mapValues { NonEmptyList(_) })
   
   def popLocalTypeVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
-  
+
   def currentLocalKindTable = localKindTables.getOrElse(currentTypeCombSym, Map()).getOrElse(currentTypeLambdaIdx, KindTable.empty[LocalSymbol])
   
   def withCurrentLocalKindTable(kindTable: KindTable[LocalSymbol]) = copy(localKindTables = localKindTables ++ Map(currentTypeCombSym -> (localKindTables.getOrElse(currentTypeCombSym, IntMap()) + (currentTypeLambdaIdx -> kindTable))))
+  
+  def withLocalKindTables(kindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]) = copy(localKindTables = kindTables)
   
   def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
     val kinds = localTypeVarKinds.mapValues { _.head }
