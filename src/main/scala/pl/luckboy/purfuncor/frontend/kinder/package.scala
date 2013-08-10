@@ -22,7 +22,11 @@ import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 package object kinder
 {
   implicit val noKindSemigroup: Semigroup[NoKind] = new Semigroup[NoKind] {
-    override def append(f1: NoKind, f2: => NoKind): NoKind = throw new UnsupportedOperationException
+    override def append(f1: NoKind, f2: => NoKind) =
+      (f1, f2) match {
+        case (NoKind(prevErrs1, currentErrs1), NoKind(prevErrs2, currentErrs2)) =>
+          NoKind(prevErrs = prevErrs1 ++ prevErrs2, currentErrs = currentErrs1 ++ currentErrs2)
+      }
   }
   
   implicit val symbolKindTermUnifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] = new Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] {
@@ -134,11 +138,11 @@ package object kinder
         case _                                  => NoKind.fromError(FatalError("can't concat errors", none, NoPosition))
       } 
 
-    override def unequalListLengthNoInfo: Kind =
-      throw new UnsupportedOperationException
+    override def unequalListLengthNoInfo =
+      NoKind.fromError(FatalError("lengths of lists aren't equal", none, NoPosition))
 
-    override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position): (SymbolKindInferenceEnvironment, Kind) =
-      throw new UnsupportedOperationException
+    override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position) =
+      (res._1, res._2.withPos(pos))
   }
   
   implicit val symbolTypeCombinatorKindInitializer: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
@@ -182,7 +186,7 @@ package object kinder
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       env.withClear {
         env2 =>
-          comb match {
+          val (env10, res) = comb match {
             case typeComb @ TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
               val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
               if(depSyms.isEmpty) {
@@ -257,9 +261,11 @@ package object kinder
                   }
               }.valueOr { nk => (env5, nk.failure) }
           }
+          (env10, res.swap.map { _.forFile(comb.file) }.swap)
       }
     
-    override def undefinedGlobalVarError: NoKind = throw new UnsupportedOperationException
+    override def undefinedGlobalVarError =
+      NoKind.fromError(FatalError("undefined global type variable", none, NoPosition))
 
     override def withSaveS[T, U](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[T, U]))(env: SymbolKindInferenceEnvironment) = {
       val (env2, res) = f(env)

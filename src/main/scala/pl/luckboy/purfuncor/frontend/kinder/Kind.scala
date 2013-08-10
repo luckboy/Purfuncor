@@ -1,5 +1,6 @@
 package pl.luckboy.purfuncor.frontend.kinder
 import scala.collection.immutable.IntMap
+import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -30,15 +31,28 @@ sealed trait Kind
   
   def instantiatedKindS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     instantiatedKindTermS(env).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
+    
+  def withPos(pos: Position): Kind =
+    this match {
+      case noKind: NoKind =>
+        NoKind(prevErrs = noKind.prevErrs ++ noKind.currentErrs.map { _.withPos(pos) }, currentErrs = Nil)
+      case _              =>
+        this
+    }
 }
 
-case class NoKind(errs: NonEmptyList[AbstractError]) extends Kind
+case class NoKind(prevErrs: List[AbstractError], currentErrs: List[AbstractError]) extends Kind
+{
+  def errs = prevErrs ++ currentErrs
+  
+  def forFile(file: Option[java.io.File]) = NoKind(prevErrs = prevErrs.map { _.withFile(file) }, currentErrs = currentErrs.map { _.withFile(file) })
+}
 
 object NoKind
 {
-  def fromError(err: AbstractError) = NoKind(NonEmptyList(err))
+  def fromError(err: AbstractError): NoKind = throw new UnsupportedOperationException
   
-  def fromErrors(errs: NonEmptyList[AbstractError]) = NoKind(errs)
+  def fromErrors(errs: NonEmptyList[AbstractError]): NoKind = throw new UnsupportedOperationException
 }
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind

@@ -7,6 +7,8 @@ sealed trait AbstractError
   
   def withFile(file: Option[java.io.File]): AbstractError
   
+  def withPos(pos: Position): AbstractError
+  
   override def toString =
     this match {
       case Error(msg, file, pos)            =>
@@ -21,14 +23,20 @@ sealed trait AbstractError
 case class Error(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
 {
   override def withFile(file: Option[java.io.File]) = Error(msg, file, pos)
+
+  override def withPos(pos: Position) = Error(msg, file, pos)
 }
 case class FatalError(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
 {
   val stackTrace = Thread.currentThread().getStackTrace().toList
 
   override def withFile(file: Option[java.io.File]) = FatalError(msg, file, pos)
+
+  override def withPos(pos: Position) = FatalError(msg, file, pos)
 }
 case class IOError(msg: String, file: Option[java.io.File]) extends AbstractError
 {
   override def withFile(file: Option[java.io.File]) = IOError(msg, file)
+
+  override def withPos(pos: Position) = this
 }
