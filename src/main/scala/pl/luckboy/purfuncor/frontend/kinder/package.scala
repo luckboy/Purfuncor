@@ -165,6 +165,7 @@ package object kinder
             case typeComb @ TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
               val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
               if(depSyms.isEmpty) {
+                // Infers the kind. 
                 val (env3, tmpTypeCombKind) = env2.withTypeLambdaIdx(lambdaIdx) {
                   _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
                     newEnv =>
@@ -173,7 +174,7 @@ package object kinder
                       functionKindFromKindsS(argKinds, retKind)(newEnv2)
                   }
                 }
-            
+                // Unifies the inferred kind with the defined kind.
                 val (env5, tmpTypeCombKind2) = kind.map {
                   kt =>
                     val (env4, res) = allocateKindTermParamsS(kt)(Map())(env3)
@@ -181,8 +182,9 @@ package object kinder
                       case (_, kt2) => symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind, InferringKind(kt2))(env4.withDefinedKind(kt2))
                     }.valueOr { (env4, _) }
                 }.getOrElse((env3, tmpTypeCombKind))
-
+                // Checks the defined kinds.
                 val (env6, res) = if(env5.isRecursive) checkDefinedKindTermsS(env5.definedKindTerms)(env5) else (env5, ().success)
+                // Instantiates the inferred kind.
                 res.map {
                   _ =>
                     val (env7, typeCombKind) = if(!env6.isRecursive) tmpTypeCombKind2.instantiatedKindS(env6) else (env6, tmpTypeCombKind2)
@@ -200,9 +202,11 @@ package object kinder
                     case (s, n) => if(!(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty) some(s -> n.comb) else Map()
                   }
                   val (newTypeCombNodes, oldTypeCombNodes) = env.typeCombNodes.partition { case (_, n) => recursiveTypeCombSyms.subsetOf(n.recursiveCombSyms) }
-
+                  // Infers the kinds of the type combinators of the recursive types.
                   val (env3, res) = initializeS(Tree(combs, resolver.TypeTreeInfo))(env.withRecursive(true)).mapElements(_.withRecursive(false).withTypeCombNodes(newTypeCombNodes), identity)
+                  // Checks the defined kinds.
                   val (env4, res2) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
+                  // Instantiates the inferred kinds.
                   (res |@| res2) {
                     (_, _) =>
                       res2.map {
