@@ -39,6 +39,14 @@ sealed trait Kind
       case _              =>
         this
     }
+  
+  override def toString =
+    this match {
+      case noKind: NoKind          => "<no kind>\n" + noKind.errs.map { (" " * 8) + _ }.mkString("\n") + "\n"
+      case InferredKind(kindTerm)  => intKindTermShowing.stringFrom(kindTerm)
+      case InferringKind(kindTerm) => "<inferring kind: " + intKindTermShowing.stringFrom(kindTerm) + ">"
+      case UninferredKind          => "<uninferred kind>"
+    }
 }
 
 case class NoKind(prevErrs: List[AbstractError], currentErrs: List[AbstractError]) extends Kind
