@@ -14,6 +14,8 @@ trait Initializer[E, L, C, F]
   
   def initializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
   
+  def checkEnvironmentS(env: F): (F, Validation[E, Unit])
+  
   def undefinedGlobalVarError: E
 
   def withSaveS[T, U](f: F => (F, Validation[T, U]))(env: F): (F, Validation[T, U])
@@ -46,7 +48,11 @@ object Initializer
               case (res, _)                  =>
                 res
             }
-            res2.map { u => (env7, u.success[E]) }.getOrElse((env7, res2))
+            res2.map {
+              _ =>
+                val (env8, res3) = init.checkEnvironmentS(env7)
+                res3.map { u => (env8, u.success[E]) }.getOrElse((env8, res3))
+            }.getOrElse((env7, res2))
           case Failure(err)       =>
             (env3, err.failure)
         }

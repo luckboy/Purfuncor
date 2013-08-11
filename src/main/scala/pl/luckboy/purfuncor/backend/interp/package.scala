@@ -122,6 +122,9 @@ package object interp
       }
     }
 
+    override def checkEnvironmentS(env: SymbolEnvironment[T, U]) =
+      (env, ().success[NoValue[Symbol, T, U, SymbolClosure[T, U]]])
+    
     override def undefinedGlobalVarError: NoValue[Symbol, T, U, SymbolClosure[T, U]] =
       NoValue.fromString("undefined global variable")
     

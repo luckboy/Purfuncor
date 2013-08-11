@@ -23,6 +23,7 @@ case class SymbolKindInferenceEnvironment(
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])],
+    errNoKind: Option[NoKind],
     isRecursive: Boolean)
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
@@ -106,6 +107,8 @@ case class SymbolKindInferenceEnvironment(
     } else {
       f(this)
     }
+  
+  def withErrs(noKind: NoKind) = copy(errNoKind = errNoKind.map { nk => some(nk |+| noKind) }.getOrElse(some(noKind)))
 }
 
 object SymbolKindInferenceEnvironment
@@ -121,5 +124,6 @@ object SymbolKindInferenceEnvironment
       definedKindTerms = Nil,
       irreplaceableKindParams = IntMap(),
       currentKindTermPair = none,
+      errNoKind =  none,
       isRecursive = false)
 }

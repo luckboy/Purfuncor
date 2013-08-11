@@ -139,7 +139,7 @@ package object kinder
       } 
 
     override def unequalListLengthNoInfo =
-      NoKind.fromError(FatalError("lengths of lists aren't equal", none, NoPosition))
+      NoKind.fromError(FatalError("unequal list lengths", none, NoPosition))
 
     override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position) =
       (res._1, res._2.withPos(pos))
@@ -183,6 +183,12 @@ package object kinder
       }.valueOr { nk => (env2, nk.failure) }
     }
     
+    private def failInitializationS(noKind: NoKind, syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment) =
+      if(noKind.errs.forall { _.isInstanceOf[Error] })
+        (env.withErrs(noKind).withGlobalTypeVarKinds(syms.map { s => (s, NoKind.fromError(Error("uninferred kind of global type variable " + s, none, NoPosition))) }.toMap), ().success[NoKind])
+      else
+        (env, noKind.failure)
+    
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       env.withClear {
         env2 =>
@@ -214,14 +220,14 @@ package object kinder
                   _ =>
                     tmpTypeCombKind2 match {
                       case noKind: NoKind =>
-                        (env6, noKind.failure)
+                        failInitializationS(noKind, Set(loc))(env6)
                       case _              =>
                         if(!env6.isRecursive)
                           instantiateKindsFromGlobalVarsS(Map(loc -> tmpTypeCombKind2))(env6)
                         else
                           (env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ().success)
                     }
-                }.valueOr { nk => (env6, nk.failure) }
+                }.valueOr { failInitializationS(_, Set(loc))(env6) }
               } else {
                 val (nonRecursiveDepSyms, recusiveDepSyms) = depSyms.partition(env.typeCombNodes.contains)
                 val recursiveTypeCombSyms = recusiveDepSyms ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.recursiveCombSyms } }
@@ -238,7 +244,7 @@ package object kinder
                   // Instantiates the inferred kinds.
                   (res |@| res2) {
                     (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
-                  }.valueOr { nk => (env3, nk.failure) }
+                  }.valueOr { failInitializationS(_, combs.keySet)(env4) }
                 } else
                   (env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms)), ().success)
               }
@@ -259,11 +265,14 @@ package object kinder
                     case noKind: NoKind => (env6, noKind.failure)
                     case _              => (env6.withGlobalTypeVarKind(loc, unittypeCombKind), ().success)
                   }
-              }.valueOr { nk => (env5, nk.failure) }
+              }.valueOr { failInitializationS(_, Set(loc))(env5) }
           }
           (env10, res.swap.map { _.forFile(comb.file) }.swap)
       }
     
+    override def checkEnvironmentS(env: SymbolKindInferenceEnvironment) =
+      (env, env.errNoKind.map { _.failure }.getOrElse(().success))
+
     override def undefinedGlobalVarError =
       NoKind.fromError(FatalError("undefined global type variable", none, NoPosition))
 
