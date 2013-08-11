@@ -58,9 +58,9 @@ case class NoKind(prevErrs: List[AbstractError], currentErrs: List[AbstractError
 
 object NoKind
 {
-  def fromError(err: AbstractError): NoKind = throw new UnsupportedOperationException
+  def fromError(err: AbstractError) = NoKind(Nil, List(err))
   
-  def fromErrors(errs: NonEmptyList[AbstractError]): NoKind = throw new UnsupportedOperationException
+  def fromErrors(errs: NonEmptyList[AbstractError]) = NoKind(Nil, errs.list)
 }
 
 case class InferredKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind
