@@ -9,7 +9,6 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
-import pl.luckboy.purfuncor.frontend.lmbdindexer.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.common.Unifier._
@@ -89,10 +88,10 @@ package object kinder
     }
   }
   
-  implicit val symbolTypeSimpleTermKindInferrer: Inferrer[TypeSimpleTerm[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] = new Inferrer[TypeSimpleTerm[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] {
-    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
+  implicit val symbolTypeSimpleTermKindInferrer: Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] = new Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] {
+    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       simpleTerm match {
-        case TypeLambda(args, body, TypeLambdaInfo(lambdaIdx)) =>
+        case TypeLambda(args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx)) =>
           env.withTypeLambdaIdx(lambdaIdx) {
             _.withLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
               newEnv =>
@@ -145,10 +144,10 @@ package object kinder
       (res._1, res._2.withPos(pos))
   }
   
-  implicit val symbolTypeCombinatorKindInitializer: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo], SymbolKindInferenceEnvironment] {
+  implicit val symbolTypeCombinatorKindInitializer: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment] {
     override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = (env, env.globalTypeVarKinds.keySet)
     
-    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo]) =
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo]) =
       comb match {
         case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
         case UnittypeCombinator(_, _, _)      => Set()
@@ -189,11 +188,11 @@ package object kinder
       else
         (env, noKind.failure)
     
-    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
       env.withClear {
         env2 =>
           val (env10, res) = comb match {
-            case typeComb @ TypeCombinator(kind, args, body, TypeLambdaInfo(lambdaIdx), file) =>
+            case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx), file) =>
               val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
               if(depSyms.isEmpty) {
                 // Infers the kind. 
