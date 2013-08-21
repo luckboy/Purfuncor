@@ -13,14 +13,14 @@ object Kinder
   def transformKindTable[T](kindTable: KindTable[T]) =
     kindTable.kinds.foldLeft(Map[T, InferredKind]().successNel[AbstractError]) {
       case (Success(ks), (l, k: InferredKind)) => (ks + (l -> k)).successNel
-      case (Success(ks), _)                    => FatalError("uninstantiated kind", none, NoPosition).failureNel
+      case (Success(ks), _)                    => FatalError("can't instantiate kind", none, NoPosition).failureNel
       case (Failure(errs), _)                  => errs.failure
     }.map { InferredKindTable(_) }
 
   def transformArg[T, U, V, E](arg: Arg[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U], enval: KindInferenceEnvironmental[E, U, V]) =
     arg.typ.map {
       tt =>
-        val (newEnv, kind) = inferTypeTermS(tt)(enval.copyEnvironment(env))
+        val (newEnv, kind) = inferTypeTermKindS(tt)(enval.copyEnvironment(env))
         kind match {
           case noKind: NoKind =>
             FatalError("no errors", none, NoPosition).failureNel
@@ -66,7 +66,7 @@ object Kinder
       case Simple(Literal(value), pos) =>
         Simple(Literal(value), pos).successNel
       case Simple(TypedTerm(term, typ), pos) =>
-        val (newEnv, kind) = inferTypeTermS(typ)(enval.copyEnvironment(env))
+        val (newEnv, kind) = inferTypeTermKindS(typ)(enval.copyEnvironment(env))
         kind match {
           case noKind: NoKind =>
             FatalError("no errors", none, NoPosition).failureNel
@@ -96,8 +96,8 @@ object Kinder
         transformTypeTerm(term)(env).map { t => Simple(KindedTypeTerm(t, kind), pos) }
     }
   
-  def inferTypeTermS[T, U, V, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U], enval: KindInferenceEnvironmental[E, U, V]) =
-    envSt.withEmptyLocalKindTablesS {
+  def inferTypeTermKindS[T, U, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U]) =
+    envSt.withClearS {
       envSt.withCombinatorLocationS(none) {
         env2 =>
           val (env3, kind) = inferS(term)(env2)
@@ -108,6 +108,9 @@ object Kinder
               val (env4, res) = envSt.instantiateLocalKindTablesS(env3)
               res.map { _ => envSt.instantiateKindS(kind)(env4) }.valueOr { (env4, _) }
           }
-      } (_)
+      }
     } (env)
+    
+  def inferTypeTermKind[T, U, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U]) =
+    State(inferTypeTermKindS[T, U, E](term))
 }

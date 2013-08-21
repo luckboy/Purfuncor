@@ -10,5 +10,5 @@ trait KindInferenceEnvironmentState[T, U]
   
   def withCombinatorLocationS[V](loc: Option[U])(f: T => (T, V))(env: T): (T, V)
   
-  def withEmptyLocalKindTablesS[V](f: T => (T, V))(env: T): (T, V)
+  def withClearS[V](f: T => (T, V))(env: T): (T, V)
 }
