@@ -21,7 +21,7 @@ object Kinder
   private def inferKindAndTransformTypeTerm[T, U, V, E](typeTerm: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U], enval: KindInferenceEnvironmental[E, U, V]) = {
     val (newEnv, kind) = inferTypeTermKindS(typeTerm)(enval.copyEnvironment(env))
     kind match {
-      case noKind: NoKind => FatalError("no errors", none, NoPosition).failureNel
+      case noKind: NoKind => FatalError("no error", none, NoPosition).failureNel
       case _              => transformTypeTerm(typeTerm)(newEnv)
     }
   }
@@ -158,10 +158,12 @@ object Kinder
     
   def transform[T, U, V, W[_, _], X, Y, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo]], W[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo]])(kindTable: InferredKindTable[T])(f: InferredKindTable[T] => E)(implicit init: Initializer[NoKind, X, AbstractTypeCombinator[V, lmbdindexer.TypeLambdaInfo], E], inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y], treeInfoTransformer: TreeInfoTransformer[W, X, Y], treeInfoExtractor: TreeInfoExtractor[W[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo], V, X]) = {
     val (env, res) = inferTypeTreeKindsS(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo))(f(kindTable))
-    for {
-      _ <- res
-      tree2 <- transformTree(tree)(env)
-      treeInfo2 <- treeInfoTransformer.transformTreeInfo(tree.treeInfo)(env)
-    } yield Tree(combs = tree2.combs, treeInfo = treeInfo2)
+    res.map {
+      _ =>
+        for {
+          tree2 <- transformTree(tree)(env)
+          treeInfo2 <- treeInfoTransformer.transformTreeInfo(tree.treeInfo)(env)
+        } yield Tree(combs = tree2.combs, treeInfo = treeInfo2)
+    }.valueOr { _.errs.toNel.getOrElse(NonEmptyList(FatalError("no error", none, NoPosition))).failure }
   }
 }
