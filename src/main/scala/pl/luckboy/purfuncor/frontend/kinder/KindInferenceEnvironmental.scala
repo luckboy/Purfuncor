@@ -9,7 +9,7 @@ trait KindInferenceEnvironmental[T, U, V]
   
   def globalKindTableFromEnvironment(env: T): KindTable[U]
   
-  def withCurrentCombinatorLocation(env: T)(loc: Option[U]): T
+  def withCurrentTypeCombinatorLocation(env: T)(loc: Option[U]): T
   
   def getLocalKindTableFromEnvironment(env: T)(lambdaIdx: Int): Option[KindTable[V]]
 }

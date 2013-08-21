@@ -134,7 +134,7 @@ object Kinder
   
   def inferTypeTermKindS[T, U, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U]) =
     envSt.withClearS {
-      envSt.withCombinatorLocationS(none) {
+      envSt.withTypeCombinatorLocationS(none) {
         env2 =>
           val (env3, kind) = inferS(term)(env2)
           kind match {

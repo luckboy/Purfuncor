@@ -8,7 +8,7 @@ trait KindInferenceEnvironmentState[T, U]
   
   def instantiateKindS(kind: Kind)(env: T): (T, Kind)
   
-  def withCombinatorLocationS[V](loc: Option[U])(f: T => (T, V))(env: T): (T, V)
+  def withTypeCombinatorLocationS[V](loc: Option[U])(f: T => (T, V))(env: T): (T, V)
   
   def withClearS[V](f: T => (T, V))(env: T): (T, V)
 }
