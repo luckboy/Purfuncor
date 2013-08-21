@@ -46,13 +46,13 @@ object Kinder
       case (Failure(errs), _) => errs.failure
     }.map { _.reverse }
 
-  def transformTermNel[T, U, V, E](terms: NonEmptyList[Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U], enval: KindInferenceEnvironmental[E, U, V]) =
+  def transformTermNel[T, U, V, W, E](terms: NonEmptyList[Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) =
     transformTermNel1(terms)(env)(transformTerm(_)(_))
   
   def transformTypeTermNel[T, U, V, E](terms: NonEmptyList[Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, U, V]) =
     transformTermNel1(terms)(env)(transformTypeTerm(_)(_))
     
-  def transformTerm[T, U, V, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, U], enval: KindInferenceEnvironmental[E, U, V]): ValidationNel[AbstractError, Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[T, TypeLambdaInfo[V]]]]] =
+  def transformTerm[T, U, V, W, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]): ValidationNel[AbstractError, Term[SimpleTerm[T, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, TypeLambdaInfo[W]]]]] =
     term match {
       case App(fun, args, pos) =>
         (transformTerm(fun)(env) |@| transformTermNel(args)(env)) { App(_, _, pos) }
@@ -95,8 +95,8 @@ object Kinder
         transformTypeTerm(term)(env).map { t => Simple(KindedTypeTerm(t, kind), pos) }
     }
   
-  def transformTree[T, U, V, W, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo]], V])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, T], enval: KindInferenceEnvironmental[E, T, W]) =
-    tree.combs.foldLeft(Map[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, TypeLambdaInfo[W]]]]().successNel[AbstractError]) {
+  def transformTree[T, U, V, W, X, Y, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo]], W])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]) =
+    tree.combs.foldLeft(Map[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[V, TypeLambdaInfo[Y]]]]().successNel[AbstractError]) {
       case (Success(combs), (loc, comb)) =>
         comb match {
           case Combinator(typ, args, body, lambdaInfo, file) =>
@@ -156,7 +156,7 @@ object Kinder
   def inferTypeTreeKinds[T, U, V, E](tree: Tree[T, AbstractTypeCombinator[U, lmbdindexer.TypeLambdaInfo], V])(env: E)(implicit init: Initializer[NoKind, T, AbstractTypeCombinator[U, lmbdindexer.TypeLambdaInfo], E]) =
     initialize(tree)
     
-  def transform[T, U, V[_, _], W, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo]], V[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo]])(kindTable: InferredKindTable[T])(f: InferredKindTable[T] => E)(implicit init: Initializer[NoKind, T, AbstractTypeCombinator[U, lmbdindexer.TypeLambdaInfo], E], inferrer: Inferrer[TypeSimpleTerm[U, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, T], enval: KindInferenceEnvironmental[E, T, W], treeInfoTransformer: TreeInfoTransformer[V], treeInfoExtractor: TreeInfoExtractor[V[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo], U, T]) = {
+  def transform[T, U, V, W[_, _], X, Y, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo, TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo]], W[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo]])(kindTable: InferredKindTable[T])(f: InferredKindTable[T] => E)(implicit init: Initializer[NoKind, X, AbstractTypeCombinator[V, lmbdindexer.TypeLambdaInfo], E], inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y], treeInfoTransformer: TreeInfoTransformer[W], treeInfoExtractor: TreeInfoExtractor[W[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo], V, X]) = {
     val (env, res) = inferTypeTreeKindsS(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo))(f(kindTable))
     for {
       _ <- res
