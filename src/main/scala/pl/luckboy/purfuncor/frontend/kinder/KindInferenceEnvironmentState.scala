@@ -2,13 +2,13 @@ package pl.luckboy.purfuncor.frontend.kinder
 import scalaz._
 import scalaz.Scalaz._
 
-trait KindInferenceEnvironmentState[T, U]
+trait KindInferenceEnvironmentState[E, L]
 {
-  def instantiateLocalKindTablesS(env: T): (T, Validation[NoKind, Unit])
+  def instantiateLocalKindTablesS(env: E): (E, Validation[NoKind, Unit])
   
-  def instantiateKindS(kind: Kind)(env: T): (T, Kind)
+  def instantiateKindS(kind: Kind)(env: E): (E, Kind)
   
-  def withTypeCombinatorLocationS[V](loc: Option[U])(f: T => (T, V))(env: T): (T, V)
+  def withTypeCombinatorLocationS[T](loc: Option[L])(f: E => (E, T))(env: E): (E, T)
   
-  def withClearS[V](f: T => (T, V))(env: T): (T, V)
+  def withClearS[T](f: E => (E, T))(env: E): (E, T)
 }

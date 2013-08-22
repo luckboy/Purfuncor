@@ -3,13 +3,13 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 
-trait KindInferenceEnvironmental[T, U, V]
+trait KindInferenceEnvironmental[E, L, M]
 {
-  def copyEnvironment(env: T): T
+  def copyEnvironment(env: E): E
   
-  def globalKindTableFromEnvironment(env: T): KindTable[U]
+  def globalKindTableFromEnvironment(env: E): KindTable[L]
   
-  def withCurrentTypeCombinatorLocation(env: T)(loc: Option[U]): T
+  def withCurrentTypeCombinatorLocation(env: E)(loc: Option[L]): E
   
-  def getLocalKindTableFromEnvironment(env: T)(lambdaIdx: Int): Option[KindTable[V]]
+  def getLocalKindTableFromEnvironment(env: E)(lambdaIdx: Int): Option[KindTable[M]]
 }
