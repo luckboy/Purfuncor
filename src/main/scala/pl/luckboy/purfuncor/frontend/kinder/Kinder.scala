@@ -4,10 +4,11 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
-import pl.luckboy.purfuncor.common.Inferrer._
-import pl.luckboy.purfuncor.common.Initializer._
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
+import pl.luckboy.purfuncor.common.Inferrer._
+import pl.luckboy.purfuncor.common.Initializer._
+import pl.luckboy.purfuncor.common.Result._
 
 object Kinder
 {
@@ -101,9 +102,10 @@ object Kinder
         comb match {
           case Combinator(typ, args, body, lambdaInfo, file) =>
             val typ2Res = typ.map { inferKindAndTransformTypeTerm(_)(env).map(some) }.getOrElse(none.successNel)
-            (typ2Res |@| transformArgs(args)(env) |@| transformTerm(body)(env)) {
+            val res = (typ2Res |@| transformArgs(args)(env) |@| transformTerm(body)(env)) {
               (typ2, args2, body2) => combs + (loc -> Combinator(typ2, args2, body2, lambdaInfo, file))
             }
+            resultForFile(res, file)
         }
       case (Failure(errs), _)            =>
         errs.failure
@@ -114,12 +116,13 @@ object Kinder
       case (Success(combs), (loc, comb)) =>
         comb match {
           case TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx), file) =>
-            transformTypeTerm(body)(env).flatMap {
+            val res = transformTypeTerm(body)(env).flatMap {
               body2 =>
                 enval.getLocalKindTableFromEnvironment(env)(lambdaIdx).map {
                   kt => transformKindTable(kt).map { kt2 => combs + (loc -> TypeCombinator(kind, args, body2, TypeLambdaInfo(kt2), file)) }
                 }.getOrElse(FatalError("incorrect type lambda index", none, NoPosition).failureNel)
             }
+            resultForFile(res, file)
           case UnittypeCombinator(kind, n, file) =>
             (combs + (loc -> UnittypeCombinator(kind, n, file))).successNel
         }
