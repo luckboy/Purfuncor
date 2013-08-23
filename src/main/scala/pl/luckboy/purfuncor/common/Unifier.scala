@@ -38,13 +38,13 @@ object Unifier
         val (newEnv2, res) = unifier.findRootParamS(param)(newEnv)
         res match {
           case Success(rootParam) =>
-            val (newEnv3, optParamTerm) = unifier.getParamTermS(param)(newEnv2)
+            val (newEnv3, optParamTerm) = unifier.getParamTermS(rootParam)(newEnv2)
             optParamTerm match {
               case Some(paramTerm) => 
                 val (newEnv4, res2) = instantiateS(paramTerm)(newEnv3)
                 (newEnv4, res2.map { Right(_) })
               case None            =>
-                (newEnv3, Left(param).success)
+                (newEnv3, Left(rootParam).success)
             }
           case Failure(err) =>
             (newEnv2, err.failure)

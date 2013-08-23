@@ -37,7 +37,7 @@ object KindTermUnifier
         argRes match {
           case Success(arg2)   =>
             val (env3, retRes) = replaceKindTermParamsS(ret)(f)(env)
-            (env3, retRes.map { ret2 => Arrow(arg2, ret, NoPosition) })
+            (env3, retRes.map { ret2 => Arrow(arg2, ret2, NoPosition) })
           case Failure(noKind) =>
             (env2, noKind.failure)
         }

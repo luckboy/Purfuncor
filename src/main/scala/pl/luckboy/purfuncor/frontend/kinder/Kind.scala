@@ -8,6 +8,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.frontend.KindTermUtils._
 
 sealed trait Kind
 {
@@ -25,7 +26,7 @@ sealed trait Kind
     this match {
       case noKind: NoKind          => (env, noKind.failure)
       case InferredKind(kindTerm)  => (env, kindTerm.success)
-      case InferringKind(kindTerm) => instantiateS(kindTerm)(env)
+      case InferringKind(kindTerm) => instantiateS(kindTerm)(env).mapElements(identity, _.map(intKindTermFromKindTerm))
       case UninferredKind          => (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)).failure)
     }
   
