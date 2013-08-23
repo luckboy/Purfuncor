@@ -13,7 +13,7 @@ sealed trait AbstractError
     this match {
       case Error(msg, file, pos)            =>
         file.map { _.getPath() }.getOrElse("<no file>") + ": " + pos + ": " + msg
-      case err @ FatalError(msg, file, pos) =>
+      case err @ FatalError(msg, file, pos, _) =>
         file.map { _.getPath() }.getOrElse("<no file>") + ": " + pos + ": fatal: " + msg + "\n" +
         err.stackTrace.map { (" " * 8) + "at " + _ }.mkString("\n") + "\n"
       case IOError(msg, file)               =>
@@ -26,13 +26,11 @@ case class Error(msg: String, file: Option[java.io.File], pos: Position) extends
 
   override def withPos(pos: Position) = Error(msg, file, pos)
 }
-case class FatalError(msg: String, file: Option[java.io.File], pos: Position) extends AbstractError
+case class FatalError(msg: String, file: Option[java.io.File], pos: Position, stackTrace: List[java.lang.StackTraceElement] = Thread.currentThread().getStackTrace().toList) extends AbstractError
 {
-  val stackTrace = Thread.currentThread().getStackTrace().toList
+  override def withFile(file: Option[java.io.File]) = copy(file = file)
 
-  override def withFile(file: Option[java.io.File]) = FatalError(msg, file, pos)
-
-  override def withPos(pos: Position) = FatalError(msg, file, pos)
+  override def withPos(pos: Position) = copy(pos = pos)
 }
 case class IOError(msg: String, file: Option[java.io.File]) extends AbstractError
 {

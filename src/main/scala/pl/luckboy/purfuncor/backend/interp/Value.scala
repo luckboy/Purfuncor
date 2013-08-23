@@ -47,7 +47,7 @@ sealed trait Value[+T, +U, +V, +W]
   
   override def toString =
     this match {
-      case noValue @ NoValue(msg, _, _)         =>
+      case noValue @ NoValue(msg, _, _, _)      =>
         "<no value: " + msg + ">\n" +
         "system stack trace:\n" +
         noValue.systemStackTrace.map { (" " * 8) + "at " + _ }.mkString("\n") + "\n" +
@@ -97,11 +97,9 @@ object Value
     }
 }
 
-case class NoValue[+T, +U, +V, +W](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElem: Option[StackTraceElement]) extends Value[T, U, V, W]
+case class NoValue[+T, +U, +V, +W](msg: String, prevStackTraceElems: List[StackTraceElement], currentStackTraceElem: Option[StackTraceElement], systemStackTrace: List[java.lang.StackTraceElement] = Thread.currentThread().getStackTrace().toList) extends Value[T, U, V, W]
 {
   val stackTrace = prevStackTraceElems ++ currentStackTraceElem
-  
-  val systemStackTrace = Thread.currentThread().getStackTrace().toList  
 }
 
 object NoValue
