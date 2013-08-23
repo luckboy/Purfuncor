@@ -161,11 +161,11 @@ package object kinder
         res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
       }
     
-    private def instantiateKindsFromGlobalVarsS(kinds: Map[GlobalSymbol, Kind])(env: SymbolKindInferenceEnvironment) = {
-      val (env2, res) = instantiateKindMapS(kinds.keys.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
+    private def instantiateKindsFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment) = {
+      val (env2, res) = instantiateKindMapS(syms.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
       res.map {
         ks =>
-         val (env3, res2) = kinds.keys.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
+         val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
            case ((newEnv, Success(ktMaps)), (s, kts)) =>
              kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
                case ((newEnv2, Success(kts)), (i, kt)) =>
@@ -222,7 +222,7 @@ package object kinder
                         failInitializationS(noKind, Set(loc))(env6)
                       case _              =>
                         if(!env6.isRecursive)
-                          instantiateKindsFromGlobalVarsS(Map(loc -> tmpTypeCombKind2))(env6)
+                          instantiateKindsFromGlobalVarsS(Set(loc))(env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2))
                         else
                           (env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ().success)
                     }
@@ -242,7 +242,7 @@ package object kinder
                   val (env4, res2) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
                   // Instantiates the inferred kinds.
                   (res |@| res2) {
-                    (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keys.map { s => (s, env4.typeVarKind(s)) }.toMap)(env4)
+                    (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keySet)(env4)
                   }.valueOr { failInitializationS(_, combs.keySet)(env4) }
                 } else
                   (env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms)), ().success)
