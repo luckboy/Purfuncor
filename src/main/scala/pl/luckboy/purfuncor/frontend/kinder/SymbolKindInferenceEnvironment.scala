@@ -113,10 +113,12 @@ case class SymbolKindInferenceEnvironment(
 
 object SymbolKindInferenceEnvironment
 {
-  val empty = SymbolKindInferenceEnvironment(
+  val empty = fromInferredKindTable(InferredKindTable.empty)
+  
+  def fromInferredKindTable(kindTable: InferredKindTable[GlobalSymbol]) = SymbolKindInferenceEnvironment(
       currentTypeCombSym = none,
       currentTypeLambdaIdx = 0,
-      globalTypeVarKinds = Map(),
+      globalTypeVarKinds = kindTable.kinds,
       localTypeVarKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
