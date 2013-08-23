@@ -56,12 +56,12 @@ package object kinder
     override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment) =
       if(!env.kindParamForest.containsTerm(param1) && !env.kindParamForest.containsTerm(param2))
         env.kindParamForest.unionParams(param1, param2).map {
-          kpf =>
+          case (kpf, isChanged) =>
             kpf.findRootParam(param1).map {
               rp =>
                 val definedKindTerms = env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil) ++ env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil)
                 val newIrreplaceableKindParams = IntMap() ++ (env.irreplaceableKindParams ++ definedKindTerms.toNel.map { rp -> _ })
-                (env.withKindParamForest(kpf).copy(irreplaceableKindParams = newIrreplaceableKindParams), ().success)
+                (env.withKindParamForest(kpf).copy(irreplaceableKindParams = newIrreplaceableKindParams), isChanged.success)
             }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
         }.getOrElse((env, NoKind.fromError(FatalError("not found one kind parameter or two kind parameters", none, NoPosition)).failure))
       else

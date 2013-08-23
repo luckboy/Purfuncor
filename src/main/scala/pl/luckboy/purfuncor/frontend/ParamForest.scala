@@ -25,7 +25,9 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
     for {
       rootParam1 <- findRootParam(param1)
       rootParam2 <- findRootParam(param2)
-    } yield copy(nodes.updated(rootParam1, ParamNode(some(rootParam2))))
+    } yield {
+      if(rootParam1 =/= rootParam2) (copy(nodes.updated(rootParam1, ParamNode(some(rootParam2)))), true) else (this, false)
+    }
   
   def allocateParam = {
     if(next < Integer.MAX_VALUE) {

@@ -13,7 +13,7 @@ trait Unifier[E, T, F, P]
   
   def replaceParamS(param: P, term: T)(env: F): (F, Validation[E, Unit])
   
-  def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Unit])
+  def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Boolean])
   
   def allocateParamS(env: F): (F, Validation[E, Int])
   
@@ -85,7 +85,7 @@ object Unifier
                   (newEnv6, res3.map { _ => true })
                 case (None, None)                         =>
                   val (newEnv6, res3) = unifier.unionParamsS(rootParam1, rootParam2)(newEnv5)
-                  (newEnv6, res3.map { _ => true })
+                  (newEnv6, res3.map { _ || areChangedNewParams })
               }
             } else
               unifier.mismatchedTermErrorS(newEnv3).mapElements(identity, _.failure)
