@@ -165,20 +165,20 @@ package object kinder
       val (env2, res) = instantiateKindMapS(syms.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
       res.map {
         ks =>
-         val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
-           case ((newEnv, Success(ktMaps)), (s, kts)) =>
-             kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
-               case ((newEnv2, Success(kts)), (i, kt)) =>
-                 instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
-               case ((newEnv2, Failure(nk)), _)        =>
-                 (newEnv2, nk.failure)
-             }.mapElements(identity, _.map { kts2 => ktMaps + (some(s) -> kts2) })
-           case ((newEnv, Failure(nk)), _)            =>
-             (newEnv, nk.failure)
-         }
-         res2.map {
-           kts => (env3.withGlobalTypeVarKinds(ks).withLocalKindTables(env3.localKindTables ++ kts), ().success)
-         }.valueOr { nk => (env3, nk.failure) }
+          val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
+            case ((newEnv, Success(ktMaps)), (s, kts)) =>
+              kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
+                case ((newEnv2, Success(kts)), (i, kt)) =>
+                  instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
+                case ((newEnv2, Failure(nk)), _)        =>
+                  (newEnv2, nk.failure)
+              }.mapElements(identity, _.map { kts2 => ktMaps + (some(s) -> kts2) })
+            case ((newEnv, Failure(nk)), _)            =>
+              (newEnv, nk.failure)
+          }
+          res2.map {
+            kts => (env3.withGlobalTypeVarKinds(ks).withLocalKindTables(env3.localKindTables ++ kts), ().success)
+          }.valueOr { nk => (env3, nk.failure) }
       }.valueOr { nk => (env2, nk.failure) }
     }
     
@@ -196,12 +196,14 @@ package object kinder
               val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
               if(depSyms.isEmpty) {
                 // Infers the kind. 
-                val (env3, tmpTypeCombKind) = env2.withTypeLambdaIdx(lambdaIdx) {
-                  _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
-                    newEnv =>
-                      val (newEnv2, retKind) = inferS(body)(newEnv)
-                      val argKinds = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }
-                      functionKindFromKindsS(argKinds, retKind)(newEnv2)
+                val (env3, tmpTypeCombKind) = env2.withTypeCombSym(some(loc)) {
+                  _.withTypeLambdaIdx(lambdaIdx) {
+                    _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
+                      newEnv =>
+                        val (newEnv2, retKind) = inferS(body)(newEnv)
+                        val argKinds = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }
+                        functionKindFromKindsS(argKinds, retKind)(newEnv2)
+                    }
                   }
                 }
                 // Unifies the inferred kind with the defined kind.
