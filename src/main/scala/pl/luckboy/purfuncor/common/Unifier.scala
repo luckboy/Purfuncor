@@ -60,7 +60,7 @@ object Unifier
     res match {
       case Success(true)  => fullyMatchesAndReplaceS(term1, term2)(env2)
       case Success(false) => (env2, term1.success)
-      case Failure(err)    => (env2, err.failure)
+      case Failure(err)   => (env2, err.failure)
     }
   }
     
@@ -95,7 +95,7 @@ object Unifier
             (newEnv3, err.failure)
         }
       case (param1, Right(childTerm2), areChangedNewParams, newEnv) =>
-        val (newEnv2, res1) = unifier.findRootParamS(param1)(env)
+        val (newEnv2, res1) = unifier.findRootParamS(param1)(newEnv)
         res1 match {
           case Success(rootParam1) =>
             if(!markedParams.contains(rootParam1)) {
