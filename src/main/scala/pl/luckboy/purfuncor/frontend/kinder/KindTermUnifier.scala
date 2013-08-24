@@ -59,7 +59,7 @@ object KindTermUnifier
         val (env2, argRes) = unsafeAllocateKindTermParamsS(arg)(allocatedParams)(env)
         argRes match {
           case Success((params2, arg2)) =>
-            val (env3, retRes) = unsafeAllocateKindTermParamsS(ret)(params2)(env)
+            val (env3, retRes) = unsafeAllocateKindTermParamsS(ret)(params2)(env2)
             retRes.map { case (ps, ret2) => (env3, (ps, Arrow(arg2, ret2, pos)).success) }.valueOr { nk => (env3, nk.failure) } 
           case Failure(noKind)          =>
             (env2, noKind.failure)

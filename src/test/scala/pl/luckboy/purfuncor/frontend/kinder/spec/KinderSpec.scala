@@ -53,9 +53,11 @@ type U t u = t u
                     case Star(KindParam(param12), _) =>
                       inside(arg2) {
                         case Star(KindParam(param2), _) =>
-                          inside(arg2) {
+                          inside(ret2) {
                             case Star(KindParam(param3), _) =>
-                              List(param11, param12, param2, param3).toSet should have size(1)
+                              List(param11, param2).toSet should have size(1)
+                              List(param12, param3).toSet should have size(1)
+                              List(param11, param12, param2, param3).toSet should have size(2)
                           }
                      }
                   }
@@ -71,7 +73,7 @@ type U t u = t u
                 case Star(KindParam(param1), _) =>
                   inside(ret1) {
                     case Star(KindParam(param2), _) =>
-                      List(param1, param2).toSet should have size(1)
+                      List(param1, param2).toSet should have size(2)
                   }
               }
           }
