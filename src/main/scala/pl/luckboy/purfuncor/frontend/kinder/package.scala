@@ -286,9 +286,15 @@ package object kinder
   implicit val symbolKindInferenceEnvironmental: KindInferenceEnvironmental[SymbolKindInferenceEnvironment, GlobalSymbol, LocalSymbol] = new KindInferenceEnvironmental[SymbolKindInferenceEnvironment, GlobalSymbol, LocalSymbol] {
     override def copyEnvironment(env: SymbolKindInferenceEnvironment) = env
   
+    override def globalTypeVarKindFromEnvironment(env: SymbolKindInferenceEnvironment)(sym: GlobalSymbol) =
+      env.typeVarKind(sym)
+ 
+    override def localKindTablesFromEnvironment(env: SymbolKindInferenceEnvironment)(sym: Option[GlobalSymbol]): Map[Int, KindTable[LocalSymbol]] =
+      env.localKindTables.getOrElse(sym, Map())
+      
     override def globalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment) =
       KindTable(env.globalTypeVarKinds)
-  
+      
     override def withCurrentTypeCombinatorLocation(env: SymbolKindInferenceEnvironment)(loc: Option[GlobalSymbol]) =
       env.withCurrentTypeCombSym(loc)
   
