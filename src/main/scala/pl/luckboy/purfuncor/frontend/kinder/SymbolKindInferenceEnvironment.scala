@@ -74,7 +74,7 @@ case class SymbolKindInferenceEnvironment(
     }
     res.map {
       newKinds =>
-        val (env3, kind) = f(env2.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds)))
+        val (env3, kind) = f(env2.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds.filterKeys(kindTerms.keySet.contains))))
         (env3.popLocalTypeVarKinds(newKinds.keySet), kind)
     }.valueOr { (env2, _) } 
   }
