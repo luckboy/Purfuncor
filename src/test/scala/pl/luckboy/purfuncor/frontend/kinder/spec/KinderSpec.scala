@@ -178,9 +178,9 @@ type U t u v = ##-> t (##-> u v)
     
     it should "infer the kind for the inferred kind of the returned type" is (pending)
     
-    it should "infer the kinds from the string with the non-recursive type combinators" is (pending)
+    it should "initialize all kinds of the non-recursive dependent type combinators" is (pending)
     
-    it should "infer the kinds from the string with the recursive type combinators" is (pending)
+    it should "initialize all kinds of the recursive dependent type combinators" is (pending)
     
     it should "infer the kind for the defined kind of the type combinator" is (pending)
     
