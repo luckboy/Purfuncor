@@ -86,7 +86,7 @@ type U t u = t u
       }
     }
 
-    it should "infer the kinds from the string with the lambda-expression" in {
+    it should "infer the kind from the string with the lambda-expression" in {
       val (env, res) = Kinder.inferKindsFromTreeString("type T t = (\\u v => v u) t")(NameTree.empty)(f).run(emptyEnv)
       res should be ===(().success.success)
       inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
