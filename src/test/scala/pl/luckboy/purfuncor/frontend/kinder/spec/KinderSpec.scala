@@ -140,6 +140,22 @@ type U t u = t u
           }
       }
     }
+    
+    it should "infer the kinds from the string with the built-in types" is (pending)
+    
+    it should "infer the kind from the string with the nested lambda-expression" is (pending)
+    
+    it should "infer the kind for the inferred kind of the returned type" is (pending)
+    
+    it should "infer the kinds from the string with the non-recursive type combinators" is (pending)
+    
+    it should "infer the kinds from the string with the recursive type combinators" is (pending)
+    
+    it should "infer the kind for the defined kind of the type combinator" is (pending)
+    
+    it should "infer the kind for the defined kind of the type arguments" is (pending)
+    
+    it should "infer the kind for the defined kind of the type expression" is (pending)
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty)(_.successNel)(SymbolKindInferenceEnvironment.fromInferredKindTable)
