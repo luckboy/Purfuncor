@@ -141,7 +141,36 @@ type U t u = t u
       }
     }
     
-    it should "infer the kinds from the string with the built-in types" is (pending)
+    it should "infer the kinds from the string with the built-in types" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t u = u (#Array t)
+type U t u v = ##-> t (##-> u v)
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // T
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> (* -> k1) -> k1
+          inside(ret1) {
+            case Arrow(arg11, Star(KindParam(param1), _), _) =>
+              inside(arg11) {
+                case Arrow(Star(KindType, _), Star(KindParam(param2), _), _) =>
+                  List(param1, param2).toSet should have size(1)
+              }
+          }
+      }
+      // U
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> * -> *
+          inside(ret1) {
+            case Arrow(Star(KindType, _), ret2, _) =>
+              inside(ret2) {
+                case Arrow(Star(KindType, _), Star(KindType, _), _) => ()
+              }
+          }
+      }
+    }
     
     it should "infer the kind from the string with the nested lambda-expression" is (pending)
     
