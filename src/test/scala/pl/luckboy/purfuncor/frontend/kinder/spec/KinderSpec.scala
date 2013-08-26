@@ -172,9 +172,56 @@ type U t u v = ##-> t (##-> u v)
       }
     }
     
-    it should "infer the kind from the string with the nested lambda-expression" is (pending)
+    it should "infer the kind from the string with the nested lambda-expression" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 = \t2 t3 => \t4 => ##& t1 (##| t2 (t4 t3))
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> k1 -> (k1 -> *) -> *
+          inside(ret1) {
+            case Arrow(Star(KindType, _), ret2, _) =>
+              inside(ret2) {
+                case Arrow(Star(KindParam(param3), _), ret3, _) =>
+                  inside(ret3) {
+                    case Arrow(arg31, Star(KindType, _), _) =>
+                      inside(arg31) {
+                        case Arrow(Star(KindParam(param31), _), Star(KindType, _), _) =>
+                          List(param3, param31).toSet should have size(1)
+                      }
+                  }
+              }
+          }
+      }      
+    }
     
-    it should "infer the kind from the string with the convered local type variables" is (pending)
+    it should "infer the kind from the string with the convered local type variables" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 = (\t3 t2 => t2 t3 t1) t2
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindParam(param1), _), ret1, _)) =>
+          // k1 -> k2 -> (k2 -> k1 -> k3) -> k3
+          inside(ret1) {
+            case Arrow(Star(KindParam(param2), _), ret2, _) =>
+              inside(ret2) {
+                case Arrow(arg31, Star(KindParam(param3), _), _) =>
+                  inside(arg31) {
+                    case Arrow(Star(KindParam(param31), _), ret31, _) =>
+                      inside(ret31) {
+                        case Arrow(Star(KindParam(param32), _), Star(KindParam(param33), _), _) =>
+                          List(param1, param32).toSet should have size(1)
+                          List(param2, param31).toSet should have size(1)
+                          List(param33, param3).toSet should have size(1)
+                          List(param1, param2, param31, param32, param33, param3).toSet should have size(3)
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "infer the kind for the inferred kind of the returned type" is (pending)
     
