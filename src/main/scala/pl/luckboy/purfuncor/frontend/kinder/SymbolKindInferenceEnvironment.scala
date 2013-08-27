@@ -31,7 +31,7 @@ case class SymbolKindInferenceEnvironment(
   def withTypeCombSym(sym: Option[GlobalSymbol])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
     val oldSym =  currentTypeCombSym
     val (env, kind) = f(withCurrentTypeCombSym(sym))
-    (env.withCurrentTypeCombSym(sym), kind)
+    (env.withCurrentTypeCombSym(oldSym), kind)
   }
   
   def withCurrentTypeLambdaIdx(lambdaIdx: Int) = copy(currentTypeLambdaIdx = lambdaIdx)
