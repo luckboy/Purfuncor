@@ -223,7 +223,32 @@ type T t1 t2 = (\t3 t2 => t2 t3 t1) t2
       }
     }
     
-    it should "infer the kind for the inferred kind of the returned type" is (pending)
+    it should "infer the kind for the inferred kind of the returned type" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 t3 = t3 t1 t2
+type U t1 t2 = T (##& t1 #Int) t2
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> k1 -> (* -> k1 -> k2) -> k2
+          inside(ret1) {
+            case Arrow(Star(KindParam(param2), _), ret2, _) =>
+              inside(ret2) {
+                case Arrow(arg31, Star(KindParam(param3), _), _) =>
+                  inside(arg31) {
+                    case Arrow(Star(KindType, _), ret31, _) =>
+                      inside(ret31) {
+                        case Arrow(Star(KindParam(param31), _), Star(KindParam(param32), _), _) =>
+                          List(param2, param31).toSet should have size(1)
+                          List(param32, param3).toSet should have size(1)
+                          List(param2, param31, param32, param3).toSet should have size(2)
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "initialize all kinds of the non-recursive dependent type combinators" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
