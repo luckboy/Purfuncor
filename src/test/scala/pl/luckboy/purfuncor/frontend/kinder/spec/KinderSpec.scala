@@ -254,7 +254,7 @@ type W = #Int
                 case Arrow(Star(KindParam(param21), _), Star(KindParam(param22), _), _) =>
                   List(param1, param21).toSet should have size(1)
                   List(param22, param2).toSet should have size(1)
-                  List(param1, param21, param22, param2) should have size(2)
+                  List(param1, param21, param22, param2).toSet should have size(2)
               }
           }
       }
