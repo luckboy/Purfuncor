@@ -49,7 +49,7 @@ object Inferrer
     res match {
       case Success(funArgInfos) =>
         unifyInfoListsS(funArgInfos.toList, argInfos.toList)(env3) match {
-          case (env4, Success(_))      => inferrer.returnInfoFromInfoS(funInfo, argInfos.size)(env4)
+          case (env4, Success(_))      => inferrer.returnInfoFromInfoS(funInfo2, argInfos.size)(env4)
           case (env4, Failure(noInfo)) => (env4, noInfo)
         }
       case Failure(noInfo)      =>
