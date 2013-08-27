@@ -225,7 +225,52 @@ type T t1 t2 = (\t3 t2 => t2 t3 t1) t2
     
     it should "infer the kind for the inferred kind of the returned type" is (pending)
     
-    it should "initialize all kinds of the non-recursive dependent type combinators" is (pending)
+    it should "initialize all kinds of the non-recursive dependent type combinators" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 = ##& (##| (U t1 t2) (V #NonZero)) t1
+type U t1 t2 = t2 t1
+type V t1 = ##& W t1
+type W = #Int
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // T
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> (* -> *) -> *
+          inside(ret1) {
+            case Arrow(arg21, Star(KindType, _), _) =>
+              inside(arg21) {
+                case Arrow(Star(KindType, _), Star(KindType, _), _) => ()
+              }
+          }
+      }
+      // U
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case InferredKind(Arrow(Star(KindParam(param1), _), ret1, _)) =>
+          // k1 -> (k1 -> k2) -> k2
+          inside(ret1) {
+            case Arrow(arg21, Star(KindParam(param2), _), _) =>
+              inside(arg21) {
+                case Arrow(Star(KindParam(param21), _), Star(KindParam(param22), _), _) =>
+                  List(param1, param21).toSet should have size(1)
+                  List(param22, param2).toSet should have size(1)
+                  List(param1, param21, param22, param2) should have size(2)
+              }
+          }
+      }
+      // V
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("V")))) {
+        case InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) =>
+          // * -> *
+          ()
+      }
+      // W
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("W")))) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+    }
     
     it should "initialize all kinds of the recursive dependent type combinators" is (pending)
     
