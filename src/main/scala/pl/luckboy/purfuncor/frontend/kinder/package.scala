@@ -157,7 +157,7 @@ package object kinder
       if(!env.isRecursive) {
         (env.withGlobalTypeVarKind(loc, UninferredKind), ())
       } else {
-        val (env2, res) = allocateKindTermParamsS(Star(KindType, NoPosition))(Map())(env)
+        val (env2, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env)
         res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
       }
     
@@ -193,7 +193,7 @@ package object kinder
         env2 =>
           val (env10, res) = comb match {
             case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx), file) =>
-              val depSyms = usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind }
+              val depSyms = if(!env.isRecursive) usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind } else Set[GlobalSymbol]()
               if(depSyms.isEmpty) {
                 // Infers the kind. 
                 val (env3, tmpTypeCombKind) = env2.withTypeCombSym(some(loc)) {
@@ -233,13 +233,16 @@ package object kinder
                 val (nonRecursiveDepSyms, recusiveDepSyms) = depSyms.partition(env.typeCombNodes.contains)
                 val recursiveTypeCombSyms = recusiveDepSyms ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.recursiveCombSyms } }
                 val markedRecTypeCombSyms = (recursiveTypeCombSyms & Set(loc)) ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.markedRecCombSyms } }
+                val env2 = env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms))
                 if((recursiveTypeCombSyms &~ markedRecTypeCombSyms).isEmpty) {
-                  val combs = Map(loc -> comb) ++ env.typeCombNodes.flatMap {
+                  val combs: Map[GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo]] = env2.typeCombNodes.flatMap {
                     case (s, n) => if(!(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty) some(s -> n.comb) else Map()
                   }
-                  val (newTypeCombNodes, oldTypeCombNodes) = env.typeCombNodes.partition { case (_, n) => recursiveTypeCombSyms.subsetOf(n.recursiveCombSyms) }
+                  val (oldTypeCombNodes, newTypeCombNodes) = env2.typeCombNodes.partition { 
+                    case (_, n) => !(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty
+                  }
                   // Infers the kinds of the type combinators of the recursive types.
-                  val (env3, res) = initializeS(Tree(combs, resolver.TypeTreeInfo))(env.withRecursive(true)).mapElements(_.withRecursive(false).withTypeCombNodes(newTypeCombNodes), identity)
+                  val (env3, res) = initializeS(Tree(combs, resolver.TypeTreeInfo))(env2.withRecursive(true).withoutGlobalTypeVarKinds(combs.keySet)).mapElements(_.withRecursive(false).withTypeCombNodes(newTypeCombNodes), identity)
                   // Checks the defined kinds.
                   val (env4, res2) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
                   // Instantiates the inferred kinds.
@@ -247,7 +250,7 @@ package object kinder
                     (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keySet)(env4)
                   }.valueOr { failInitializationS(_, combs.keySet)(env4) }
                 } else
-                  (env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms)), ().success)
+                  (env2, ().success)
               }
             case UnittypeCombinator(n, kind, file) =>
               val tmpUnittypeCombKind = InferredKind.unittypeCombinatorKind(n)

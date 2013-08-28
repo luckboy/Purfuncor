@@ -106,6 +106,8 @@ case class SymbolKindInferenceEnvironment(
   
   def withGlobalTypeVarKinds(kinds: Map[GlobalSymbol, Kind]) = copy(globalTypeVarKinds = globalTypeVarKinds ++ kinds)
   
+  def withoutGlobalTypeVarKinds(syms: Set[GlobalSymbol]) = copy(globalTypeVarKinds = globalTypeVarKinds -- syms)
+  
   def withClear[T](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T)) =
     if(!isRecursive) {
       val (env, res) = f(copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()))
