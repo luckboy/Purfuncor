@@ -297,7 +297,59 @@ type W = #Int
       }
     }
     
-    it should "initialize all kinds of the recursive dependent type combinators" is (pending)
+    it should "initialize all kinds of the recursive dependent type combinators" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t = U #Int t
+type U t1 t2 = tuple 3 t1 t2 (V t1 t2)
+type V t1 t2 = ##| (W t2) (##| (X t1 t2) (Y #Double Z))
+type W t = tuple 2 #Char (T t)
+type X t1 t2 = tuple 2 #Boolean (U t1 t2)
+type Y t1 t2 = tuple 3 #Int (t2 t1) (Y t1 t2)
+type Z t = #Int
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) =>
+          // * -> *
+          ()
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> *
+          inside(ret1) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("V")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> *
+          inside(ret1) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("W")))) {
+        case InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) =>
+          // * -> *
+          ()
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("X")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> *
+          inside(ret1) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("Y")))) {
+        case InferredKind(Arrow(Star(KindParam(param1), _), ret1, _)) =>
+          // k1 -> (k1 -> *) -> *
+          inside(ret1) {
+            case Arrow(arg21, Star(KindType, _), _) =>
+              inside(arg21) {
+                case Arrow(Star(KindParam(param21), _), Star(KindType, _), _) =>
+                  List(param1, param21).toSet should have size(1)
+              }
+          }
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("Z")))) {
+        case InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _)) =>
+          // k1 -> *
+          ()
+      }
+    }
     
     it should "infer the kind for the defined kind of the type combinator" is (pending)
     
