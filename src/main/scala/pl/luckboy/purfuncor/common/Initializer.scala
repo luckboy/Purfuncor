@@ -65,7 +65,7 @@ object Initializer
     if(!markedLocs.contains(loc))
       tree.combs.get(loc).map {
         comb => 
-          dfs(tree, Stack((loc, init.usedGlobalVarsFromCombinator(comb).toList)), Nil)(markedLocs).map {
+          dfs(tree, Stack((loc, init.usedGlobalVarsFromCombinator(comb).toList)), Nil)(markedLocs + loc).map {
             case (markedLocs2, locs2) => (markedLocs2, locs2.reverse)
           }
       }.getOrElse((markedLocs, Nil).success)
