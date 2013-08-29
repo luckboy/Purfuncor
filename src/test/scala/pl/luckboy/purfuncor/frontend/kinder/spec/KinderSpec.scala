@@ -357,9 +357,50 @@ type T2 = U
       }
     }
     
-    it should "infer the kind for the defined kind of the type combinator" is (pending)
+    it should "infer the kind for the defined kind of the type combinator" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("type (T: * -> (* -> *) -> *) t1 t2 = t2 t1")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> (* -> *) -> *
+          inside(ret1) { 
+            case Arrow(arg21, Star(KindType, _), _) =>
+              inside(arg21) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
+          }
+      }
+    }
     
-    it should "infer the kind for the defined kind of the type arguments" is (pending)
+    it should "infer the kind for the defined kinds of the type arguments" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(arg11, ret1, _)) =>
+          // (k1 -> k2) -> * -> ((k1 -> k2) -> * -> k3) -> k3
+          inside(arg11) {
+            case Arrow(Star(KindParam(param11), _), Star(KindParam(param12), _), _) =>
+              inside(ret1) {
+                case Arrow(Star(KindType, _), ret2, _) =>
+                  inside(ret2) {
+                    case Arrow(arg31, Star(KindParam(param3), _), _) =>
+                      inside(arg31) {
+                        case Arrow(arg41, ret31, _) =>
+                          inside(arg41) {
+                            case Arrow(Star(KindParam(param41), _), Star(KindParam(param42), _), _) =>
+                              inside(ret31) {
+                                case Arrow(Star(KindType, _), Star(KindParam(param31), _), _) =>
+                                  List(param11, param41).toSet should have size(1)
+                                  List(param12, param42).toSet should have size(1)
+                                  List(param31, param3).toSet should have size(1)
+                                  List(param11, param12, param41, param42, param31, param3).toSet should have size(3)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "infer the kind for the defined kind of the type expression" is (pending)
   }
