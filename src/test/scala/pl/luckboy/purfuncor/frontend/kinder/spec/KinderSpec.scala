@@ -402,7 +402,21 @@ type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
       }
     }
     
-    it should "infer the kind for the defined kind of the type expression" is (pending)
+    it should "infer the kind for the defined kind of the type expression" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("type T t1 t2 = (t2: * -> k1) t1")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> (* -> k1) -> k1
+          inside(ret1) {
+            case Arrow(arg21, Star(KindParam(param2), _), _) =>
+              inside(arg21) {
+                case Arrow(Star(KindType, _), Star(KindParam(param21), _), _) =>
+                  List(param2, param21).toSet should have size(1)
+              }
+          }
+      }
+    }
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty)(_.successNel)(SymbolKindInferenceEnvironment.fromInferredKindTable)
