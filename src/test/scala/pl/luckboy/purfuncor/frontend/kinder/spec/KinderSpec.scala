@@ -299,13 +299,14 @@ type W = #Int
     
     it should "initialize all kinds of the recursive dependent type combinators" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
-type T t = U #Int t
+type T t = T2 #Int t
 type U t1 t2 = tuple 3 t1 t2 (V t1 t2)
 type V t1 t2 = ##| (W t2) (##| (X t1 t2) (Y #Double Z))
 type W t = tuple 2 #Char (T t)
 type X t1 t2 = tuple 2 #Boolean (U t1 t2)
 type Y t1 t2 = tuple 3 #Int (t2 t1) (Y t1 t2)
 type Z t = #Int
+type T2 = U
 """)(NameTree.empty)(f).run(emptyEnv)
       res should be ===(().success.success)
       inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
@@ -348,6 +349,11 @@ type Z t = #Int
         case InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _)) =>
           // k1 -> *
           ()
+      }
+      inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T2")))) {
+        case InferredKind(Arrow(Star(KindType, _), ret1, _)) =>
+          // * -> * -> *
+          inside(ret1) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
       }
     }
     
