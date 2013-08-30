@@ -85,7 +85,7 @@ object KindTermUnifier
       case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
     }
     (env2, res.map {
-      rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters is distinct at defined kind " + intKindTermFromKindTerm(term), none, NoPosition)).failure
+      rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters isn't distinct at defined kind " + intKindTermFromKindTerm(term), none, NoPosition)).failure
     }.valueOr { _.failure })
   }
   
