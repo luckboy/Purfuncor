@@ -453,7 +453,17 @@ type T t1 t2 t3 (t4: k1 -> * -> *) = tuple 3 t2 (t4 t1 t3) (t4 t2 t3)
       }      
     }
 
-    it should "complain on the distinct parameters at the defined kinds" is (pending)
+    it should "complain on the distinct parameters in the defined kinds" in {
+val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 (t3: k1 -> k2 -> *) (t4: k1 -> k2 -> k3 -> *) = tuple 3 (t3 t1 t1) (t3 t2 t2) (t4 t1 t2 t1)
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noKind)) =>
+          noKind.errs.map { _.msg } should be ===(List(
+              "parameters are distinct at defined kind k1 -> k2 -> *",
+              "parameters are distinct at defined kind k1 -> k2 -> k3 -> *"))
+      }      
+    }
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty)(_.successNel)(SymbolKindInferenceEnvironment.fromInferredKindTable)
