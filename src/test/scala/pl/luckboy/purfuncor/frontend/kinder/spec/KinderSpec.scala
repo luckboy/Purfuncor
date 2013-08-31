@@ -454,7 +454,7 @@ type T t1 t2 t3 (t4: k1 -> * -> *) = tuple 3 t2 (t4 t1 t3) (t4 t2 t3)
     }
 
     it should "complain on the distinct parameters in the defined kinds" in {
-val (env, res) = Kinder.inferKindsFromTreeString("""
+      val (env, res) = Kinder.inferKindsFromTreeString("""
 type T t1 t2 (t3: k1 -> k2 -> *) (t4: k1 -> k2 -> k3 -> *) = tuple 3 (t3 t1 t1) (t3 t2 t2) (t4 t1 t2 t1)
 """)(NameTree.empty)(f).run(emptyEnv)
       inside(res) {
@@ -462,7 +462,22 @@ type T t1 t2 (t3: k1 -> k2 -> *) (t4: k1 -> k2 -> k3 -> *) = tuple 3 (t3 t1 t1) 
           noKind.errs.map { _.msg } should be ===(List(
               "parameters are distinct at defined kind k1 -> k2 -> *",
               "parameters are distinct at defined kind k1 -> k2 -> k3 -> *"))
-      }      
+      }
+    }
+    
+    it should "complain on the uninferred kinds of the global type variables" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 = tuple 3 t1 (t2 t1) (t2 ##->)
+type U = T
+type V = U #Int
+""")(NameTree.empty)(f).run(emptyEnv)      
+      inside(res) {
+        case Success(Failure(noKind)) =>
+          noKind.errs.map { _.msg } should be ===(List(
+              "couldn't match kind * with kind * -> * -> *",
+              "uninferred kind of global type variable #.T",
+              "uninferred kind of global type variable #.U"))
+      }
     }
   }
   
