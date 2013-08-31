@@ -424,7 +424,7 @@ type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
     
     it should "complain on the instantiation of the parameters of the defined kinds" is (pending)
 
-    it should "complain on the non-distinct parameters at the defined kinds" is (pending)
+    it should "complain on the distinct parameters at the defined kinds" is (pending)
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty)(_.successNel)(SymbolKindInferenceEnvironment.fromInferredKindTable)
