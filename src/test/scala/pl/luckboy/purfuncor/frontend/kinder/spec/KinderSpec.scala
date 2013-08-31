@@ -374,6 +374,7 @@ type T2 = U
       val (env, res) = Kinder.inferKindsFromTreeString("""
 type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
 """)(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
       inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
         case InferredKind(Arrow(arg11, ret1, _)) =>
           // (k1 -> k2) -> * -> ((k1 -> k2) -> * -> k3) -> k3
@@ -418,7 +419,7 @@ type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
       }
     }
     
-    it should "complain on the unmatched kinds" is (pending)
+    it should "complain on the unmatched kinds" in (pending)
     
     it should "complain on the infinity matching of the kinds" is (pending)
     
