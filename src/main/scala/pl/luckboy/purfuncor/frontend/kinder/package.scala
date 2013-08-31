@@ -43,7 +43,7 @@ package object kinder
         env.kindParamForest.findRootParam(param).map {
           rootParam =>
             env.irreplaceableKindParams.get(rootParam).map {
-              kts => (env, NoKind.fromErrors(kts.map { kt => Error("couldn't instantiate parameter at defined kind " + intKindTermFromKindTerm(kt), none, NoPosition) }).failure)
+              kts => (env, NoKind.fromErrors(kts.map { kt => Error("couldn't instantiate parameter at defined kind " + intKindTermShowing.stringFrom(intKindTermFromKindTerm(kt)), none, NoPosition) }).failure)
             }.getOrElse {
               env.kindParamForest.replaceParam(rootParam, term).map {
                 kpf => (env.withKindParamForest(kpf), ().success)
@@ -59,8 +59,11 @@ package object kinder
           case (kpf, isChanged) =>
             kpf.findRootParam(param1).map {
               rp =>
-                val definedKindTerms = env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil) ++ env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil)
-                val newIrreplaceableKindParams = IntMap() ++ (env.irreplaceableKindParams ++ definedKindTerms.toNel.map { rp -> _ })
+                val newIrreplaceableKindParams = if(param1 =/= param2) {
+                  val definedKindTerms = env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil) ++ env.irreplaceableKindParams.get(param2).map { _.list }.getOrElse(Nil)
+                  IntMap() ++ (env.irreplaceableKindParams ++ definedKindTerms.toNel.map { rp -> _ })
+                } else
+                  env.irreplaceableKindParams
                 (env.withKindParamForest(kpf).copy(irreplaceableKindParams = newIrreplaceableKindParams), isChanged.success)
             }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
         }.getOrElse((env, NoKind.fromError(FatalError("not found one kind parameter or two kind parameters", none, NoPosition)).failure))
@@ -134,6 +137,8 @@ package object kinder
     override def concatErrors(info1: Kind, info2: Kind): Kind =
       (info1, info2) match {
         case (noKind1: NoKind, noKind2: NoKind) => noKind1 |+| noKind2
+        case (noKind: NoKind, _)                => noKind
+        case (_, noKind: NoKind)                => noKind
         case _                                  => NoKind.fromError(FatalError("can't concat errors", none, NoPosition))
       } 
 
