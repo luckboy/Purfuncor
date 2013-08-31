@@ -220,7 +220,7 @@ package object kinder
                     }.valueOr { (env4, _) }
                 }.getOrElse((env3, tmpTypeCombKind))
                 // Checks the defined kinds.
-                val (env6, res) = if(env5.isRecursive) checkDefinedKindTermsS(env5.definedKindTerms)(env5) else (env5, ().success)
+                val (env6, res) = if(!env5.isRecursive) checkDefinedKindTermsS(env5.definedKindTerms)(env5) else (env5, ().success)
                 // Instantiates the inferred kinds.
                 res.map {
                   _ =>
