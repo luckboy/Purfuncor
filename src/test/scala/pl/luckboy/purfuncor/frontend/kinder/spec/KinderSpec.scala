@@ -443,7 +443,15 @@ type T t1 t2 t3 = tuple 3 (t1 t2) (t3 t1) (t3 t2)
       }      
     }
     
-    it should "complain on the instantiation of the parameters of the defined kinds" is (pending)
+    it should "complain on the instantiation of the parameters of the defined kinds" in {
+      val (env, res) = Kinder.inferKindsFromTreeString("""
+type T t1 t2 t3 (t4: k1 -> * -> *) = tuple 3 t2 (t4 t1 t3) (t4 t2 t3)
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noKind)) =>
+          noKind.errs.map { _.msg } should be ===(List("couldn't instantiate parameter at defined kind k1 -> * -> *"))
+      }      
+    }
 
     it should "complain on the distinct parameters at the defined kinds" is (pending)
   }
