@@ -4,5 +4,5 @@ import scalaz.Scalaz._
 
 case class TypeLambdaInfo[T](kindTable: InferredKindTable[T])
 {
-  override def toString = "/*" + kindTable.kinds.map { case (l, k) => l + ": " + k }.mkString(",") + "*/"
+  override def toString = kindTable.kinds.map { case (l, k) => l + ": " + k }.mkString(",")
 }
