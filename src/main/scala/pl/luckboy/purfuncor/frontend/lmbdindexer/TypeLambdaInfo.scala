@@ -1,6 +1,6 @@
 package pl.luckboy.purfuncor.frontend.lmbdindexer
 
-case class TypeLambdaInfo(idx: Int)
+case class TypeLambdaInfo[+T](lambdaInfo: T ,idx: Int)
 {
-  override def toString = idx.toString
+  override def toString = (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") + idx
 }

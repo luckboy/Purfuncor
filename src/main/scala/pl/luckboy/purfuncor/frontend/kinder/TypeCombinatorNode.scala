@@ -3,7 +3,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.frontend._
 
-case class TypeCombinatorNode[+T, U](
-    comb: TypeCombinator[T, lmbdindexer.TypeLambdaInfo],
-    recursiveCombSyms: Set[U],
-    markedRecCombSyms: Set[U])
+case class TypeCombinatorNode[+T, +U, V](
+    comb: TypeCombinator[T, lmbdindexer.TypeLambdaInfo[U]],
+    recursiveCombSyms: Set[V],
+    markedRecCombSyms: Set[V])

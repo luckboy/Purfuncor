@@ -6,7 +6,7 @@ import pl.luckboy.purfuncor.common._
 package object lmbdindexer
 {
   implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo] = new TreeInfoTransformer[resolver.TreeInfo] {
-    override def transformTreeInfo[U](treeInfo: resolver.TreeInfo[parser.TypeLambdaInfo, U]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo, U]] =
+    override def transformTreeInfo[U, V](treeInfo: resolver.TreeInfo[U, V]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[U], V]] =
       LambdaIndexer.transformTypeTree(treeInfo.typeTree).map { resolver.TreeInfo(_) }
   }
 }

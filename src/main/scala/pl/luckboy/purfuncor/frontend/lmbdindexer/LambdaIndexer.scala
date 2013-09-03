@@ -4,6 +4,8 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.util._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.resolver.Symbol
+import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
 
@@ -19,24 +21,24 @@ object LambdaIndexer
     (idx3, terms3.reverse)
   }
 
-  def transformTermNelFromIndexS[T, U](terms: NonEmptyList[Term[SimpleTerm[T, parser.LambdaInfo, TypeSimpleTerm[U, parser.TypeLambdaInfo]]]])(idx: Int) =
+  def transformTermNelFromIndexS[T, U, V, W](terms: NonEmptyList[Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]])(idx: Int) =
     transformTermNelFromIndexS1(terms)(idx)(transformTermFromIndexS(_)(_))
   
-  def transformTermFromIndexS[T, U](term: Term[SimpleTerm[T, parser.LambdaInfo, TypeSimpleTerm[U, parser.TypeLambdaInfo]]])(idx: Int): (Int, Term[SimpleTerm[T, LambdaInfo, TypeSimpleTerm[U, TypeLambdaInfo]]]) =
+  def transformTermFromIndexS[T, U, V, W](term: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]])(idx: Int): (Int, Term[SimpleTerm[T, LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W]]]]) =
     term match {
       case App(fun, args, pos) => 
         val (idx2, fun2) = transformTermFromIndexS(fun)(idx)
         val (idx3, args2) = transformTermNelFromIndexS(args)(idx2)
         (idx3, App(fun2, args2, pos))
-      case Simple(Let(binds, body, _), pos) =>
+      case Simple(Let(binds, body, lambdaInfo), pos) =>
         val (idx2, bindTerms2) = transformTermNelFromIndexS(binds.map { _.body })(idx + 1)
         val binds2 = binds.zip(bindTerms2).map { case (Bind(name, _, bindPos), bt2) => Bind(name, bt2, bindPos) }
         val (idx3, body2) = transformTermFromIndexS(body)(idx2)
-        (idx3, Simple(Let(binds2, body2, LambdaInfo(idx)), pos))
-      case Simple(Lambda(args, body, _), pos) =>
+        (idx3, Simple(Let(binds2, body2, LambdaInfo(lambdaInfo, idx)), pos))
+      case Simple(Lambda(args, body, lambdaInfo), pos) =>
         val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
         val args2 = args.map { case Arg(name, typ, argPos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
-        (idx2, Simple(Lambda(args2, body2, LambdaInfo(idx)), pos))
+        (idx2, Simple(Lambda(args2, body2, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Var(loc), pos) =>
         (idx, Simple(Var(loc), pos))
       case Simple(Literal(value), pos) =>
@@ -46,24 +48,24 @@ object LambdaIndexer
         (idx2, Simple(TypedTerm(term2, transformTypeTermFromIndex(typ).run(0)._2), pos))
     }
   
-  def transformTermFromIndex[T, U](term: Term[SimpleTerm[T, parser.LambdaInfo, TypeSimpleTerm[U, parser.TypeLambdaInfo]]]) =
-    State(transformTermFromIndexS[T, U](term))
+  def transformTermFromIndex[T, U, V, W](term: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]) =
+    State(transformTermFromIndexS[T, U, V, W](term))
   
-  def transformTerm[T, U](term: Term[SimpleTerm[T, parser.LambdaInfo, TypeSimpleTerm[U, parser.TypeLambdaInfo]]]) =
+  def transformTerm[T, U, V, W](term: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]) =
     transformTermFromIndex(term).run(0)._2.successNel[AbstractError]
   
-  def transformTypeTermNelFromIndexS[T](terms: NonEmptyList[Term[TypeSimpleTerm[T, parser.TypeLambdaInfo]]])(idx: Int) =
+  def transformTypeTermNelFromIndexS[T, U](terms: NonEmptyList[Term[TypeSimpleTerm[T, U]]])(idx: Int) =
     transformTermNelFromIndexS1(terms)(idx)(transformTypeTermFromIndexS(_)(_))
 
-  def transformTypeTermFromIndexS[T](term: Term[TypeSimpleTerm[T, parser.TypeLambdaInfo]])(idx: Int): (Int, Term[TypeSimpleTerm[T, TypeLambdaInfo]]) =
+  def transformTypeTermFromIndexS[T, U](term: Term[TypeSimpleTerm[T, U]])(idx: Int): (Int, Term[TypeSimpleTerm[T, TypeLambdaInfo[U]]]) =
     term match {
       case App(fun, args, pos) =>
         val (idx2, fun2) = transformTypeTermFromIndexS(fun)(idx)
         val (idx3, args2) = transformTypeTermNelFromIndexS(args)(idx2)
         (idx3, App(fun2, args2, pos))
-      case Simple(TypeLambda(args, body, _), pos) =>
+      case Simple(TypeLambda(args, body, lambdaInfo), pos) =>
         val (idx2, body2) = transformTypeTermFromIndexS(body)(idx + 1)
-        (idx2, Simple(TypeLambda(args, body2, TypeLambdaInfo(idx)), pos))
+        (idx2, Simple(TypeLambda(args, body2, TypeLambdaInfo(lambdaInfo, idx)), pos))
       case Simple(TypeVar(loc), pos) =>
         (idx, Simple(TypeVar(loc), pos))
       case Simple(TypeLiteral(value), pos) =>
@@ -73,33 +75,33 @@ object LambdaIndexer
         (idx2, Simple(KindedTypeTerm(term2, kind), pos))
     }
 
-  def transformTypeTermFromIndex[T](term: Term[TypeSimpleTerm[T, parser.TypeLambdaInfo]]) =
-    State(transformTypeTermFromIndexS[T](term))
+  def transformTypeTermFromIndex[T, U](term: Term[TypeSimpleTerm[T, U]]) =
+    State(transformTypeTermFromIndexS[T, U](term))
 
-  def transformTypeTerm[T](term: Term[TypeSimpleTerm[T, parser.TypeLambdaInfo]]) =
+  def transformTypeTerm[T, U](term: Term[TypeSimpleTerm[T, U]]) =
     transformTypeTermFromIndex(term).run(0)._2.successNel[AbstractError]
 
-  def transformTree[T, U, V, W](tree: Tree[T, AbstractCombinator[U, parser.LambdaInfo, TypeSimpleTerm[V, parser.TypeLambdaInfo]], W]) = {
+  def transformTree[T, U, V, W, X, Y](tree: Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]) = {
     val combs2 = tree.combs.mapValues {
-      case Combinator(typ, args, body, _, file) =>
+      case Combinator(typ, args, body, lambdaInfo, file) =>
         val typ2 = typ.map { transformTypeTermFromIndex(_).run(0)._2 }
         val args2 = args.map { case Arg(name, typ, pos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
-        Combinator(typ2, args2, transformTermFromIndex(body).run(1)._2, LambdaInfo(0), file): AbstractCombinator[U, LambdaInfo, TypeSimpleTerm[V, TypeLambdaInfo]]
+        Combinator(typ2, args2, transformTermFromIndex(body).run(1)._2, LambdaInfo(lambdaInfo, 0), file): AbstractCombinator[U, LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X]]]
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
   
-  def transformTypeTree[T, U, V](tree: Tree[T, AbstractTypeCombinator[U, parser.TypeLambdaInfo], V]) = {
+  def transformTypeTree[T, U, V, W](tree: Tree[T, AbstractTypeCombinator[U, V], W]) = {
     val combs2 = tree.combs.mapValues {
-      case TypeCombinator(kind, args, body, _, file) =>
-        TypeCombinator(kind, args, transformTypeTermFromIndex(body).run(1)._2, TypeLambdaInfo(0), file): AbstractTypeCombinator[U, TypeLambdaInfo]
+      case TypeCombinator(kind, args, body, lambdaInfo, file) =>
+        TypeCombinator(kind, args, transformTypeTermFromIndex(body).run(1)._2, TypeLambdaInfo(lambdaInfo, 0), file): AbstractTypeCombinator[U, TypeLambdaInfo[V]]
       case UnittypeCombinator(n, kind, file)         =>
-        UnittypeCombinator(n, kind, file): AbstractTypeCombinator[U, TypeLambdaInfo]
+        UnittypeCombinator(n, kind, file): AbstractTypeCombinator[U, TypeLambdaInfo[V]]
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
   
-  def transform[T, U, V, W[_, _], X](tree: Tree[T, AbstractCombinator[U, parser.LambdaInfo, TypeSimpleTerm[V, parser.TypeLambdaInfo]], W[parser.TypeLambdaInfo, X]])(implicit treeInfoTransformer: TreeInfoTransformer[W]) =
+  def transform[T, U, V, W, X[_, _], Y, Z](tree: Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, Y]], X[Y, Z]])(implicit treeInfoTransformer: TreeInfoTransformer[X]) =
     for {
       tree2 <- transformTree(tree)
       treeInfo2 <- treeInfoTransformer.transformTreeInfo(tree.treeInfo)
@@ -110,5 +112,4 @@ object LambdaIndexer
       tree <- resolver.Resolver.transformString(s)(nameTree)
       tree2 <- transform(tree)
     } yield tree2
-    
 }

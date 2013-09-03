@@ -12,14 +12,14 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import KindTermUnifier._
 
-case class SymbolKindInferenceEnvironment(
+case class SymbolKindInferenceEnvironment[T](
     currentTypeCombSym: Option[GlobalSymbol],
     currentTypeLambdaIdx: Int,
     globalTypeVarKinds: Map[GlobalSymbol, Kind],
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, GlobalSymbol]],
+    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])],
@@ -28,7 +28,7 @@ case class SymbolKindInferenceEnvironment(
 {
   def withCurrentTypeCombSym(sym: Option[GlobalSymbol]) = copy(currentTypeCombSym = sym)
   
-  def withTypeCombSym(sym: Option[GlobalSymbol])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
+  def withTypeCombSym(sym: Option[GlobalSymbol])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
     val oldSym =  currentTypeCombSym
     val (env, kind) = f(withCurrentTypeCombSym(sym))
     (env.withCurrentTypeCombSym(oldSym), kind)
@@ -36,7 +36,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withCurrentTypeLambdaIdx(lambdaIdx: Int) = copy(currentTypeLambdaIdx = lambdaIdx)
   
-  def withTypeLambdaIdx(lambdaIdx: Int)(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
+  def withTypeLambdaIdx(lambdaIdx: Int)(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
     val oldLambdaIdx = currentTypeLambdaIdx
     val (env, kind) = f(withCurrentTypeLambdaIdx(lambdaIdx))
     (env.withCurrentTypeLambdaIdx(oldLambdaIdx), kind)
@@ -60,7 +60,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withLocalKindTables(kindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]) = copy(localKindTables = kindTables)
   
-  def withLocalTypeVarKinds[T](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[T]]]])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Kind)) = {
+  def withLocalTypeVarKinds[U](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[U]]]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
     val kinds = localTypeVarKinds.mapValues { _.head }
     val (env2, res) = kindTerms.foldLeft((this, kinds.success[NoKind])) {
       case ((newEnv, Success(newKinds)), (sym, kt)) =>
@@ -81,9 +81,9 @@ case class SymbolKindInferenceEnvironment(
     
   def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
   
-  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
+  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
   
-  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
+  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
   
   def withoutTypeCombs(syms: Set[GlobalSymbol]) = copy(typeCombNodes = typeCombNodes -- syms)
   
@@ -94,7 +94,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
-  def withKindTermPair[T](pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T)) = {
+  def withKindTermPair[U](pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U)) = {
     val oldKindTermPair = currentKindTermPair
     val (env, res) = f(withCurrentKindTermPair(pair))
     (env.withCurrentKindTermPair(oldKindTermPair), res)
@@ -108,7 +108,7 @@ case class SymbolKindInferenceEnvironment(
   
   def withoutGlobalTypeVarKinds(syms: Set[GlobalSymbol]) = copy(globalTypeVarKinds = globalTypeVarKinds -- syms)
   
-  def withClear[T](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T)) =
+  def withClear[U](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U)) =
     if(!isRecursive) {
       val (env, res) = f(copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()))
       (env.copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()), res)
@@ -121,9 +121,9 @@ case class SymbolKindInferenceEnvironment(
 
 object SymbolKindInferenceEnvironment
 {
-  val empty = fromInferredKindTable(InferredKindTable.empty)
+  def empty[T] = fromInferredKindTable[T](InferredKindTable.empty)
   
-  def fromInferredKindTable(kindTable: InferredKindTable[GlobalSymbol]) = SymbolKindInferenceEnvironment(
+  def fromInferredKindTable[T](kindTable: InferredKindTable[GlobalSymbol]) = SymbolKindInferenceEnvironment[T](
       currentTypeCombSym = none,
       currentTypeLambdaIdx = 0,
       globalTypeVarKinds = kindTable.kinds,

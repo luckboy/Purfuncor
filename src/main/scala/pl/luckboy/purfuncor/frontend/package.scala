@@ -63,7 +63,7 @@ package object frontend
             case (file, combs2) =>
               "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
               combs2.map { case (loc, comb) => comb.toStringForName(loc.toString)(showing) + "\n" }.mkString("\n")
-          }.mkString("\n") +
+          }.mkString("\n") + "\n" +
           (if(treeInfo.toString =/= "") "//// treeInfo\n" + treeInfo else "")
       }
   }

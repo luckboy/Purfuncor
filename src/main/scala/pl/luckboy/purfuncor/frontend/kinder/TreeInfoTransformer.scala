@@ -6,5 +6,5 @@ import pl.luckboy.purfuncor.frontend._
 
 trait TreeInfoTransformer[T[_, _], U, V]
 {
-  def transformTreeInfo[E](treeInfo: T[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo])(env: E)(implicit enval: KindInferenceEnvironmental[E, U, V]): ValidationNel[AbstractError, T[TypeLambdaInfo[V], TypeTreeInfo[U]]]
+  def transformTreeInfo[W, X, E](treeInfo: T[lmbdindexer.TypeLambdaInfo[W], X])(env: E)(implicit enval: KindInferenceEnvironmental[E, U, V]): ValidationNel[AbstractError, T[TypeLambdaInfo[W, V], TypeTreeInfo[X, U]]]
 }

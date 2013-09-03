@@ -28,17 +28,17 @@ package object kinder
       }
   }
   
-  implicit val symbolKindTermUnifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] = new Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment, Int] {
-    override def matchesTermsS[U](term1: KindTerm[StarKindTerm[Int]], term2: KindTerm[StarKindTerm[Int]])(z: U)(f: (Int, Either[Int, KindTerm[StarKindTerm[Int]]], U, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, U]))(env: SymbolKindInferenceEnvironment) =
+  implicit def symbolKindTermUnifier[T]: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment[T], Int] = new Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment[T], Int] {
+    override def matchesTermsS[U](term1: KindTerm[StarKindTerm[Int]], term2: KindTerm[StarKindTerm[Int]])(z: U)(f: (Int, Either[Int, KindTerm[StarKindTerm[Int]]], U, SymbolKindInferenceEnvironment[T]) => (SymbolKindInferenceEnvironment[T], Validation[NoKind, U]))(env: SymbolKindInferenceEnvironment[T]) =
       matchesKindTermsS(term1, term2)(z)(f)(env)
     
-    override def getParamTermS(param: Int)(env: SymbolKindInferenceEnvironment) =
+    override def getParamTermS(param: Int)(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.kindParamForest.getTerm(param))
 
-    override def findRootParamS(param: Int)(env: SymbolKindInferenceEnvironment) =
+    override def findRootParamS(param: Int)(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.kindParamForest.findRootParam(param).toSuccess(NoKind.fromError(FatalError("not found kind parameter", none, NoPosition))))
     
-    override def replaceParamS(param: Int, term: KindTerm[StarKindTerm[Int]])(env: SymbolKindInferenceEnvironment) =
+    override def replaceParamS(param: Int, term: KindTerm[StarKindTerm[Int]])(env: SymbolKindInferenceEnvironment[T]) =
       if(!env.kindParamForest.containsTerm(param)) 
         env.kindParamForest.findRootParam(param).map {
           rootParam =>
@@ -53,7 +53,7 @@ package object kinder
       else
         (env, NoKind.fromError(FatalError("kind parameter is already replaced", none, NoPosition)).failure)          
 
-    override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment) =
+    override def unionParamsS(param1: Int, param2: Int)(env: SymbolKindInferenceEnvironment[T]) =
       if(!env.kindParamForest.containsTerm(param1) && !env.kindParamForest.containsTerm(param2))
         env.kindParamForest.unionParams(param1, param2).map {
           case (kpf, isChanged) =>
@@ -70,31 +70,31 @@ package object kinder
       else
         (env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure)
       
-    override def allocateParamS(env: SymbolKindInferenceEnvironment) =
+    override def allocateParamS(env: SymbolKindInferenceEnvironment[T]) =
       env.kindParamForest.allocateParam.map { 
         case (kpf, p) => (env.withKindParamForest(kpf), p.success)
       }.getOrElse((env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure))
 
-    override def replaceTermParamsS(term: KindTerm[StarKindTerm[Int]])(f: (Int, SymbolKindInferenceEnvironment) => (SymbolKindInferenceEnvironment, Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: SymbolKindInferenceEnvironment) =
+    override def replaceTermParamsS(term: KindTerm[StarKindTerm[Int]])(f: (Int, SymbolKindInferenceEnvironment[T]) => (SymbolKindInferenceEnvironment[T], Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: SymbolKindInferenceEnvironment[T]) =
       replaceKindTermParamsS(term)(f)(env)
 
-    override def mismatchedTermErrorS(env: SymbolKindInferenceEnvironment) = {
+    override def mismatchedTermErrorS(env: SymbolKindInferenceEnvironment[T]) = {
       val (s1, s2) = env.currentKindTermPair.map {
         case (t1, t2) => (intKindTermShowing.stringFrom(t1), intKindTermShowing.stringFrom(t2))
       }.getOrElse(("<unknown kind>", "<unknown kind>"))
       (env, NoKind.fromError(Error("couldn't match kind " + s1 + " with kind " + s2, none, NoPosition)))
     }
       
-    override def withSaveS[U, V](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[U, V]))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, Validation[U, V]) = {
+    override def withSaveS[U, V](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Validation[U, V]))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Validation[U, V]) = {
       val (env2, res) = f(env)
       res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
     }
   }
   
-  implicit val symbolTypeSimpleTermKindInferrer: Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] = new Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment, Kind] {
-    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
+  implicit def symbolTypeSimpleTermKindInferrer[T]: Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T], Kind] = new Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T], Kind] {
+    override def inferSimpleTermInfoS(simpleTerm: TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
       simpleTerm match {
-        case TypeLambda(args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx)) =>
+        case TypeLambda(args, body, lmbdindexer.TypeLambdaInfo(_, lambdaIdx)) =>
           env.withTypeLambdaIdx(lambdaIdx) {
             _.withLocalTypeVarKinds(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
               newEnv =>
@@ -116,16 +116,16 @@ package object kinder
           res.map { p => unifyInfosS(info, InferringKind(p._2))(env3.withDefinedKind(p._2)) }.valueOr { (env3, _) }
       }
     
-    override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment) = {
+    override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res1) = info1.instantiatedKindTermS(env)
       val (env3, res2) = info2.instantiatedKindTermS(env2)
       (res1 |@| res2) { (kt1, kt2) => env3.withKindTermPair(some((kt1, kt2)))(unifyKindsS(info1, info2)) }.valueOr { (env3, _) }
     }
       
-    override def argInfosFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment) =
+    override def argInfosFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment[T]) =
       argKindsFromKindS(info, argCount)(env)
       
-    override def returnInfoFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment) =
+    override def returnInfoFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment[T]) =
       returnKindFromKindS(info, argCount)(env)
     
     override def isNoInfo(info: Kind) =
@@ -145,20 +145,20 @@ package object kinder
     override def unequalListLengthNoInfo =
       NoKind.fromError(FatalError("unequal list lengths", none, NoPosition))
 
-    override def withPos(res: (SymbolKindInferenceEnvironment, Kind))(pos: Position) =
+    override def withPos(res: (SymbolKindInferenceEnvironment[T], Kind))(pos: Position) =
       (res._1, res._2.withPos(pos))
   }
   
-  implicit val symbolTypeCombinatorKindInitializer: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo], SymbolKindInferenceEnvironment] {
-    override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment) = (env, env.globalTypeVarKinds.keySet)
+  implicit def symbolTypeCombinatorKindInitializer[T]: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] {
+    override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.globalTypeVarKinds.keySet)
     
-    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo]) =
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]]) =
       comb match {
         case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
         case UnittypeCombinator(_, _, _)      => Set()
       }
     
-    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment) =
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) =
       if(!env.isRecursive) {
         (env.withGlobalTypeVarKind(loc, UninferredKind), ())
       } else {
@@ -166,7 +166,7 @@ package object kinder
         res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
       }
     
-    private def instantiateKindsFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment) = {
+    private def instantiateKindsFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = instantiateKindMapS(syms.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
       res.map {
         ks =>
@@ -187,17 +187,17 @@ package object kinder
       }.valueOr { nk => (env2, nk.failure) }
     }
     
-    private def failInitializationS(noKind: NoKind, syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment) =
+    private def failInitializationS(noKind: NoKind, syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) =
       if(noKind.errs.forall { _.isInstanceOf[Error] })
         (env.withErrs(noKind).withGlobalTypeVarKinds(syms.map { s => (s, NoKind.fromError(Error("uninferred kind of global type variable " + s, none, NoPosition))) }.toMap), ().success[NoKind])
       else
         (env, noKind.failure)
     
-    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo])(env: SymbolKindInferenceEnvironment) =
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
       env.withClear {
         env2 =>
           val (env10, res) = comb match {
-            case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaIdx), file) =>
+            case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(_, lambdaIdx), file) =>
               val depSyms = if(!env.isRecursive) usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind } else Set[GlobalSymbol]()
               if(depSyms.isEmpty) {
                 // Infers the kind. 
@@ -240,7 +240,7 @@ package object kinder
                 val markedRecTypeCombSyms = (recursiveTypeCombSyms & Set(loc)) ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.markedRecCombSyms } }
                 val env2 = env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms))
                 if((recursiveTypeCombSyms &~ markedRecTypeCombSyms).isEmpty) {
-                  val combs: Map[GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo]] = env2.typeCombNodes.flatMap {
+                  val combs: Map[GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]]] = env2.typeCombNodes.flatMap {
                     case (s, n) => if(!(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty) some(s -> n.comb) else Map()
                   }
                   val (oldTypeCombNodes, newTypeCombNodes) = env2.typeCombNodes.partition { 
@@ -279,39 +279,39 @@ package object kinder
           (env10, res.swap.map { _.forFile(comb.file) }.swap)
       }
     
-    override def checkEnvironmentS(env: SymbolKindInferenceEnvironment) =
+    override def checkEnvironmentS(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.errNoKind.map { _.failure }.getOrElse(().success))
 
     override def undefinedGlobalVarError =
       NoKind.fromError(FatalError("undefined global type variable", none, NoPosition))
 
-    override def withSaveS[T, U](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, Validation[T, U]))(env: SymbolKindInferenceEnvironment) = {
+    override def withSaveS[U, V](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Validation[U, V]))(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = f(env)
       res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
     }
   }
   
-  implicit val symbolKindInferenceEnvironmental: KindInferenceEnvironmental[SymbolKindInferenceEnvironment, GlobalSymbol, LocalSymbol] = new KindInferenceEnvironmental[SymbolKindInferenceEnvironment, GlobalSymbol, LocalSymbol] {
-    override def copyEnvironment(env: SymbolKindInferenceEnvironment) = env
+  implicit def symbolKindInferenceEnvironmental[T]: KindInferenceEnvironmental[SymbolKindInferenceEnvironment[T], GlobalSymbol, LocalSymbol] = new KindInferenceEnvironmental[SymbolKindInferenceEnvironment[T], GlobalSymbol, LocalSymbol] {
+    override def copyEnvironment(env: SymbolKindInferenceEnvironment[T]) = env
   
-    override def globalTypeVarKindFromEnvironment(env: SymbolKindInferenceEnvironment)(sym: GlobalSymbol) =
+    override def globalTypeVarKindFromEnvironment(env: SymbolKindInferenceEnvironment[T])(sym: GlobalSymbol) =
       env.typeVarKind(sym)
  
-    override def localKindTablesFromEnvironment(env: SymbolKindInferenceEnvironment)(sym: Option[GlobalSymbol]): Map[Int, KindTable[LocalSymbol]] =
+    override def localKindTablesFromEnvironment(env: SymbolKindInferenceEnvironment[T])(sym: Option[GlobalSymbol]): Map[Int, KindTable[LocalSymbol]] =
       env.localKindTables.getOrElse(sym, Map())
       
-    override def globalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment) =
+    override def globalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment[T]) =
       KindTable(env.globalTypeVarKinds)
       
-    override def withCurrentTypeCombinatorLocation(env: SymbolKindInferenceEnvironment)(loc: Option[GlobalSymbol]) =
+    override def withCurrentTypeCombinatorLocation(env: SymbolKindInferenceEnvironment[T])(loc: Option[GlobalSymbol]) =
       env.withCurrentTypeCombSym(loc)
   
-    override def getLocalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment)(lambdaIdx: Int) =
+    override def getLocalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment[T])(lambdaIdx: Int) =
       env.localKindTables.getOrElse(env.currentTypeCombSym, Map()).get(lambdaIdx)
   }
   
-  implicit val symbolKindInferenceEnvironmentState: KindInferenceEnvironmentState[SymbolKindInferenceEnvironment, GlobalSymbol] = new KindInferenceEnvironmentState[SymbolKindInferenceEnvironment, GlobalSymbol] {
-    override def instantiateLocalKindTablesS(env: SymbolKindInferenceEnvironment) = {
+  implicit def symbolKindInferenceEnvironmentState[T]: KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
+    override def instantiateLocalKindTablesS(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = env.localKindTables.getOrElse(env.currentTypeCombSym, Map()).foldLeft((env, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
         case ((newEnv, Success(kts)), (i, kt)) =>
           instantiateKindMapS(kt.kinds)(newEnv).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
@@ -323,15 +323,15 @@ package object kinder
       }.valueOr { nk => (env2, nk.failure) }
     }
   
-    override def instantiateKindS(kind: Kind)(env: SymbolKindInferenceEnvironment) = kind.instantiatedKindS(env)
+    override def instantiateKindS(kind: Kind)(env: SymbolKindInferenceEnvironment[T]) = kind.instantiatedKindS(env)
   
-    override def withTypeCombinatorLocationS[T](loc: Option[GlobalSymbol])(f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, T) = {
+    override def withTypeCombinatorLocationS[U](loc: Option[GlobalSymbol])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], U) = {
       val oldLoc = env.currentTypeCombSym
       val (env2, res) = f(env.withCurrentTypeCombSym(loc))
       (env2.withCurrentTypeCombSym(oldLoc), res)
     }
   
-    override def withClearS[T](f: SymbolKindInferenceEnvironment => (SymbolKindInferenceEnvironment, T))(env: SymbolKindInferenceEnvironment): (SymbolKindInferenceEnvironment, T) = {
+    override def withClearS[U](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], U) = {
       val oldLocalKindTables = env.localKindTables.getOrElse(none, Map())
       val (env2, res) = f(env.copy(localKindTables = env.localKindTables + (none -> Map())))
       (env2.copy(localKindTables = env.localKindTables + (none -> oldLocalKindTables)), res)
@@ -339,11 +339,11 @@ package object kinder
   }
   
   implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] = new TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] {
-    override def transformTreeInfo[E](treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo])(env: E)(implicit enval: KindInferenceEnvironmental[E, GlobalSymbol, LocalSymbol]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[LocalSymbol], TypeTreeInfo[GlobalSymbol]]] =
+    override def transformTreeInfo[T, U, E](treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo[T], U])(env: E)(implicit enval: KindInferenceEnvironmental[E, GlobalSymbol, LocalSymbol]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[T, LocalSymbol], TypeTreeInfo[U, GlobalSymbol]]] =
       Kinder.transformTypeTree(treeInfo.typeTree)(env)(enval).map { resolver.TreeInfo(_) }
   }
   
-  implicit val resolverTreeInfoExtractor: TreeInfoExtractor[resolver.TreeInfo[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo], Symbol, GlobalSymbol] = new TreeInfoExtractor[resolver.TreeInfo[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo], Symbol, GlobalSymbol] {
-    override def typeTreeFromTreeInfo(treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo, resolver.TypeTreeInfo]) = treeInfo.typeTree
+  implicit def resolverTreeInfoExtractor[T, U]: TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U]] = new TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U]] {
+    override def typeTreeFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.typeTree
   }
 }
