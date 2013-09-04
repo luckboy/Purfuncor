@@ -533,6 +533,16 @@ type V = U #Int
           }
       }
     }
+    
+    it should "transform inferred kinds to global kind table" is (pending)
+    
+    it should "transform inferred kinds to local kind tables" is (pending)
+    
+    it should "transform the string with the defined type of the combinator" is (pending)
+    
+    it should "transform the string with the defined type of the argument" is (pending)
+    
+    it should "transform the string with the defined type of the expression" is (pending)
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(lmbdindexer.LambdaIndexer.transform(_))(SymbolKindInferenceEnvironment.fromInferredKindTable)
