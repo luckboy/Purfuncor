@@ -496,6 +496,7 @@ type V = U #Int
           val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")))
           val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
           typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
             case Some(Combinator(None, args, body, lmbdindexer.LambdaInfo(lambdaInfo, _), _)) =>
               inside(body) {
@@ -534,7 +535,42 @@ type V = U #Int
       }
     }
     
-    it should "transform inferred kinds to global kind table" is (pending)
+    it should "transform inferred kinds to global kind table" in {
+      val res = Kinder.transformString("""
+type T t1 t2 = t2 t1
+type U = ##-> #Int
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          combs.keySet should be ('empty)
+          val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Arrow(Star(KindParam(param1), _), ret1, _))) =>
+              // k1 -> (k1 -> k2) -> k2
+              inside(ret1) {
+                case Arrow(arg21, Star(KindParam(param2), _), _) =>
+                  inside(arg21) {
+                    case Arrow(Star(KindParam(param11), _), Star(KindParam(param12), _), _) =>
+                      List(param1, param11).toSet should have size(1)
+                      List(param12, param2).toSet should have size(1)
+                      List(param1, param11, param12, param2).toSet should have size(2)
+                  }
+              }
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) =>
+              // * -> *
+              ()
+          }
+      }
+    }
     
     it should "transform inferred kinds to local kind tables" is (pending)
     
