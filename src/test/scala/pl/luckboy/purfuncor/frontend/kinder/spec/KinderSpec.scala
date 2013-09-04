@@ -815,6 +815,10 @@ f x y = tuple 2 (x: \t u => tuple 2 (u t) T) y
                                               }
                                           }
                                       }
+                                      inside(typArg12) {
+                                        case Simple(TypeVar(typLoc12), _) =>
+                                          some(typLoc12) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                                      }
                                   }
                               }
                               inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t")).flatMap(kindTable.kinds.get)) {
