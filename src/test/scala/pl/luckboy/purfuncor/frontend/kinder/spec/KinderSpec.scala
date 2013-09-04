@@ -660,6 +660,8 @@ type T = tuple 2
                   inside(typArgs) { case NonEmptyList(TypeArg(Some("t1"), None, _), TypeArg(Some("t2"), None, _)) => () }
                   val typSyms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
                   val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                  typLocs should have size(typSyms.size)
+                  kindTable.kinds.keySet should be ===(typLocs)
                   inside(typBody) {
                     case App(typFun1, typArgs1, _) =>
                       inside(typFun1) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Fun)), _) => () }
@@ -743,6 +745,8 @@ f x (y: \t => T) = #iSub x y
                       inside(typArgs) { case NonEmptyList(TypeArg(Some("t"), None, _)) => () }
                       val typSyms = Set(LocalSymbol("t"))
                       val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                      typLocs should have size(typSyms.size)
+                      kindTable.kinds.keySet should be ===(typLocs)
                       inside(typBody) {
                         case Simple(TypeVar(typLoc1), _) =>
                           some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
@@ -758,7 +762,78 @@ f x (y: \t => T) = #iSub x y
       } 
     }
     
-    it should "transform the string with the defined type of the expression" is (pending)
+    it should "transform the string with the defined type of the expression" in {
+      val res = Kinder.transformString("""
+type T = #Int
+f x y = tuple 2 (x: \t u => tuple 2 (u t) T) y
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo))
+          combLocs should have size(combSyms.size)
+          combs.keySet should be ===(combLocs)
+          val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, _, _)) =>
+              inside(body) {
+                case App(_, args1, _) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, _) =>
+                      inside(arg11) {
+                        case Simple(TypedTerm(_, typ), _) =>
+                          inside(typ) {
+                            case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, kindTable)), _) =>
+                              inside(typArgs) { case NonEmptyList(TypeArg(Some("t"), None, _), TypeArg(Some("u"), None, _)) => () }
+                              val typSyms = Set(LocalSymbol("t"), LocalSymbol("u"))
+                    		  val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                    		  typLocs should have size(typSyms.size)
+                              kindTable.kinds.keySet should be ===(typLocs)
+                              inside(typBody) {
+                                case App(typFun1, typArgs1, _) =>
+                                  inside(typFun1) { case Simple(TypeLiteral(TupleTypeFunValue(2)), _) => () }
+                                  inside(typArgs1) {
+                                    case NonEmptyList(typArg11, typArg12) =>
+                                      inside(typArg11) {
+                                        case App(typFun2, typArgs2, _) =>
+                                          inside(typFun2) {
+                                            case Simple(TypeVar(typLoc2), _) =>
+                                              some(typLoc2) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("u")))
+                                          }
+                                          inside(typArgs2) {
+                                            case NonEmptyList(typArg21) =>
+                                              inside(typArg21) {
+                                                case Simple(TypeVar(typLoc21), _) =>
+                                                  some(typLoc21) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t")))
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                              inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t")).flatMap(kindTable.kinds.get)) {
+                                case Some(InferredKind(Star(KindParam(_), _))) =>
+                                  // k1
+                                  ()
+                              }
+                              inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("u")).flatMap(kindTable.kinds.get)) {
+                                case Some(InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _))) =>
+                                  // k1 -> *
+                                  ()
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(lmbdindexer.LambdaIndexer.transform(_))(SymbolKindInferenceEnvironment.fromInferredKindTable)
