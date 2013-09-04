@@ -715,7 +715,48 @@ type T = tuple 2
       }
     }
     
-    it should "transform the string with the defined type of the argument" is (pending)
+    it should "transform the string with the defined type of the argument" in {
+      val res = Kinder.transformString("""
+type T = #Int
+f x (y: \t => T) = #iSub x y
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo))
+          combLocs should have size(combSyms.size)
+          combs.keySet should be ===(combLocs)
+          val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, args, _, _, _)) =>
+              inside(args) {
+                case List(_, Arg(_, Some(typ), _)) =>
+                  inside(typ) {
+                    case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, kindTable)), _) =>
+                      inside(typArgs) { case NonEmptyList(TypeArg(Some("t"), None, _)) => () }
+                      val typSyms = Set(LocalSymbol("t"))
+                      val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                      inside(typBody) {
+                        case Simple(TypeVar(typLoc1), _) =>
+                          some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                      }
+                      inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t")).flatMap(kindTable.kinds.get)) {
+                        case Some(InferredKind(Star(KindParam(_), _))) =>
+                          // k1
+                          ()
+                      }
+                  }
+              }
+          }
+      } 
+    }
     
     it should "transform the string with the defined type of the expression" is (pending)
   }
