@@ -118,9 +118,10 @@ object Kinder
       case (Success(combs), (loc, comb)) =>
         comb match {
           case TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaInfo, lambdaIdx), file) =>
-            val res = transformTypeTerm(body)(env).flatMap {
+            val env2 = enval.withCurrentTypeCombinatorLocation(env)(some(loc))
+            val res = transformTypeTerm(body)(env2).flatMap {
               body2 =>
-                enval.getLocalKindTableFromEnvironment(enval.withCurrentTypeCombinatorLocation(env)(some(loc)))(lambdaIdx).map {
+                enval.getLocalKindTableFromEnvironment(env2)(lambdaIdx).map {
                   kt => transformKindTable(kt).map { kt2 => combs + (loc -> TypeCombinator(kind, args, body2, TypeLambdaInfo(lambdaInfo, kt2), file)) }
                 }.getOrElse(FatalError("incorrect type lambda index", none, NoPosition).failureNel)
             }
