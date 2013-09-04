@@ -331,11 +331,8 @@ package object kinder
       (env2.withCurrentTypeCombSym(oldLoc), res)
     }
   
-    override def withClearS[U](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], U) = {
-      val oldLocalKindTables = env.localKindTables.getOrElse(none, Map())
-      val (env2, res) = f(env.copy(localKindTables = env.localKindTables + (none -> Map())))
-      (env2.copy(localKindTables = env.localKindTables + (none -> oldLocalKindTables)), res)
-    }
+    override def withClearS[U](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], U) =
+      env.withClear(f)
   }
   
   implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] = new TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] {
