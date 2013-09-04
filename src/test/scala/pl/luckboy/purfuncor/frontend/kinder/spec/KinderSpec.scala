@@ -573,7 +573,6 @@ type U = ##-> #Int
     }
     
     it should "transform inferred kinds to local kind tables" in {
-      println("tiktlkt")
       val res = Kinder.transformString("""
 type T t1 t2 = t2 t1
 type U t1 = \t2 t3 => ##-> t1 (t3 t2)
