@@ -528,6 +528,9 @@ type V = U #Int
                 case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _) => ()
               }
           }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Star(KindType, _))) => ()
+          }
       }
     }
   }
