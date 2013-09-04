@@ -572,7 +572,67 @@ type U = ##-> #Int
       }
     }
     
-    it should "transform inferred kinds to local kind tables" is (pending)
+    it should "transform inferred kinds to local kind tables" in {
+      println("tiktlkt")
+      val res = Kinder.transformString("""
+type T t1 t2 = t2 t1
+type U t1 = \t2 t3 => ##-> t1 (t3 t2)
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          combs.keySet should be ('empty)
+          val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeCombs.get)) {
+            case Some(TypeCombinator(None, _, _, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+              val syms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
+              val locs = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+              locs should have size(syms.size)
+              kindTable.kinds.keySet should be ===(locs)
+              inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")).flatMap(kindTable.kinds.get)) {
+                case Some(InferredKind(Star(KindParam(_), _))) =>
+                  // k1
+                  ()
+              }
+              inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")).flatMap(kindTable.kinds.get)) {
+                case Some(InferredKind(Arrow(Star(KindParam(param1), _), Star(KindParam(param2), _), _))) =>
+                  // k1 -> k2
+                  List(param1, param2) should have size(2)
+              }
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeCombs.get)) {
+            case Some(TypeCombinator(None, _, body, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+              val syms = Set(LocalSymbol("t1"))
+              val locs = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+              inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")).flatMap(kindTable.kinds.get)) {
+                case Some(InferredKind(Star(KindType, _))) =>
+                  // *
+                  ()
+              }
+              inside(body) {
+                case Simple(TypeLambda(_, body1, TypeLambdaInfo(lambdaInfo1, kindTable1)), _) =>
+                  val syms1 = Set(LocalSymbol("t2"), LocalSymbol("t3"))
+                  val locs1 = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo1))
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo1)(LocalSymbol("t2")).flatMap(kindTable1.kinds.get)) {
+                    case Some(InferredKind(Star(KindParam(_), _))) =>
+                      // k1
+                      ()
+                  }
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo1)(LocalSymbol("t3")).flatMap(kindTable1.kinds.get)) {
+                    case Some(InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _))) =>
+                      // k1 -> *
+                      ()
+                  }
+              }
+          }
+      }      
+    }
     
     it should "transform the string with the defined type of the combinator" is (pending)
     
