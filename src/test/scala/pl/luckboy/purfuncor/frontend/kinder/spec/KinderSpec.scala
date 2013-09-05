@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.kinder.spec
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import org.scalatest.FlatSpec
@@ -18,7 +19,7 @@ import pl.luckboy.purfuncor.common.Arrow
 
 class KinderSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[T] => E)(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
+  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[TT] => E)(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
   {
     it should "infer the kinds from the string" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
@@ -860,6 +861,38 @@ g (x: \t => tuple 2 t (t #Int)) = x
           errs.map { _.msg } should be ===(NonEmptyList(
               "couldn't match kind * with kind * -> * -> k1",
               "couldn't match kind * with kind * -> k1"))
+      }
+    }
+    
+    it should "transform the string with the type references of the other tree" in {
+      val res = Kinder.transformString("type T = #Int")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      val nameTree = NameTree.empty |+| NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T")))
+      inside(res) {
+        case Success(tree @ Tree(_, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val res2 = Kinder.transformString("f (x: T) = x")(nameTree, typeTree.treeInfo.kindTable)(f)(g)
+          inside(res2) {
+            case Success(Tree(combs2, treeInfo2)) =>
+              val typeTree2 = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo2)
+              val typeCombs2 = typeTree2.combs
+              val typeTreeInfo2 = typeTree2.treeInfo
+              val combSyms2 = Set(GlobalSymbol(NonEmptyList("f")))
+              val combLocs2 = combSyms2.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo2))
+              combLocs2 should have size(combSyms2.size)
+              combs2.keySet should be ===(combLocs2)
+              typeCombs2.keySet should be ('empty)
+              typeTreeInfo2.kindTable.kinds.keySet should be ('empty)
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs2.get)) {
+                case Some(Combinator(None, args, body, lmbdindexer.LambdaInfo(lambdaInfo, _), _)) =>
+                  inside(args) { 
+                    case List(Arg(Some("x"), Some(typ), _)) =>
+                      inside(typ) {
+                        case Simple(TypeVar(typLoc1), _) =>
+                          some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                      }
+                  }
+              }
+          }
       }
     }
   }
