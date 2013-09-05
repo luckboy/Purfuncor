@@ -840,7 +840,7 @@ f x y = tuple 2 (x: \t u => tuple 2 (u t) T) y
       }      
     }
     
-    it should "complain on transformation of the incorrect for the error of the global type variable" in {
+    it should "complain on transformation of the incorrect string for the error of the global type variable" in {
       val res = Kinder.transformString("""
 type T t = tuple 2 t (t #Int)
 f x = (x: T)
@@ -851,7 +851,7 @@ f x = (x: T)
       }
     }
 
-    it should "complain on transformation of the incorrect for the errors of the defined types" in {
+    it should "complain on transformation of the incorrect string for the errors of the defined types" in {
       val res = Kinder.transformString("""
 f x = (x: \t => tuple 2 t (t #Int #Int))
 g (x: \t => tuple 2 t (t #Int)) = x
