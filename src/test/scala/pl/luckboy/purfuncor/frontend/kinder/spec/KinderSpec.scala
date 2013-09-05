@@ -836,6 +836,21 @@ f x y = tuple 2 (x: \t u => tuple 2 (u t) T) y
                   }
               }
           }
+      }      
+    }
+    
+    it should "complain on transformation of the incorrect string" in {
+      val res = Kinder.transformString("""
+type T t = tuple 2 t (t #Int) 
+f x = (x: T)
+g x = (x: \t => tuple 2 t (t #Int #Int))
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(List(
+            "couldn't match kind * with kind * -> k1",
+            "uninferred kind of global type variable #.T",
+            "couldn't match kind * with kind * -> * -> k1"))
       }
     }
   }
