@@ -24,7 +24,7 @@ object Kinder
   private def inferKindAndTransformTypeTerm[T, U, V, W, E](typeTerm: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) = {
     val (newEnv, kind) = inferTypeTermKindS(typeTerm)(enval.copyEnvironment(env))
     kind match {
-      case noKind: NoKind => FatalError("no error", none, NoPosition).failureNel
+      case noKind: NoKind => noKind.errs.toNel.getOrElse(NonEmptyList(FatalError("no error", none, NoPosition))).failure
       case _              => transformTypeTerm(typeTerm)(newEnv)
     }
   }
@@ -100,34 +100,32 @@ object Kinder
   
   def transformTree[T, U, V, W, X, Y, Z, TT, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, Z], enval: KindInferenceEnvironmental[E, Z, TT]) =
     tree.combs.foldLeft(Map[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, TT]]]]().successNel[AbstractError]) {
-      case (Success(combs), (loc, comb)) =>
+      case (res, (loc, comb)) =>
         comb match {
           case Combinator(typ, args, body, lambdaInfo, file) =>
             val typ2Res = typ.map { inferKindAndTransformTypeTerm(_)(env).map(some) }.getOrElse(none.successNel)
-            val res = (typ2Res |@| transformArgs(args)(env) |@| transformTerm(body)(env)) {
-              (typ2, args2, body2) => combs + (loc -> Combinator(typ2, args2, body2, lambdaInfo, file))
+            val res2 = (typ2Res |@| transformArgs(args)(env) |@| transformTerm(body)(env)) {
+              (typ2, args2, body2) => Combinator(typ2, args2, body2, lambdaInfo, file)
             }
-            resultForFile(res, file)
+            (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
         }
-      case (Failure(errs), _)            =>
-        errs.failure
     }.map { combs => Tree(combs = combs, treeInfo = tree.treeInfo) }
   
   def transformTypeTree[T, U, V, W, X, E](tree: Tree[T, AbstractTypeCombinator[U, lmbdindexer.TypeLambdaInfo[V]], W])(env: E)(implicit enval: KindInferenceEnvironmental[E, T, X]) =
     tree.combs.foldLeft(Map[T, AbstractTypeCombinator[U, TypeLambdaInfo[V, X]]]().successNel[AbstractError]) {
-      case (Success(combs), (loc, comb)) =>
+      case (res, (loc, comb)) =>
         comb match {
           case TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(lambdaInfo, lambdaIdx), file) =>
             val env2 = enval.withCurrentTypeCombinatorLocation(env)(some(loc))
-            val res = transformTypeTerm(body)(env2).flatMap {
+            val res2 = transformTypeTerm(body)(env2).flatMap {
               body2 =>
                 enval.getLocalKindTableFromEnvironment(env2)(lambdaIdx).map {
-                  kt => transformKindTable(kt).map { kt2 => combs + (loc -> TypeCombinator(kind, args, body2, TypeLambdaInfo(lambdaInfo, kt2), file)) }
+                  kt => transformKindTable(kt).map { kt2 => TypeCombinator(kind, args, body2, TypeLambdaInfo(lambdaInfo, kt2), file) }
                 }.getOrElse(FatalError("incorrect type lambda index", none, NoPosition).failureNel)
             }
-            resultForFile(res, file)
+            (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
           case UnittypeCombinator(kind, n, file) =>
-            (combs + (loc -> UnittypeCombinator(kind, n, file))).successNel
+            res.map { cs => (cs + (loc -> UnittypeCombinator(kind, n, file))) }
         }
       case (Failure(errs), _)            =>
         errs.failure
