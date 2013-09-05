@@ -133,12 +133,14 @@ package object interp
       res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }
     }
   }
+
+  implicit def symbolEnvironmentState[T, U] = new EnvironmentState[SymbolEnvironment[T, U]] {
+    override def nameTreeFromEnvironment(env: SymbolEnvironment[T, U]) =
+      (env, NameTree.fromGlobalSymbols(env.globalVarValues.keys) |+| NameTree.fromTypeGlobalSymbols(env.typeCombSyms))
+  }
   
   implicit def symbolEnvironmental[T, U] = new Environmental[SymbolEnvironment[T, U], Value[Symbol, T, U, SymbolClosure[T, U]]] {
     override def globalVarValueFromEnvironment(env: SymbolEnvironment[T, U])(sym: GlobalSymbol) =
       env.varValue(sym)
-    
-    override def nameTreeFromEnvironment(env: SymbolEnvironment[T, U]) =
-      NameTree.fromGlobalSymbols(env.globalVarValues.keys) |+| NameTree.fromTypeGlobalSymbols(env.typeCombSyms)
   }
 }
