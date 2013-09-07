@@ -18,6 +18,8 @@ trait Evaluator[-T, E, V]
   
   def isNoValue(value: V): Boolean
   
+  def forceS(value: V)(env: E): (E, V)
+  
   def withPos(res: (E, V))(pos: Position): (E, V)
 }
 

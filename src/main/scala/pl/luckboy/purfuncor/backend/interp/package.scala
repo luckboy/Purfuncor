@@ -92,6 +92,9 @@ package object interp
     override def isNoValue(value: Value[Symbol, T, U, SymbolClosure[T, U]]) =
       value.isNoValue
       
+    override def forceS(value: Value[Symbol, T, U, SymbolClosure[T, U]])(env: SymbolEnvironment[T, U]) =
+      (env, value)
+      
     override def withPos(res: (SymbolEnvironment[T, U], Value[Symbol, T, U, SymbolClosure[T, U]]))(pos: Position) =
       (res._1, res._2.withPos(pos))
   }
