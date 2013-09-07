@@ -17,10 +17,12 @@ case class TypeLazyValue[T, +U, +V, +W](term: Term[TypeSimpleTerm[U, V]], closur
 
 sealed trait TypeValueTerm[T]
 
-case class TupleType[T](terms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class BuiltinType[T](bf: TypeBuiltinFunction.Value, terms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class Unittype[T](loc: T, terms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class GlobalTypeVar[T](loc: T) extends TypeValueTerm[T]
-case class TypeParam[T](param: Int) extends TypeValueTerm[T]
+case class TupleType[T](argTerms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class BuiltinType[T](bf: TypeBuiltinFunction.Value, argTerms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class Unittype[T](loc: T, argsTerms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class GlobalTypeApp[T](loc: T, argTerms: Seq[TypeValueLambda[T]]) extends TypeValueTerm[T]
+case class TypeParamApp[T](param: Int, argTerms: Seq[TypeValueLambda[T]]) extends TypeValueTerm[T]
 case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
+
+case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])

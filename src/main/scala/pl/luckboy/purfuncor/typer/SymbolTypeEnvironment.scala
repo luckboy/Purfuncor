@@ -9,7 +9,8 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 
 case class SymbolTypeEnvironment[T](
     globalTypeVarValues: Map[GlobalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]],
-    typeClosureStack: List[SymbolTypeClosure[T]])
+    typeClosureStack: List[SymbolTypeClosure[T]],
+    typeParamCount: Int)
     
 case class SymbolTypeClosure[T](
     localTypeVarValues: Map[LocalSymbol, NonEmptyList[TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]]])
