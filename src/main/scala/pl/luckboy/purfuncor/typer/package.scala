@@ -10,6 +10,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.common.Evaluator._
+import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object typer
 {
@@ -115,25 +116,43 @@ package object typer
   }
   
   implicit def symbolTypeCombinatorInitializer[T] = new Initializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], SymbolTypeEnvironment[T]] {
-    override def globalVarsFromEnvironmentS(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], Set[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    override def globalVarsFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.globalTypeVarValues.keySet)
       
-    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, T]): Set[GlobalSymbol] =
-      throw new UnsupportedOperationException
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, T]) =
+      comb match {
+        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
+        case UnittypeCombinator(_, _, _)      => Set()
+      }
       
-    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], Unit) =
-      throw new UnsupportedOperationException
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
+      (env.withGlobalTypeVar(loc, EvaluatedTypeValue(GlobalTypeApp(loc, Nil, loc))), ())
       
-    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], Validation[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], Unit]) =
-      throw new UnsupportedOperationException
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]) = {
+      val (env2, value) = if(comb.argCount === 0) {
+        comb match {
+          case TypeCombinator(_, _, body, _, file) =>
+            val (newEnv, value) = env.withFile(file) { evaluateS(body)(_) }
+            (newEnv, value.forFile(file))
+          case UnittypeCombinator(_, _, _)         =>
+            (env, EvaluatedTypeValue(Unittype(loc, Nil, loc)))
+        }
+      } else
+        (env, TypeCombinatorValue(comb, loc, loc))
+      value match {
+        case noValue: NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]] => (env, noValue.failure)
+        case _                                                                   => (env.withGlobalTypeVar(loc, value), ().success)
+      }
+    }
       
-    override def checkEnvironmentS(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], Validation[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], Unit]) =
-      throw new UnsupportedOperationException
+    override def checkEnvironmentS(env: SymbolTypeEnvironment[T]) =
+      (env, ().success[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]])
       
     override def undefinedGlobalVarError: NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]] =
-      throw new UnsupportedOperationException
+      NoTypeValue.fromError(FatalError("undefined global type variable", none, NoPosition))
       
-    override def withSaveS[U, V](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], Validation[U, V]))(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], Validation[U, V]) =
-      throw new UnsupportedOperationException
+    override def withSaveS[U, V](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], Validation[U, V]))(env: SymbolTypeEnvironment[T]) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }      
+    }
   }
 }

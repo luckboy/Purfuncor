@@ -60,6 +60,13 @@ case class SymbolTypeEnvironment[T](
   def withGlobalTypeVar(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) = copy(globalTypeVarValues = globalTypeVarValues + (sym -> value))
   
   def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
+  
+  def withFile(file: Option[java.io.File])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+    val oldFile = currentFile
+    val (newEnv, value) = f(withCurrentFile(file))
+    (newEnv.withCurrentFile(oldFile), value)
+  }
+    
 }
     
 case class SymbolTypeClosure[T](
