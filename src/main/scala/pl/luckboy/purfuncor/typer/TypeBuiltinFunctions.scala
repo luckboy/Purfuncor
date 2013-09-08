@@ -113,15 +113,8 @@ object TypeBuiltinFunctions
         override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
           argValues match {
             case Seq(value) =>
-              val (env2, evaluatedValue) = eval.forceS(value)(env)
-              evaluatedValue match {
-                case EvaluatedTypeValue(term)         =>
-                  (env2, EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Array, Seq(term))))
-                case noValue: NoTypeValue[T, U, V, W] =>
-                  (env2, noValue)
-                case _                                =>
-                  (env2, NoTypeValue.fromError(FatalError("unevaluated type value", none, NoPosition)))
-              }
+              val (env2, res) = value.typeValueTermS(env)
+              (env2, res.map { tvt => EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Array, Seq(tvt))) }.valueOr(identity))
             case _     =>
               (env, illegalAppNoTypeValue)
           }
@@ -130,26 +123,45 @@ object TypeBuiltinFunctions
         override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
           argValues match {
             case Seq(value1, value2) =>
-              val (env2, evaluatedValue1) = eval.forceS(value1)(env)
-              val (env3, evaluatedValue2) = eval.forceS(value2)(env2)
-              (evaluatedValue1, evaluatedValue2) match {
-                case (EvaluatedTypeValue(term1), EvaluatedTypeValue(term2)) =>
-                  (env3, EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Fun, Seq(term1, term2))))
-                case (noValue: NoTypeValue[T, U, V, W], _)                  =>
-                  (env3, noValue)
-                case (_, noValue: NoTypeValue[T, U, V, W])                  =>
-                  (env3, noValue)
-                case _                                                      =>
-                  (env3, NoTypeValue.fromError(FatalError("unevaluated type values", none, NoPosition)))
-              }
+              val (env2, res1) = value1.typeValueTermS(env)
+              val (env3, res2) = value2.typeValueTermS(env2)
+              val retValue = (for {
+                t1 <- res1
+                t2 <- res2
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Fun, Seq(t1, t2)))).valueOr(identity)
+              (env3, retValue)
+            case _     =>
+              (env, illegalAppNoTypeValue)
           }
       },
       TypeBuiltinFunction.Conj -> new TypeFunction(2) {
-        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]): (E, TypeValue[T, U, V, W]) =
-          throw new UnsupportedOperationException
+        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
+          argValues match {
+            case Seq(value1, value2) =>
+              val (env2, res1) = value1.typeValueTermS(env)
+              val (env3, res2) = value2.typeValueTermS(env2)
+              val retValue = (for {
+                t1 <- res1
+                t2 <- res2
+              } yield EvaluatedTypeValue(t1 & t2)).valueOr(identity)
+              (env3, retValue)
+            case _     =>
+              (env, illegalAppNoTypeValue)
+          }
       },
       TypeBuiltinFunction.Disj -> new TypeFunction(2) {
-        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]): (E, TypeValue[T, U, V, W]) =
-          throw new UnsupportedOperationException
+        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
+          argValues match {
+            case Seq(value1, value2) =>
+              val (env2, res1) = value1.typeValueTermS(env)
+              val (env3, res2) = value2.typeValueTermS(env2)
+              val retValue = (for {
+                t1 <- res1
+                t2 <- res2
+              } yield EvaluatedTypeValue(t1 | t2)).valueOr(identity)
+              (env3, retValue)
+            case _     =>
+              (env, illegalAppNoTypeValue)
+          }
       })
 }

@@ -11,7 +11,8 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 case class SymbolTypeEnvironment[T](
     globalTypeVarValues: Map[GlobalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]],
     typeClosureStack: List[SymbolTypeClosure[T]],
-    typeParamCount: Int)
+    typeParamCount: Int,
+    currentFile: Option[java.io.File])
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -24,6 +25,41 @@ case class SymbolTypeEnvironment[T](
           _.localTypeVarValues.get(localSym).map { _.head }.getOrElse(NoTypeValue.fromError(FatalError("undefined local type variable", none, NoPosition)))
         }.getOrElse(NoTypeValue.fromError(FatalError("empty type closure stack", none, NoPosition)))
     }
+  
+  def pushLocalTypeVars(values: Map[LocalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]]): SymbolTypeEnvironment[T] =
+    copy(typeClosureStack = typeClosureStack.headOption.map { closure => SymbolTypeClosure(closure.localTypeVarValues |+| values.mapValues {  NonEmptyList(_) }.toMap) :: typeClosureStack }.getOrElse(Nil))
+    
+  def popLocalTypeVars(syms: Set[LocalSymbol]): SymbolTypeEnvironment[T] =
+    copy(typeClosureStack = typeClosureStack.headOption.map { closure => SymbolTypeClosure(closure.localTypeVarValues.flatMap { case (s, vs) => if(syms.contains(s)) vs.tail.toNel.map { (s, _) } else some(s, vs) }) :: typeClosureStack }.getOrElse(Nil))
+    
+  def pushTypeClosure(closure: SymbolTypeClosure[T]): SymbolTypeEnvironment[T] =
+    copy(typeClosureStack = closure :: typeClosureStack)
+    
+  def popTypeClosure: SymbolTypeEnvironment[T] =
+    copy(typeClosureStack = typeClosureStack.headOption.map { _ => typeClosureStack.tail }.getOrElse(Nil))
+    
+  def withLocalTypeVars(values: Map[LocalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+    val (newEnv, value) = f(pushLocalTypeVars(values))
+    (newEnv.popLocalTypeVars(values.keySet), value)
+  }
+  
+  def withTypeClosure(closure: SymbolTypeClosure[T])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+    val (newEnv, value) = f(pushTypeClosure(closure))
+    (newEnv.popTypeClosure, value)
+  }
+  
+  def withTypeParamCount(paramCount: Int): SymbolTypeEnvironment[T] = copy(typeParamCount = paramCount)
+  
+  def withTypeParams[U](paramCount: Int)(f: (Int, Int, SymbolTypeEnvironment[T]) => (SymbolTypeEnvironment[T], U)) = {
+    val oldParamCount = typeParamCount
+    val newParamCount = typeParamCount + paramCount
+    val (newEnv, res) = f(oldParamCount, newParamCount, withTypeParamCount(newParamCount))
+    (newEnv.withTypeParamCount(oldParamCount), res)
+  }
+  
+  def withGlobalTypeVar(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) = copy(globalTypeVarValues = globalTypeVarValues + (sym -> value))
+  
+  def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
 }
     
 case class SymbolTypeClosure[T](
