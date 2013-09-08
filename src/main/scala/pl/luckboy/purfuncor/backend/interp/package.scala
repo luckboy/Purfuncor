@@ -48,7 +48,8 @@ package object interp
         case CombinatorValue(comb: Combinator[Symbol, T, U], sym) =>
           if(comb.args.size === argValues.size) {
             val localVarValues = comb.args.zip(argValues).flatMap { 
-              case (Arg(Some(name), _, _), v) => some((LocalSymbol(name), v))
+              case (Arg(Some(name), _, _), v) => List((LocalSymbol(name), v))
+              case (_, _)                     => Nil
             }.toMap
             val (env2, retValue) = env.withClosure(SymbolClosure(Map())) {
               _.withLocalVars(localVarValues) { newEnv => evaluateS(comb.body)(newEnv.withCurrentFile(comb.file)) }
@@ -60,7 +61,7 @@ package object interp
           if(lambda.args.size === argValues.size) {
             val localVarValues = lambda.args.list.zip(argValues).flatMap { 
               case (Arg(Some(name), _, _), v) => List((LocalSymbol(name), v))
-              case (_, _)                  => Nil
+              case (_, _)                     => Nil
             }.toMap
             val (env2, retValue) = env.withClosure(closure) {
               _.withLocalVars(localVarValues) { newEnv => evaluateS(lambda.body)(newEnv.withCurrentFile(file)) }
