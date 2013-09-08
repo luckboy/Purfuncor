@@ -18,7 +18,7 @@ sealed trait TypeValue[T, +U, +V, +W]
 {
   def argCount: Int =
     this match {
-      case NoTypeValue(_)                           => 1
+      case NoTypeValue(_, _)                        => 1
       case EvaluatedTypeValue(_)                    => 1
       case TupleTypeFunValue(n)                     => n
       case TypeBuiltinFunValue(_, f)                => f.argCount
@@ -34,10 +34,16 @@ sealed trait TypeValue[T, +U, +V, +W]
     app(this, argValues)
   
   def withPos(pos: Position): TypeValue[T, U, V, W] =
-    throw new UnsupportedOperationException
+    this match {
+      case NoTypeValue(err, false) => NoTypeValue(err.copy(pos = pos), true)
+      case _                       => this
+    }
     
   def forFile(file: Option[java.io.File]): TypeValue[T, U, V, W] =
-    throw new UnsupportedOperationException
+    this match {
+      case noValue @ NoTypeValue(err, _) => noValue.copy(err = err.copy(file = file))
+      case _                             => this
+    }
     
   def typeValueTermS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
@@ -71,7 +77,7 @@ object TypeValue
   def fromTypeLiteralValue[T, U, V, W](value: frontend.TypeLiteralValue): TypeValue[T, U, V, W] =
     value match {
       case frontend.TupleTypeFunValue(n)    => TupleTypeFunValue[T, U, V, W](n)
-      case frontend.TypeBuiltinFunValue(bf) => throw new UnsupportedOperationException
+      case frontend.TypeBuiltinFunValue(bf) => TypeBuiltinFunValue.fromTypeBuiltinFunction[T, U, V, W](bf)
     }
   
   def fullyAppForUnittypeCombinatorS[T, U, V, W, E](comb: UnittypeCombinator[U, V], sym: GlobalSymbol, loc: T, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) = 
@@ -82,11 +88,11 @@ object TypeValue
       (env, NoTypeValue.fromError[T, U, V, W](FatalError("illegal number of type arguments", none, NoPosition)))
 }
 
-case class NoTypeValue[T, +U, +V, +W](err: FatalError) extends TypeValue[T, U, V, W]
+case class NoTypeValue[T, +U, +V, +W](err: FatalError, hasPos: Boolean) extends TypeValue[T, U, V, W]
 
 object NoTypeValue
 {
-  def fromError[T, U, V, W](err: FatalError) = NoTypeValue[T, U, V, W](err)    
+  def fromError[T, U, V, W](err: FatalError) = NoTypeValue[T, U, V, W](err, false)
 }
 
 case class EvaluatedTypeValue[T, +U, +V, +W](term: TypeValueTerm[T]) extends TypeValue[T, U, V, W]
@@ -102,6 +108,13 @@ case class TupleTypeFunValue[T, +U, +V, +W](n: Int) extends TypeValue[T, U, V, W
 }
 
 case class TypeBuiltinFunValue[T, +U, +V, +W](bf: TypeBuiltinFunction.Value, f: TypeFunction) extends TypeValue[T, U, V, W]
+
+object TypeBuiltinFunValue
+{
+  def fromTypeBuiltinFunction[T, U, V, W](bf: TypeBuiltinFunction.Value) =
+    TypeBuiltinFunctions.typeBuiltinFunctions.get(bf).map { TypeBuiltinFunValue[T, U, V, W](bf, _) }.getOrElse(NoTypeValue.fromError[T, U, V, W](FatalError("unsupported built-in type function", none, NoPosition)))
+}
+
 case class TypeCombinatorValue[T, +U, +V, +W](comb: AbstractTypeCombinator[U, V], sym: GlobalSymbol, loc: T) extends TypeValue[T, U, V, W]
 case class TypeLambdaValue[T, +U, +V, +W](lambda: TypeLambda[U, V], closure: W, file: Option[java.io.File]) extends TypeValue[T, U, V, W]
 case class TypePartialAppValue[T, +U, +V, +W](funValue: TypeValue[T, U, V, W], args: Seq[TypeValue[T, U, V, W]]) extends TypeValue[T, U, V, W]
