@@ -44,19 +44,20 @@ object Evaluator
     
   @tailrec
   def appS[T, E, V](funValue: V, argValues: Seq[V])(env: E)(implicit eval: Evaluator[T, E, V]): (E, V) = {
-    val argCount = eval.valueArgCount(funValue)
-    if(!eval.isNoValue(funValue))
+    val (env2, funValue2) = eval.forceS(funValue)(env)
+    val argCount = eval.valueArgCount(funValue2)
+    if(!eval.isNoValue(funValue2))
       if(argCount === argValues.size) {
-        eval.fullyAppS(funValue, argValues)(env)
+        eval.fullyAppS(funValue2, argValues)(env2)
       } else if(argCount > argValues.size) {
-        eval.partiallyAppS(funValue, argValues)(env)
+        eval.partiallyAppS(funValue2, argValues)(env2)
       } else {
         val (passedArgValues, otherArgValues) = argValues.splitAt(argCount)
-        val (env2, retValue) = eval.fullyAppS(funValue, passedArgValues)(env)
-        appS[T, E, V](retValue, otherArgValues)(env2)
+        val (env3, retValue) = eval.fullyAppS(funValue2, passedArgValues)(env2)
+        appS[T, E, V](retValue, otherArgValues)(env3)
       }
     else
-      (env, funValue)
+      (env2, funValue2)
   }
   
   def app[T, E, V](funValue: V, argValues: Seq[V])(implicit eval: Evaluator[T, E, V]) =
@@ -71,6 +72,6 @@ object Evaluator
         (newEnv, Failure(noValue))
     }
   
-  def valuesFromTerms[T, U, V](terms: List[Term[T]])(implicit eval: Evaluator[T, U, V]) =
-    State(valuesFromTermsS[T, U, V](terms))
+  def valuesFromTerms[T, E, V](terms: List[Term[T]])(implicit eval: Evaluator[T, E, V]) =
+    State(valuesFromTermsS[T, E, V](terms))
 }
