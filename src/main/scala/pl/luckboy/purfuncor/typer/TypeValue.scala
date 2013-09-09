@@ -80,7 +80,7 @@ object TypeValue
       case frontend.TypeBuiltinFunValue(bf) => TypeBuiltinFunValue.fromTypeBuiltinFunction[T, U, V, W](bf)
     }
   
-  def fullyAppForUnittypeCombinatorS[T, U, V, W, E](comb: UnittypeCombinator[U, V], sym: GlobalSymbol, loc: T, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) = 
+  def fullyAppForUnittypeCombinatorS[T, U, V, W, E](comb: UnittypeCombinator[U, V], loc: T, sym: GlobalSymbol, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) = 
     if(comb.n === argValues.size) {
       val (env2, res) = TypeValueTerm.typeValueTermsFromTypeValuesS(argValues)(env)
       (env2, res.map { ts => EvaluatedTypeValue(Unittype(loc, ts, sym)) }.valueOr(identity))
@@ -115,7 +115,7 @@ object TypeBuiltinFunValue
     TypeBuiltinFunctions.typeBuiltinFunctions.get(bf).map { TypeBuiltinFunValue[T, U, V, W](bf, _) }.getOrElse(NoTypeValue.fromError[T, U, V, W](FatalError("unsupported built-in type function", none, NoPosition)))
 }
 
-case class TypeCombinatorValue[T, +U, +V, +W](comb: AbstractTypeCombinator[U, V], sym: GlobalSymbol, loc: T) extends TypeValue[T, U, V, W]
+case class TypeCombinatorValue[T, +U, +V, +W](comb: AbstractTypeCombinator[U, V], loc: T, sym: GlobalSymbol) extends TypeValue[T, U, V, W]
 case class TypeLambdaValue[T, +U, +V, +W](lambda: TypeLambda[U, V], closure: W, file: Option[java.io.File]) extends TypeValue[T, U, V, W]
 case class TypePartialAppValue[T, +U, +V, +W](funValue: TypeValue[T, U, V, W], args: Seq[TypeValue[T, U, V, W]]) extends TypeValue[T, U, V, W]
 case class TypeLazyValue[T, +U, +V, +W](term: Term[TypeSimpleTerm[U, V]], closure: W, file: Option[java.io.File]) extends TypeValue[T, U, V, W]
