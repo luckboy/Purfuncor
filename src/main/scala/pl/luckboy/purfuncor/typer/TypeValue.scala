@@ -70,6 +70,25 @@ sealed trait TypeValue[T, +U, +V, +W]
         (env, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
     }
   }
+  
+  override def toString =
+    this match {
+      case NoTypeValue(err, _)                      => "<no type value: " + err + ">"
+      case EvaluatedTypeValue(term)                 => term.toString
+      case TupleTypeFunValue(n)                     => "tuple " + n
+      case TypeBuiltinFunValue(f, _)                => "#" + f 
+      case TypeCombinatorValue(_, _, sym)           => sym.toString
+      case TypeLambdaValue(_, _, _)                 => "<type lambda value>"
+      case TypePartialAppValue(funValue, argValues) =>
+        (List(funValue) ++ argValues).map {
+          value =>
+            value match {
+              case _: TypePartialAppValue[T, U, V, W] => "(" + value + ")"
+              case _                                  => value.toString
+            }
+        }.mkString(" ")
+      case TypeLazyValue(_, _, _)                   => "<type lazy value>"
+    }
 }
 
 object TypeValue
@@ -137,6 +156,30 @@ sealed trait TypeValueTerm[T]
       case (_, TypeDisjunction(terms))                        => TypeDisjunction(terms + this)
       case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
     }
+  
+  def toArgString =
+    this match {
+      case TupleType(args) if !args.isEmpty           => "(" + this + ")"
+      case BuiltinType(_, args) if !args.isEmpty      => "(" + this + ")"
+      case Unittype(_, args, _) if !args.isEmpty      => "(" + this + ")"
+      case GlobalTypeApp(_, args, _) if !args.isEmpty => "(" + this + ")"
+      case TypeParamApp(_, args) if !args.isEmpty     => "(" + this + ")"
+      case TypeConjunction(terms) if terms.size >= 2  => "(" + this + ")"
+      case TypeDisjunction(terms) if terms.size >= 2  => "(" + this + ")"
+      case _                                          => toString
+    }
+  
+  override def toString =
+    this match {
+      case TupleType(Seq(arg))         => "tuple 1 " + arg.toArgString
+      case TupleType(args)             => "(" + args.mkString(", ") + ")"
+      case BuiltinType(bf, args)       => "#" + bf + args.map { " " + _.toArgString }.mkString("")
+      case Unittype(_, args, sym)      => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case GlobalTypeApp(_, args, sym) => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case TypeParamApp(param, args)   => "t" + param + args.map { " " + _.toArgString }.mkString("")
+      case TypeConjunction(terms)      => if(!terms.isEmpty) terms.mkString("#&") else "<type conjunction without terms>"
+      case TypeDisjunction(terms)      => if(!terms.isEmpty) terms.mkString("#|") else "<type disjunction without terms>"
+    }
 }
 
 object TypeValueTerm
@@ -151,15 +194,20 @@ object TypeValueTerm
     State(typeValueTermsFromTypeValuesS[T, U, V, W, E](values))
 }
 
-case class TupleType[T](argTerms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class BuiltinType[T](bf: TypeBuiltinFunction.Value, argTerms: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class Unittype[T](loc: T, argTerms: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
-case class GlobalTypeApp[T](loc: T, argLambdas: Seq[TypeValueLambda[T]], sym : GlobalSymbol) extends TypeValueTerm[T]
-case class TypeParamApp[T](param: Int, argLambdas: Seq[TypeValueLambda[T]]) extends TypeValueTerm[T]
+case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
+case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalSymbol) extends TypeValueTerm[T]
+case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]]) extends TypeValueTerm[T]
 case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
+{
+  def toArgString = if(!argParams.isEmpty) "(" + this + ")" else body.toArgString
+  
+  override def toString = if(!argParams.isEmpty) "\\" + argParams.map { "t" + _ }.mkString(" ") + " => " + body else body.toString
+}
 
 object TypeValueLambda
 {
