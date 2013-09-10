@@ -1,7 +1,6 @@
-package pl.luckboy.purfuncor.frontend.kinder
+package pl.luckboy.purfuncor.frontend
 import scalaz._
 import scalaz.Scalaz._
-import pl.luckboy.purfuncor.common.Tree
 
 trait TreeInfoExtractor[T, U]
 {

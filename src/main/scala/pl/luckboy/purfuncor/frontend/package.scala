@@ -123,4 +123,8 @@ package object frontend
           "*"
       }
   }
+  
+  implicit def resolverTreeInfoExtractor[T, U]: TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[resolver.GlobalSymbol, AbstractTypeCombinator[resolver.Symbol, T], U]] = new TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[resolver.GlobalSymbol, AbstractTypeCombinator[resolver.Symbol, T], U]] {
+    override def typeTreeFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.typeTree
+  }
 }

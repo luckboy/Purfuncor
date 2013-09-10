@@ -338,9 +338,5 @@ package object kinder
   implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] = new TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] {
     override def transformTreeInfo[T, U, E](treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo[T], U])(env: E)(implicit enval: KindInferenceEnvironmental[E, GlobalSymbol, LocalSymbol]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[T, LocalSymbol], TypeTreeInfo[U, GlobalSymbol]]] =
       Kinder.transformTypeTree(treeInfo.typeTree)(env)(enval).map { resolver.TreeInfo(_) }
-  }
-  
-  implicit def resolverTreeInfoExtractor[T, U]: TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U]] = new TreeInfoExtractor[resolver.TreeInfo[T, U], Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U]] {
-    override def typeTreeFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.typeTree
-  }
+  }  
 }
