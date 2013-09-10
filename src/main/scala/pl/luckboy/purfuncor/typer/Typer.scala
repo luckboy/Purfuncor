@@ -37,7 +37,9 @@ object Typer
       tree =>
         (for {
           res <- f(tree)
-          res2 <- res.map { interpretTypeTreeFromTree(_)(init, treeInfoExtractor) }.getOrElse {
+          res2 <- res.map {
+            tree2 => interpretTypeTree(treeInfoExtractor.typeTreeFromTreeInfo(tree2.treeInfo))
+          }.getOrElse {
             State.state(NoTypeValue.fromError[W, X, Y, C](FatalError("result is failure", none, NoPosition)).failure[Unit])
           }
         } yield { res.map { _ => res2 } }).run(env)
