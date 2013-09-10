@@ -278,6 +278,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val parseTerm = rep("\n") ~> noNlParsers.expr <~ rep("\n")
   
+  lazy val parseTypeTerm = rep("\n") ~> noNlParsers.typeExpr <~ rep("\n")
+  
   def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
       case Success(parseTree, _) => parseTree.success
@@ -307,5 +309,12 @@ object Parser extends StandardTokenParsers with PackratParsers
       case Success(termWrapper, _) => termWrapperToTerm(termWrapper).success
       case Failure(msg, next)      => common.Error(msg, none, next.pos).failureNel
       case Error(msg, next)        => common.FatalError(msg, none, next.pos).failureNel
+    }
+  
+  def parseTypeTermString(s: String) =
+    phrase(parseTypeTerm)(new lexical.Scanner(s)) match {
+      case Success(typeTermWrapper, _) => typeTermWrapperToTypeTerm(typeTermWrapper).success
+      case Failure(msg, next)          => common.Error(msg, none, next.pos).failureNel
+      case Error(msg, next)            => common.FatalError(msg, none, next.pos).failureNel
     }
 }

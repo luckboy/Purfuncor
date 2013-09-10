@@ -383,4 +383,10 @@ object Resolver
       term <- parser.Parser.parseTermString(s)
       term2 <- transformTerm(term)(scope)
     } yield term2
+    
+  def transformTypeTermString(s: String)(scope: Scope) =
+    for {
+      typeTerm <- parser.Parser.parseTypeTermString(s)
+      typeTerm2 <- transformTypeTerm(typeTerm)(scope)
+    } yield typeTerm2
 }
