@@ -10,7 +10,6 @@ import pl.luckboy.purfuncor.frontend.TypeCombinator
 import pl.luckboy.purfuncor.frontend.UnittypeCombinator
 import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
 import pl.luckboy.purfuncor.frontend.TypeLambda
-import pl.luckboy.purfuncor.frontend.TypeBuiltinFunction
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.common.Evaluator._
 
@@ -126,11 +125,11 @@ case class TupleTypeFunValue[T, +U, +V, +W](n: Int) extends TypeValue[T, U, V, W
       (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
 }
 
-case class TypeBuiltinFunValue[T, +U, +V, +W](bf: TypeBuiltinFunction.Value, f: TypeFunction) extends TypeValue[T, U, V, W]
+case class TypeBuiltinFunValue[T, +U, +V, +W](bf: frontend.TypeBuiltinFunction.Value, f: TypeFunction) extends TypeValue[T, U, V, W]
 
 object TypeBuiltinFunValue
 {
-  def fromTypeBuiltinFunction[T, U, V, W](bf: TypeBuiltinFunction.Value) =
+  def fromTypeBuiltinFunction[T, U, V, W](bf: frontend.TypeBuiltinFunction.Value) =
     TypeBuiltinFunctions.typeBuiltinFunctions.get(bf).map { TypeBuiltinFunValue[T, U, V, W](bf, _) }.getOrElse(NoTypeValue.fromError[T, U, V, W](FatalError("unsupported built-in type function", none, NoPosition)))
 }
 

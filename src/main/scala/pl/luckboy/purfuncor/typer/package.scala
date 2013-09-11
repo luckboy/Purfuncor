@@ -80,10 +80,10 @@ package object typer
             f.applyS(argValues)(env)
           else
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
-        case EvaluatedTypeValue(globlaTypeApp: GlobalTypeApp[GlobalSymbol]) =>
+        case EvaluatedTypeValue(globalTypeApp: GlobalTypeApp[GlobalSymbol]) =>
           if(argValues.size === 1) {
             val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
-            (env2, res.map { tvls => EvaluatedTypeValue(globlaTypeApp.copy(args = globlaTypeApp.args ++ tvls)) }.valueOr(identity))
+            (env2, res.map { tvls => EvaluatedTypeValue(globalTypeApp.copy(args = globalTypeApp.args ++ tvls)) }.valueOr(identity))
           } else
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case EvaluatedTypeValue(typeParamApp: TypeParamApp[GlobalSymbol]) =>
