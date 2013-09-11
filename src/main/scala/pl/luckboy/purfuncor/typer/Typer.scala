@@ -32,23 +32,21 @@ object Typer
   def interpretTypeTreeFromTree[T, U, V, E, L, C, I, F](tree: Tree[T, U, V])(implicit  init: Initializer[E, L, C, F], treeInfoExtractor: TreeInfoExtractor[V, Tree[L, C, I]]) =
     State(interpretTypeTreeFromTreeS[T, U, V, E, L, C, I, F](tree))
     
-  def interpretTypeTreeFromTreeStringS[T, U, V, W, X, Y, Z, C, E](s: String)(nameTree: NameTree)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, U, V]]])(env: E)(implicit init: Initializer[NoTypeValue[W, X, Y, C], W, AbstractTypeCombinator[X, Y], E], treeInfoExtractor: TreeInfoExtractor[V, Tree[W, AbstractTypeCombinator[X, Y], Z]]) =
+  def interpretTypeTreeFromTreeStringS[T, U, V, W, X, Y, Z, TT, C, E](s: String)(nameTree: NameTree)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(env: E)(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]]) =
     resolver.Resolver.transformString(s)(nameTree).map {
       tree =>
         (for {
           res <- f(tree)
-          res2 <- res.map {
-            tree2 => interpretTypeTree(treeInfoExtractor.typeTreeFromTreeInfo(tree2.treeInfo))
-          }.getOrElse {
-            State.state(NoTypeValue.fromError[W, X, Y, C](FatalError("result is failure", none, NoPosition)).failure[Unit])
+          res2 <- res.map { tree2 => interpretTypeTreeFromTree(tree2)(init, treeInfoExtractor) }.getOrElse {
+            State.state(NoTypeValue.fromError[Z, W, X, C](FatalError("result is failure", none, NoPosition)).failure[Unit])
           }
         } yield { res.map { _ => res2 } }).run(env)
     }.valueOr { errs => (env, errs.failure) }
     
-  def interpretTypeTreeFromTreeString[T, U, V, W, X, Y, Z, C, E](s: String)(nameTree: NameTree)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, U, V]]])(implicit init: Initializer[NoTypeValue[W, X, Y, C], W, AbstractTypeCombinator[X, Y], E], treeInfoExtractor: TreeInfoExtractor[V, Tree[W, AbstractTypeCombinator[X, Y], Z]]) =
-    State(interpretTypeTreeFromTreeStringS[T, U, V, W, X, Y, Z, C, E](s)(nameTree)(f))
+  def interpretTypeTreeFromTreeString[T, U, V, W, X, Y, Z, TT, C, E](s: String)(nameTree: NameTree)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]]) =
+    State(interpretTypeTreeFromTreeStringS[T, U, V, W, X, Y, Z, TT, C, E](s)(nameTree)(f))
     
-  def interpretTypeTermStringS[T, E, V](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
+  def interpretTypeTermStringS[T, U, V, C, E](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, U]]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[T, U], E, TypeValue[V, T, U, C]]) =
     (for {
       term <- resolver.Resolver.transformTypeTermString(s)(Scope.fromNameTree(nameTree))
       term2 <- f(term)
@@ -57,6 +55,6 @@ object Typer
       (env2, value.success)
     }).valueOr { errs => (env, errs.failure) }
   
-  def interpretTypeTermStrong[T, E, V](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[T]])(implicit eval: Evaluator[T, E, V]) =
-    State(interpretTypeTermStringS[T, E, V](s)(nameTree)(f))
+  def interpretTypeTermStrong[T, U, V, C, E](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, U]]])(implicit eval: Evaluator[TypeSimpleTerm[T, U], E, TypeValue[V, T, U, C]]) =
+    State(interpretTypeTermStringS[T, U, V, C, E](s)(nameTree)(f))
 }
