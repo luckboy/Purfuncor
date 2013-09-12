@@ -155,4 +155,9 @@ package object typer
       res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }      
     }
   }
+  
+  def symbolTypeEnvironmental[T] = new TypeEnvironmental[SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {
+    override def globalTypeVarValueFromEnvironment(env: SymbolTypeEnvironment[T])(sym: GlobalSymbol) =
+      env.typeVarValue(sym)
+  }
 }
