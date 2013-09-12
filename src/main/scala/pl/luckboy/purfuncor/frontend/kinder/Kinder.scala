@@ -195,7 +195,7 @@ object Kinder
       tree3 <- transform(tree2)(kindTable)(g)
     } yield tree3
   
-  def transformTypeTermStringWithKindInference[T, U, V, W, E](s: String)(nameTree: resolver.NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) =
+  def transformTypeTermStringWithKindInference[T, U, V, W, E](s: String)(nameTree: resolver.NameTree, env: E)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]]])(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) =
     for {
       term <- resolver.Resolver.transformTypeTermString(s)(resolver.Scope.fromNameTree(nameTree))
       term2 <- f(term)
