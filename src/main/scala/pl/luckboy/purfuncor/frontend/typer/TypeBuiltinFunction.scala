@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor.typer
+package pl.luckboy.purfuncor.frontend.typer
 
 object TypeBuiltinFunction extends Enumeration
 {

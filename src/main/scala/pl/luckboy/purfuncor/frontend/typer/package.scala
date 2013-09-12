@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor
+package pl.luckboy.purfuncor.frontend
 import scala.annotation.tailrec
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition

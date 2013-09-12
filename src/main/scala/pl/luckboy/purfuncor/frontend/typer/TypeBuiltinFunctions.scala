@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor.typer
+package pl.luckboy.purfuncor.frontend.typer
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
