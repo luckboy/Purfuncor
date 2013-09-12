@@ -937,6 +937,36 @@ g (x: \t => tuple 2 t (t #Int)) = x
           }
       }
     }
+    
+    it should "transform the string of the type term with the kind inference and the global type variables" in {
+      val res = Kinder.transformString("type T = #Int; type U = #NonZero")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(_, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeTreeInfo = typeTree.treeInfo
+          val env = g(typeTree.treeInfo.kindTable)
+          val nameTree = NameTree.empty |+| NameTree.fromTypeGlobalSymbols(Seq(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U"))))
+          val res2 = Kinder.transformTypeTermStringWithKindInference("##& T U")(nameTree, env)(h)
+          inside(res2) {
+            case Success((typeTerm, kind)) =>
+              inside(typeTerm) {
+                case App(fun, args, _) =>
+                  inside(fun) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                  inside(args) {
+                    case NonEmptyList(arg1, arg2) =>
+                      inside(arg1) { 
+                        case Simple(TypeVar(loc1), _) =>
+                          some(loc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                      }
+                      inside(arg2) { 
+                        case Simple(TypeVar(loc2), _) =>
+                          some(loc2) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                      }
+                  }
+              }
+          }
+      }
+    }
   }
   
   "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(lmbdindexer.LambdaIndexer.transform(_))(SymbolKindInferenceEnvironment.fromInferredKindTable)(lmbdindexer.LambdaIndexer.transformTypeTerm(_))
