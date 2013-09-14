@@ -78,5 +78,13 @@ object Interpreter
   }
   
   def interpretTermString[T, U, W, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U, W]]])(implicit eval: Evaluator[SimpleTerm[T, U, W], E, Value[T, U, W, C]], envSt: EnvironmentState[E]) =
-    State(interpretTermStringS[T, U, W, C, E](s)(f))  
+    State(interpretTermStringS[T, U, W, C, E](s)(f))
+    
+  val statefullyTransformToSymbolTree = {
+    (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
+      State((env: SymbolEnvironment[parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]) =>
+        (env.copy(typeCombSyms = tree.treeInfo.typeTree.combs.keySet), tree.successNel[AbstractError]))
+  }
+  
+  val transformToSymbolTerm = (_: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]]).successNel[AbstractError]
 }
