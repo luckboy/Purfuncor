@@ -66,7 +66,15 @@ case class SymbolTypeEnvironment[T](
     val (newEnv, value) = f(withCurrentFile(file))
     (newEnv.withCurrentFile(oldFile), value)
   }
-    
+}
+
+object SymbolTypeEnvironment
+{
+  def empty[T] = SymbolTypeEnvironment[T](
+      globalTypeVarValues = Map(),
+      typeClosureStack = Nil,
+      typeParamCount = 0,
+      currentFile = none)
 }
     
 case class SymbolTypeClosure[T](

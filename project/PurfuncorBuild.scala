@@ -28,7 +28,9 @@ object PurfuncorBuild extends Build {
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.lmbdindexer.LambdaIndexer;",
-      initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.TypeLambdaInfo"      
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.TypeLambdaInfo;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.Typer;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment"
     )
   )
 }

@@ -6,6 +6,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
+import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.NameTree
 import pl.luckboy.purfuncor.frontend.resolver.Scope
 import pl.luckboy.purfuncor.common.Tree
@@ -55,6 +56,35 @@ object Typer
       (env2, value.success)
     }).valueOr { errs => (env, errs.failure) }
   
-  def interpretTypeTermStrong[T, U, V, C, E](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, U]]])(implicit eval: Evaluator[TypeSimpleTerm[T, U], E, TypeValue[V, T, U, C]]) =
+  def interpretTypeTermString[T, U, V, C, E](s: String)(nameTree: NameTree)(f: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[T, U]]])(implicit eval: Evaluator[TypeSimpleTerm[T, U], E, TypeValue[V, T, U, C]]) =
     State(interpretTypeTermStringS[T, U, V, C, E](s)(nameTree)(f))
+    
+  val statefullyTransformToSymbolTree = {
+    (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
+      State((e: SymbolTypeEnvironment[parser.TypeLambdaInfo]) => (e, tree.successNel[AbstractError]))
+  }
+  
+  def statefullyTransformToSymbolTree2(kindTable: kinder.InferredKindTable[GlobalSymbol]) = {
+    (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
+      State({
+        (e: SymbolTypeEnvironment[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]) =>
+        val tree4 = (for {
+          tree2 <- lmbdindexer.LambdaIndexer.transform(tree)
+          tree3 <- kinder.Kinder.transform(tree2)(kindTable) { (kt: kinder.InferredKindTable[GlobalSymbol]) => kinder.SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kt) }
+        } yield (tree3))
+        (e, tree4)
+      })
+  }
+  
+  val transformToSymbolTypeTerm = {
+    (term: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]) => term.successNel[AbstractError]
+  }
+  
+  def transformToSymbolTypeTerm2(kindTable: kinder.InferredKindTable[GlobalSymbol]) = {
+    (term: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]) =>
+      (for {
+        term2 <- lmbdindexer.LambdaIndexer.transformTypeTerm(term)
+        term3 <- kinder.Kinder.transformTypeTermWithKindInference(term2)(kinder.SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kindTable))
+      } yield term3).map { _._1 }
+  }
 }
