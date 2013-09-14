@@ -201,4 +201,13 @@ object Kinder
       term2 <- f(term)
       term3 <- transformTypeTermWithKindInference(term2)(env)
     } yield term3
+    
+  val transformToSymbolTree = {
+    (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
+      lmbdindexer.LambdaIndexer.transform(tree)
+  }
+  
+  val transformToSymbolTypeTerm = {
+    (term: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]) => lmbdindexer.LambdaIndexer.transformTypeTerm(term)
+  }
 }

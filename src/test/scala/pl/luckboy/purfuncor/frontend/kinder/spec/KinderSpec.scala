@@ -969,5 +969,5 @@ g (x: \t => tuple 2 t (t #Int)) = x
     }
   }
   
-  "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(lmbdindexer.LambdaIndexer.transform(_))(SymbolKindInferenceEnvironment.fromInferredKindTable)(lmbdindexer.LambdaIndexer.transformTypeTerm(_))
+  "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(Kinder.transformToSymbolTree)(SymbolKindInferenceEnvironment.fromInferredKindTable)(Kinder.transformToSymbolTypeTerm)
 }
