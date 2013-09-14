@@ -57,6 +57,20 @@ type V = ##-> #Byte U
                   BuiltinType(TypeBuiltinFunction.Zero, Seq()))))))
       }
     }
+    
+    it should "initialize all independent type variables" is (pending)
+    
+    it should "initialize all dependent type variables" is (pending)
+
+    it should "interpret the type applications of the type lambda-expressions" is (pending)
+    
+    it should "interpret the partial type applications" is (pending)
+    
+    it should "interpret the type term with the covered local type variables" is (pending)    
+    
+    it should "interpret the type term with the global type variables" is (pending)
+
+    it should "interpret the type term for the type parameters" is (pending)    
   }
 
   "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]])(Typer.statefullyTransformToSymbolTree2(InferredKindTable.empty))(Typer.transformToSymbolTypeTerm2(InferredKindTable.empty))
