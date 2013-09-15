@@ -72,7 +72,7 @@ object SymbolTypeEnvironment
 {
   def empty[T] = SymbolTypeEnvironment[T](
       globalTypeVarValues = Map(),
-      typeClosureStack = Nil,
+      typeClosureStack = List(SymbolTypeClosure(Map())),
       typeParamCount = 0,
       currentFile = none)
 }

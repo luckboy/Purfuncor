@@ -7,7 +7,7 @@ sealed trait AbstractTypeCombinator[+T, +U]
 {
   def argCount =
     this match {
-      case TypeCombinator(args, _, _, _, _) => args.size
+      case TypeCombinator(_, args, _, _, _) => args.size
       case UnittypeCombinator(n, _, _)      => n
     }
   
