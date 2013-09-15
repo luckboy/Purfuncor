@@ -26,7 +26,7 @@ case class SymbolEnvironment[T, U](
     }
   
   def pushLocalVars(values: Map[LocalSymbol, Value[Symbol, T, U, SymbolClosure[T, U]]]): SymbolEnvironment[T, U] =
-    copy(closureStack = closureStack.headOption.map { closure => SymbolClosure(closure.localVarValues |+| values.mapValues { NonEmptyList(_) }) :: closureStack.tail }.getOrElse(Nil))
+    copy(closureStack = closureStack.headOption.map { closure => SymbolClosure(values.mapValues { NonEmptyList(_) } |+| closure.localVarValues) :: closureStack.tail }.getOrElse(Nil))
     
   def popLocalVars(syms: Set[LocalSymbol]): SymbolEnvironment[T, U] =
     copy(closureStack = closureStack.headOption.map { closure => SymbolClosure(closure.localVarValues.flatMap { case (s, vs) => if(syms.contains(s)) vs.tail.toNel.map { (s, _) } else some(s, vs) }.toMap) :: closureStack.tail }.getOrElse(Nil))
