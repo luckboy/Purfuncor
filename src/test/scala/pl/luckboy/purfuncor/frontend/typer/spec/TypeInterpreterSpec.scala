@@ -11,13 +11,14 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.NameTree
+import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def typer[T, U, V, W, X, Y, Z, TT, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]])
+  def typer[T, U, V, W, X, Y, Z, TT, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
   {
     it should "interpret the string of the type term" in {
       val (env, res) = Typer.interpretTypeTermString("##| (##& #Int #NonZero) #Char")(NameTree.empty)(g).run(emptyEnv)
@@ -127,6 +128,22 @@ type Z = #Int
       }
     }
 
+    it should "initialize the recusive type combinator without the type arguments" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("type T = tuple 2 (##| T #Int) #Int")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("T")))) {
+            case Some(loc) =>
+              term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                  TypeDisjunction(Set[TypeValueTerm[Z]](
+                      GlobalTypeApp(loc, Seq(), GlobalSymbol(NonEmptyList("T"))),
+                      BuiltinType(TypeBuiltinFunction.Int, Seq()))),
+                  BuiltinType(TypeBuiltinFunction.Int, Seq()))))
+          }
+      }
+    }
+    
     it should "interpret the type applications of the type lambda-expressions" is (pending)
     
     it should "interpret the partial type applications" is (pending)

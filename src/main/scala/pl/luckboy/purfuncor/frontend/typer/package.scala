@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
@@ -159,5 +160,11 @@ package object typer
   implicit def symbolTypeEnvironmental[T] = new TypeEnvironmental[SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {
     override def globalTypeVarValueFromEnvironment(env: SymbolTypeEnvironment[T])(sym: GlobalSymbol) =
       env.typeVarValue(sym)
+  }
+  
+  implicit def symbolTypeEnvironmentGlobalSymbolTabular[T] = new GlobalSymbolTabular[SymbolTypeEnvironment[T], GlobalSymbol] {
+    override def getGlobalLocationFromTable(table: SymbolTypeEnvironment[T])(sym: GlobalSymbol) = some(sym)
+
+    override def getGlobalSymbolFromTable(table: SymbolTypeEnvironment[T])(sym: GlobalSymbol) = some(sym)
   }
 }
