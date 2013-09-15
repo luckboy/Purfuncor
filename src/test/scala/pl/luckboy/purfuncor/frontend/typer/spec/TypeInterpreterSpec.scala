@@ -226,8 +226,6 @@ type U t1 t2 = (\t3 t4 t2 t1 => (##| (##| t1 t2) (tuple 2 t3 t4))) t1 t2
       }
     }
     
-    it should "interpret the type term with the global type variables" is (pending)
-
     it should "interpret the type term for the type parameters" is (pending)    
   }
 
