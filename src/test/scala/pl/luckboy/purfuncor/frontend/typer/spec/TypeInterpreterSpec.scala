@@ -58,9 +58,74 @@ type V = ##-> #Byte U
       }
     }
     
-    it should "initialize all independent type variables" is (pending)
+    it should "initialize all independent type variables" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = #Int
+type U = ##& #Int #NonZero
+type V = #Char
+""")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(BuiltinType(TypeBuiltinFunction.Int, Seq()))
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(TypeConjunction(Set[TypeValueTerm[Z]](
+              BuiltinType(TypeBuiltinFunction.Int, Seq()),
+              BuiltinType(TypeBuiltinFunction.NonZero, Seq()))))
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("V")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(BuiltinType(TypeBuiltinFunction.Char, Seq()))
+      }
+    }
     
-    it should "initialize all dependent type variables" is (pending)
+    it should "initialize all dependent type variables" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = tuple 2 (U #Int) (X #Int #Char)
+type U t = ##& (V t) W
+type V t = t
+type W = #Zero
+type X t1 t2 = tuple 3 Z (Y t1) t2
+type Y t = ##& t #NonZero
+type Z = #Int
+""")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(TupleType(Seq(
+              TypeConjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.Zero, Seq[TypeValueTerm[Z]]()))),
+              TupleType(Seq(
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  TypeConjunction(Set[TypeValueTerm[Z]](
+                      BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                      BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
+                  BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))))))
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+        case TypeCombinatorValue(_, _, _) => ()
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("V")))) {
+        case TypeCombinatorValue(_, _, _) => ()
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("W")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(BuiltinType(TypeBuiltinFunction.Zero, Seq[TypeValueTerm[Z]]()))
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("X")))) {
+        case TypeCombinatorValue(_, _, _) => ()
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("Y")))) {
+        case TypeCombinatorValue(_, _, _) => ()
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("Z")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))
+      }
+    }
 
     it should "interpret the type applications of the type lambda-expressions" is (pending)
     
