@@ -12,7 +12,8 @@ case class SymbolTypeEnvironment[T](
     globalTypeVarValues: Map[GlobalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]],
     typeClosureStack: List[SymbolTypeClosure[T]],
     typeParamCount: Int,
-    currentFile: Option[java.io.File])
+    currentFile: Option[java.io.File],
+    applyingCombSyms: Set[GlobalSymbol])
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -66,6 +67,15 @@ case class SymbolTypeEnvironment[T](
     val (newEnv, value) = f(withCurrentFile(file))
     (newEnv.withCurrentFile(oldFile), value)
   }
+  
+  def withApplyingCombSym(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingCombSyms = applyingCombSyms + sym)
+  
+  def withoutApplyingCombSym(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingCombSyms = applyingCombSyms - sym)
+  
+  def withCombSym(sym: GlobalSymbol)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+    val (newEnv, value) = f(withApplyingCombSym(sym))
+    (newEnv.withoutApplyingCombSym(sym), value)
+  }
 }
 
 object SymbolTypeEnvironment
@@ -74,7 +84,8 @@ object SymbolTypeEnvironment
       globalTypeVarValues = Map(),
       typeClosureStack = List(SymbolTypeClosure(Map())),
       typeParamCount = 0,
-      currentFile = none)
+      currentFile = none,
+      applyingCombSyms = Set())
 }
     
 case class SymbolTypeClosure[T](

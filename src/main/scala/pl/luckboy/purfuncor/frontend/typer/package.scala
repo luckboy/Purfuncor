@@ -26,7 +26,12 @@ package object typer
         case lambda: TypeLambda[Symbol, T] =>
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, env.currentFile))
         case TypeVar(loc)                  =>
-          (env, env.typeVarValue(loc))
+          loc match {
+            case globalSym: GlobalSymbol if env.applyingCombSyms.contains(globalSym) =>
+              (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
+            case _                                                                   =>
+              (env, env.typeVarValue(loc))
+          }
         case TypeLiteral(value)            =>
           TypeValue.fromTypeLiteralValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](value) match {
             case TypeBuiltinFunValue(_, f) if f.argCount === 0 => f.applyS(Nil)(env)
@@ -43,14 +48,16 @@ package object typer
     
     override def fullyAppS(funValue: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], argValues: Seq[TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]])(env: SymbolTypeEnvironment[T]): (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) =
       funValue match {
-        case TypeCombinatorValue(comb: TypeCombinator[Symbol, T], _, _) =>
+        case TypeCombinatorValue(comb: TypeCombinator[Symbol, T], loc, _) =>
           if(comb.args.size === argValues.size) {
             val localTypeVarValues = comb.args.zip(argValues).flatMap {
               case (TypeArg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                         => Nil
             }.toMap
-            val (env2, retValue) = env.withTypeClosure(SymbolTypeClosure(Map())) {
-              _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(comb.body)(newEnv) }
+            val (env2, retValue) = env.withCombSym(loc) {
+              _.withTypeClosure(SymbolTypeClosure(Map())) {
+                _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(comb.body)(newEnv) }
+              }
             }
             (env2, retValue.forFile(comb.file))
           } else
