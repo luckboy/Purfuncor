@@ -190,7 +190,24 @@ type T = tuple 2 ((\t1 t2 => ##& t1 t2) #Int #NonZero) ((\t1 => (\_ t2 => t2 t1)
       }
     }
     
-    it should "interpret the partial applications of the types" is (pending)
+    it should "interpret the partial applications of the types" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = (\t1 t2 => tuple 2 (t1 #NonZero) (t2 #Zero)) ((\t1 t2 => ##& t1 t2) #Int) (U #Int #Any)
+type U t1 t2 t3 = ##& (##& t1 t2) t3
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+              TypeConjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
+              TypeConjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.Any, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.Zero, Seq[TypeValueTerm[Z]]()))))))
+      }
+    }
     
     it should "interpret the type term with the covered local type variables" is (pending)    
     
