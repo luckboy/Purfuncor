@@ -173,7 +173,22 @@ type V t1 t2 = tuple 2 #Char (U t1 t2)
       }
     }
     
-    it should "interpret the applications of the type lambda-expressions" is (pending)
+    it should "interpret the applications of the type lambda-expressions" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = tuple 2 ((\t1 t2 => ##& t1 t2) #Int #NonZero) ((\t1 => (\_ t2 => t2 t1) #Any) #Char (\t1 => ##| t1 #Float))
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+              TypeConjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
+              TypeDisjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()),
+                  BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))))))
+      }
+    }
     
     it should "interpret the partial applications of the types" is (pending)
     
