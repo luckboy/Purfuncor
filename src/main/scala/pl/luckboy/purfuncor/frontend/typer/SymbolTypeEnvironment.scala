@@ -28,7 +28,7 @@ case class SymbolTypeEnvironment[T](
     }
   
   def pushLocalTypeVars(values: Map[LocalSymbol, TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]]): SymbolTypeEnvironment[T] =
-    copy(typeClosureStack = typeClosureStack.headOption.map { closure => SymbolTypeClosure(closure.localTypeVarValues |+| values.mapValues {  NonEmptyList(_) }.toMap) :: typeClosureStack }.getOrElse(Nil))
+    copy(typeClosureStack = typeClosureStack.headOption.map { closure => SymbolTypeClosure(values.mapValues {  NonEmptyList(_) }.toMap |+| closure.localTypeVarValues) :: typeClosureStack }.getOrElse(Nil))
     
   def popLocalTypeVars(syms: Set[LocalSymbol]): SymbolTypeEnvironment[T] =
     copy(typeClosureStack = typeClosureStack.headOption.map { closure => SymbolTypeClosure(closure.localTypeVarValues.flatMap { case (s, vs) => if(syms.contains(s)) vs.tail.toNel.map { (s, _) } else some(s, vs) }) :: typeClosureStack }.getOrElse(Nil))
