@@ -128,7 +128,7 @@ type Z = #Int
       }
     }
 
-    it should "initialize the recusive type combinator without the type arguments" in {
+    it should "initialize the recusive type" in {
       val (env, res) = Typer.interpretTypeTreeFromTreeString("type T = tuple 2 (##| T #Int) #Int")(NameTree.empty)(f).run(emptyEnv)
 	  res should be ===(().success.success)
       inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
@@ -143,10 +143,39 @@ type Z = #Int
           }
       }
     }
+
+    it should "interpret the application of the recusive type combinator" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = U #Int #Long
+type U t1 t2 = tuple 3 t1 (V t1 t2) (U t1 t2)
+type V t1 t2 = tuple 2 #Char (U t1 t2)
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
+            case Some(loc) =>
+              term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq()),
+                  TupleType(Seq[TypeValueTerm[Z]](
+                      BuiltinType(TypeBuiltinFunction.Char, Seq()),
+                      GlobalTypeApp(loc,
+                          Seq[TypeValueLambda[Z]](
+                              TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                              TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))),
+                          GlobalSymbol(NonEmptyList("U"))))),
+                  GlobalTypeApp(loc,
+                      Seq[TypeValueLambda[Z]](
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))),
+                      GlobalSymbol(NonEmptyList("U"))))))
+          }
+      }
+    }
     
-    it should "interpret the type applications of the type lambda-expressions" is (pending)
+    it should "interpret the applications of the type lambda-expressions" is (pending)
     
-    it should "interpret the partial type applications" is (pending)
+    it should "interpret the partial applications of the types" is (pending)
     
     it should "interpret the type term with the covered local type variables" is (pending)    
     
