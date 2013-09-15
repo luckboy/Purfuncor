@@ -127,14 +127,14 @@ g = let
     it should "interpret the term with the covered local variables" in {
       val (env, res) = Interpreter.interpretTermString("""
 let
-  a = 1
-  b = 2
+  a = 14
+  b = 11
 in
   #iMul (let
     a = 3
     b = 4
   in
-    #iAdd a b) (#iAdd a b)
+    #iAdd a b) (#iSub a b)
 """)(g).run(emptyEnv)
       res should be ===(IntValue(21).success)
     }
