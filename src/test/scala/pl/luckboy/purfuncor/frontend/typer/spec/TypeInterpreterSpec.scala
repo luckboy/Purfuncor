@@ -209,7 +209,20 @@ type U t1 t2 t3 = ##& (##& t1 t2) t3
       }
     }
     
-    it should "interpret the type term with the covered local type variables" is (pending)    
+    it should "interpret the type term with the covered local type variables" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = U #Byte #Short #Int #Long #Float
+type U t1 t2 = \t3 t2 t1 => ##| (##| t1 t2) t3
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          term should be ===(TypeDisjunction(Set[TypeValueTerm[Z]](
+              BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()),
+              BuiltinType(TypeBuiltinFunction.Long, Seq[TypeValueTerm[Z]]()),
+              BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))))
+      }
+    }
     
     it should "interpret the type term with the global type variables" is (pending)
 
