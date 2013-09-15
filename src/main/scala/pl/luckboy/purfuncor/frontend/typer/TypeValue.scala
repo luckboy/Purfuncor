@@ -55,7 +55,7 @@ sealed trait TypeValue[T, +U, +V, +W]
   
   def typeValueLambdaS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
-    this match {
+    evaluatedValue match {
       case EvaluatedTypeValue(term) =>
         (env, TypeValueLambda(Nil, term).success)
       case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _)) =>
