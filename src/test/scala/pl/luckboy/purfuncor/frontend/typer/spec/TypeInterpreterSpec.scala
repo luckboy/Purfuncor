@@ -18,8 +18,11 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def typer[T, U, V, W, X, Y, Z, TT, C, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
+  def typer[T, U, V, W, X, Y, Z, TT, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
   {
+    val f = f2(initData)
+    val g = g2(initData)
+    
     it should "interpret the string of the type term" in {
       val (env, res) = Typer.interpretTypeTermString("##| (##& #Int #NonZero) #Char")(NameTree.empty)(g).run(emptyEnv)
       inside(res) {
@@ -226,8 +229,43 @@ type U t1 t2 = (\t3 t4 t2 t1 => (##| (##| t1 t2) (tuple 2 t3 t4))) t1 t2
       }
     }
     
+    it should "interpret the type term with the global type variables" in {
+      val s = """
+type T = #Int
+type U t1 t2 = ##& t1 t2
+type V = #Float
+"""
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbols(Set(
+          GlobalSymbol(NonEmptyList("T")),
+          GlobalSymbol(NonEmptyList("U")),
+          GlobalSymbol(NonEmptyList("V"))))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val (env2, res3) = Typer.interpretTypeTermString("tuple 2 (U T #Char) V")(nameTree)(g2(data)).run(env)
+          inside(res3) {
+            case Success(EvaluatedTypeValue(term)) =>
+              term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                  TypeConjunction(Set[TypeValueTerm[Z]](
+                      BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                      BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))),
+                  BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))))
+          }
+      }
+    }
+    
     it should "interpret the type term for the type parameters" is (pending)    
   }
 
-  "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]])(Typer.statefullyTransformToSymbolTree2(InferredKindTable.empty))(Typer.transformToSymbolTypeTerm2(InferredKindTable.empty))
+  val makeInferredKindTable = {
+    (s: String) =>
+      resolver.Resolver.transformString(s)(NameTree.empty).flatMap {
+        res =>
+          val (_, res2) = Typer.statefullyTransformToSymbolTree2(InferredKindTable.empty)(res).run(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]])
+          res2.map { _.treeInfo.typeTree.treeInfo.kindTable }
+    }
+  }
+  
+  "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(Typer.statefullyTransformToSymbolTree2)(Typer.transformToSymbolTypeTerm2)
 }
