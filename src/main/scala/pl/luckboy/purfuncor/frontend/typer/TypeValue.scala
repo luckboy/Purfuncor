@@ -17,14 +17,14 @@ sealed trait TypeValue[T, +U, +V, +W]
 {
   def argCount: Int =
     this match {
-      case NoTypeValue(_, _)                        => 1
-      case EvaluatedTypeValue(_)                    => 1
-      case TupleTypeFunValue(n)                     => n
-      case TypeBuiltinFunValue(_, f)                => f.argCount
-      case TypeCombinatorValue(comb, _, _)          => comb.argCount
-      case TypeLambdaValue(lambda, _, _)            => lambda.args.size
-      case TypePartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
-      case TypeLazyValue(_, _, _)                   => 1
+      case NoTypeValue(_, _)                           => 1
+      case EvaluatedTypeValue(_)                       => 1
+      case TupleTypeFunValue(n)                        => n
+      case TypeBuiltinFunValue(_, f)                   => f.argCount
+      case TypeCombinatorValue(comb, _, _)             => comb.argCount
+      case TypeLambdaValue(lambda, _, _, _)            => lambda.args.size
+      case TypePartialAppValue(funValue, argValues, _) => funValue.argCount - argValues.size
+      case TypeLazyValue(_, _, _)                      => 1
     }
   
   def isNoTypeValue = this.isInstanceOf[NoTypeValue[T, U, V, W]]
@@ -58,7 +58,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     evaluatedValue match {
       case EvaluatedTypeValue(term) =>
         (env, TypeValueLambda(param1 until paramN, term).success)
-      case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _) | TypePartialAppValue(_, _)) =>
+      case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
             val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil)) }
@@ -75,15 +75,22 @@ sealed trait TypeValue[T, +U, +V, +W]
     typeValueLambdaWithParamsS[U2, V2, W2, E](paramCount, paramCount)(env2)
   }
   
+  def forCombLoc(loc: Option[T]): TypeValue[T, U, V, W] = 
+    this match {
+      case lambdaValue: TypeLambdaValue[T, U, V, W]         => lambdaValue.copy(combLoc = loc)
+      case partialAppValue: TypePartialAppValue[T, U, V, W] => partialAppValue.copy(combLoc = loc)
+      case _                                                => this
+    }
+  
   override def toString =
     this match {
-      case NoTypeValue(err, _)                      => "<no type value: " + err + ">"
-      case EvaluatedTypeValue(term)                 => term.toString
-      case TupleTypeFunValue(n)                     => "tuple " + n
-      case TypeBuiltinFunValue(f, _)                => "#" + f 
-      case TypeCombinatorValue(_, _, sym)           => sym.toString
-      case TypeLambdaValue(_, _, _)                 => "<type lambda value>"
-      case TypePartialAppValue(funValue, argValues) =>
+      case NoTypeValue(err, _)                         => "<no type value: " + err + ">"
+      case EvaluatedTypeValue(term)                    => term.toString
+      case TupleTypeFunValue(n)                        => "tuple " + n
+      case TypeBuiltinFunValue(f, _)                   => "#" + f 
+      case TypeCombinatorValue(_, _, sym)              => sym.toString
+      case TypeLambdaValue(_, _, _, _)                 => "<type lambda value>"
+      case TypePartialAppValue(funValue, argValues, _) =>
         (List(funValue) ++ argValues).map {
           value =>
             value match {
@@ -91,7 +98,7 @@ sealed trait TypeValue[T, +U, +V, +W]
               case _                                  => value.toString
             }
         }.mkString(" ")
-      case TypeLazyValue(_, _, _)                   => "<type lazy value>"
+      case TypeLazyValue(_, _, _)                      => "<type lazy value>"
     }
 }
 
@@ -139,8 +146,8 @@ object TypeBuiltinFunValue
 }
 
 case class TypeCombinatorValue[T, +U, +V, +W](comb: AbstractTypeCombinator[U, V], loc: T, sym: GlobalSymbol) extends TypeValue[T, U, V, W]
-case class TypeLambdaValue[T, +U, +V, +W](lambda: TypeLambda[U, V], closure: W, file: Option[java.io.File]) extends TypeValue[T, U, V, W]
-case class TypePartialAppValue[T, +U, +V, +W](funValue: TypeValue[T, U, V, W], args: Seq[TypeValue[T, U, V, W]]) extends TypeValue[T, U, V, W]
+case class TypeLambdaValue[T, +U, +V, +W](lambda: TypeLambda[U, V], closure: W, combLoc: Option[T], file: Option[java.io.File]) extends TypeValue[T, U, V, W]
+case class TypePartialAppValue[T, +U, +V, +W](funValue: TypeValue[T, U, V, W], args: Seq[TypeValue[T, U, V, W]], combLoc: Option[T]) extends TypeValue[T, U, V, W]
 case class TypeLazyValue[T, +U, +V, +W](term: Term[TypeSimpleTerm[U, V]], closure: W, file: Option[java.io.File]) extends TypeValue[T, U, V, W]
 
 sealed trait TypeValueTerm[T]

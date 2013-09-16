@@ -76,6 +76,15 @@ case class SymbolTypeEnvironment[T](
     val (newEnv, value) = f(withApplyingCombSym(sym))
     (newEnv.withoutApplyingCombSym(sym), value)
   }
+
+  def withApplyingCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingCombSyms = applyingCombSyms | syms)
+  
+  def withoutApplyingCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingCombSyms = applyingCombSyms -- syms)
+
+  def withCombSyms(syms: Set[GlobalSymbol])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+    val (newEnv, value) = f(withApplyingCombSyms(syms))
+    (newEnv.withoutApplyingCombSyms(syms), value)
+  }
 }
 
 object SymbolTypeEnvironment

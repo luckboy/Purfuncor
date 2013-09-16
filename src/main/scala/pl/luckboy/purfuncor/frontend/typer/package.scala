@@ -26,7 +26,7 @@ package object typer
     override def evaluateSimpleTermS(simpleTerm: TypeSimpleTerm[Symbol, T])(env: SymbolTypeEnvironment[T]) =
       simpleTerm match {
         case lambda: TypeLambda[Symbol, T] =>
-          (env, TypeLambdaValue(lambda, env.currentTypeClosure, env.currentFile))
+          (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
             case globalSym: GlobalSymbol if env.applyingCombSyms.contains(globalSym) =>
@@ -66,21 +66,23 @@ package object typer
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case TypeCombinatorValue(comb: UnittypeCombinator[Symbol, T], loc, sym) =>
           TypeValue.fullyAppForUnittypeCombinatorS(comb, loc, sym, argValues)(env)
-        case TypeLambdaValue(lambda, closure, file) =>
+        case TypeLambdaValue(lambda, closure, combLoc, file) =>
           if(lambda.args.size === argValues.size) {
             val localTypeVarValues = lambda.args.list.zip(argValues).flatMap {
               case (TypeArg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                         => Nil
             }.toMap
-            val (env2, retValue) = env.withTypeClosure(closure) {
-              _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(lambda.body)(newEnv) }
+            val (env2, retValue) = env.withCombSyms(combLoc.toSet) {
+              _.withTypeClosure(closure) {
+                _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(lambda.body)(newEnv) }
+              }
             }
             (env2, retValue.forFile(file))
           } else
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
-        case TypePartialAppValue(funValue2, argValues2) =>
+        case TypePartialAppValue(funValue2, argValues2, combLoc) =>
           if(funValue2.argCount - argValues2.size === argValues.size)
-            fullyAppS(funValue2, argValues2 ++ argValues)(env)
+            env.withCombSyms(combLoc.toSet)(fullyAppS(funValue2, argValues2 ++ argValues))
           else
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case tupleTypeFunValue @ TupleTypeFunValue(_) =>
@@ -107,7 +109,7 @@ package object typer
       }
       
     override def partiallyAppS(funValue: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], argValues: Seq[TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]])(env: SymbolTypeEnvironment[T]) =
-      (env, TypePartialAppValue(funValue, argValues))
+      (env, TypePartialAppValue(funValue, argValues, none))
       
     override def isNoValue(value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) = value.isNoTypeValue
     
@@ -142,7 +144,7 @@ package object typer
         comb match {
           case TypeCombinator(_, _, body, _, file) =>
             val (newEnv, value) = env.withFile(file) { evaluateS(body)(_) }
-            (newEnv, value.forFile(file))
+            (newEnv, value.forFile(file).forCombLoc(some(loc)))
           case UnittypeCombinator(_, _, _)         =>
             (env, EvaluatedTypeValue(Unittype(loc, Nil, loc)))
         }
