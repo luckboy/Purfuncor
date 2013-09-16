@@ -13,12 +13,13 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.NameTree
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
+import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def typer[T, U, V, W, X, Y, Z, TT, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
+  def typer[T, U, V, W, X, Y, Z, TT, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], envSt: TypeEnvironmentState[E], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
   {
     val f = f2(initData)
     val g = g2(initData)
@@ -255,7 +256,39 @@ type V = #Float
       }
     }
     
-    it should "interpret the type term for the type parameters" is (pending)    
+    it should "interpret the type term for the type parameters" in {
+      val s = "type T t1 t2 = tuple 2 (t1 t2) #Int"
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T")))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val (env2, res3) = Typer.interpretTypeTermString("""
+\t1 t2 => tuple 2 t1 (T t2 (\t3 t4 => ##& (##& t1 t3) t4))
+""")(nameTree)(g2(data)).run(env)
+          inside(res3) {
+            case Success(funValue) =>
+              val (env3, res4) = envSt.withTypeParamsS(2) {
+                case (_, _, newEnv2) =>
+                  app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(
+                      EvaluatedTypeValue(TypeParamApp(0, Nil)),
+                      EvaluatedTypeValue(TypeParamApp(1, Nil)))).run(newEnv2)
+              } (env2)
+              inside(res4) {
+                case EvaluatedTypeValue(term) =>
+                  term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                      TypeParamApp(0, Seq[TypeValueLambda[Z]]()),
+                      TupleType(Seq[TypeValueTerm[Z]](
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]](
+                              TypeValueLambda(Seq(2, 3), TypeConjunction(Set[TypeValueTerm[Z]](
+                                  TypeParamApp(0, Seq[TypeValueLambda[Z]]()),
+                                  TypeParamApp(2, Seq[TypeValueLambda[Z]]()),
+                                  TypeParamApp(3, Seq[TypeValueLambda[Z]]())))))),
+                          BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))))))
+              }
+          }
+      }      
+    }
   }
 
   val makeInferredKindTable = {
