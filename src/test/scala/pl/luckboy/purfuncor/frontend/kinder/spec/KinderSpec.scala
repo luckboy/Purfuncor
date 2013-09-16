@@ -19,8 +19,11 @@ import pl.luckboy.purfuncor.common.Arrow
 
 class KinderSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[TT] => E)(h: Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]]])(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
+  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[TT] => E)(h2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]]])(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
   {
+    val f = f2(initData)
+    val h = h2(initData)
+    
     it should "infer the kinds from the string" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
 type T t = t
@@ -969,5 +972,5 @@ g (x: \t => tuple 2 t (t #Int)) = x
     }
   }
   
-  "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(Kinder.transformToSymbolTree)(SymbolKindInferenceEnvironment.fromInferredKindTable)(Kinder.transformToSymbolTypeTerm)
+  "A Kinder" should behave like kinder(SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo], ())(_ => ().successNel)(_ => Kinder.transformToSymbolTree)(SymbolKindInferenceEnvironment.fromInferredKindTable)(_ => Kinder.transformToSymbolTypeTerm)
 }
