@@ -197,7 +197,7 @@ sealed trait TypeValueTerm[T]
         }
       case Unittype(_, args, sym)      => sym.toString + args.map { " " + _.toArgString }.mkString("")
       case GlobalTypeApp(_, args, sym) => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case TypeParamApp(param, args)   => "t" + param + args.map { " " + _.toArgString }.mkString("")
+      case TypeParamApp(param, args)   => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
       case TypeConjunction(terms)      => 
         if(!terms.isEmpty)
           terms.map {
