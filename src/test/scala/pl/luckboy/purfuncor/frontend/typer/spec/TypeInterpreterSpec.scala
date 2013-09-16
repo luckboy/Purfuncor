@@ -325,6 +325,26 @@ type U = (\t1 t2 => ##-> t1 t2) #Int
           }
       }
     }
+    
+    it should "initialize the recusive type that is the type function" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = U #Int
+type U = \t => ##| #Int (U t)
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
+            case Some(loc) =>
+              term should be ===(TypeDisjunction(Set[TypeValueTerm[Z]](
+                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                  GlobalTypeApp(loc,
+                      Seq[TypeValueLambda[Z]](
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))),
+                      GlobalSymbol(NonEmptyList("U"))))))
+          }
+      }
+    }
   }
 
   val makeInferredKindTable = {
