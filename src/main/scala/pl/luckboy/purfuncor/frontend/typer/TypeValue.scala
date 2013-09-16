@@ -172,12 +172,44 @@ sealed trait TypeValueTerm[T]
     this match {
       case TupleType(Seq(arg))         => "tuple 1 " + arg.toArgString
       case TupleType(args)             => "(" + args.mkString(", ") + ")"
-      case BuiltinType(bf, args)       => "#" + bf + args.map { " " + _.toArgString }.mkString("")
+      case BuiltinType(bf, args)       => 
+        bf match {
+          case TypeBuiltinFunction.Fun => 
+            args.headOption.map { 
+              arg =>
+                val s = arg match {
+                  case TypeConjunction(_) | TypeDisjunction(_)                       => "(" + arg + ")"
+                  case BuiltinType(TypeBuiltinFunction.Fun, args2) if args.size >= 1 => "(" + arg + ")"
+                  case _                                                             => arg.toString 
+                }
+                s + " #" + bf + args.tail.map { 
+                  arg2 =>
+                    val s2 = arg2 match {
+                      case TypeConjunction(_) | TypeDisjunction(_) => "(" + arg2 + ")"
+                      case _                                       => arg2.toString
+                    }
+                    " " + s2 
+                }.mkString("")
+            }.getOrElse { "##" + bf }
+          case _                       =>
+            (if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf) +
+            args.map { " " + _.toArgString }.mkString("")
+        }
       case Unittype(_, args, sym)      => sym.toString + args.map { " " + _.toArgString }.mkString("")
       case GlobalTypeApp(_, args, sym) => sym.toString + args.map { " " + _.toArgString }.mkString("")
       case TypeParamApp(param, args)   => "t" + param + args.map { " " + _.toArgString }.mkString("")
-      case TypeConjunction(terms)      => if(!terms.isEmpty) terms.mkString("#&") else "<type conjunction without terms>"
-      case TypeDisjunction(terms)      => if(!terms.isEmpty) terms.mkString("#|") else "<type disjunction without terms>"
+      case TypeConjunction(terms)      => 
+        if(!terms.isEmpty)
+          terms.map {
+            term =>
+              term match {
+                case TypeDisjunction(_) => "(" + term.toArgString + ")"
+                case _                  => term.toArgString
+              }
+          }.mkString(" #& ")
+        else
+          "<type conjunction without terms>"
+      case TypeDisjunction(terms)      => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #| ") else "<type disjunction without terms>"
     }
 }
 
