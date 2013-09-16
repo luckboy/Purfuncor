@@ -70,13 +70,18 @@ l x = #iAdd x 3
     }
     
     it should "interpret the term string with the global variables" in {
-      val (env, res) = Interpreter.interpretTreeString("""
+      val s = """
 f = 1
 g = 2
 h x = #iMul x 3 
-""")(f).run(emptyEnv)
-      val (env2, res2) = Interpreter.interpretTermString("#iAdd f (#iSub (h 10) g)")(g).run(env)
-      res2 should be ===(IntValue(29).success)
+"""
+      val (env, res) = Interpreter.interpretTreeString(s)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      inside(res2) {
+        case Success(data) =>
+          val (env2, res3) = Interpreter.interpretTermString("#iAdd f (#iSub (h 10) g)")(g2(data)).run(env)
+          res3 should be ===(IntValue(29).success)
+      }
     }
     
     it should "interpret the let-expressions" in {
