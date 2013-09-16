@@ -289,6 +289,42 @@ type V = #Float
           }
       }      
     }
+    
+    it should "interpret the type term for the type value lambda" in {
+      val s = """
+type T t1 t2 = ##| t1 t2
+type U = (\t1 t2 => ##-> t1 t2) #Int
+"""
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbols(Set(
+          GlobalSymbol(NonEmptyList("T")),
+          GlobalSymbol(NonEmptyList("U"))))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val (env2, res3) = Typer.interpretTypeTermString("\\t1 => t1 (\\t2 t3 => ##& t2 t3) T U")(nameTree)(g2(data)).run(env)
+          inside(res3) {
+            case Success(funValue) =>
+              val (env3, res4) = envSt.withTypeParamsS(1) {
+                case (_, _, newEnv2) =>
+                  app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(EvaluatedTypeValue(TypeParamApp(0, Nil)))).run(newEnv2)
+              } (env2)
+              inside(res4) {
+                case EvaluatedTypeValue(term) =>
+                  term should be ===(TypeParamApp(0, Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(1, 2), TypeConjunction(Set[TypeValueTerm[Z]](
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]]()),
+                          TypeParamApp(2, Seq[TypeValueLambda[Z]]())))),
+                      TypeValueLambda(Seq(1, 2), TypeDisjunction(Set[TypeValueTerm[Z]](
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]]()),
+                          TypeParamApp(2, Seq[TypeValueLambda[Z]]())))),
+                      TypeValueLambda(Seq(1), BuiltinType(TypeBuiltinFunction.Fun, Seq[TypeValueTerm[Z]](
+                          BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]]())))))))
+              }
+          }
+      }
+    }
   }
 
   val makeInferredKindTable = {
