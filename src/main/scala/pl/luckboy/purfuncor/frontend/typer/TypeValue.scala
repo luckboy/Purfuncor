@@ -58,7 +58,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     evaluatedValue match {
       case EvaluatedTypeValue(term) =>
         (env, TypeValueLambda(param1 until paramN, term).success)
-      case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _)) =>
+      case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _) | TypePartialAppValue(_, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
             val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil)) }
@@ -242,7 +242,7 @@ case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 {
   def toArgString = if(!argParams.isEmpty) "(" + this + ")" else body.toArgString
   
-  override def toString = if(!argParams.isEmpty) "\\" + argParams.map { "t" + _ }.mkString(" ") + " => " + body else body.toString
+  override def toString = if(!argParams.isEmpty) "\\" + argParams.map { p => "t" + (p + 1) }.mkString(" ") + " => " + body else body.toString
 }
 
 object TypeValueLambda
