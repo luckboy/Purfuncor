@@ -21,6 +21,8 @@ class InterpreterSpec extends FlatSpec with ShouldMatchers with Inside
 {
   def interpreter[T, U, V, W, X, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(g2: D => Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, V, W]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], eval: Evaluator[SimpleTerm[U, V, W], E, Value[U, V, W, C]], envSt: EnvironmentState[E], enval: Environmental[E, Value[U, V, W, C]])
   {
+    //TODO: add a test for the global variable contains the lambda-expression with the reference to itself
+    //TODO: add a test for the global variable contains the let-expression with the reference to itself
     val f = f2(initData)
     val g = g2(initData)
     
