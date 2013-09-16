@@ -916,6 +916,35 @@ g (x: \t => tuple 2 t (t #Int)) = x
           }
       }
     }
+
+    it should "transform the string with the unit type" in {
+      val res = Kinder.transformString("unittype 3 T")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          combs.keySet should be ('empty)
+          val typeCombSyms = Set(GlobalSymbol(NonEmptyList("T")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeCombs.get)) {
+            case Some(UnittypeCombinator(3, None, _)) => ()
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Arrow(Star(KindType, _), ret1, _))) => 
+              // * -> * -> * -> *
+              inside(ret1) {
+                case Arrow(Star(KindType, _), ret2, _) =>
+                  inside(ret2) {
+                    case Arrow(Star(KindType, _), Star(KindType, _), _) => ()
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform the string of the type term with the kind inference" in {
       val res = Kinder.transformTypeTermStringWithKindInference("(\\t u => ##& t u) #Int")(NameTree.empty, emptyEnv)(h)
