@@ -868,13 +868,15 @@ g (x: \t => tuple 2 t (t #Int)) = x
     }
     
     it should "transform the string with the type references of the other tree" in {
-      val res = Kinder.transformString("type T = #Int")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      val s = "type T = #Int"
+      val res = Kinder.transformString(s)(NameTree.empty, InferredKindTable.empty)(f)(g)
+      val res2 = makeData(s)
       val nameTree = NameTree.empty |+| NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T")))
-      inside(res) {
-        case Success(tree @ Tree(_, treeInfo)) =>
+      inside((res |@| res2) { (t, d) => (t, d) }) {
+        case Success((tree @ Tree(_, treeInfo), data)) =>
           val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
-          val res2 = Kinder.transformString("f (x: T) = x")(nameTree, typeTree.treeInfo.kindTable)(f)(g)
-          inside(res2) {
+          val res3 = Kinder.transformString("type U = T; f (x: T) = x")(nameTree, typeTree.treeInfo.kindTable)(f2(data))(g)
+          inside(res3) {
             case Success(Tree(combs2, treeInfo2)) =>
               val typeTree2 = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo2)
               val typeCombs2 = typeTree2.combs
@@ -883,8 +885,11 @@ g (x: \t => tuple 2 t (t #Int)) = x
               val combLocs2 = combSyms2.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo2))
               combLocs2 should have size(combSyms2.size)
               combs2.keySet should be ===(combLocs2)
-              typeCombs2.keySet should be ('empty)
-              typeTreeInfo2.kindTable.kinds.keySet should be ('empty)
+              val typeCombSyms2 = Set(GlobalSymbol(NonEmptyList("U")))
+              val typeCombLocs2 = typeCombSyms2.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo))
+              typeCombLocs2 should have size(typeCombSyms2.size)
+              typeCombs2.keySet should be ===(typeCombLocs2)
+              typeTreeInfo2.kindTable.kinds.keySet should be ===(typeCombLocs2)
               inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs2.get)) {
                 case Some(Combinator(None, args, body, lmbdindexer.LambdaInfo(lambdaInfo, _), _)) =>
                   inside(args) { 
@@ -894,6 +899,19 @@ g (x: \t => tuple 2 t (t #Int)) = x
                           some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
                       }
                   }
+              }
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeCombs2.get)) {
+                case Some(TypeCombinator(None, Nil, body, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+                  kindTable.kinds.keySet should be ('empty)
+                  inside(body) {
+                    case Simple(TypeVar(loc1), _) =>
+                      some(loc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                  }
+              }
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeTreeInfo2.kindTable.kinds.get)) {
+                case Some(InferredKind(Star(KindType, _))) =>
+                  // *
+                  ()
               }
           }
       }
@@ -942,15 +960,17 @@ g (x: \t => tuple 2 t (t #Int)) = x
     }
     
     it should "transform the string of the type term with the kind inference and the global type variables" in {
-      val res = Kinder.transformString("type T = #Int; type U = #NonZero")(NameTree.empty, InferredKindTable.empty)(f)(g)
-      inside(res) {
-        case Success(Tree(_, treeInfo)) =>
+      val s = "type T = #Int; type U = #NonZero"
+      val res = Kinder.transformString(s)(NameTree.empty, InferredKindTable.empty)(f)(g)
+      val res2 = makeData(s)
+      inside((res |@| res2) { (t, d) => (t, d) }) {
+        case Success((Tree(_, treeInfo), data)) =>
           val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
           val typeTreeInfo = typeTree.treeInfo
           val env = g(typeTree.treeInfo.kindTable)
           val nameTree = NameTree.empty |+| NameTree.fromTypeGlobalSymbols(Seq(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U"))))
-          val res2 = Kinder.transformTypeTermStringWithKindInference("##& T U")(nameTree, env)(h)
-          inside(res2) {
+          val res3 = Kinder.transformTypeTermStringWithKindInference("##& T U")(nameTree, env)(h2(data))
+          inside(res3) {
             case Success((typeTerm, kind)) =>
               inside(typeTerm) {
                 case App(fun, args, _) =>
