@@ -53,21 +53,26 @@ sealed trait TypeValue[T, +U, +V, +W]
     (env2, term)
   }
   
-  def typeValueLambdaS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
+  def typeValueLambdaWithParamsS[U2 >: U, V2 >: V, W2 >: W, E](param1: Int, paramN: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
     evaluatedValue match {
       case EvaluatedTypeValue(term) =>
-        (env, TypeValueLambda(Nil, term).success)
+        (env, TypeValueLambda(param1 until paramN, term).success)
       case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
-          (param1, paramN, newEnv) =>
-            val paramValues = (param1 until paramN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil)) }
+          (newParam1, newParamN, newEnv) =>
+            val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil)) }
             val (newEnv2, retValue) = appS(funValue, paramValues)(newEnv)
-            retValue.typeValueLambdaS(newEnv2)
+            retValue.typeValueLambdaWithParamsS(param1, newParamN)(newEnv2)
         } (env)
       case _ =>
         (env, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
     }
+  }
+
+  def typeValueLambdaS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
+    val (env2, paramCount) = envSt.typeParamCountFromEnvironmentS(env)
+    typeValueLambdaWithParamsS[U2, V2, W2, E](paramCount, paramCount)(env2)
   }
   
   override def toString =

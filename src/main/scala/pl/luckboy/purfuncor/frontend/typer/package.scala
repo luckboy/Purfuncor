@@ -16,6 +16,8 @@ import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 package object typer
 {
   implicit def symbolTypeEnvironmentState[T] = new TypeEnvironmentState[SymbolTypeEnvironment[T]] {
+    override def typeParamCountFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.typeParamCount)
+    
     override def withTypeParamsS[U](paramCount: Int)(f: (Int, Int, SymbolTypeEnvironment[T]) => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
       env.withTypeParams(paramCount)(f)
   }
