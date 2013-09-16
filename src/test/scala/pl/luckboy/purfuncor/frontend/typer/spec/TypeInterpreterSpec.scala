@@ -345,6 +345,29 @@ type U = \t => ##| #Int (U t)
           }
       }
     }
+
+    it should "interpret the type tree with the unit type" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = U #Int #Long #Float
+unittype 3 U
+""")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
+            case Some(loc) =>
+              term should be ===(Unittype(loc,
+                  Seq[TypeValueTerm[Z]](
+                      BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                      BuiltinType(TypeBuiltinFunction.Long, Seq[TypeValueTerm[Z]]()),
+                      BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]())),
+                  GlobalSymbol(NonEmptyList("U"))))
+          }
+      }
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+	    case TypeCombinatorValue(_, _, _) => ()
+	  }
+    }
   }
 
   val makeInferredKindTable = {
