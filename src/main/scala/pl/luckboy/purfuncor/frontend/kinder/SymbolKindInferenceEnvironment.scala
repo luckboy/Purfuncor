@@ -47,11 +47,11 @@ case class SymbolKindInferenceEnvironment[T](
       case globalSym @ GlobalSymbol(_) =>
         globalTypeVarKinds.getOrElse(globalSym, NoKind.fromError(FatalError("undefined global type variable", none, NoPosition)))
       case localSym @ LocalSymbol(_)   =>
-        localTypeVarKinds.get(localSym).map { _ head}.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
+        localTypeVarKinds.get(localSym).map { _ head }.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
     }
   
-  def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = localTypeVarKinds |+| kinds.mapValues { NonEmptyList(_) })
-  
+  def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = kinds.mapValues { NonEmptyList(_) } |+| localTypeVarKinds)
+
   def popLocalTypeVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
 
   def currentLocalKindTable = localKindTables.getOrElse(currentTypeCombSym, Map()).getOrElse(currentTypeLambdaIdx, KindTable.empty[LocalSymbol])
@@ -61,8 +61,7 @@ case class SymbolKindInferenceEnvironment[T](
   def withLocalKindTables(kindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]) = copy(localKindTables = kindTables)
   
   def withLocalTypeVarKinds[U](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[U]]]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
-    val kinds = localTypeVarKinds.mapValues { _.head }
-    val (env2, res) = kindTerms.foldLeft((this, kinds.success[NoKind])) {
+    val (env2, res) = kindTerms.foldLeft((this, Map[LocalSymbol, Kind]().success[NoKind])) {
       case ((newEnv, Success(newKinds)), (sym, kt)) =>
         val kindTerm = kt.getOrElse(Star(KindParam(0), NoPosition))
         val (newEnv2, newRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)

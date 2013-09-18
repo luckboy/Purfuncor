@@ -203,26 +203,25 @@ type T t1 = \t2 t3 => \t4 => ##& t1 (##| t2 (t4 t3))
       }      
     }
     
-    it should "infer the kind from the string with the convered local type variables" in {
+    it should "infer the kind from the string with the covered local type variables" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
-type T t1 t2 = (\t3 t2 => t2 t3 t1) t2
+type T t1 (t2: *) = (\t3 t2 => t2 t3 t1) t2
 """)(NameTree.empty)(f).run(emptyEnv)
       res should be ===(().success.success)
       inside(enval.globalTypeVarKindFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
         case InferredKind(Arrow(Star(KindParam(param1), _), ret1, _)) =>
-          // k1 -> k2 -> (k2 -> k1 -> k3) -> k3
+          // k1 -> * -> (* -> k1 -> k2) -> k2
           inside(ret1) {
-            case Arrow(Star(KindParam(param2), _), ret2, _) =>
+            case Arrow(Star(KindType, _), ret2, _) =>
               inside(ret2) {
                 case Arrow(arg31, Star(KindParam(param3), _), _) =>
                   inside(arg31) {
-                    case Arrow(Star(KindParam(param31), _), ret31, _) =>
+                    case Arrow(Star(KindType, _), ret31, _) =>
                       inside(ret31) {
                         case Arrow(Star(KindParam(param32), _), Star(KindParam(param33), _), _) =>
                           List(param1, param32).toSet should have size(1)
-                          List(param2, param31).toSet should have size(1)
                           List(param33, param3).toSet should have size(1)
-                          List(param1, param2, param31, param32, param33, param3).toSet should have size(3)
+                          List(param1, param32, param33, param3).toSet should have size(2)
                       }
                   }
               }
