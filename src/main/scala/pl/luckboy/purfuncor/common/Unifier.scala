@@ -15,7 +15,7 @@ trait Unifier[E, T, F, P]
   
   def unionParamsS(param1: P, param2: P)(env: F): (F, Validation[E, Boolean])
   
-  def allocateParamS(env: F): (F, Validation[E, Int])
+  def allocateParamS(env: F): (F, Validation[E, P])
   
   def replaceTermParamsS(term: T)(f: (P, F) => (F, Validation[E, Either[P, T]]))(env: F): (F, Validation[E, T])
 
