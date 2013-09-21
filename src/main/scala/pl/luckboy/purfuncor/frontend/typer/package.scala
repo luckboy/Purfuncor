@@ -15,6 +15,10 @@ import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object typer
 {
+  //
+  // A type interpreter.
+  //
+  
   implicit def symbolTypeEnvironmentState[T] = new TypeEnvironmentState[SymbolTypeEnvironment[T]] {
     override def typeParamCountFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.typeParamCount)
     
@@ -177,5 +181,90 @@ package object typer
     override def getGlobalLocationFromTable(table: SymbolTypeEnvironment[T])(sym: GlobalSymbol) = some(sym)
 
     override def getGlobalSymbolFromTable(table: SymbolTypeEnvironment[T])(sym: GlobalSymbol) = some(sym)
+  }
+  
+  //
+  // A type inferrer.
+  //
+  
+  implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
+    override def matchesTermsS[V](term1: TypeValueTerm[GlobalSymbol], term2: TypeValueTerm[GlobalSymbol])(z: V)(f: (Int, Either[Int, TypeValueTerm[GlobalSymbol]], V, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
+      throw new UnsupportedOperationException
+    
+    override def getParamTermS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Option[TypeValueTerm[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
+    
+    override def findRootParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
+      throw new UnsupportedOperationException
+    
+    override def replaceParamS(param: Int, term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
+      throw new UnsupportedOperationException
+    
+    override def unionParamsS(param1: Int, param2: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Boolean]) =
+      throw new UnsupportedOperationException
+    
+    override def allocateParamS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
+      throw new UnsupportedOperationException
+    
+    override def replaceTermParamsS(term: TypeValueTerm[GlobalSymbol])(f: (Int, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Either[Int, TypeValueTerm[GlobalSymbol]]]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
+    
+    override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
+      throw new UnsupportedOperationException
+  }
+  
+  implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {
+    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def unifyInfosS(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def argInfosFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[Type[GlobalSymbol], Seq[Type[GlobalSymbol]]]) =
+      throw new UnsupportedOperationException
+    
+    override def returnInfoFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def isNoInfo(info: Type[GlobalSymbol]): Boolean =
+      throw new UnsupportedOperationException
+    
+    override def functionInfo(argCount: Int): Type[GlobalSymbol] =
+      throw new UnsupportedOperationException
+    
+    override def concatErrors(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol]): Type[GlobalSymbol] =
+      throw new UnsupportedOperationException
+    
+    override def unequalListLengthNoInfo: Type[GlobalSymbol] =
+      throw new UnsupportedOperationException
+    
+    override def withPos(res: (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]))(pos: Position): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+  }
+  
+  implicit def symbolCombinatorTypeInitializer[T, U]: Initializer[NoType[GlobalSymbol], GlobalSymbol, AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U]] = new Initializer[NoType[GlobalSymbol], GlobalSymbol, AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U]] {
+    override def globalVarsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Set[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]]): Set[GlobalSymbol] =
+      throw new UnsupportedOperationException
+    
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
+      throw new UnsupportedOperationException
+      
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
+      throw new UnsupportedOperationException
+    
+    override def checkEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
+      throw new UnsupportedOperationException
+    
+    override def undefinedGlobalVarError: NoType[GlobalSymbol] =
+      throw new UnsupportedOperationException
+    
+    override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
+      throw new UnsupportedOperationException
   }
 }
