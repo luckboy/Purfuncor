@@ -121,6 +121,9 @@ package object kinder
       val (env3, res2) = info2.instantiatedKindTermS(env2)
       (res1 |@| res2) { (kt1, kt2) => env3.withKindTermPair(some((kt1, kt2)))(unifyKindsS(info1, info2)) }.valueOr { (env3, _) }
     }
+    
+    override def unifyArgInfosS(funArgInfo: Kind, argInfo: Kind)(env: SymbolKindInferenceEnvironment[T]) =
+      unifyInfosS(funArgInfo, argInfo)(env)
       
     override def argInfosFromInfoS(info: Kind, argCount: Int)(env: SymbolKindInferenceEnvironment[T]) =
       argKindsFromKindS(info, argCount)(env)
