@@ -66,10 +66,10 @@ object Inferrer
     if(funArgInfos.size === argInfos.size)
       funArgInfos.zip(argInfos).foldLeft((env, Seq[I]().success[I])) {
         case ((newEnv, Success(unifiedInfos)), (funArgInfo, argInfo)) =>
-          val (newEnv2, unifiedInfo) = inferrer.unifyInfosS(funArgInfo, argInfo)(newEnv)
+          val (newEnv2, unifiedInfo) = inferrer.unifyArgInfosS(funArgInfo, argInfo)(newEnv)
           (newEnv2, if(!inferrer.isNoInfo(unifiedInfo)) (unifiedInfos :+ unifiedInfo).success else unifiedInfo.failure)
         case ((newEnv, Failure(noInfo)), (funArgInfo, argInfo))       =>
-          val (newEnv2, unifiedInfo) = inferrer.unifyInfosS(funArgInfo, argInfo)(newEnv)
+          val (newEnv2, unifiedInfo) = inferrer.unifyArgInfosS(funArgInfo, argInfo)(newEnv)
           (newEnv2, inferrer.concatErrors(noInfo, unifiedInfo).failure)
       }
     else
