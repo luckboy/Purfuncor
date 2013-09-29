@@ -271,19 +271,19 @@ type V = #Float
               val (env3, res4) = envSt.withTypeParamsS(2) {
                 case (_, _, newEnv2) =>
                   app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(
-                      EvaluatedTypeValue(TypeParamApp(0, Nil)),
-                      EvaluatedTypeValue(TypeParamApp(1, Nil)))).run(newEnv2)
+                      EvaluatedTypeValue(TypeParamApp(0, Nil, 0)),
+                      EvaluatedTypeValue(TypeParamApp(1, Nil, 0)))).run(newEnv2)
               } (env2)
               inside(res4) {
                 case EvaluatedTypeValue(term) =>
                   term should be ===(TupleType(Seq[TypeValueTerm[Z]](
-                      TypeParamApp(0, Seq[TypeValueLambda[Z]]()),
+                      TypeParamApp(0, Seq[TypeValueLambda[Z]](), 0),
                       TupleType(Seq[TypeValueTerm[Z]](
                           TypeParamApp(1, Seq[TypeValueLambda[Z]](
                               TypeValueLambda(Seq(2, 3), TypeConjunction(Set[TypeValueTerm[Z]](
-                                  TypeParamApp(0, Seq[TypeValueLambda[Z]]()),
-                                  TypeParamApp(2, Seq[TypeValueLambda[Z]]()),
-                                  TypeParamApp(3, Seq[TypeValueLambda[Z]]())))))),
+                                  TypeParamApp(0, Seq[TypeValueLambda[Z]](), 0),
+                                  TypeParamApp(2, Seq[TypeValueLambda[Z]](), 0),
+                                  TypeParamApp(3, Seq[TypeValueLambda[Z]](), 0))))), 0),
                           BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))))))
               }
           }
@@ -307,20 +307,20 @@ type U = (\t1 t2 => ##-> t1 t2) #Int
             case Success(funValue) =>
               val (env3, res4) = envSt.withTypeParamsS(1) {
                 case (_, _, newEnv2) =>
-                  app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(EvaluatedTypeValue(TypeParamApp(0, Nil)))).run(newEnv2)
+                  app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(EvaluatedTypeValue(TypeParamApp(0, Nil, 0)))).run(newEnv2)
               } (env2)
               inside(res4) {
                 case EvaluatedTypeValue(term) =>
                   term should be ===(TypeParamApp(0, Seq[TypeValueLambda[Z]](
                       TypeValueLambda(Seq(1, 2), TypeConjunction(Set[TypeValueTerm[Z]](
-                          TypeParamApp(1, Seq[TypeValueLambda[Z]]()),
-                          TypeParamApp(2, Seq[TypeValueLambda[Z]]())))),
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]](), 0),
+                          TypeParamApp(2, Seq[TypeValueLambda[Z]](), 0)))),
                       TypeValueLambda(Seq(1, 2), TypeDisjunction(Set[TypeValueTerm[Z]](
-                          TypeParamApp(1, Seq[TypeValueLambda[Z]]()),
-                          TypeParamApp(2, Seq[TypeValueLambda[Z]]())))),
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]](), 0),
+                          TypeParamApp(2, Seq[TypeValueLambda[Z]](), 0)))),
                       TypeValueLambda(Seq(1), BuiltinType(TypeBuiltinFunction.Fun, Seq[TypeValueTerm[Z]](
                           BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                          TypeParamApp(1, Seq[TypeValueLambda[Z]]())))))))
+                          TypeParamApp(1, Seq[TypeValueLambda[Z]](), 0))))), 0))
               }
           }
       }

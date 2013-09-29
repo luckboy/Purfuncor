@@ -61,7 +61,7 @@ sealed trait TypeValue[T, +U, +V, +W]
       case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
-            val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil)) }
+            val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil, 0)) }
             val (newEnv2, retValue) = appS(funValue, paramValues)(newEnv)
             retValue.typeValueLambdaWithParamsS(param1, newParamN)(newEnv2)
         } (env)
@@ -174,7 +174,7 @@ sealed trait TypeValueTerm[T]
       case BuiltinType(_, args) if !args.isEmpty      => "(" + this + ")"
       case Unittype(_, args, _) if !args.isEmpty      => "(" + this + ")"
       case GlobalTypeApp(_, args, _) if !args.isEmpty => "(" + this + ")"
-      case TypeParamApp(_, args) if !args.isEmpty     => "(" + this + ")"
+      case TypeParamApp(_, args, _) if !args.isEmpty  => "(" + this + ")"
       case TypeConjunction(terms) if terms.size >= 2  => "(" + this + ")"
       case TypeDisjunction(terms) if terms.size >= 2  => "(" + this + ")"
       case _                                          => toString
@@ -182,9 +182,9 @@ sealed trait TypeValueTerm[T]
   
   override def toString =
     this match {
-      case TupleType(Seq(arg))         => "tuple 1 " + arg.toArgString
-      case TupleType(args)             => "(" + args.mkString(", ") + ")"
-      case BuiltinType(bf, args)       => 
+      case TupleType(Seq(arg))          => "tuple 1 " + arg.toArgString
+      case TupleType(args)              => "(" + args.mkString(", ") + ")"
+      case BuiltinType(bf, args)        => 
         bf match {
           case TypeBuiltinFunction.Fun => 
             args.headOption.map { 
@@ -207,10 +207,10 @@ sealed trait TypeValueTerm[T]
             (if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf) +
             args.map { " " + _.toArgString }.mkString("")
         }
-      case Unittype(_, args, sym)      => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case GlobalTypeApp(_, args, sym) => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case TypeParamApp(param, args)   => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
-      case TypeConjunction(terms)      => 
+      case Unittype(_, args, sym)       => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case GlobalTypeApp(_, args, sym)  => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case TypeParamApp(param, args, _) => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
+      case TypeConjunction(terms)       => 
         if(!terms.isEmpty)
           terms.map {
             term =>
@@ -241,7 +241,7 @@ case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
 case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalSymbol) extends TypeValueTerm[T]
-case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]]) extends TypeValueTerm[T]
+case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeValueTerm[T]
 case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 

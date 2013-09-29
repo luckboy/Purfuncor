@@ -15,17 +15,13 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def unifyKindsS(kind1: Kind, kind2: Kind)(env: E): (E, Validation[NoType[L], Kind])
 
-  def returnKindFromKindS(kind: Kind, argCount: Int)(env: E): (E, Kind)
-  
   def returnKindFromEnvironmentS(env: E): (E, Kind)
   
   def setReturnKindS(kind: Kind)(env: E): (E, Unit)
   
-  def globalTypeVarKindFromEnvironmentS(loc: L)(env: E): (E, Kind)
-  
-  def paramKindFromEnvironmentS(param: Int)(env: E): (E, Kind)
-  
   def withRecursionCheckS[T, U](locs: Set[L])(f: E => (E, Validation[T, U]))(env: E): (E, Validation[T, U])
   
-  def addDelayedErrorParamsS(params: Map[Int, NoType[L]])(env: E): (E, Unit)
+  def addDelayedErrorsS(errs: Map[Int, NoType[L]])(env: E): (E, Unit)
+  
+  def allocateTypeParamAppIdx(env: E): (E, Validation[NoType[L], Int])
 }
