@@ -18,8 +18,10 @@ trait Unifier[E, T, F, P]
   def allocateParamS(env: F): (F, Validation[E, P])
   
   def replaceTermParamsS(term: T)(f: (P, F) => (F, Validation[E, Either[P, T]]))(env: F): (F, Validation[E, T])
-
+  
   def mismatchedTermErrorS(env: F): (F, E)
+  
+  def checkUnificationS(env: F): (F, Validation[E, Unit])
   
   def withSaveS[U, V](f: F => (F, Validation[U, V]))(env: F): (F, Validation[U, V])
 }
@@ -27,7 +29,15 @@ trait Unifier[E, T, F, P]
 object Unifier
 {
   def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]) =
-    unifier.withSaveS(fullyMatchesAndReplaceS[E, T, F, P](term1, term2))(env)
+    unifier.withSaveS {
+      env2 =>
+        val (env3, res) = fullyMatchesAndReplaceS[E, T, F, P](term1, term2)(env2)
+        res.map {
+          unifiedTerm =>
+            val (env4, res2) = unifier.checkUnificationS(env3)
+            res.map { _ => (env4, unifiedTerm.success) }.valueOr { err => (env4, err.failure) }
+        }.valueOr { err => (env3, err.failure) }
+    } (env)
     
   def unify[E, T, F, P](term1: T, term2: T)(implicit unifier: Unifier[E, T, F, P]) =
     State(unifyS[E, T, F, P](term1, term2))

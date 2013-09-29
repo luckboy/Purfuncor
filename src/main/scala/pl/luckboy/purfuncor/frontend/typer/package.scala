@@ -10,6 +10,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
+import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
@@ -187,6 +188,11 @@ package object typer
   // A type inferrer.
   //
   
+  implicit def noTypeSemigroup[T]: Semigroup[NoType[T]] = new Semigroup[NoType[T]] {
+    override def append(f1: NoType[T], f2: => NoType[T]): NoType[T] =
+      throw new UnsupportedOperationException
+  }
+  
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
     override def matchesTermsS[V](term1: TypeValueTerm[GlobalSymbol], term2: TypeValueTerm[GlobalSymbol])(z: V)(f: (Int, Either[Int, TypeValueTerm[GlobalSymbol]], V, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
       throw new UnsupportedOperationException
@@ -210,6 +216,9 @@ package object typer
       throw new UnsupportedOperationException
     
     override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
+      throw new UnsupportedOperationException
+    
+    override def checkUnificationS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
       throw new UnsupportedOperationException
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
@@ -269,5 +278,13 @@ package object typer
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
       throw new UnsupportedOperationException
+  }
+  
+  //
+  // A miscellaneous.
+  //
+  
+  implicit val typeBuiltinFunctionEqual: Equal[TypeBuiltinFunction.Value] = new Equal[TypeBuiltinFunction.Value] {
+    override def equal(a1: TypeBuiltinFunction.Value, a2: TypeBuiltinFunction.Value) = a1 == a2
   }
 }
