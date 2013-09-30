@@ -10,7 +10,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 
 object TypeValueTermUnifier
 {
-  def matchesTypeValueTermListsWithReturnKindS[T, U, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+  def matchesTypeValueTermListsWithReturnKindS[T, U, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) =
     if(terms1.size === terms2.size) {
       val (env2, res) = terms1.zip(terms2).foldLeft((env, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (term1, term2)) => 
@@ -29,9 +29,9 @@ object TypeValueTermUnifier
           res2.map { envSt.setReturnKindS(_)(env3).mapElements(identity, _ => x.success) }
       }.valueOr { nt => (env2, nt.failure) }
     } else
-      (env, NoType.fromError(FatalError("unequal list lengths", none, NoPosition)).failure)
+      (env, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
   
-  def matchesTypeValueLambdaListsWithReturnKindS[T, U, E](lambdas1: Seq[TypeValueLambda[T]], lambdas2: Seq[TypeValueLambda[T]], funKind: Kind)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+  def matchesTypeValueLambdaListsWithReturnKindS[T, U, E](lambdas1: Seq[TypeValueLambda[T]], lambdas2: Seq[TypeValueLambda[T]], funKind: Kind)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) =
     if(lambdas1.size === lambdas2.size) {
       val (env2, res) = lambdas1.zip(lambdas2).foldLeft((env, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (lambda1, lambda2)) => 
@@ -50,7 +50,7 @@ object TypeValueTermUnifier
           res2.map { envSt.setReturnKindS(_)(env3).mapElements(identity, _ => x.success) }
       }.valueOr { nt => (env2, nt.failure) }
     } else
-      (env, NoType.fromError(FatalError("unequal list lengths", none, NoPosition)).failure)
+      (env, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
   
   def matchesTypeValueLambdasS[T, U, E](lambda1: TypeValueLambda[T], lambda2: TypeValueLambda[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     throw new UnsupportedOperationException
@@ -92,35 +92,27 @@ object TypeValueTermUnifier
               case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 =>
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env3)
               case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
-                val (env6, res2) = if(loc1 === loc2) {
+                val (env5, res) = if(loc1 === loc2) {
                   val (env4, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env3)
-                  val (env5, res) = unifier.withSaveS {
+                  unifier.withSaveS {
                     matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(_)
                   } (env4)
-                  res.map { x => (env5, x.success) }.valueOr { 
-                    nt => mismatchedTypeValueTermErrorWithReturnKindS(instantiatedTerm1, instantiatedTerm2)(env5).mapElements(identity, _ => nt.failure)
-                  }
                 } else
-                  mismatchedTypeValueTermErrorWithReturnKindS(instantiatedTerm1, instantiatedTerm2)(env3).mapElements(identity, _.failure)
-                res2 match {
+                  unifier.mismatchedTermErrorS(env3).mapElements(identity, _.failure)
+                res match {
                   case Success(x) =>
-                    (env6, x.success)
+                    (env5, x.success)
                   case Failure(_) =>
-                    envSt.returnKindFromEnvironmentS(env6) match {
-                      case (env7, noKind: NoKind) =>
-                        (env7, NoType.fromNoKind[T](noKind).failure)
-                      case (env7, _) =>
-                        envSt.appForGlobalTypeS(loc1, args1)(env7) match {
-                          case (env8, Success(evaluatedTerm1)) =>
-                            envSt.appForGlobalTypeS(loc2, args2)(env8) match {
-                              case (env9, Success(evaluatedTerm2)) =>
-                                envSt.withRecursionCheckS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env9)
-                              case (env9, Failure(noType))         =>
-                                (env9, noType.failure)
-                            }
-                          case (env8, Failure(noType))         =>
-                            (env8, noType.failure)
+                    envSt.appForGlobalTypeS(loc1, args1)(env5) match {
+                      case (env6, Success(evaluatedTerm1)) =>
+                        envSt.appForGlobalTypeS(loc2, args2)(env6) match {
+                          case (env7, Success(evaluatedTerm2)) =>
+                            envSt.withRecursionCheckS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env7)
+                          case (env7, Failure(noType))         =>
+                            (env7, noType.failure)
                         }
+                      case (env6, Failure(noType))         =>
+                        (env6, noType.failure)
                     }
                 }
               case (TypeParamApp(param1, Seq(), paramAppIdx1), TypeParamApp(param2, Seq(), paramAppIdx2)) =>
@@ -180,6 +172,20 @@ object TypeValueTermUnifier
               case (_, TypeParamApp(param2, args2, paramAppIdx2)) =>
                 val (env4, noType) = mismatchedTypeValueTermErrorWithReturnKindS(instantiatedTerm1, instantiatedTerm2)(env3)
                 addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx2))(z)(env4)
+              case (GlobalTypeApp(loc1, args1, _), _) =>
+                envSt.appForGlobalTypeS(loc1, args1)(env3) match {
+                  case (env4, Success(evaluatedTerm1)) =>
+                    envSt.withRecursionCheckS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, instantiatedTerm2)(z)(f))(env4)
+                  case (env4, Failure(noType))         =>
+                    (env4, noType.failure)
+                }
+              case (_, GlobalTypeApp(loc2, args2, _)) =>
+                envSt.appForGlobalTypeS(loc2, args2)(env3) match {
+                  case (env4, Success(evaluatedTerm2)) =>
+                    envSt.withRecursionCheckS(Set(loc2))(matchesTypeValueTermsS(instantiatedTerm1, evaluatedTerm2)(z)(f))(env4)
+                  case (env4, Failure(noType))         =>
+                    (env4, noType.failure)
+                }
               case (_, _) =>
                 unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
             }
