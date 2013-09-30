@@ -52,8 +52,85 @@ object TypeValueTermUnifier
     } else
       (env, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
   
+  private def typeValueLambdasFromTypeParamsS[T, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
+    params.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(lambdas)), param) =>
+        val (newEnv2, res) = envSt.allocateTypeParamAppIdx(newEnv)
+        res.map {
+          pai => (newEnv2, (lambdas :+ TypeValueLambda(Nil, TypeParamApp(param, Nil, pai))).success)
+        }.valueOr { nt => (newEnv2, nt.failure) }
+      case ((newEnv, Failure(noType)), _)      =>
+        (newEnv, noType.failure)
+    }
+      
   def matchesTypeValueLambdasS[T, U, E](lambda1: TypeValueLambda[T], lambda2: TypeValueLambda[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
-    throw new UnsupportedOperationException
+    (lambda1, lambda2) match {
+      case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, body2)) if argParams1.size === argParams2.size =>
+        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) }
+        envSt.withTypeLambdaArgsS(argParams)(matchesTypeValueTermsS(body1, body2)(z)(f))(env)
+      case (TypeValueLambda(argParams1, GlobalTypeApp(loc1, args1, sym1)), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
+        val otherArgParams = argParams2.drop(argParams1.size)
+        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
+        envSt.withTypeLambdaArgsS(argParams) {
+          env2 =>
+            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
+              case (env3, Success(otherArgs)) =>
+                val term1 = GlobalTypeApp(loc1, args1 ++ otherArgs, sym1)
+                envSt.inferTypeValueTermKindS(term1)(env3) match {
+                  case (env4, Success(_))      => matchesTypeValueTermsS(term1, body2)(z)(f)(env4)
+                  case (env4, Failure(noType)) => (env4, noType.failure)
+                }
+              case (env3, Failure(noType))    => (env3, noType.failure)
+            }
+        } (env)
+      case (TypeValueLambda(argParams1, TypeParamApp(param1, args1, paramAppIdx1)), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
+        val otherArgParams = argParams2.drop(argParams1.size)
+        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
+        envSt.withTypeLambdaArgsS(argParams) {
+          env2 =>
+            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
+              case (env3, Success(otherArgs)) => 
+              	val term1 = TypeParamApp(param1, args1 ++ otherArgs, paramAppIdx1)
+              	envSt.inferTypeValueTermKindS(term1)(env3) match {
+              	  case (env4, Success(_))      => matchesTypeValueTermsS(term1, body2)(z)(f)(env4)
+              	  case (env4, Failure(noType)) => (env4, noType.failure)
+              	}
+              case (env3, Failure(noType))    => (env3, noType.failure)
+            }
+        } (env)
+      case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, GlobalTypeApp(loc2, args2, sym2))) if argParams1.size > argParams2.size =>
+        val otherArgParams = argParams1.drop(argParams2.size)
+        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
+        envSt.withTypeLambdaArgsS(argParams) {
+          env2 =>
+            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
+              case (env3, Success(otherArgs)) =>
+                val term2 = GlobalTypeApp(loc2, args2 ++ otherArgs, sym2)
+                envSt.inferTypeValueTermKindS(term2)(env3) match {
+                  case (env4, Success(_))      => matchesTypeValueTermsS(body1, term2)(z)(f)(env4)
+                  case (env4, Failure(noType)) => (env4, noType.failure)
+                }
+              case (env3, Failure(noType))    => (env3, noType.failure)
+            }
+        } (env)
+      case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, TypeParamApp(loc2, args2, paramAppIdx2))) if argParams1.size > argParams2.size =>
+        val otherArgParams = argParams1.drop(argParams2.size)
+        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
+        envSt.withTypeLambdaArgsS(argParams) {
+          env2 =>
+            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
+              case (env3, Success(otherArgs)) =>
+                val term2 = TypeParamApp(loc2, args2 ++ otherArgs, paramAppIdx2)
+                envSt.inferTypeValueTermKindS(term2)(env3) match {
+                  case (env4, Success(_))      => matchesTypeValueTermsS(body1, term2)(z)(f)(env4)
+                  case (env4, Failure(noType)) => (env4, noType.failure)
+                }
+              case (env3, Failure(noType))    => (env3, noType.failure)
+            }
+        } (env)
+      case (_, _) =>
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+    }
 
   def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     throw new UnsupportedOperationException

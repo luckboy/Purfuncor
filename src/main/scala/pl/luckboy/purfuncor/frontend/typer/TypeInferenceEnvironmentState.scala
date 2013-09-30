@@ -24,4 +24,6 @@ trait TypeInferenceEnvironmentState[E, L]
   def addDelayedErrorsS(errs: Map[Int, NoType[L]])(env: E): (E, Unit)
   
   def allocateTypeParamAppIdx(env: E): (E, Validation[NoType[L], Int])
+  
+  def withTypeLambdaArgsS[T](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
 }
