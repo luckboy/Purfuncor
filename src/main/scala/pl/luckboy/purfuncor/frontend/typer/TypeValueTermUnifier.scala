@@ -156,7 +156,7 @@ object TypeValueTermUnifier
         }
     }
 
-  def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
+  def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     instantiateFunctionTypeValueTermS(term1)(env) match {
       case (env2, Success(instantiatedTerm1)) =>
         instantiateFunctionTypeValueTermS(term2)(env2) match {
@@ -272,5 +272,4 @@ object TypeValueTermUnifier
       case (env2, Failure(noType)) =>
         (env2, noType.failure)
     }
-  }
 }
