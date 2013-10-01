@@ -240,8 +240,20 @@ object TypeValueTerm
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
-case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalSymbol) extends TypeValueTerm[T]
-case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeValueTerm[T]
+trait TypeApp[T] extends TypeValueTerm[T]
+{
+  def args: Seq[TypeValueLambda[T]]
+  
+  def withArgs(args: Seq[TypeValueLambda[T]]): TypeApp[T]
+}
+case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalSymbol) extends TypeApp[T]
+{
+  override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
+}
+case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeApp[T]
+{
+  override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
+}
 case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 

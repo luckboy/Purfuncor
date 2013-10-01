@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer
+import scala.annotation.tailrec
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -62,20 +63,21 @@ object TypeValueTermUnifier
       case ((newEnv, Failure(noType)), _)      =>
         (newEnv, noType.failure)
     }
-      
-  def matchesTypeValueLambdasS[T, U, E](lambda1: TypeValueLambda[T], lambda2: TypeValueLambda[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) =
+  
+  @tailrec
+  def matchesTypeValueLambdasS[T, U, E](lambda1: TypeValueLambda[T], lambda2: TypeValueLambda[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (lambda1, lambda2) match {
       case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, body2)) if argParams1.size === argParams2.size =>
         val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) }
         envSt.withTypeLambdaArgsS(argParams)(matchesTypeValueTermsS(body1, body2)(z)(f))(env)
-      case (TypeValueLambda(argParams1, GlobalTypeApp(loc1, args1, sym1)), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
+      case (TypeValueLambda(argParams1, typeApp1: TypeApp[T]), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
         val otherArgParams = argParams2.drop(argParams1.size)
         val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
         envSt.withTypeLambdaArgsS(argParams) {
           env2 =>
             typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
               case (env3, Success(otherArgs)) =>
-                val term1 = GlobalTypeApp(loc1, args1 ++ otherArgs, sym1)
+                val term1 = typeApp1.withArgs(typeApp1.args ++ otherArgs)
                 envSt.inferTypeValueTermKindS(term1)(env3) match {
                   case (env4, Success(_))      => matchesTypeValueTermsS(term1, body2)(z)(f)(env4)
                   case (env4, Failure(noType)) => (env4, noType.failure)
@@ -83,51 +85,8 @@ object TypeValueTermUnifier
               case (env3, Failure(noType))    => (env3, noType.failure)
             }
         } (env)
-      case (TypeValueLambda(argParams1, TypeParamApp(param1, args1, paramAppIdx1)), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
-        val otherArgParams = argParams2.drop(argParams1.size)
-        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
-        envSt.withTypeLambdaArgsS(argParams) {
-          env2 =>
-            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
-              case (env3, Success(otherArgs)) => 
-              	val term1 = TypeParamApp(param1, args1 ++ otherArgs, paramAppIdx1)
-              	envSt.inferTypeValueTermKindS(term1)(env3) match {
-              	  case (env4, Success(_))      => matchesTypeValueTermsS(term1, body2)(z)(f)(env4)
-              	  case (env4, Failure(noType)) => (env4, noType.failure)
-              	}
-              case (env3, Failure(noType))    => (env3, noType.failure)
-            }
-        } (env)
-      case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, GlobalTypeApp(loc2, args2, sym2))) if argParams1.size > argParams2.size =>
-        val otherArgParams = argParams1.drop(argParams2.size)
-        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
-        envSt.withTypeLambdaArgsS(argParams) {
-          env2 =>
-            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
-              case (env3, Success(otherArgs)) =>
-                val term2 = GlobalTypeApp(loc2, args2 ++ otherArgs, sym2)
-                envSt.inferTypeValueTermKindS(term2)(env3) match {
-                  case (env4, Success(_))      => matchesTypeValueTermsS(body1, term2)(z)(f)(env4)
-                  case (env4, Failure(noType)) => (env4, noType.failure)
-                }
-              case (env3, Failure(noType))    => (env3, noType.failure)
-            }
-        } (env)
-      case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, TypeParamApp(loc2, args2, paramAppIdx2))) if argParams1.size > argParams2.size =>
-        val otherArgParams = argParams1.drop(argParams2.size)
-        val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
-        envSt.withTypeLambdaArgsS(argParams) {
-          env2 =>
-            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
-              case (env3, Success(otherArgs)) =>
-                val term2 = TypeParamApp(loc2, args2 ++ otherArgs, paramAppIdx2)
-                envSt.inferTypeValueTermKindS(term2)(env3) match {
-                  case (env4, Success(_))      => matchesTypeValueTermsS(body1, term2)(z)(f)(env4)
-                  case (env4, Failure(noType)) => (env4, noType.failure)
-                }
-              case (env3, Failure(noType))    => (env3, noType.failure)
-            }
-        } (env)
+      case (_, TypeValueLambda(_, _: TypeApp[T])) =>
+        matchesTypeValueLambdasS(lambda2, lambda1)(z)(f)(env)
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
@@ -135,25 +94,107 @@ object TypeValueTermUnifier
   def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     throw new UnsupportedOperationException
     
-  def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
+  private def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, funKindRes1) = envSt.inferTypeValueTermKindS(term1)(env)
     val (env3, funKindRes2) = envSt.inferTypeValueTermKindS(term2)(env2)
     val (env4, unifiedFunKindRes) = envSt.unifyKindsS(funKindRes1.valueOr { _.toNoKind }, funKindRes2.valueOr { _.toNoKind })(env3)
     envSt.setReturnKindS(unifiedFunKindRes.valueOr { _.toNoKind })(env4)      
   }
     
-  def mismatchedTypeValueTermErrorWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+  private def mismatchedTypeValueTermErrorWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, res) = setReturnKindFromTypeValueTermsS(term1, term2)(env)
     unifier.mismatchedTermErrorS(env2)
   }
 
-  def addDelayedErrorsFromResultS[T, U, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
+  private def addDelayedErrorsFromResultS[T, U, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
     res.map { x => (env, x.success) }.valueOr {
       nt => 
         envSt.returnKindFromEnvironmentS(env) match {
           case (env2, noKind: NoKind) => (env2, NoType.fromNoKind[T](noKind).failure)
           case (env2, _)              => envSt.addDelayedErrorsS(paramAppIdxs.map { (_, nt) }.toMap)(env2).mapElements(identity, _ => z.success)
         }
+    }
+    
+  private def matchesGlobalTypeAppWithTypeValueTermS[T, U, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+    (globalTypeApp1, term2) match {
+      case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
+        val (env3, res) = if(loc1 === loc2) {
+          val (env2, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env)
+          unifier.withSaveS {
+            matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(_)
+          } (env2)
+        } else
+          unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+        res match {
+          case Success(x) =>
+            (env3, x.success)
+          case Failure(_) =>
+            envSt.appForGlobalTypeS(loc1, args1)(env3) match {
+              case (env4, Success(evaluatedTerm1)) =>
+                envSt.appForGlobalTypeS(loc2, args2)(env4) match {
+                  case (env5, Success(evaluatedTerm2)) =>
+                    envSt.withRecursionCheckS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env5)
+                  case (env5, Failure(noType))         =>
+                    (env5, noType.failure)
+                }
+              case (env4, Failure(noType))         =>
+                (env4, noType.failure)
+            }
+        }
+      case (GlobalTypeApp(loc1, args1, _), _) =>
+        envSt.appForGlobalTypeS(loc1, args1)(env) match {
+          case (env2, Success(evaluatedTerm1)) =>
+            envSt.withRecursionCheckS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f))(env2)
+          case (env2, Failure(noType))         =>
+            (env2, noType.failure)
+        }
+      case (_, _) =>
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+    }
+  
+  private def matchesTypeParamAppWithTypeValueTermS[T, U, E](typeParamApp1: TypeParamApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+    (typeParamApp1, term2) match {
+      case (TypeParamApp(param1, Seq(), paramAppIdx1), TypeParamApp(param2, Seq(), paramAppIdx2)) =>
+        val (env2, res) = f(param1, Left(param2), z, env)
+        addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env2)
+      case (TypeParamApp(param1, args1, paramAppIdx1), TypeParamApp(param2, args2, paramAppIdx2)) if args1.size === args2.size =>
+        val (param, paramOrTerm, tmpArgs1, tmpArgs2) = if(args1.size === args2.size)
+          (param1, Left(param2), args1, args2)
+        else if(args1.size < args2.size)
+          (param1, Right(TypeParamApp(param2, args2.take(args2.size - args1.size), paramAppIdx2)), args1, args2.drop(args2.size - args1.size))
+        else
+          (param2, Right(TypeParamApp(param1, args1.take(args1.size - args2.size), paramAppIdx1)),  args2, args1.drop(args1.size - args2.size))
+        val (env5, res) = unifier.withSaveS {
+          env2 =>
+            f(param, paramOrTerm, z, env2) match {
+              case (env3, Success(x))      =>
+                val (env4, funKind) = envSt.returnKindFromEnvironmentS(env3)
+                matchesTypeValueLambdaListsWithReturnKindS(tmpArgs1, tmpArgs2, funKind)(x)(f)(env4)
+              case (env3, Failure(noType)) =>
+                (setReturnKindFromTypeValueTermsS(typeParamApp1, term2)(env3)._1, noType.failure)
+            }
+        } (env)
+        addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env5)
+      case (TypeParamApp(param1, Seq(), paramAppIdx1), _) =>
+        val (env2, res) = f(param1, Right(term2), z, env)
+        addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env2)
+      case (TypeParamApp(param1, args1, paramAppIdx1), GlobalTypeApp(loc2, args2, sym2)) if args1.size <= args2.size =>
+        val (env10, res) = unifier.withSaveS {
+          env2 =>
+            f(param1, Right(GlobalTypeApp(loc2, args2.take(args2.size - args1.size), sym2)), z, env2) match {
+              case (env3, Success(x))      =>
+                val (env4, funKind) = envSt.returnKindFromEnvironmentS(env3)
+                matchesTypeValueLambdaListsWithReturnKindS(args1, args2.drop(args2.size - args1.size), funKind)(x)(f)(env4)
+              case (env3, Failure(noType)) =>
+                (setReturnKindFromTypeValueTermsS(typeParamApp1, term2)(env3)._1, noType.failure)
+            }
+        } (env)
+        addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env10)
+      case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
+        val (env2, noType) = mismatchedTypeValueTermErrorWithReturnKindS(typeParamApp1, term2)(env)
+        addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env2)
+      case (_, _) =>
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
 
   def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
@@ -168,103 +209,16 @@ object TypeValueTermUnifier
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env3)
               case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 =>
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env3)
-              case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
-                val (env5, res) = if(loc1 === loc2) {
-                  val (env4, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env3)
-                  unifier.withSaveS {
-                    matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(_)
-                  } (env4)
-                } else
-                  unifier.mismatchedTermErrorS(env3).mapElements(identity, _.failure)
-                res match {
-                  case Success(x) =>
-                    (env5, x.success)
-                  case Failure(_) =>
-                    envSt.appForGlobalTypeS(loc1, args1)(env5) match {
-                      case (env6, Success(evaluatedTerm1)) =>
-                        envSt.appForGlobalTypeS(loc2, args2)(env6) match {
-                          case (env7, Success(evaluatedTerm2)) =>
-                            envSt.withRecursionCheckS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env7)
-                          case (env7, Failure(noType))         =>
-                            (env7, noType.failure)
-                        }
-                      case (env6, Failure(noType))         =>
-                        (env6, noType.failure)
-                    }
-                }
-              case (TypeParamApp(param1, Seq(), paramAppIdx1), TypeParamApp(param2, Seq(), paramAppIdx2)) =>
-                val (env4, res) = f(param1, Left(param2), z, env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env4)
-              case (TypeParamApp(param1, args1, paramAppIdx1), TypeParamApp(param2, args2, paramAppIdx2)) if args1.size === args2.size =>
-                val (param, paramOrTerm, tmpArgs1, tmpArgs2) = if(args1.size === args2.size)
-                  (param1, Left(param2), args1, args2)
-                else if(args1.size < args2.size)
-                  (param1, Right(TypeParamApp(param2, args2.take(args2.size - args1.size), paramAppIdx2)), args1, args2.drop(args2.size - args1.size))
-                else
-                  (param2, Right(TypeParamApp(param1, args1.take(args1.size - args2.size), paramAppIdx1)),  args2, args1.drop(args1.size - args2.size))
-                val (env10, res) = unifier.withSaveS {
-                  env4 =>
-                    f(param, paramOrTerm, z, env4) match {
-                      case (env5, Success(x))      =>
-                        val (env6, funKind) = envSt.returnKindFromEnvironmentS(env5)
-                        matchesTypeValueLambdaListsWithReturnKindS(tmpArgs1, tmpArgs2, funKind)(x)(f)(env6)
-                      case (env5, Failure(noType)) =>
-                        (setReturnKindFromTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(env5)._1, noType.failure)
-                    }
-                } (env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env10)
-              case (TypeParamApp(param1, Seq(), paramAppIdx1), _) =>
-                val (env4, res) = f(param1, Right(term2), z, env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env4)
-              case (TypeParamApp(param1, args1, paramAppIdx1), GlobalTypeApp(loc2, args2, sym2)) if args1.size <= args2.size =>
-                val (env10, res) = unifier.withSaveS {
-                  env4 =>
-                    f(param1, Right(GlobalTypeApp(loc2, args2.take(args2.size - args1.size), sym2)), z, env4) match {
-                      case (env5, Success(x))      =>
-                        val (env6, funKind) = envSt.returnKindFromEnvironmentS(env5)
-                        matchesTypeValueLambdaListsWithReturnKindS(args1, args2.drop(args2.size - args1.size), funKind)(x)(f)(env6)
-                      case (env5, Failure(noType)) =>
-                        (setReturnKindFromTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(env5)._1, noType.failure)
-                    }
-                } (env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env10)
-              case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
-                val (env4, noType) = mismatchedTypeValueTermErrorWithReturnKindS(instantiatedTerm1, instantiatedTerm2)(env3)
-                addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env4)
-              case (_, TypeParamApp(param2, Seq(), paramAppIdx2)) =>
-                val (env4, res) = f(param2, Right(term1), z, env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx2))(z)(env4)
-              case (GlobalTypeApp(loc1, args1, sym1), TypeParamApp(param2, args2, paramAppIdx2)) if args1.size >= args2.size =>
-                val (env10, res) = unifier.withSaveS {
-                  env4 =>
-                    f(param2, Right(GlobalTypeApp(loc1, args1.take(args1.size - args2.size), sym1)), z, env4) match {
-                      case (env5, Success(x))      =>
-                        val (env6, funKind) = envSt.returnKindFromEnvironmentS(env5)
-                        matchesTypeValueLambdaListsWithReturnKindS(args1.drop(args1.size - args2.size), args2, funKind)(x)(f)(env6)
-                      case (env5, Failure(noType)) =>
-                        (setReturnKindFromTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(env5)._1, noType.failure)
-                    }
-                } (env3)
-                addDelayedErrorsFromResultS(res, Set(paramAppIdx2))(z)(env10)
-              case (_, TypeParamApp(param2, args2, paramAppIdx2)) =>
-                val (env4, noType) = mismatchedTypeValueTermErrorWithReturnKindS(instantiatedTerm1, instantiatedTerm2)(env3)
-                addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx2))(z)(env4)
-              case (GlobalTypeApp(loc1, args1, _), _) =>
-                envSt.appForGlobalTypeS(loc1, args1)(env3) match {
-                  case (env4, Success(evaluatedTerm1)) =>
-                    envSt.withRecursionCheckS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, instantiatedTerm2)(z)(f))(env4)
-                  case (env4, Failure(noType))         =>
-                    (env4, noType.failure)
-                }
-              case (_, GlobalTypeApp(loc2, args2, _)) =>
-                envSt.appForGlobalTypeS(loc2, args2)(env3) match {
-                  case (env4, Success(evaluatedTerm2)) =>
-                    envSt.withRecursionCheckS(Set(loc2))(matchesTypeValueTermsS(instantiatedTerm1, evaluatedTerm2)(z)(f))(env4)
-                  case (env4, Failure(noType))         =>
-                    (env4, noType.failure)
-                }
+              case (typeParamApp1: TypeParamApp[T], _) =>
+                matchesTypeParamAppWithTypeValueTermS(typeParamApp1, instantiatedTerm2)(z)(f)(env3)
+              case (_, typeParamApp2: TypeParamApp[T]) =>
+                matchesTypeParamAppWithTypeValueTermS(typeParamApp2, instantiatedTerm1)(z)(f)(env3)
+              case (globalTypeApp1: GlobalTypeApp[T], _) =>
+                matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, instantiatedTerm2)(z)(f)(env3)
+              case (_, globalTypeApp2: GlobalTypeApp[T]) =>
+                matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env3)
               case (_, _) =>
-                unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+                unifier.mismatchedTermErrorS(env3).mapElements(identity, _.failure)
             }
           case (env3, Failure(noType)) =>
             (env3, noType.failure)
