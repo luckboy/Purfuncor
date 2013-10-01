@@ -91,8 +91,36 @@ object TypeValueTermUnifier
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
 
-  def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    throw new UnsupportedOperationException
+  private def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    term match {
+      case TypeParamApp(param, args, paramAppIdx) =>
+        val (env2, rootParamRes) = unifier.findRootParamS(param)(env)
+        rootParamRes match {
+          case Success(rootParam) =>
+          	val (env3, optParamTerm) = unifier.getParamTermS(rootParam)(env2)
+          	optParamTerm match {
+          	  case Some(paramTerm) =>
+          	    val (env4, res) = instantiateFunctionTypeValueTermS(paramTerm)(env3)
+          	    res.map {
+          	      case GlobalTypeApp(loc2, args2, sym2) => 
+          	        (env4, GlobalTypeApp(loc2, args2 ++ args, sym2).success)
+          	      case TypeParamApp(param2, args2, _)   =>
+          	        (env4, TypeParamApp(param2, args2 ++ args, paramAppIdx).success)
+          	      case term2                            =>
+          	        if(args.isEmpty) 
+          	          (env4, term2.success)
+          	        else
+          	          (env4, NoType.fromError[T](FatalError("type value term isn't type application", none, NoPosition)).failure)
+          	    }.valueOr { nt => (env4, nt.failure) }
+          	  case None            =>
+          	    (env3, term.success)
+          	}
+          case Failure(noType)    =>
+            (env2, noType.failure)
+        }
+      case _                                      =>
+        (env, term.success)
+    }
     
   private def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, funKindRes1) = envSt.inferTypeValueTermKindS(term1)(env)
