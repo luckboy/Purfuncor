@@ -218,6 +218,8 @@ object TypeValueTermUnifier
             }
         } (env)
         addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env10)
+      case (_, globalTypeApp2: GlobalTypeApp[T]) =>
+        matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, typeParamApp1)(z)(f)(env)
       case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
         val (env2, noType) = mismatchedTypeValueTermErrorWithReturnKindS(typeParamApp1, term2)(env)
         addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env2)
