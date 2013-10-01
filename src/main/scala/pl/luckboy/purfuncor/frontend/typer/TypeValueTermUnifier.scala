@@ -157,7 +157,7 @@ object TypeValueTermUnifier
       case (TypeParamApp(param1, Seq(), paramAppIdx1), TypeParamApp(param2, Seq(), paramAppIdx2)) =>
         val (env2, res) = f(param1, Left(param2), z, env)
         addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env2)
-      case (TypeParamApp(param1, args1, paramAppIdx1), TypeParamApp(param2, args2, paramAppIdx2)) if args1.size === args2.size =>
+      case (TypeParamApp(param1, args1, paramAppIdx1), TypeParamApp(param2, args2, paramAppIdx2)) =>
         val (param, paramOrTerm, tmpArgs1, tmpArgs2) = if(args1.size === args2.size)
           (param1, Left(param2), args1, args2)
         else if(args1.size < args2.size)
