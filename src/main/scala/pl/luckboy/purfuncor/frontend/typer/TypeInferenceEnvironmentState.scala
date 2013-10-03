@@ -23,7 +23,15 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def addDelayedErrorsS(errs: Map[Int, NoType[L]])(env: E): (E, Unit)
   
+  def delayedErrorsFromEnvironmentS(env: E): (E, Map[Int, NoType[L]])
+  
+  def withDelayedErrorRestoringOrSavingS[T](errs: Map[Int, NoType[L]])(f: E => (E, T))(env: E): (E, (T, Boolean))
+  
   def allocateTypeParamAppIdx(env: E): (E, Validation[NoType[L], Int])
   
   def withTypeLambdaArgsS[T](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
+  
+  def typeMatchingFromEnvironmentS(env: E): (E, TypeMatching.Value)
+  
+  def setTypeMatchingS(typeMatching: TypeMatching.Value)(env: E): (E, Unit)
 }

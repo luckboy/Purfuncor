@@ -281,4 +281,8 @@ package object typer
   implicit val typeBuiltinFunctionEqual: Equal[TypeBuiltinFunction.Value] = new Equal[TypeBuiltinFunction.Value] {
     override def equal(a1: TypeBuiltinFunction.Value, a2: TypeBuiltinFunction.Value) = a1 == a2
   }
+  
+  implicit val typeMatchingEqual: Equal[TypeMatching.Value] = new Equal[TypeMatching.Value] {
+    override def equal(a1: TypeMatching.Value, a2: TypeMatching.Value) = a1 == a2
+  }
 }
