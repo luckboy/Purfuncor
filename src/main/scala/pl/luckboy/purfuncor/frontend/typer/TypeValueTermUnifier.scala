@@ -313,10 +313,14 @@ object TypeValueTermUnifier
             val (env4, typeMatching) = envSt.typeMatchingFromEnvironmentS(env3) 
             typeMatching match {
               case TypeMatching.Types             =>
-                val (env5, res) = checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env4)
+                val (env5, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env4)
+                val (env6, res) = checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env5)
                 res match {
-                  case Success(x)      => checkTypeValueTermSubsetS(terms2, terms1, true)(x)(f)(env5)
-                  case Failure(noType) => (env5, noType.failure)
+                  case Success(x)      =>
+                    val (env7, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env6)
+                    checkTypeValueTermSubsetS(terms2, terms1, true)(x)(f)(env7)
+                  case Failure(noType) =>
+                    (env6, noType.failure)
                 }
               case TypeMatching.SupertypeWithType =>
                 checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env4)
