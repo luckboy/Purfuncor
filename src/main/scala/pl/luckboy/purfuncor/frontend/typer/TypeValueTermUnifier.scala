@@ -130,24 +130,6 @@ object TypeValueTermUnifier
         (env, term.success)
     }
   
-  private def instantiateAndNormalizeTypeConjunctionS[T, E](typeConj: TypeConjunction[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
-    typeConj.terms.foldLeft((env, TypeConjunction[T](Set()).success[NoType[T]])) {
-      case ((newEnv, Success(newTypeConj)), term) =>
-        val (newEnv2, newRes) = instantiateFunctionTypeValueTermS(term)(newEnv)
-        newRes.map { t => (newEnv2, (newTypeConj & t).success) }.valueOr { nt => (newEnv2, nt.failure) }
-      case ((newEnv, Failure(noType)), _)         =>
-        (newEnv, noType.failure)
-    }
-  
-  private def instantiateAndNormalizeTypeDisjunctionS[T, E](typeDisj: TypeDisjunction[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeDisjunction[T]]) =
-    typeDisj.terms.foldLeft((env, TypeDisjunction[T](Set()).success[NoType[T]])) {
-      case  ((newEnv, Success(newTypeDisj)), term) =>
-        val (newEnv2, newRes) = instantiateFunctionTypeValueTermS(term)(newEnv)
-        newRes.map { t => (newEnv2, (newTypeDisj | t).success) }.valueOr { nt => (newEnv2, nt.failure) }
-      case ((newEnv, Failure(noType)), _)          =>
-        (newEnv, noType.failure)
-    }
-  
   private def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, funKindRes1) = envSt.inferTypeValueTermKindS(term1)(env)
     val (env3, funKindRes2) = envSt.inferTypeValueTermKindS(term2)(env2)
@@ -285,54 +267,90 @@ object TypeValueTermUnifier
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
   
-  private def checkTypeValueTermSubsetS[T, U, E](termSubset: Set[TypeValueTerm[T]], termSet: Set[TypeValueTerm[T]], areSwappedTerms: Boolean)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) =
-    (termSubset &~ (termSubset & termSet)).foldLeft((env, z.success[NoType[T]])) {
-      case ((newEnv, Success(x)), term1)  =>
-        val (newEnv2, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(newEnv)
-        val (newEnv3, (newRes3, _)) = termSet.foldLeft(unifier.mismatchedTermErrorS(newEnv2).mapElements(identity, nt => (nt.failure[U], false))) {
-          case ((newEnv3, (Failure(_), _) | (Success(_), false)), term2) =>
-            val (tmpTerm1, tmpTerm2) = if(areSwappedTerms) (term2, term1) else (term1, term2)
-            envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs)(matchesTypeValueTermsS(tmpTerm1, tmpTerm2)(z)(f))(newEnv3)
-          case ((newEnv3, (newRes2, areRestoredDelayedErrs)), _)         =>
-            (newEnv3, (newRes2, areRestoredDelayedErrs))
+  private def instantiateAndSortTypeValueTermsS[T, E](term1: TypeValueTerm[T], terms2: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], (TypeValueTerm[T], Seq[TypeValueTerm[T]])]) = {
+    val (env2, res) = instantiateFunctionTypeValueTermS(term1)(env)
+    res.map {
+      instantiatedTerm1 =>
+        val (env3, res2) = terms2.foldLeft((env2, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
+          case ((newEnv, Success(newTerms2)), term2) =>
+            val (newEnv2, newRes) = instantiateFunctionTypeValueTermS(term2)(newEnv)
+            (newEnv2, newRes.map { newTerms2 :+ _ })
+          case ((newEnv, Failure(noType)), _)        =>
+            (newEnv, noType.failure)
         }
-        (newEnv3, newRes3)
+        res2.map {
+          instantiatedTerms2 =>
+            instantiatedTerm1 match {
+              case TypeParamApp(_, args1, _) =>
+                val (tmpTerms2, thirdTerms2) = instantiatedTerms2.partition { _.isTypeParamApp }
+                val (firstTerms2, secondTerms2) = tmpTerms2.partition { 
+                  case TypeParamApp(_, args2, _) => args1.size === args2.size
+                  case _                         => false 
+                }
+                (env3, (instantiatedTerm1, firstTerms2 ++ secondTerms2 ++ thirdTerms2).success)
+              case _                         =>
+                val (firstTerms2, thirdTerms2) = instantiatedTerms2.partition { !_.isTypeParamApp }
+                (env3, (instantiatedTerm1, firstTerms2 ++ thirdTerms2).success)
+            }
+        }.valueOr { nt => (env3, nt.failure) }
+    }.valueOr { nt => (env2, nt.failure) }
+  }
+  
+  private def checkTypeValueTermSubsetS[T, U, E](termSubset: Set[TypeValueTerm[T]], termSet: Set[TypeValueTerm[T]], areSwappedTerms: Boolean)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) = {
+    val (env2, res) = termSubset.toSeq.foldLeft((env, (z, termSet.toSeq, Seq[TypeValueTerm[T]]()).success[NoType[T]])) {
+      case ((newEnv, Success((x, firstTerms2, secondTerms2))), term1)  =>
+        val (newEnv2, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(newEnv)
+        val (newEnv3, newRes) = instantiateAndSortTypeValueTermsS(term1, firstTerms2)(newEnv2)
+        newRes match {
+          case Success((instantiatedTerm1, instantiatedFirstTerms2)) =>
+            val terms2 = instantiatedFirstTerms2 ++ secondTerms2
+            val (newEnv6, (newRes3, _)) = (0 until terms2.size).foldLeft(unifier.mismatchedTermErrorS(newEnv3).mapElements(identity, nt => (nt.failure[(U, Int)], false))) {
+              case ((newEnv4, (Failure(_), _) | (Success(_), false)), i) =>
+                val term2 = terms2(i)
+                val (tmpTerm1, tmpTerm2) = if(areSwappedTerms) (term2, instantiatedTerm1) else (instantiatedTerm1, term2)
+                val (newEnv5, (newRes2, areRestoredDelayedErrs)) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs)(matchesTypeValueTermsS(tmpTerm1, tmpTerm2)(z)(f))(newEnv4)
+                (newEnv5, (newRes2.map { (_, i) }, areRestoredDelayedErrs))
+              case ((newEnv4, (newRes2, areRestoredDelayedErrs)), _)         =>
+                (newEnv4, (newRes2, areRestoredDelayedErrs))
+            }
+            newRes3.map { 
+              case (y, i) => 
+                if(i < instantiatedFirstTerms2.size) 
+                  (newEnv6, (y, instantiatedFirstTerms2.take(i) ++ instantiatedFirstTerms2.drop(i + 1), secondTerms2 :+ instantiatedFirstTerms2(i)).success)
+                else
+                  (newEnv6, (y, instantiatedFirstTerms2, secondTerms2).success)
+            }.valueOr { nt => (newEnv6, nt.failure) }
+          case Failure(noType) =>
+            (newEnv3, noType.failure)
+        }
       case ((newEnv, Failure(noType)), _) =>
         (newEnv, noType.failure)
     }
+    (env2, res.map { _._1 })
+  }
   
   private def matchesTypeConjunctionWithTypeValueTermS[T, U, E](typeConj1: TypeConjunction[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) = {
     val typeConj2 = term2 match {
       case typeConj: TypeConjunction[T] => typeConj
       case _                            => TypeConjunction(Set(term2))
     }
-    instantiateAndNormalizeTypeConjunctionS(typeConj1)(env) match {
-      case (env2, Success(TypeConjunction(terms1))) =>
-        instantiateAndNormalizeTypeConjunctionS(typeConj2)(env2) match {
-          case (env3, Success(TypeConjunction(terms2))) =>
-            val (env4, typeMatching) = envSt.typeMatchingFromEnvironmentS(env3) 
-            typeMatching match {
-              case TypeMatching.Types             =>
-                val (env5, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env4)
-                val (env6, res) = checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env5)
-                res match {
-                  case Success(x)      =>
-                    val (env7, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env6)
-                    checkTypeValueTermSubsetS(terms2, terms1, true)(x)(f)(env7)
-                  case Failure(noType) =>
-                    (env6, noType.failure)
-                }
-              case TypeMatching.SupertypeWithType =>
-                checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env4)
-              case TypeMatching.TypeWithSupertype =>
-                checkTypeValueTermSubsetS(terms2, terms1, true)(z)(f)(env4)
-            }
-          case (env4, Failure(noType)) =>
+    val (env2, typeMatching) = envSt.typeMatchingFromEnvironmentS(env) 
+    typeMatching match {
+      case TypeMatching.Types             =>
+        val (env3, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+        val (env4, res) = checkTypeValueTermSubsetS(typeConj1.terms, typeConj2.terms, false)(z)(f)(env3)
+        res match {
+          case Success(x)      =>
+            val (env5, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
+            checkTypeValueTermSubsetS(typeConj2.terms, typeConj1.terms, true)(x)(f)(env5)
+          case Failure(noType) =>
             (env4, noType.failure)
         }
-      case (env3, Failure(noType)) =>
-        (env3, noType.failure)
-    }
+      case TypeMatching.SupertypeWithType =>
+        checkTypeValueTermSubsetS(typeConj1.terms, typeConj2.terms, false)(z)(f)(env2)
+      case TypeMatching.TypeWithSupertype =>
+        checkTypeValueTermSubsetS(typeConj2.terms, typeConj1.terms, true)(z)(f)(env2)
+     }
   }
 
   private def matchesTypeDisjunctionWithTypeValueTermS[T, U, E](typeDisj1: TypeDisjunction[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) = {
@@ -340,28 +358,22 @@ object TypeValueTermUnifier
       case typeDisj: TypeDisjunction[T] => typeDisj
       case _                            => TypeDisjunction(Set(term2))
     }
-    instantiateAndNormalizeTypeDisjunctionS(typeDisj1)(env) match {
-      case (env2, Success(TypeDisjunction(terms1))) =>
-        instantiateAndNormalizeTypeDisjunctionS(typeDisj2)(env2) match {
-          case (env3, Success(TypeDisjunction(terms2))) =>
-            val (env4, typeMatching) = envSt.typeMatchingFromEnvironmentS(env3) 
-            typeMatching match {
-              case TypeMatching.Types             =>
-                val (env5, res) = checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env4)
-                res match {
-                  case Success(x)      => checkTypeValueTermSubsetS(terms2, terms1, true)(x)(f)(env5)
-                  case Failure(noType) => (env5, noType.failure)
-                }
-              case TypeMatching.SupertypeWithType =>
-                checkTypeValueTermSubsetS(terms2, terms1, true)(z)(f)(env4)
-              case TypeMatching.TypeWithSupertype =>
-                checkTypeValueTermSubsetS(terms1, terms2, false)(z)(f)(env4)
-            }
-          case (env4, Failure(noType)) =>
-            (env4, noType.failure)
+    val (env2, typeMatching) = envSt.typeMatchingFromEnvironmentS(env) 
+    typeMatching match {
+      case TypeMatching.Types             =>
+        val (env3, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+        val (env4, res) = checkTypeValueTermSubsetS(typeDisj1.terms, typeDisj2.terms, false)(z)(f)(env3)
+        res match {
+          case Success(x)      =>
+            val (env5, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
+            checkTypeValueTermSubsetS(typeDisj2.terms, typeDisj1.terms, true)(x)(f)(env5)
+          case Failure(noType) =>
+            (env3, noType.failure)
         }
-      case (env3, Failure(noType)) =>
-        (env3, noType.failure)
+      case TypeMatching.SupertypeWithType =>
+        checkTypeValueTermSubsetS(typeDisj2.terms, typeDisj1.terms, true)(z)(f)(env2)
+      case TypeMatching.TypeWithSupertype =>
+        checkTypeValueTermSubsetS(typeDisj1.terms, typeDisj2.terms, false)(z)(f)(env2)
     }
   }
   

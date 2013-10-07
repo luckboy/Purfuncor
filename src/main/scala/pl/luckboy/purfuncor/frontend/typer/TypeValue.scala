@@ -168,6 +168,8 @@ sealed trait TypeValueTerm[T]
       case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
     }
   
+  def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
+  
   def toArgString =
     this match {
       case TupleType(args) if !args.isEmpty           => "(" + this + ")"
