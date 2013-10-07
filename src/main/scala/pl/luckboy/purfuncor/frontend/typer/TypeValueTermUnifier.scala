@@ -137,7 +137,7 @@ object TypeValueTermUnifier
     envSt.setReturnKindS(unifiedFunKindRes.valueOr { _.toNoKind })(env4)      
   }
     
-  private def mismatchedTypeValueTermErrorWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+  private def mismatchedTypeValueTermNoTypeWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, res) = setReturnKindFromTypeValueTermsS(term1, term2)(env)
     unifier.mismatchedTermErrorS(env2)
   }
@@ -229,7 +229,7 @@ object TypeValueTermUnifier
           val (env4, res2) = if(args1.isEmpty)
             f(param1, Right(term2), z, env3)
           else
-            mismatchedTypeValueTermErrorWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
+            mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
           addDelayedErrorsFromResultS(res2, Set(paramAppIdx1))(z)(env4)
         }
       case (TypeParamApp(param1, args1, paramAppIdx1), typeDisj2: TypeDisjunction[T]) =>
@@ -239,7 +239,7 @@ object TypeValueTermUnifier
           val (env4, res2) = if(args1.isEmpty)
             f(param1, Right(term2), z, env3)
           else
-            mismatchedTypeValueTermErrorWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
+            mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
           addDelayedErrorsFromResultS(res2, Set(paramAppIdx1))(z)(env4)
         }
       case (TypeParamApp(param1, Seq(), paramAppIdx1), _) =>
@@ -261,7 +261,7 @@ object TypeValueTermUnifier
         val (env2, _) = reverseTypeMatchingS(env)
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, typeParamApp1)(z)(f)(env2)
       case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
-        val (env2, noType) = mismatchedTypeValueTermErrorWithReturnKindS(typeParamApp1, term2)(env)
+        val (env2, noType) = mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env)
         addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env2)
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
