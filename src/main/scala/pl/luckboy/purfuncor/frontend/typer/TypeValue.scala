@@ -242,7 +242,7 @@ object TypeValueTerm
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
-trait TypeApp[T] extends TypeValueTerm[T]
+sealed trait TypeApp[T] extends TypeValueTerm[T]
 {
   def args: Seq[TypeValueLambda[T]]
   
