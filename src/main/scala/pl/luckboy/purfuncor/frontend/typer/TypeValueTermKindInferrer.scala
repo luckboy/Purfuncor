@@ -10,6 +10,6 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 
 object TypeValueTermKindInferrer
 {
-  def inferTypeValueTermS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit inferrer: Inferrer[U, Kind, E]): (E, Kind) =
-    throw new UnsupportedOperationException    
+  def inferTypeValueTermKindS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit inferrer: Inferrer[U, Kind, E]): (E, Kind) =
+    throw new UnsupportedOperationException
 }
