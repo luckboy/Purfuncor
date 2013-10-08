@@ -58,8 +58,25 @@ object TypeValueTermKindInferrer
        val (env3, argParamKinds) = lambda.argParams.foldLeft((env2, Seq[Kind]())) {
          case ((newEnv, ks), p) => envSt.typeParamKindFromEnvironmentS(p)(newEnv).mapElements(identity, ks :+ _)
        }
-       val (env4, retKind) = appInfoS(inferrer.functionInfo(argParamKinds.size), argParamKinds)(env3)
-       inferrer.unifyInfosS(kind, retKind)(env4)
+       val funKind = inferrer.functionInfo(argParamKinds.size)
+       val (env4, unifiedFunKind) = inferrer.unifyInfosS(funKind, funKind)(env3)
+       val (env5, res) = inferrer.argInfosFromInfoS(unifiedFunKind, argParamKinds.size)(env4)
+       res.map {
+         funArgKinds =>
+           val (env6, res2) = unifyArgInfoListsS(funArgKinds.toList, argParamKinds.toList)(env5)
+           res2.map {
+             unifiedFunArgKinds =>
+               inferrer.returnInfoFromInfoS(unifiedFunKind, argParamKinds.size)(env6) match {
+                 case (env7, noKind: NoKind) =>
+                   (env7, noKind)
+                 case (env7, funRetKind)     =>
+                   inferrer.unifyInfosS(funRetKind, kind)(env7) match {
+                     case (env8, noKind: NoKind) => (env8, noKind)
+                     case (env8, _)              => (env8, unifiedFunKind)
+                   }
+               }
+           }.valueOr { (env6, _) }
+       }.valueOr { (env5, _) }
     }
   }
 
