@@ -39,7 +39,7 @@ package object typer
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
-            case globalSym: GlobalSymbol if env.applyingCombSyms.contains(globalSym) =>
+            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
             case _                                                                   =>
               (env, env.typeVarValue(loc))
@@ -66,7 +66,7 @@ package object typer
               case (TypeArg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                         => Nil
             }.toMap
-            val (env2, retValue) = env.withCombSym(loc) {
+            val (env2, retValue) = env.withTypeCombSym(loc) {
               _.withTypeClosure(SymbolTypeClosure(Map())) {
                 _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(comb.body)(newEnv) }
               }
@@ -82,7 +82,7 @@ package object typer
               case (TypeArg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                         => Nil
             }.toMap
-            val (env2, retValue) = env.withCombSyms(combLoc.toSet) {
+            val (env2, retValue) = env.withTypeCombSyms(combLoc.toSet) {
               _.withTypeClosure(closure) {
                 _.withLocalTypeVars(localTypeVarValues) { newEnv => evaluateS(lambda.body)(newEnv) }
               }
@@ -92,7 +92,7 @@ package object typer
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case TypePartialAppValue(funValue2, argValues2, combLoc) =>
           if(funValue2.argCount - argValues2.size === argValues.size)
-            env.withCombSyms(combLoc.toSet)(fullyAppS(funValue2, argValues2 ++ argValues))
+            env.withTypeCombSyms(combLoc.toSet)(fullyAppS(funValue2, argValues2 ++ argValues))
           else
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case tupleTypeFunValue @ TupleTypeFunValue(_) =>
