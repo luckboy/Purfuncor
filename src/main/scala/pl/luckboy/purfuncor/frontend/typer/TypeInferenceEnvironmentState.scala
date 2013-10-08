@@ -19,7 +19,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def setReturnKindS(kind: Kind)(env: E): (E, Unit)
   
-  def withRecursionCheckingS[T, U](locs: Set[L])(f: E => (E, Validation[T, U]))(env: E): (E, Validation[T, U])
+  def withRecursionCheckingS[T](locs: Set[L])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
   
   def addDelayedErrorsS(errs: Map[Int, NoType[L]])(env: E): (E, Unit)
   

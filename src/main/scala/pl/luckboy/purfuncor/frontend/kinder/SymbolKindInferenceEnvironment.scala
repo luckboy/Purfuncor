@@ -17,6 +17,7 @@ case class SymbolKindInferenceEnvironment[T](
     currentTypeLambdaIdx: Int,
     globalTypeVarKinds: Map[GlobalSymbol, Kind],
     localTypeVarKinds: Map[LocalSymbol, NonEmptyList[Kind]],
+    typeParamKinds: Map[Int, Kind],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
     typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]],
@@ -49,6 +50,8 @@ case class SymbolKindInferenceEnvironment[T](
       case localSym @ LocalSymbol(_)   =>
         localTypeVarKinds.get(localSym).map { _ head }.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
     }
+  
+  def typeParamKind(param: Int) = typeParamKinds.getOrElse(param, NoKind.fromError(FatalError("undefined type parameter", none, NoPosition)))
   
   def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = kinds.mapValues { NonEmptyList(_) } |+| localTypeVarKinds)
 
@@ -127,6 +130,7 @@ object SymbolKindInferenceEnvironment
       currentTypeLambdaIdx = 0,
       globalTypeVarKinds = kindTable.kinds,
       localTypeVarKinds = Map(),
+      typeParamKinds = Map(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
       typeCombNodes = Map(),

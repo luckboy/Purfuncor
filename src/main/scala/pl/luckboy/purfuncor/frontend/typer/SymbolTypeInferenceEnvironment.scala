@@ -18,11 +18,27 @@ case class SymbolTypeInferenceEnvironment[T, U](
     localVarTypes: Map[LocalSymbol, NonEmptyList[Type[GlobalSymbol]]],
     localTypeTables: Map[Option[GlobalSymbol], TypeTable[LocalSymbol, GlobalSymbol]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
-    typeParamKinds: Map[GlobalSymbol, Kind],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]],
     defindTypes: List[InferredType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, TypeValueTerm[GlobalSymbol]],
+    matchingGlobalTypeSyms: Set[GlobalSymbol],
+    typeMatching: TypeMatching.Value,
     currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean)
+{
+  def typeParamKinds = kindInferenceEnv.typeParamKinds
+  
+  def withTypeEnv(env: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]]) = copy(typeEnv = env)
+  
+  def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
+  
+  def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
+  
+  def withMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms ++ syms)
+  
+  def withoutMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
+  
+  def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
+}
