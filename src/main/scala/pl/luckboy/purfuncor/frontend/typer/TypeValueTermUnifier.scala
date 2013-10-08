@@ -64,7 +64,7 @@ object TypeValueTermUnifier
   private def typeValueLambdasFromTypeParamsS[T, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
     params.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
       case ((newEnv, Success(lambdas)), param) =>
-        val (newEnv2, res) = envSt.allocateTypeParamAppIdx(newEnv)
+        val (newEnv2, res) = envSt.allocateTypeParamAppIdxS(newEnv)
         res.map {
           pai => (newEnv2, (lambdas :+ TypeValueLambda(Nil, TypeParamApp(param, Nil, pai))).success)
         }.valueOr { nt => (newEnv2, nt.failure) }
@@ -179,7 +179,7 @@ object TypeValueTermUnifier
               case (env4, Success(evaluatedTerm1)) =>
                 envSt.appForGlobalTypeS(loc2, args2)(env4) match {
                   case (env5, Success(evaluatedTerm2)) =>
-                    envSt.withRecursionCheckS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env5)
+                    envSt.withRecursionCheckingS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env5)
                   case (env5, Failure(noType))         =>
                     (env5, noType.failure)
                 }
@@ -190,7 +190,7 @@ object TypeValueTermUnifier
       case (GlobalTypeApp(loc1, args1, _), _) =>
         envSt.appForGlobalTypeS(loc1, args1)(env) match {
           case (env2, Success(evaluatedTerm1)) =>
-            envSt.withRecursionCheckS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f))(env2)
+            envSt.withRecursionCheckingS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f))(env2)
           case (env2, Failure(noType))         =>
             (env2, noType.failure)
         }

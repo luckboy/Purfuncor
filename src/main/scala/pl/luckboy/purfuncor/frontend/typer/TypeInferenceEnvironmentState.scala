@@ -19,7 +19,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def setReturnKindS(kind: Kind)(env: E): (E, Unit)
   
-  def withRecursionCheckS[T, U](locs: Set[L])(f: E => (E, Validation[T, U]))(env: E): (E, Validation[T, U])
+  def withRecursionCheckingS[T, U](locs: Set[L])(f: E => (E, Validation[T, U]))(env: E): (E, Validation[T, U])
   
   def addDelayedErrorsS(errs: Map[Int, NoType[L]])(env: E): (E, Unit)
   
@@ -27,7 +27,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def withDelayedErrorRestoringOrSavingS[T](errs: Map[Int, NoType[L]])(f: E => (E, T))(env: E): (E, (T, Boolean))
   
-  def allocateTypeParamAppIdx(env: E): (E, Validation[NoType[L], Int])
+  def allocateTypeParamAppIdxS(env: E): (E, Validation[NoType[L], Int])
   
   def withTypeLambdaArgsS[T](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
   

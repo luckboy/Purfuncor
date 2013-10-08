@@ -10,6 +10,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
+import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
@@ -184,6 +185,64 @@ package object typer
   
   implicit def noTypeSemigroup[T]: Semigroup[NoType[T]] = new Semigroup[NoType[T]] {
     override def append(f1: NoType[T], f2: => NoType[T]): NoType[T] =
+      throw new UnsupportedOperationException
+  }
+  
+  implicit def symbolKindInferrenceEnvironmentState[T]: KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
+    override def globalTypeVarKindFromEnvironmentS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) =
+      throw new UnsupportedOperationException
+    
+    override def typeParamKindFromEnvironmentS(param: Int)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) =
+      throw new UnsupportedOperationException
+    
+    override def unifyStarKindWithKindS(kind: Kind)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) =
+      throw new UnsupportedOperationException
+  }
+  
+  implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] {
+    override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
+    
+    override def inferTypeValueTermKindS(term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      throw new UnsupportedOperationException
+    
+    override def appKindS(funKind: Kind, argKinds: Seq[Kind])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      throw new UnsupportedOperationException
+    
+    override def appStarKindS(argKinds: Seq[Kind])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      throw new UnsupportedOperationException
+    
+    override def unifyKindsS(kind1: Kind, kind2: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      throw new UnsupportedOperationException
+    
+    override def returnKindFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Kind) =
+      throw new UnsupportedOperationException
+    
+    override def setReturnKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
+      throw new UnsupportedOperationException
+    
+    override def withRecursionCheckingS[V, W](locs: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
+      throw new UnsupportedOperationException
+    
+    override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
+      throw new UnsupportedOperationException
+    
+    override def delayedErrorsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Map[Int, NoType[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
+    
+    override def withDelayedErrorRestoringOrSavingS[V](errs: Map[Int, NoType[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], (V, Boolean)) =
+      throw new UnsupportedOperationException
+    
+    override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
+      throw new UnsupportedOperationException
+    
+    override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
+      throw new UnsupportedOperationException
+    
+    override def typeMatchingFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], TypeMatching.Value) =
+      throw new UnsupportedOperationException
+    
+    override def setTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
       throw new UnsupportedOperationException
   }
   
