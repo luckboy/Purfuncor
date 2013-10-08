@@ -25,7 +25,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def delayedErrorsFromEnvironmentS(env: E): (E, Map[Int, NoType[L]])
   
-  def withDelayedErrorRestoringOrSavingS[T](errs: Map[Int, NoType[L]])(f: E => (E, T))(env: E): (E, (T, Boolean))
+  def withDelayedErrorRestoringOrSavingS[T](errs: Map[Int, NoType[L]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, (Validation[NoType[L], T], Boolean))
   
   def allocateTypeParamAppIdxS(env: E): (E, Validation[NoType[L], Int])
   

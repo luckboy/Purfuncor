@@ -230,14 +230,22 @@ package object typer
       } else
         symbolTypeValueTermUnifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     
-    override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
-      throw new UnsupportedOperationException
+    override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withDelayedErrNoTypes(env.delayedErrNoTypes ++ errs), ())
     
-    override def delayedErrorsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Map[Int, NoType[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def delayedErrorsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.delayedErrNoTypes)
     
-    override def withDelayedErrorRestoringOrSavingS[V](errs: Map[Int, NoType[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], (V, Boolean)) =
-      throw new UnsupportedOperationException
+    override def withDelayedErrorRestoringOrSavingS[V](errs: Map[Int, NoType[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], (Validation[NoType[GlobalSymbol], V], Boolean)) = {
+      val savedErrCount = env.delayedErrNoTypes.size
+      val (env2, res) = f(env)
+      res match {
+        case Success(_) =>
+          if(savedErrCount === env.delayedErrNoTypes.size) (env2, (res, true)) else (env, (res, false))
+        case Failure(_) =>
+          (env, (res, false))
+      }
+    }
     
     override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
       throw new UnsupportedOperationException

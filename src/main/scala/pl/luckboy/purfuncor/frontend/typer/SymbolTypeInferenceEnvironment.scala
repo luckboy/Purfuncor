@@ -23,6 +23,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     defindTypes: List[InferredType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, TypeValueTerm[GlobalSymbol]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
+    delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
     typeMatching: TypeMatching.Value,
     currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
@@ -39,6 +40,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms ++ syms)
   
   def withoutMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
+  
+  def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
   
   def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
 }
