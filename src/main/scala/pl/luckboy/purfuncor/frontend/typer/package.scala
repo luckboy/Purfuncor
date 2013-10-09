@@ -225,13 +225,13 @@ package object typer
     
     override def withRecursionCheckingS[V](locs: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
       if((env.matchingGlobalTypeSyms & locs).isEmpty) {
-        val (env2, res) = f(env.withMatchingGlobalTypeSyms(locs))
-        (env2.withoutMatchingGlobalTypeSyms(locs), res)
+        val (env2, res) = f(env.withMatchingGlobalTypes(locs))
+        (env2.withoutMatchingGlobalTypes(locs), res)
       } else
         symbolTypeValueTermUnifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     
     override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withDelayedErrNoTypes(env.delayedErrNoTypes ++ errs), ())
+      (env.withDelayedErrs(errs), ())
     
     override def delayedErrorsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.delayedErrNoTypes)

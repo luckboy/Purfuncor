@@ -37,11 +37,13 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
   
-  def withMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms ++ syms)
+  def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms | syms)
   
-  def withoutMatchingGlobalTypeSyms(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
+  def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
   
   def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
+  
+  def withDelayedErrs(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = delayedErrNoTypes ++ noTypes)
   
   def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
 }

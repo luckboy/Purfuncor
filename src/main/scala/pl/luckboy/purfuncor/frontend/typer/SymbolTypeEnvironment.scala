@@ -68,22 +68,22 @@ case class SymbolTypeEnvironment[T](
     (newEnv.withCurrentFile(oldFile), value)
   }
   
-  def withApplyingTypeCombSym(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms + sym)
+  def withApplyingTypeComb(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms + sym)
   
-  def withoutApplyingTypeCombSym(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms - sym)
+  def withoutApplyingTypeComb(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms - sym)
   
   def withTypeCombSym(sym: GlobalSymbol)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
-    val (newEnv, value) = f(withApplyingTypeCombSym(sym))
-    (newEnv.withoutApplyingTypeCombSym(sym), value)
+    val (newEnv, value) = f(withApplyingTypeComb(sym))
+    (newEnv.withoutApplyingTypeComb(sym), value)
   }
 
-  def withApplyingTypeCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms | syms)
+  def withApplyingTypeCombs(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms | syms)
   
-  def withoutApplyingTypeCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms -- syms)
+  def withoutApplyingTypeCombs(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(applyingTypeCombSyms = applyingTypeCombSyms -- syms)
 
   def withTypeCombSyms(syms: Set[GlobalSymbol])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
-    val (newEnv, value) = f(withApplyingTypeCombSyms(syms))
-    (newEnv.withoutApplyingTypeCombSyms(syms), value)
+    val (newEnv, value) = f(withApplyingTypeCombs(syms))
+    (newEnv.withoutApplyingTypeCombs(syms), value)
   }
 }
 
