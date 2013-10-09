@@ -216,6 +216,9 @@ package object typer
     override def appStarKindS(argKinds: Seq[Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
       TypeValueTermKindInferrer.appStarKindS(argKinds)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
+    override def lambdaKindS(argKinds: Seq[Kind], retKind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      TypeValueTermKindInferrer.lambdaKindS(argKinds, retKind)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
+    
     override def unifyKindsS(kind1: Kind, kind2: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) =
       symbolTypeSimpleTermKindInferrer.unifyInfosS(kind1, kind2)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
@@ -249,28 +252,8 @@ package object typer
     override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]) =
       env.allocateTypeParamAppIdx.map { _.mapElements(identity, _.success) }.valueOr { nt => (env, nt.failure) }
     
-    override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) = 
-      env.withTypeLambdaArgs(argParams) {
-        env2 =>
-          val (env3, res) = argParams.foldLeft((env, ().success[NoType[GlobalSymbol]])) {
-            case ((newEnv, Success(_)), argParamSet) =>
-              val argParamSeq = argParamSet.toSeq
-              argParamSeq.init.zip(argParamSeq.tail).foldLeft((newEnv, ().success[NoType[GlobalSymbol]])) {
-                case ((newEnv2, Success(_)), (param1, param2)) =>
-                  val kind1 = env.kindInferenceEnv.typeParamKind(param1)
-                  val kind2 = env.kindInferenceEnv.typeParamKind(param2)
-                  unifyKindsS(kind1, kind2)(newEnv2).mapElements(identity, _.map { _ => () })
-                case ((newEnv2, Failure(noType)), _)           =>
-                  (newEnv2, noType.failure)
-              }
-            case ((newEnv, Failure(noType)), _)      =>
-              (newEnv, noType.failure)
-          }
-          res match {
-            case Success(_)      => f(env3)
-            case Failure(noType) => (env3, noType.failure)
-          }
-    }
+    override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) = 
+      env.withTypeLambdaArgs(argParams)(f)
     
     override def typeMatchingFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeMatching)

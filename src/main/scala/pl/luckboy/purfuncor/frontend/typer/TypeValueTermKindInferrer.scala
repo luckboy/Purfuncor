@@ -58,25 +58,7 @@ object TypeValueTermKindInferrer
        val (env3, argParamKinds) = lambda.argParams.foldLeft((env2, Seq[Kind]())) {
          case ((newEnv, ks), p) => envSt.typeParamKindFromEnvironmentS(p)(newEnv).mapElements(identity, ks :+ _)
        }
-       val funKind = inferrer.functionInfo(argParamKinds.size)
-       val (env4, unifiedFunKind) = inferrer.unifyInfosS(funKind, funKind)(env3)
-       val (env5, res) = inferrer.argInfosFromInfoS(unifiedFunKind, argParamKinds.size)(env4)
-       res.map {
-         funArgKinds =>
-           val (env6, res2) = unifyArgInfoListsS(funArgKinds.toList, argParamKinds.toList)(env5)
-           res2.map {
-             unifiedFunArgKinds =>
-               inferrer.returnInfoFromInfoS(unifiedFunKind, argParamKinds.size)(env6) match {
-                 case (env7, noKind: NoKind) =>
-                   (env7, noKind)
-                 case (env7, funRetKind)     =>
-                   inferrer.unifyInfosS(funRetKind, kind)(env7) match {
-                     case (env8, noKind: NoKind) => (env8, noKind)
-                     case (env8, _)              => (env8, unifiedFunKind)
-                   }
-               }
-           }.valueOr { (env6, _) }
-       }.valueOr { (env5, _) }
+       lambdaKindS(argParamKinds, kind)(env3)
     }
   }
 
@@ -100,5 +82,27 @@ object TypeValueTermKindInferrer
         }
     }
     (env2, res.map { _ => InferredKind(Star(KindType, NoPosition)) }.valueOr(identity))
+  }
+  
+  def lambdaKindS[T, U, E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) = {
+    val funKind = inferrer.functionInfo(argKinds.size)
+    val (env2, unifiedFunKind) = inferrer.unifyInfosS(funKind, funKind)(env)
+    val (env3, res) = inferrer.argInfosFromInfoS(unifiedFunKind, argKinds.size)(env2)
+    res.map {
+      funArgKinds =>
+      val (env4, res2) = unifyArgInfoListsS(funArgKinds.toList, argKinds.toList)(env3)
+      res2.map {
+        unifiedFunArgKinds =>
+          inferrer.returnInfoFromInfoS(unifiedFunKind, argKinds.size)(env4) match {
+            case (env5, noKind: NoKind) =>
+              (env5, noKind)
+            case (env5, funRetKind)     =>
+              inferrer.unifyInfosS(funRetKind, retKind)(env5) match {
+                case (env6, noKind: NoKind) => (env6, noKind)
+                case (env6, _)              => (env6, unifiedFunKind)
+              }
+           }
+      }.valueOr { (env4, _) }
+    }.valueOr { (env3, _) }
   }
 }

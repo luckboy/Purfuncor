@@ -13,6 +13,8 @@ trait TypeInferenceEnvironmentState[E, L]
 
   def appStarKindS(argKinds: Seq[Kind])(env: E): (E, Validation[NoType[L], Kind])
   
+  def lambdaKindS(argKinds: Seq[Kind], retKind: Kind)(env: E): (E, Validation[NoType[L], Kind])
+  
   def unifyKindsS(kind1: Kind, kind2: Kind)(env: E): (E, Validation[NoType[L], Kind])
 
   def returnKindFromEnvironmentS(env: E): (E, Kind)

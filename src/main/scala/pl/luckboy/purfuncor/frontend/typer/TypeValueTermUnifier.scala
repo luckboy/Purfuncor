@@ -72,17 +72,53 @@ object TypeValueTermUnifier
         (newEnv, noType.failure)
     }
   
+  private def withTypeLambdaArgsWithReturnKindS[T, U, E](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[T], U]))(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], U]) =
+    envSt.withTypeLambdaArgsS(argParams) {
+      env2 =>
+        val (env3, res) = argParams.foldLeft((env, Seq[Kind]().success[NoType[T]])) {
+          case ((newEnv, Success(argParamKinds)), argParamSet) =>
+            val argParamSeq = argParamSet.toSeq
+            val (newEnv5, unifiedKindRes) = argParamSeq.headOption.map {
+              argParam =>
+                val (newEnv2, kindRes) = envSt.inferTypeValueTermKindS(TypeParamApp(argParam, Nil, 0))(newEnv)
+                argParamSeq.foldLeft((newEnv, kindRes.valueOr { _.toNoKind }.success[NoType[T]])) {
+                  case ((newEnv3, Success(kind1)), param2) =>
+                    val (newEnv4, kindRes2) = envSt.inferTypeValueTermKindS(TypeParamApp(param2, Nil, 0))(newEnv3)
+                    envSt.unifyKindsS(kind1, kindRes2.valueOr { _.toNoKind })(newEnv4)
+                  case ((newEnv2, Failure(noType)), _)           =>
+                    (newEnv2, noType.failure)
+                }
+            }.getOrElse((newEnv, NoType.fromError[T](FatalError("no type arguments", none, NoPosition)).failure))
+            (newEnv5, unifiedKindRes.map { argParamKinds :+ _ })
+          case ((newEnv, Failure(noType)), _)      =>
+            (newEnv, noType.failure)
+        }
+        res match {
+          case Success(argKinds)      =>
+            val (env4, res2) = f(env3)
+            res2.map {
+              x =>
+               val (env5, retKind) = envSt.returnKindFromEnvironmentS(env4)
+               val (env6, lambdaKindRes) = envSt.lambdaKindS(argKinds, retKind)(env5)
+               val (env7, _) = envSt.setReturnKindS(lambdaKindRes.valueOr { _.toNoKind })(env6)
+               (env7, x.success)
+            }.valueOr { nt => (env4, nt.failure) }
+          case Failure(noType) =>
+            (env3, noType.failure)
+        }
+    } (env)
+  
   @tailrec
   def matchesTypeValueLambdasS[T, U, E](lambda1: TypeValueLambda[T], lambda2: TypeValueLambda[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (lambda1, lambda2) match {
       case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, body2)) if argParams1.size === argParams2.size =>
         val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) }
-        envSt.withTypeLambdaArgsS(argParams)(matchesTypeValueTermsS(body1, body2)(z)(f))(env)
+        withTypeLambdaArgsWithReturnKindS(argParams)(matchesTypeValueTermsS(body1, body2)(z)(f))(env)
       case (TypeValueLambda(argParams1, typeApp1: TypeApp[T]), TypeValueLambda(argParams2, body2)) if argParams1.size < argParams2.size =>
         val otherArgParams = argParams2.drop(argParams1.size)
         val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
-        envSt.withTypeLambdaArgsS(argParams) {
-          env2 =>
+        withTypeLambdaArgsWithReturnKindS(argParams) {
+          (env2: E) =>
             typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
               case (env3, Success(otherArgs)) =>
                 val term1 = typeApp1.withArgs(typeApp1.args ++ otherArgs)
