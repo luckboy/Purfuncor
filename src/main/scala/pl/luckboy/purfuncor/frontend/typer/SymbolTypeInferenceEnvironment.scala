@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -24,6 +25,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     irreplaceableTypeParams: Map[Int, TypeValueTerm[GlobalSymbol]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
+    nextTypeParamAppIdx: Int,
     typeMatching: TypeMatching.Value,
     currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
@@ -44,6 +46,13 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
   
   def withDelayedErrs(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = delayedErrNoTypes ++ noTypes)
+  
+  def allocateTypeParamAppIdx =
+    if(nextTypeParamAppIdx < Integer.MAX_VALUE) {
+      val typeParamAppIdx = nextTypeParamAppIdx
+      (copy(nextTypeParamAppIdx = nextTypeParamAppIdx + 1), typeParamAppIdx).success
+    } else 
+      NoType.fromError[GlobalSymbol](FatalError("can't allocate type parameter index", none, NoPosition)).failure
   
   def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
 }

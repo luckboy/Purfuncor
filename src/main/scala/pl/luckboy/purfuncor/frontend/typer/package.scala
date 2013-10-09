@@ -247,8 +247,8 @@ package object typer
       }
     }
     
-    override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
-      throw new UnsupportedOperationException
+    override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.allocateTypeParamAppIdx.map { _.mapElements(identity, _.success) }.valueOr { nt => (env, nt.failure) }
     
     override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
       throw new UnsupportedOperationException
