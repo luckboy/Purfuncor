@@ -224,10 +224,9 @@ package object typer
     override def setReturnKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = (env.withTypeRetKind(kind), ())
     
     override def withRecursionCheckingS[V](locs: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
-      if((env.matchingGlobalTypeSyms & locs).isEmpty) {
-        val (env2, res) = f(env.withMatchingGlobalTypes(locs))
-        (env2.withoutMatchingGlobalTypes(locs), res)
-      } else
+      if((env.matchingGlobalTypeSyms & locs).isEmpty)
+        env.withGlobalTypes(locs)(f)
+      else
         symbolTypeValueTermUnifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     
     override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) =
@@ -250,8 +249,28 @@ package object typer
     override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]) =
       env.allocateTypeParamAppIdx.map { _.mapElements(identity, _.success) }.valueOr { nt => (env, nt.failure) }
     
-    override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
-      throw new UnsupportedOperationException
+    override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) = 
+      env.withTypeLambdaArgs(argParams) {
+        env2 =>
+          val (env3, res) = argParams.foldLeft((env, ().success[NoType[GlobalSymbol]])) {
+            case ((newEnv, Success(_)), argParamSet) =>
+              val argParamSeq = argParamSet.toSeq
+              argParamSeq.init.zip(argParamSeq.tail).foldLeft((newEnv, ().success[NoType[GlobalSymbol]])) {
+                case ((newEnv2, Success(_)), (param1, param2)) =>
+                  val kind1 = env.kindInferenceEnv.typeParamKind(param1)
+                  val kind2 = env.kindInferenceEnv.typeParamKind(param2)
+                  unifyKindsS(kind1, kind2)(newEnv2).mapElements(identity, _.map { _ => () })
+                case ((newEnv2, Failure(noType)), _)           =>
+                  (newEnv2, noType.failure)
+              }
+            case ((newEnv, Failure(noType)), _)      =>
+              (newEnv, noType.failure)
+          }
+          res match {
+            case Success(_)      => f(env3)
+            case Failure(noType) => (env3, noType.failure)
+          }
+    }
     
     override def typeMatchingFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeMatching)

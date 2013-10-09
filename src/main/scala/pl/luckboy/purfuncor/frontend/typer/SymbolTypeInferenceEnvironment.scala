@@ -26,6 +26,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
     matchingGlobalTypeSyms: Set[GlobalSymbol],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
     nextTypeParamAppIdx: Int,
+    typeLambdaArgParams: Map[Int, Int],
+    typeLambdaArgCount: Int,
     typeMatching: TypeMatching.Value,
     currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
@@ -43,6 +45,11 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
   
+  def withGlobalTypes[V](syms: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val (env, res) = f(withMatchingGlobalTypes(syms))
+    (env.withoutMatchingGlobalTypes(syms), res)
+  }
+  
   def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
   
   def withDelayedErrs(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = delayedErrNoTypes ++ noTypes)
@@ -53,6 +60,22 @@ case class SymbolTypeInferenceEnvironment[T, U](
       (copy(nextTypeParamAppIdx = nextTypeParamAppIdx + 1), typeParamAppIdx).success
     } else 
       NoType.fromError[GlobalSymbol](FatalError("can't allocate type parameter index", none, NoPosition)).failure
+  
+  def withTypeLambdaArgParams(params: Map[Int, Int]) = copy(typeLambdaArgParams = params)
+  
+  def withTypeLambdaArgCount(argCount: Int) = copy(typeLambdaArgCount = argCount)
+  
+  def withTypeLambdaArgs[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)): (SymbolTypeInferenceEnvironment[T, U], V) = {
+    val env2 = (0 until argParams.size).foldLeft(this: SymbolTypeInferenceEnvironment[T, U]) {
+      case (env, i) =>
+        val argParamSet = argParams(i)
+        env.withTypeLambdaArgParams(env.typeLambdaArgParams ++ argParamSet.map { _ -> (typeLambdaArgCount + i) }.toMap)
+    }
+    val oldArgCount = env2.typeLambdaArgCount
+    val newArgCount = env2.typeLambdaArgCount + argParams.size
+    val (env3, res) = f(env2.withTypeLambdaArgCount(newArgCount))
+    (env3.withTypeLambdaArgParams(env3.typeLambdaArgParams -- argParams.flatten).withTypeLambdaArgCount(oldArgCount), res)
+  }
   
   def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
 }
