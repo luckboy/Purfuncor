@@ -36,7 +36,7 @@ object TypeValueTermUtils
               case TypeValueLambda(argParams2, body2) =>
                 val argParams3 = argParams2.drop(args2.size) ++ argParams
                 val lambda3 = TypeValueLambda(argParams3, body2)
-                substituteTypeValueLambdasInTypeValueLambda(lambda3, (lambdas -- argParams3) ++ argParams2.take(args2.size).zip(args2))
+                substituteTypeValueLambdasInTypeValueLambda(lambda3, argParams2.take(args2.size).zip(args2).toMap)
             }.getOrElse(some(TypeValueLambda(argParams, TypeParamApp(param, args2, paramAppIdx))))
         }
       case TypeValueLambda(argParams, body) =>
