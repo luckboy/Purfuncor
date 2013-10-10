@@ -546,7 +546,7 @@ object TypeValueTermUnifier
           newTypeDisj =>
             newTypeDisj.terms.headOption.map {
               term2 => (if(newTypeDisj.terms.size === 1) term2 else newTypeDisj).success
-            }.getOrElse(NoType.fromError[T](FatalError("type conjunction doesn't have type value terms", none, NoPosition)).failure)
+            }.getOrElse(NoType.fromError[T](FatalError("type disjunction doesn't have type value terms", none, NoPosition)).failure)
         })
     }
 }
