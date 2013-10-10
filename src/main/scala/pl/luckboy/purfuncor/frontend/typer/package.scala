@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object typer
@@ -107,6 +108,18 @@ package object typer
             val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
             (env2, res.map { ls => EvaluatedTypeValue(typeApp.withArgs(typeApp.args ++ ls)) }.valueOr(identity))
           } else
+            (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
+        case EvaluatedTypeLambdaValue(lambda) =>
+          if(lambda.argParams.size === argValues.size) {
+            val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
+            val retValue = res.map {
+              ls =>
+                substituteTypeValueLambdas(lambda.body, lambda.argParams.zip(ls).toMap).map {
+                  EvaluatedTypeValue(_)
+                }.getOrElse(NoTypeValue.fromError[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](FatalError("can't substitute type value lambdas", none, NoPosition)))
+            }.valueOr(identity)
+            (env2, retValue)
+          } else 
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case _ =>
           (env, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)))

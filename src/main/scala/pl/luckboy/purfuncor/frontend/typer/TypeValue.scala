@@ -19,6 +19,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     this match {
       case NoTypeValue(_, _)                           => 1
       case EvaluatedTypeValue(_)                       => 1
+      case EvaluatedTypeLambdaValue(lambda)            => lambda.argParams.size
       case TupleTypeFunValue(n)                        => n
       case TypeBuiltinFunValue(_, f)                   => f.argCount
       case TypeCombinatorValue(comb, _, _)             => comb.argCount
@@ -47,8 +48,15 @@ sealed trait TypeValue[T, +U, +V, +W]
   def typeValueTermS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
     val term = evaluatedValue match {
-      case EvaluatedTypeValue(term) => term.success
-      case _                        => NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure
+      case EvaluatedTypeValue(term)         =>
+        term.success
+      case EvaluatedTypeLambdaValue(lambda) =>
+        lambda match {
+          case TypeValueLambda(Seq(), body) => body.success
+          case _                            => NoTypeValue.fromError[T, U, V, W](FatalError("type lambda value has arguments", none, NoPosition)).failure
+        }
+      case _                                =>
+        NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure
     }
     (env2, term)
   }
@@ -86,6 +94,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     this match {
       case NoTypeValue(err, _)                         => "<no type value: " + err + ">"
       case EvaluatedTypeValue(term)                    => term.toString
+      case EvaluatedTypeLambdaValue(lambda)            => lambda.toString
       case TupleTypeFunValue(n)                        => "tuple " + n
       case TypeBuiltinFunValue(f, _)                   => "#" + f 
       case TypeCombinatorValue(_, _, sym)              => sym.toString
@@ -126,6 +135,7 @@ object NoTypeValue
 }
 
 case class EvaluatedTypeValue[T, +U, +V, +W](term: TypeValueTerm[T]) extends TypeValue[T, U, V, W]
+case class EvaluatedTypeLambdaValue[T, +U, +V, +W](lambda: TypeValueLambda[T]) extends TypeValue[T, U, V, W]
 
 case class TupleTypeFunValue[T, +U, +V, +W](n: Int) extends TypeValue[T, U, V, W]
 {
