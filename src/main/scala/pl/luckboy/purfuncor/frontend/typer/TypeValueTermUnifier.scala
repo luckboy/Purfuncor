@@ -472,4 +472,81 @@ object TypeValueTermUnifier
     }
     envSt.setTypeMatchingS(typeMatching)(env6).mapElements(identity, _ => res)
   }
+  
+  def replaceTypeParamsFromTypeValueTermsS[T, E](terms: Seq[TypeValueTerm[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
+    terms.foldLeft((env, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(ts)), t) => replaceTypeValueTermParamsS(t)(f)(newEnv).mapElements(identity, _.map { ts :+ _ })
+      case ((newEnv, Failure(nt)), _) => (newEnv, nt.failure)
+    }
+  
+  def replaceTypeParamsFromTypeValueLambdasS[T, E](lambdas: Seq[TypeValueLambda[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
+    lambdas.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(ls)), l) => replaceTypeValueLambdaParamsS(l)(f)(newEnv).mapElements(identity, _.map { ls :+ _ })
+      case ((newEnv, Failure(nt)), _) => (newEnv, nt.failure)
+    }
+  
+  def replaceTypeValueLambdaParamsS[T, E](lambda: TypeValueLambda[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
+    lambda match {
+      case TypeValueLambda(argParams, body) => replaceTypeValueTermParamsS(body)(f)(env).mapElements(identity, _.map { TypeValueLambda(argParams, _) })
+    }
+  
+  def replaceTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    term match {
+      case TupleType(args) =>
+        replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { TupleType(_) })
+      case BuiltinType(bf, args) =>
+        replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { BuiltinType(bf, _) })
+      case Unittype(loc, args, sym) =>
+        replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { Unittype(loc, _, sym) })
+      case GlobalTypeApp(loc, args, sym) =>
+        replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { GlobalTypeApp(loc, _, sym) })
+      case TypeParamApp(param, args, paramAppIdx) =>
+        val (env2, res) = f(param, env)
+        res match {
+          case Success(Left(param2))     =>
+            (env2, TypeParamApp(param2, args, paramAppIdx).success)
+          case Success(Right(paramTerm)) =>
+            paramTerm match {
+              case TypeParamApp(param2, args2, _)   =>
+                (env2, TypeParamApp(param2, args2 ++ args, paramAppIdx).success)
+              case GlobalTypeApp(loc2, args2, sym2) =>
+                (env2, GlobalTypeApp(loc2, args2 ++ args, sym2).success)
+              case _                                =>
+                if(args.isEmpty)
+                  (env2, paramTerm.success)
+                else
+                  (env2, NoType.fromError[T](FatalError("type value term isn't type application", none, NoPosition)).failure)
+            }
+          case Failure(noType)           =>
+            (env2, noType.failure)
+        }
+      case TypeConjunction(terms) =>
+        val (env2, res) = terms.foldLeft((env, TypeConjunction[T](Set()).success[NoType[T]])) {
+          case ((newEnv, Success(newTypeConj)), term2) => 
+            val (newEnv2, newRes) = replaceTypeValueTermParamsS(term2)(f)(newEnv)
+            (newEnv2, newRes.map { newTypeConj & _ })
+          case ((newEnv, Failure(noType)), _)          =>
+            (newEnv, noType.failure)
+        }
+        (env2, res.flatMap {
+          newTypeConj => 
+            newTypeConj.terms.headOption.map {
+              term2 => (if(newTypeConj.terms.size === 1) term2 else newTypeConj).success
+            }.getOrElse(NoType.fromError[T](FatalError("type conjunction doesn't have type value terms", none, NoPosition)).failure)
+        })
+      case TypeDisjunction(terms) =>
+        val (env2, res) = terms.foldLeft((env, TypeDisjunction[T](Set()).success[NoType[T]])) {
+          case ((newEnv, Success(newTypeDisj)), term2) =>
+            val (newEnv2, newRes) = replaceTypeValueTermParamsS(term2)(f)(newEnv)
+            (newEnv2, newRes.map { newTypeDisj | _ })
+          case ((newEnv, Failure(noType)), _)          =>
+            (newEnv, noType.failure)
+        }
+        (env2, res.flatMap {
+          newTypeDisj =>
+            newTypeDisj.terms.headOption.map {
+              term2 => (if(newTypeDisj.terms.size === 1) term2 else newTypeDisj).success
+            }.getOrElse(NoType.fromError[T](FatalError("type conjunction doesn't have type value terms", none, NoPosition)).failure)
+        })
+    }
 }
