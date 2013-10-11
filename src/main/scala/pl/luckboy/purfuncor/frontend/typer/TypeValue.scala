@@ -61,7 +61,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     (env2, term)
   }
   
-  def typeValueLambdaWithParamsS[U2 >: U, V2 >: V, W2 >: W, E](param1: Int, paramN: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
+  def typeValueLambdaWithParamsS[U2 >: U, V2 >: V, W2 >: W, E](param1: Int, paramN: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U2, V2, W2]]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
     evaluatedValue match {
       case EvaluatedTypeValue(term) =>
@@ -79,7 +79,7 @@ sealed trait TypeValue[T, +U, +V, +W]
     }
   }
 
-  def typeValueLambdaS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
+  def typeValueLambdaS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U2, V2, W2]]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
     val (env2, paramCount) = envSt.typeParamCountFromEnvironmentS(env)
     typeValueLambdaWithParamsS[U2, V2, W2, E](paramCount, paramCount)(env2)
   }
@@ -248,6 +248,19 @@ object TypeValueTerm
   
   def typeValueTermFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     State(typeValueTermsFromTypeValuesS[T, U, V, W, E](values))
+    
+  def appForGlobalTypeS[T, U, V, W, E](loc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+    val (env2, funValue) = envSt.globalTypeVarValueFromEnvironmentS(loc)(env)
+    val (env3, retValue) = appS(funValue, argLambdas.map { EvaluatedTypeLambdaValue(_) })(env2)
+    eval.forceS(retValue)(env3) match {
+      case (env4, noType: NoTypeValue[T, U, V, W]) => (env4, noType.failure)
+      case (env4, EvaluatedTypeValue(term))        => (env4, term.success)
+      case (env4, _)                               => (env4, NoTypeValue.fromError(FatalError("unevaluated type value", none, NoPosition)).failure)
+    }
+  }
+  
+  def appForGlobalType[T, U, V, W, E](loc: T, argLambdas: Seq[TypeValueLambda[T]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+    State(appForGlobalTypeS[T, U, V, W, E](loc, argLambdas))
 }
 
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
@@ -279,12 +292,12 @@ case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 
 object TypeValueLambda
 {
-  def typeValueLambdasFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E]) =
+  def typeValueLambdasFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     values.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoTypeValue[T, U, V, W]])) {
       case ((newEnv, Success(ls)), v)      => v.typeValueLambdaS(newEnv).mapElements(identity, _.map { ls :+ _ })
       case ((newEnv, Failure(noValue)), _) => (newEnv, noValue.failure)
     }
 
-  def typeValueLambdasFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E]) =
+  def typeValueLambdasFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     State(typeValueLambdasFromTypeValuesS[T, U, V, W, E](values))
 }
