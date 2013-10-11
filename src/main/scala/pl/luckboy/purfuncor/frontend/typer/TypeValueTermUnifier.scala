@@ -196,7 +196,18 @@ object TypeValueTermUnifier
     }
     envSt.setTypeMatchingS(newTypeMatching)(env2)
   }
-    
+  
+  private def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+    val (env2, res) = envSt.appForGlobalTypeS(funLoc, argLambdas)(env)
+    res.map {
+      retTerm =>
+        val (env3, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env2)
+        val (env4, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env3)
+        val (env5, res) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env4)
+        (env5, res.map { _._2 })
+    }.valueOr { nt => (env2, nt.failure) }
+  }
+  
   private def matchesGlobalTypeAppWithTypeValueTermS[T, U, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (globalTypeApp1, term2) match {
       case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
@@ -211,9 +222,9 @@ object TypeValueTermUnifier
           case Success(x) =>
             (env3, x.success)
           case Failure(_) =>
-            envSt.appForGlobalTypeS(loc1, args1)(env3) match {
+            appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env3) match {
               case (env4, Success(evaluatedTerm1)) =>
-                envSt.appForGlobalTypeS(loc2, args2)(env4) match {
+                appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env4) match {
                   case (env5, Success(evaluatedTerm2)) =>
                     envSt.withRecursionCheckingS(Set(loc1, loc2))(matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f))(env5)
                   case (env5, Failure(noType))         =>
@@ -224,7 +235,7 @@ object TypeValueTermUnifier
             }
         }
       case (GlobalTypeApp(loc1, args1, _), _) =>
-        envSt.appForGlobalTypeS(loc1, args1)(env) match {
+        appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env) match {
           case (env2, Success(evaluatedTerm1)) =>
             envSt.withRecursionCheckingS(Set(loc1))(matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f))(env2)
           case (env2, Failure(noType))         =>

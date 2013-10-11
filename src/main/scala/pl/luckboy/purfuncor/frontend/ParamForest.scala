@@ -36,6 +36,8 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
     } else
       none
   }
+  
+  def allocatedParams = nodes.keySet
 }
 
 object ParamForest
