@@ -265,6 +265,12 @@ package object typer
     override def allocateTypeParamAppIdxS(env: SymbolTypeInferenceEnvironment[T, U]) =
       env.allocateTypeParamAppIdx.map { _.mapElements(identity, _.success) }.valueOr { nt => (env, nt.failure) }
     
+    override def nextTypeParamAppIdxFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.nextTypeParamAppIdx)
+    
+    override def nextTypeParamFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeParamForest.next)
+    
     override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) = 
       env.withTypeLambdaArgs(argParams)(f)
     
