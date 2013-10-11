@@ -31,6 +31,8 @@ package object typer
     
     override def withTypeParamsS[U](paramCount: Int)(f: (Int, Int, SymbolTypeEnvironment[T]) => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
       env.withTypeParams(paramCount)(f)
+      
+    override def currentTypeParamAppIdxFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.currentTypeParamAppIdx)
   }
   
   implicit def symbolTypeSimpleTermEvaluator[T]: Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] = new Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {

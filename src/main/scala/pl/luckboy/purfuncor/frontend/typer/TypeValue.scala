@@ -69,9 +69,10 @@ sealed trait TypeValue[T, +U, +V, +W]
       case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
-            val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil, 0)) }
-            val (newEnv2, retValue) = appS(funValue, paramValues)(newEnv)
-            retValue.typeValueLambdaWithParamsS(param1, newParamN)(newEnv2)
+            val (newEnv2, paramAppIdx) = envSt.currentTypeParamAppIdxFromEnvironmentS(newEnv)
+            val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U2, V2, W2](TypeParamApp(i, Nil, paramAppIdx)) }
+            val (newEnv3, retValue) = appS(funValue, paramValues)(newEnv2)
+            retValue.typeValueLambdaWithParamsS(param1, newParamN)(newEnv3)
         } (env)
       case _ =>
         (env, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
