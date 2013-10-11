@@ -15,4 +15,12 @@ object TypeResult
     }
   
   def typeResultFromKindResult[T, U](res: Validation[NoKind, T]) = res.swap.map(NoType.fromNoKind[U]).swap
+
+  def typeResultFromTypeValue[T, U, V, W](value: TypeValue[T, U, V, W]) =
+    value match {
+      case noValue: NoTypeValue[T, U, V, W] => NoType.fromNoTypeValue(noValue).failure
+      case _                                => value.success
+    }
+  
+  def typeResultFromTypeValueResult[T, U, V, W, X](res: Validation[NoTypeValue[T, U, V, W], X]) = res.swap.map(NoType.fromNoTypeValue[T, U, V, W]).swap
 }

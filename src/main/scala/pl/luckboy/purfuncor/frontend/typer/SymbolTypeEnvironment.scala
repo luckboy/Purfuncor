@@ -89,10 +89,10 @@ case class SymbolTypeEnvironment[T](
   
   def withCurrentTypeParamAppIdx(paramAppIdx: Int) = copy(currentTypeParamAppIdx = paramAppIdx)
   
-  def withTypeParamAppIdx(paramAppIdx: Int)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
+  def withTypeParamAppIdx[U](paramAppIdx: Int)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)) = {
     val oldParamAppIdx = currentTypeParamAppIdx
-    val (env, value) = f(withCurrentTypeParamAppIdx(paramAppIdx))
-    (env.withCurrentTypeParamAppIdx(oldParamAppIdx), value)
+    val (env, res) = f(withCurrentTypeParamAppIdx(paramAppIdx))
+    (env.withCurrentTypeParamAppIdx(oldParamAppIdx), res)
   }
 }
 

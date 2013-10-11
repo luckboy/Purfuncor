@@ -221,8 +221,10 @@ package object typer
   }
   
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] {
-    override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (typeEnv, res) = env.typeEnv.withTypeParamAppIdx(env.nextTypeParamAppIdx) { TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(_) }
+      (env.withTypeEnv(typeEnv), typeResultFromTypeValueResult(res))
+    }
     
     override def inferTypeValueTermKindS(term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       TypeValueTermKindInferrer.inferTypeValueTermKindS(term)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)

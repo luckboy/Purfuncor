@@ -249,18 +249,18 @@ object TypeValueTerm
   def typeValueTermFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     State(typeValueTermsFromTypeValuesS[T, U, V, W, E](values))
     
-  def appForGlobalTypeS[T, U, V, W, E](loc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
-    val (env2, funValue) = envSt.globalTypeVarValueFromEnvironmentS(loc)(env)
+  def appForGlobalTypeS[T, U, V, W, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+    val (env2, funValue) = envSt.globalTypeVarValueFromEnvironmentS(funLoc)(env)
     val (env3, retValue) = appS(funValue, argLambdas.map { EvaluatedTypeLambdaValue(_) })(env2)
     eval.forceS(retValue)(env3) match {
       case (env4, noType: NoTypeValue[T, U, V, W]) => (env4, noType.failure)
       case (env4, EvaluatedTypeValue(term))        => (env4, term.success)
-      case (env4, _)                               => (env4, NoTypeValue.fromError(FatalError("unevaluated type value", none, NoPosition)).failure)
+      case (env4, _)                               => (env4, NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure)
     }
   }
   
-  def appForGlobalType[T, U, V, W, E](loc: T, argLambdas: Seq[TypeValueLambda[T]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
-    State(appForGlobalTypeS[T, U, V, W, E](loc, argLambdas))
+  def appForGlobalType[T, U, V, W, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+    State(appForGlobalTypeS[T, U, V, W, E](funLoc, argLambdas))
 }
 
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]

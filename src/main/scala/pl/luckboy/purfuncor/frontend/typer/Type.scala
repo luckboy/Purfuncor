@@ -27,6 +27,9 @@ object NoType
     
   def fromNoKind[T](noKind: NoKind): NoType[T] =
     throw new UnsupportedOperationException
+    
+  def fromNoTypeValue[T, U, V, W](noTypeValue: NoTypeValue[T, U, V, W]): NoType[T] =
+    throw new UnsupportedOperationException
 }
 
 case class InferredType[T](typeValueTerm: TypeValueTerm[T], argKinds: Seq[InferredKind]) extends Type[T]
