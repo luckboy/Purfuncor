@@ -8,6 +8,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.common.Unifier._
 
 object TypeValueTermUnifier
 {
@@ -198,13 +199,23 @@ object TypeValueTermUnifier
   }
   
   private def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, res) = envSt.appForGlobalTypeS(funLoc, argLambdas)(env)
+    val (env2, res) = argLambdas.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(newArgLambdas)), argLambda) =>
+        val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
+        (newEnv2, newRes.map { b => newArgLambdas :+ TypeValueLambda(argLambda.argParams, b) })
+      case ((newEnv, Failure(noType)), _)                =>
+        (newEnv, noType.failure)
+    }
     res.map {
-      retTerm =>
-        val (env3, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env2)
-        val (env4, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env3)
-        val (env5, res) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env4)
-        (env5, res.map { _._2 })
+      instantiatedArgLambdas =>
+        val (env3, res2) = envSt.appForGlobalTypeS(funLoc, instantiatedArgLambdas)(env2)
+        res2.map {
+          retTerm =>
+            val (env4, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env3)
+            val (env5, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env4)
+            val (env6, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env5)
+            (env6, res3.map { _._2 })
+        }.valueOr { nt => (env3, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
   }
   
