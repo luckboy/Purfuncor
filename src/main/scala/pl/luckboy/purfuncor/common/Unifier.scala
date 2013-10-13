@@ -23,6 +23,8 @@ trait Unifier[E, T, F, P]
   
   def checkUnificationS(env: F): (F, Validation[E, Unit])
   
+  def prepareToMatchingS(env: F): (F, Unit)
+  
   def withSaveS[U, V](f: F => (F, Validation[U, V]))(env: F): (F, Validation[U, V])
 }
 
@@ -66,11 +68,12 @@ object Unifier
   
   @tailrec
   private def fullyMatchesAndReplaceS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, T]) = {
-    val (env2, res) = matchesAndReplaceS(term1, term2)(Set(), false)(env)
+    val (env2, _) = unifier.prepareToMatchingS(env)
+    val (env3, res) = matchesAndReplaceS(term1, term2)(Set(), false)(env2)
     res match {
-      case Success(true)  => fullyMatchesAndReplaceS(term1, term2)(env2)
-      case Success(false) => (env2, term1.success)
-      case Failure(err)   => (env2, err.failure)
+      case Success(true)  => fullyMatchesAndReplaceS(term1, term2)(env3)
+      case Success(false) => (env3, term1.success)
+      case Failure(err)   => (env3, err.failure)
     }
   }
     
