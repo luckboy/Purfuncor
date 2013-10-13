@@ -21,8 +21,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]],
-    defindTypes: List[InferredType[GlobalSymbol]],
-    irreplaceableTypeParams: Map[Int, TypeValueTerm[GlobalSymbol]],
+    defindTypes: List[DefinedType[GlobalSymbol]],
+    irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
     nextTypeParamAppIdx: Int,
@@ -38,6 +38,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withTypeEnv(env: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]]) = copy(typeEnv = env)
   
   def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
+  
+  def withTypeParamForest(typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = typeParamForest)
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
   

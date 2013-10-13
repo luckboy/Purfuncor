@@ -1,5 +1,6 @@
 package pl.luckboy.purfuncor.frontend
 import scala.annotation.tailrec
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
@@ -11,11 +12,13 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.Kind
+import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
@@ -297,11 +300,56 @@ package object typer
     override def findRootParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeParamForest.findRootParam(param).toSuccess(NoType.fromError(FatalError("not found type parameter", none, NoPosition))))
     
-    override def replaceParamS(param: Int, term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
-      throw new UnsupportedOperationException
+    override def replaceParamS(param: Int, term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      if(!env.typeParamForest.containsTerm(param))
+        env.typeParamForest.findRootParam(param).map {
+          rootParam =>
+            env.irreplaceableTypeParams.get(rootParam).map {
+              dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt =>  FatalError("couldn't instantiate parameter at defined type " + dt, none, NoPosition) }).failure)
+            }.getOrElse {
+              val paramKind = env.kindInferenceEnv.typeParamKind(param)
+              val (kindInferenceEnv, termKind) = inferTypeValueTermKindS(term)(env.kindInferenceEnv)
+              val (kindInferenceEnv2, retKind) = symbolTypeSimpleTermKindInferrer.unifyInfosS(paramKind, termKind)(kindInferenceEnv)
+              val env2 = env.withKindInferenceEnv(kindInferenceEnv2)
+              retKind match {
+                case noKind: NoKind =>
+                  (env2, NoType.fromNoKind[GlobalSymbol](noKind).failure)
+                case _              =>
+                  env2.typeParamForest.replaceParam(rootParam, term).map {
+                    tpf => (env2.withTypeParamForest(tpf).withTypeRetKind(retKind), ().success)
+                  }.getOrElse((env2, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
+              }
+            }
+        }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
+      else
+        (env, NoType.fromError[GlobalSymbol](FatalError("type parameter is already replaced", none, NoPosition)).failure)
+    }        
     
-    override def unionParamsS(param1: Int, param2: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Boolean]) =
-      throw new UnsupportedOperationException
+    override def unionParamsS(param1: Int, param2: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      if(!env.typeParamForest.containsTerm(param1) && !env.typeParamForest.containsTerm(param2)) {
+        val paramKind1 = env.kindInferenceEnv.typeParamKind(param1)
+        val paramKind2 = env.kindInferenceEnv.typeParamKind(param2)
+        val (kindInferenceEnv, retKind) = symbolTypeSimpleTermKindInferrer.unifyInfosS(paramKind1, paramKind2)(env.kindInferenceEnv)
+        val env2 = env.withKindInferenceEnv(kindInferenceEnv)
+        retKind match {
+          case noKind: NoKind =>
+            (env2, NoType.fromNoKind[GlobalSymbol](noKind).failure)
+          case _              =>
+            env2.typeParamForest.unionParams(param1, param2).map {
+              case (tpf, isChanged) =>
+                tpf.findRootParam(param1).map {
+                  rp =>
+                    val newIrreplaceableTypeParams = if(param1 =/= param2) {
+                      val definedTypes = env2.irreplaceableTypeParams.get(param1).map { _.list }.getOrElse(Nil) ++ env2.irreplaceableTypeParams.get(param2).map { _.list }.getOrElse(Nil)
+                      IntMap() ++ (env2.irreplaceableTypeParams ++ definedTypes.toNel.map { rp -> _})
+                    } else
+                      env2.irreplaceableTypeParams
+                    (env2.withTypeParamForest(tpf).copy(irreplaceableTypeParams = newIrreplaceableTypeParams).withTypeRetKind(retKind), isChanged.success)
+                }.getOrElse((env2, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
+            }.getOrElse((env2, NoType.fromError[GlobalSymbol](FatalError("not found one type parameter or two type parameters", none, NoPosition)).failure))
+        }
+      } else
+        (env, NoType.fromError[GlobalSymbol](FatalError("one type parameter or two type parameters are already replaced ", none, NoPosition)).failure)
     
     override def allocateParamS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
       throw new UnsupportedOperationException
