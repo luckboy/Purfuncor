@@ -73,7 +73,7 @@ package object kinder
     override def allocateParamS(env: SymbolKindInferenceEnvironment[T]) =
       env.kindParamForest.allocateParam.map { 
         case (kpf, p) => (env.withKindParamForest(kpf), p.success)
-      }.getOrElse((env, NoKind.fromError(FatalError("one kind parameter or two kind parameters are already replaced", none, NoPosition)).failure))
+      }.getOrElse((env, NoKind.fromError(FatalError("can't allocate kind parameter", none, NoPosition)).failure))
 
     override def replaceTermParamsS(term: KindTerm[StarKindTerm[Int]])(f: (Int, SymbolKindInferenceEnvironment[T]) => (SymbolKindInferenceEnvironment[T], Validation[NoKind, Either[Int, KindTerm[StarKindTerm[Int]]]]))(env: SymbolKindInferenceEnvironment[T]) =
       replaceKindTermParamsS(term)(f)(env)
