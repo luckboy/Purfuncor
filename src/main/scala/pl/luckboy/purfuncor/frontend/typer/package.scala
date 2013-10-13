@@ -13,10 +13,12 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
+import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
+import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
@@ -351,23 +353,36 @@ package object typer
       } else
         (env, NoType.fromError[GlobalSymbol](FatalError("one type parameter or two type parameters are already replaced ", none, NoPosition)).failure)
     
-    override def allocateParamS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
-      throw new UnsupportedOperationException
+    override def allocateParamS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.typeParamForest.allocateParam.map {
+        case (tpf, p) =>
+          val (kindInferenceEnv, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env.kindInferenceEnv)
+          val env2 = env.withKindInferenceEnv(kindInferenceEnv)
+          res.map {
+            case (_, kt) =>
+              val kindInferenceEnv2 = env.kindInferenceEnv.withTypeParamKind(p, InferringKind(kt))
+              (env.withTypeParamForest(tpf).withKindInferenceEnv(kindInferenceEnv), p.success)
+          }.valueOr { nk => (env2, NoType.fromNoKind[GlobalSymbol](nk).failure) }
+      }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("can't allocate type parameter", none, NoPosition)).failure))
     
-    override def replaceTermParamsS(term: TypeValueTerm[GlobalSymbol])(f: (Int, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Either[Int, TypeValueTerm[GlobalSymbol]]]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def replaceTermParamsS(term: TypeValueTerm[GlobalSymbol])(f: (Int, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Either[Int, TypeValueTerm[GlobalSymbol]]]))(env: SymbolTypeInferenceEnvironment[T, U]) =
+      replaceTypeValueTermParamsS(term)(f)(env)
     
     override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
       throw new UnsupportedOperationException
     
-    override def checkUnificationS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
-      throw new UnsupportedOperationException
+    override def checkUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.delayedErrNoTypes.headOption.map {
+        case (_, nt) => (env.withDelayedErrNoTypes(Map()), nt.failure)
+      }.getOrElse((env, ().success))
     
-    override def prepareToMatchingS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
-      throw new UnsupportedOperationException
+    override def prepareToMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withDelayedErrNoTypes(Map()), ())
     
-    override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]) =
-      throw new UnsupportedOperationException
+    override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
+    }
   }
   
   implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {

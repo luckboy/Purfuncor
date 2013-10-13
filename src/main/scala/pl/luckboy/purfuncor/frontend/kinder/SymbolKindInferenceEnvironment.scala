@@ -53,6 +53,8 @@ case class SymbolKindInferenceEnvironment[T](
   
   def typeParamKind(param: Int) = typeParamKinds.getOrElse(param, NoKind.fromError(FatalError("undefined type parameter", none, NoPosition)))
   
+  def withTypeParamKind(param: Int, kind: Kind) = copy(typeParamKinds = typeParamKinds + (param -> kind))
+  
   def pushLocalTypeVarKinds(kinds: Map[LocalSymbol, Kind]) = copy(localTypeVarKinds = kinds.mapValues { NonEmptyList(_) } |+| localTypeVarKinds)
 
   def popLocalTypeVarKinds(syms: Set[LocalSymbol]) = copy(localTypeVarKinds = localTypeVarKinds.flatMap { case (s, ks) => if(syms.contains(s)) ks.tail.toNel.map { (s, _) } else some((s, ks)) })
