@@ -15,8 +15,8 @@ import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
-import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
@@ -288,14 +288,14 @@ package object typer
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
-    override def matchesTermsS[V](term1: TypeValueTerm[GlobalSymbol], term2: TypeValueTerm[GlobalSymbol])(z: V)(f: (Int, Either[Int, TypeValueTerm[GlobalSymbol]], V, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]) =
-      throw new UnsupportedOperationException
+    override def matchesTermsS[V](term1: TypeValueTerm[GlobalSymbol], term2: TypeValueTerm[GlobalSymbol])(z: V)(f: (Int, Either[Int, TypeValueTerm[GlobalSymbol]], V, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
+      matchesTypeValueTermsS(term1, term2)(z)(f)(env)
     
-    override def getParamTermS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Option[TypeValueTerm[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def getParamTermS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeParamForest.getTerm(param))
     
-    override def findRootParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
-      throw new UnsupportedOperationException
+    override def findRootParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeParamForest.findRootParam(param).toSuccess(NoType.fromError(FatalError("not found type parameter", none, NoPosition))))
     
     override def replaceParamS(param: Int, term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
       throw new UnsupportedOperationException

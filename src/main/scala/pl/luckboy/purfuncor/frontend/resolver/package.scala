@@ -42,4 +42,13 @@ package object resolver
     
     override def getLocalSymbolFromTable(table: parser.TypeLambdaInfo)(sym: LocalSymbol) = some(sym)    
   }
+  
+  implicit def symbolEqual[T <: Symbol] = new Equal[T] {
+    override def equal(a1: T, a2: T) =
+      (a1, a2) match {
+        case (GlobalSymbol(names1), GlobalSymbol(names2)) => names1 === names2
+        case (LocalSymbol(name1), LocalSymbol(name2))     => name1 === name2
+        case (_, _)                                       => false
+      }
+  }
 }
