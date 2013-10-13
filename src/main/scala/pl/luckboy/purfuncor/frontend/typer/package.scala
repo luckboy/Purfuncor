@@ -280,11 +280,11 @@ package object typer
     override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) = 
       env.withTypeLambdaArgs(argParams)(f)
     
-    override def typeMatchingFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env, env.typeMatching)
+    override def currentTypeMatchingFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.currentTypeMatching)
     
-    override def setTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withTypeMatching(typeMatching), ())
+    override def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withCurrentTypeMatching(typeMatching), ())
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

@@ -37,7 +37,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def withTypeLambdaArgsS[T](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
   
-  def typeMatchingFromEnvironmentS(env: E): (E, TypeMatching.Value)
+  def currentTypeMatchingFromEnvironmentS(env: E): (E, TypeMatching.Value)
   
-  def setTypeMatchingS(typeMatching: TypeMatching.Value)(env: E): (E, Unit)
+  def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: E): (E, Unit)
 }

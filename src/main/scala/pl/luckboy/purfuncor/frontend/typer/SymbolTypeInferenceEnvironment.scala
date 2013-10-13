@@ -28,7 +28,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     nextTypeParamAppIdx: Int,
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
-    typeMatching: TypeMatching.Value,
+    currentTypeMatching: TypeMatching.Value,
     currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean)
@@ -77,5 +77,5 @@ case class SymbolTypeInferenceEnvironment[T, U](
     (env3.withTypeLambdaArgParams(env3.typeLambdaArgParams -- argParams.flatten).withTypeLambdaArgCount(oldArgCount), res)
   }
   
-  def withTypeMatching(typeMatching: TypeMatching.Value) = copy(typeMatching = typeMatching)
+  def withCurrentTypeMatching(typeMatching: TypeMatching.Value) = copy(currentTypeMatching = typeMatching)
 }

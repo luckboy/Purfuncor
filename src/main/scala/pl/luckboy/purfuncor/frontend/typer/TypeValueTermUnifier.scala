@@ -13,8 +13,8 @@ import pl.luckboy.purfuncor.common.Unifier._
 object TypeValueTermUnifier
 {
   def matchesTypeValueTermListsWithReturnKindS[T, U, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) = {
-    val (env2, savedTypeMatching) = envSt.typeMatchingFromEnvironmentS(env)
-    val (env3, _) = envSt.setTypeMatchingS(TypeMatching.Types)(env2)
+    val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+    val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(terms1.size === terms2.size) {
       val (env4, res) = terms1.zip(terms2).foldLeft((env3, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (term1, term2)) => 
@@ -34,12 +34,12 @@ object TypeValueTermUnifier
       }.valueOr { nt => (env4, nt.failure) }
     } else
       (env3, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
-    envSt.setTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
+    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
   }
   
   def matchesTypeValueLambdaListsWithReturnKindS[T, U, E](lambdas1: Seq[TypeValueLambda[T]], lambdas2: Seq[TypeValueLambda[T]], funKind: Kind)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]) = {
-    val (env2, savedTypeMatching) = envSt.typeMatchingFromEnvironmentS(env)
-    val (env3, _) = envSt.setTypeMatchingS(TypeMatching.Types)(env2)
+    val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+    val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(lambdas1.size === lambdas2.size) {
       val (env4, res) = lambdas1.zip(lambdas2).foldLeft((env3, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (lambda1, lambda2)) => 
@@ -59,7 +59,7 @@ object TypeValueTermUnifier
       }.valueOr { nt => (env4, nt.failure) }
     } else
       (env3, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
-    envSt.setTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
+    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
   }
   
   private def typeValueLambdasFromTypeParamsS[T, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
@@ -189,13 +189,13 @@ object TypeValueTermUnifier
     }
     
   private def reverseTypeMatchingS[T, E](env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, oldTypeMatching) = envSt.typeMatchingFromEnvironmentS(env)
+    val (env2, oldTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val newTypeMatching = oldTypeMatching match {
       case TypeMatching.Types             => TypeMatching.Types
       case TypeMatching.SupertypeWithType => TypeMatching.TypeWithSupertype
       case TypeMatching.TypeWithSupertype => TypeMatching.SupertypeWithType
     }
-    envSt.setTypeMatchingS(newTypeMatching)(env2)
+    envSt.setCurrentTypeMatchingS(newTypeMatching)(env2)
   }
   
   private def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
@@ -392,14 +392,14 @@ object TypeValueTermUnifier
       case typeConj: TypeConjunction[T] => typeConj
       case _                            => TypeConjunction(Set(term2))
     }
-    val (env2, typeMatching) = envSt.typeMatchingFromEnvironmentS(env) 
+    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env) 
     typeMatching match {
       case TypeMatching.Types             =>
-        val (env3, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+        val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
         val (env4, res) = checkTypeValueTermSubsetS(typeConj1.terms, typeConj2.terms, false)(z)(f)(env3)
         res match {
           case Success(x)      =>
-            val (env5, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
+            val (env5, _) = envSt.setCurrentTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
             checkTypeValueTermSubsetS(typeConj2.terms, typeConj1.terms, true)(x)(f)(env5)
           case Failure(noType) =>
             (env4, noType.failure)
@@ -416,14 +416,14 @@ object TypeValueTermUnifier
       case typeDisj: TypeDisjunction[T] => typeDisj
       case _                            => TypeDisjunction(Set(term2))
     }
-    val (env2, typeMatching) = envSt.typeMatchingFromEnvironmentS(env) 
+    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env) 
     typeMatching match {
       case TypeMatching.Types             =>
-        val (env3, _) = envSt.setTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+        val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
         val (env4, res) = checkTypeValueTermSubsetS(typeDisj1.terms, typeDisj2.terms, false)(z)(f)(env3)
         res match {
           case Success(x)      =>
-            val (env5, _) = envSt.setTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
+            val (env5, _) = envSt.setCurrentTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
             checkTypeValueTermSubsetS(typeDisj2.terms, typeDisj1.terms, true)(x)(f)(env5)
           case Failure(noType) =>
             (env3, noType.failure)
@@ -443,7 +443,7 @@ object TypeValueTermUnifier
   }
   
   def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
-    val (env2, typeMatching) = envSt.typeMatchingFromEnvironmentS(env)
+    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env6, res) = instantiateFunctionTypeValueTermS(term1)(env2) match {
       case (env3, Success(instantiatedTerm1)) =>
         instantiateFunctionTypeValueTermS(term2)(env3) match {
@@ -492,7 +492,7 @@ object TypeValueTermUnifier
       case (env2, Failure(noType)) =>
         (env2, noType.failure)
     }
-    envSt.setTypeMatchingS(typeMatching)(env6).mapElements(identity, _ => res)
+    envSt.setCurrentTypeMatchingS(typeMatching)(env6).mapElements(identity, _ => res)
   }
   
   def replaceTypeParamsFromTypeValueTermsS[T, E](terms: Seq[TypeValueTerm[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
