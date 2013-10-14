@@ -675,8 +675,8 @@ object TypeValueTermUnifier
   
   def checkDefinedTypesS[T, E](definedTypes: Seq[DefinedType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], Unit]) =
     definedTypes.foldLeft((env, ().success[NoType[T]])) {
-      case ((newEnv, newRes), dt) =>
-        val (newEnv2, newRes2) = checkDefinedTypeS(dt)(newEnv)
+      case ((newEnv, newRes), definedType) =>
+        val (newEnv2, newRes2) = checkDefinedTypeS(definedType)(newEnv)
         (newEnv2, (newRes |@| newRes2) { (u, _) => u })
     }
 }
