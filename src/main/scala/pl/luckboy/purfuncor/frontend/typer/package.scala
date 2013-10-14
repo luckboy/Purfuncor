@@ -265,11 +265,13 @@ package object typer
     override def withDelayedErrorRestoringOrSavingS[V](errs: Map[Int, NoType[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], (Validation[NoType[GlobalSymbol], V], Boolean)) = {
       val savedErrCount = env.delayedErrNoTypes.size
       val (env2, res) = f(env)
-      res match {
-        case Success(_) =>
-          if(savedErrCount === env.delayedErrNoTypes.size) (env2, (res, true)) else (env, (res, false))
-        case Failure(_) =>
-          (env, (res, false))
+      val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
+      val (env4, noType) = symbolTypeValueTermUnifier.mismatchedTermErrorS(env3)
+      res.orElse(res2.swap.map { _ => noType }.swap) match {
+        case Success(_)      =>
+          if(savedErrCount === env.delayedErrNoTypes.size) (env4, (res, true)) else (env, (res, false))
+        case Failure(noType) =>
+          (env, (noType.failure, false))
       }
     }
     

@@ -21,7 +21,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]],
-    defindTypes: List[DefinedType[GlobalSymbol]],
+    definedTypes: List[DefinedType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
