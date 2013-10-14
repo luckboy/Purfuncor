@@ -1,5 +1,6 @@
 package pl.luckboy.purfuncor.frontend.typer
 import scala.annotation.tailrec
+import scala.collection.immutable.BitSet
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -660,4 +661,22 @@ object TypeValueTermUnifier
 
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
+  
+  def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
+    val params = definedType.args.flatMap { _.param }.toSet
+    val (env2, res) = params.foldLeft((env, BitSet().success[NoType[T]])) {
+      case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
+      case ((newEnv, Failure(nt)), _)  => (newEnv, nt.failure)
+    }
+    (env2, res.map {
+      rootParams => if(rootParams.size === params.size) ().success else NoType.fromError[T](FatalError("parameters are distinct at defined type " + definedType, none, definedType.pos)).failure
+    }.valueOr { _.failure })
+  }
+  
+  def checkDefinedTypesS[T, E](definedTypes: Seq[DefinedType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], Unit]) =
+    definedTypes.foldLeft((env, ().success[NoType[T]])) {
+      case ((newEnv, newRes), dt) =>
+        val (newEnv2, newRes2) = checkDefinedTypeS(dt)(newEnv)
+        (newEnv2, (newRes |@| newRes2) { (u, _) => u })
+    }
 }
