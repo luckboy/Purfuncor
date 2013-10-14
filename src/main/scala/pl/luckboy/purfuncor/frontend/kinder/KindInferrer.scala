@@ -62,8 +62,8 @@ object KindInferrer
             val (newEnv2, rootParamRes) = unifier.findRootParamS(p)(newEnv)
             rootParamRes.map {
               rootParam =>
-                val (newEnv3, paramKindTermOpt) = unifier.getParamTermS(rootParam)(newEnv2)
-                paramKindTermOpt.map {
+                val (newEnv3, optParamKindTerm) = unifier.getParamTermS(rootParam)(newEnv2)
+                optParamKindTerm.map {
                   case Arrow(a, r, _) => (newEnv3, (r, a :: kts).success)
                   case _              => (newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure)
                 }.getOrElse((newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure))
@@ -97,8 +97,8 @@ object KindInferrer
             val (newEnv2, rootParamRes) = unifier.findRootParamS(p)(newEnv)
             rootParamRes.map {
               rootParam =>
-                val (newEnv3, paramKindTermOpt) = unifier.getParamTermS(rootParam)(newEnv2)
-                paramKindTermOpt.map {
+                val (newEnv3, optParamKindTerm) = unifier.getParamTermS(rootParam)(newEnv2)
+                optParamKindTerm.map {
                   case Arrow(_, r, _) => (newEnv3, r.success)
                   case _              => (newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure)
                 }.getOrElse((newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure))
