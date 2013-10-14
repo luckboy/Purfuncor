@@ -305,8 +305,8 @@ package object typer
     override def replaceParamS(param: Int, term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) = {
       if(!env.typeParamForest.containsTerm(param))
         env.typeParamForest.findRootParam(param).map {
-          rootParam =>
-            env.irreplaceableTypeParams.get(rootParam).map {
+          rp =>
+            env.irreplaceableTypeParams.get(rp).map {
               dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt =>  FatalError("couldn't instantiate parameter at defined type " + dt, none, NoPosition) }).failure)
             }.getOrElse {
               val paramKind = env.kindInferenceEnv.typeParamKind(param)
@@ -317,7 +317,7 @@ package object typer
                 case noKind: NoKind =>
                   (env2, NoType.fromNoKind[GlobalSymbol](noKind).failure)
                 case _              =>
-                  env2.typeParamForest.replaceParam(rootParam, term).map {
+                  env2.typeParamForest.replaceParam(rp, term).map {
                     tpf => (env2.withTypeParamForest(tpf).withTypeRetKind(retKind), ().success)
                   }.getOrElse((env2, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
               }

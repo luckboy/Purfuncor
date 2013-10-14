@@ -41,11 +41,11 @@ package object kinder
     override def replaceParamS(param: Int, term: KindTerm[StarKindTerm[Int]])(env: SymbolKindInferenceEnvironment[T]) =
       if(!env.kindParamForest.containsTerm(param)) 
         env.kindParamForest.findRootParam(param).map {
-          rootParam =>
-            env.irreplaceableKindParams.get(rootParam).map {
+          rp =>
+            env.irreplaceableKindParams.get(rp).map {
               kts => (env, NoKind.fromErrors(kts.map { kt => Error("couldn't instantiate parameter at defined kind " + intKindTermShowing.stringFrom(intKindTermFromKindTerm(kt)), none, NoPosition) }).failure)
             }.getOrElse {
-              env.kindParamForest.replaceParam(rootParam, term).map {
+              env.kindParamForest.replaceParam(rp, term).map {
                 kpf => (env.withKindParamForest(kpf), ().success)
               }.getOrElse((env, NoKind.fromError(FatalError("not found kind parameter", none, NoPosition)).failure))
             }
