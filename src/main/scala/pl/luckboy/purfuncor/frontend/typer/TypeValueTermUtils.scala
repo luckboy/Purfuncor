@@ -63,4 +63,7 @@ object TypeValueTermUtils
       case TypeDisjunction(terms)        =>
         substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeDisjunction(ts.toSet) }
     }
+  
+  def recalcTypeValueTermParamsForInferringType[T](term: TypeValueTerm[T])(ignoredParams: Set[Int], nextParam: Int): TypeValueTerm[T] =
+    throw new UnsupportedOperationException
 }
