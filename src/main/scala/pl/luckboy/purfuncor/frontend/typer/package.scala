@@ -287,10 +287,7 @@ package object typer
     
     override def allocatedTypeParamsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeParamForest.allocatedParams)
-      
-    override def nextTypeParamFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env, env.typeParamForest.next)
-    
+        
     override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) = 
       env.withTypeLambdaArgs(argParams)(f)
     
