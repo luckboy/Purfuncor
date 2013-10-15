@@ -595,14 +595,14 @@ object TypeValueTermUnifier
     lambda match {
       case TypeValueLambda(argParams, body) =>
         val (env2, res) = argParams.foldLeft((env, (Map[Int, Int](), Seq[Int]()).success[NoType[T]])) {
-          case ((newEnv, Success((newAllocatedParams, newArgParams))), argParam) =>
-            newAllocatedParams.get(argParam).map { argParam2 => (newEnv, (newAllocatedParams, newArgParams :+ argParam2).success) }.getOrElse {
+          case ((newEnv, Success((newAllocatedArgParams, newArgParams))), argParam) =>
+            allocatedParams.get(argParam).map { argParam2 => (newEnv, (newAllocatedArgParams, newArgParams :+ argParam2).success) }.getOrElse {
               val (newEnv2, res) = unifier.allocateParamS(newEnv)
-              res.map { argParam2 => (newEnv2, (newAllocatedParams + (argParam -> argParam2), newArgParams :+ argParam2).success) }.valueOr {
+              res.map { argParam2 => (newEnv2, (newAllocatedArgParams + (argParam -> argParam2), newArgParams :+ argParam2).success) }.valueOr {
                 nt => (newEnv2, nt.failure)
               }
             }
-          case ((newEnv, Failure(noType)), _)                                    =>
+          case ((newEnv, Failure(noType)), _)                                       =>
             (newEnv, noType.failure)
         }
         res match {
