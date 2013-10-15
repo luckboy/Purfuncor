@@ -17,17 +17,17 @@ object TypeValueTermUtils
       case TypeDisjunction(terms)    => terms.flatMap(typeParamsFromTypeValueTerm).toSet
     }
   
-  def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
+  private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
     terms.foldLeft(some(Seq[TypeValueTerm[T]]())) {
       (o, t) => for(ts <- o; t2 <- substituteTypeValueLambdas(t, paramLambdas)) yield (ts :+ t2)
     }
 
-  def substituteTypeValueLambdasInTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
+  private def substituteTypeValueLambdasInTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
     lambdas.foldLeft(some(Seq[TypeValueLambda[T]]())) {
       (o, l) => for(ls <- o; l2 <- substituteTypeValueLambdasInTypeValueLambda(l, paramLambdas -- l.argParams)) yield (ls :+ l2)
     }
 
-  def substituteTypeValueLambdasInTypeValueLambda[T](lambda: TypeValueLambda[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueLambda[T]] =
+  private def substituteTypeValueLambdasInTypeValueLambda[T](lambda: TypeValueLambda[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueLambda[T]] =
     lambda match {
       case TypeValueLambda(argParams, TypeParamApp(param, args, paramAppIdx)) =>
         substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).flatMap {
