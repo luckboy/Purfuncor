@@ -270,10 +270,9 @@ package object typer
       val savedErrCount = env.delayedErrNoTypes.size
       val (env2, res) = f(env)
       val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
-      val (env4, noType) = symbolTypeValueTermUnifier.mismatchedTermErrorS(env3)
-      res.orElse(res2.swap.map { _ => noType }.swap) match {
+      res.orElse(res2) match {
         case Success(_)      =>
-          if(savedErrCount === env.delayedErrNoTypes.size) (env4, (res, true)) else (env, (res, false))
+          if(savedErrCount === env.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
         case Failure(noType) =>
           (env, (noType.failure, false))
       }
