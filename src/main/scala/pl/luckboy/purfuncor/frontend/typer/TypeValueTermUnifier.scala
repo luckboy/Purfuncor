@@ -669,6 +669,9 @@ object TypeValueTermUnifier
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
   
+  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], TypeValueTerm[T])]) =
+    throw new UnsupportedOperationException
+    
   def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
     val params = definedType.args.flatMap { _.param }.toSet
     val (env2, res) = params.foldLeft((env, BitSet().success[NoType[T]])) {
