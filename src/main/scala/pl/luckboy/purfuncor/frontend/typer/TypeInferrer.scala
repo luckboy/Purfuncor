@@ -17,7 +17,7 @@ object TypeInferrer
         val (env3, res1) = allocateTypeValueTermParamsWithKindsS(typeValueTerm1, argKindMap1)(Map(), nextParamAppIdx1)(env2)
         val argKindMap2 = argKinds2.zipWithIndex.map { _.swap }.toMap
         val (env4, nextParamAppIdx2) = envSt.nextTypeParamAppIdxFromEnvironmentS(env3)
-        val (env5, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), nextParamAppIdx2)(env2)
+        val (env5, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), nextParamAppIdx2)(env4)
         ((res1 |@| res2) {
           case ((_, _, inferringTypeValueTerm1), (_, _, inferringTypeValueTerm2)) =>
             val (env6, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env5)
