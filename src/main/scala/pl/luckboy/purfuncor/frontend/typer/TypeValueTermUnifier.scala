@@ -215,7 +215,14 @@ object TypeValueTermUnifier
             val (env4, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env3)
             val (env5, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env4)
             val (env6, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env5)
-            (env6, res3.map { _._3 })
+            res3.map { 
+              case (_, allocatedArgParams, retTerm2) =>
+                val (env7, res4) = if(!allocatedArgParams.isEmpty)
+                  envSt.inferTypeValueTermKindS(retTerm)(env6).mapElements(identity, _.map { _ => () })
+                else
+                  (env6, ().success)
+                (env7, res4.map { _ => retTerm2 })
+            }.valueOr { nt => (env6, nt.failure) }
         }.valueOr { nt => (env3, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
   }
