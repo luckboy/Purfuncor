@@ -85,9 +85,9 @@ package object kinder
       (env, NoKind.fromError(Error("couldn't match kind " + s1 + " with kind " + s2, none, NoPosition)))
     }
       
-    override def checkUnificationS(env: SymbolKindInferenceEnvironment[T]) = (env, ().success[NoKind])
+    override def prepareToUnificationS(env: SymbolKindInferenceEnvironment[T]) = (env, ())
     
-    override def prepareToMatchingS(env: SymbolKindInferenceEnvironment[T]) = (env, ())
+    override def checkMatchingS(env: SymbolKindInferenceEnvironment[T]) = (env, false.success)
     
     override def withSaveS[U, V](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Validation[U, V]))(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Validation[U, V]) = {
       val (env2, res) = f(env)

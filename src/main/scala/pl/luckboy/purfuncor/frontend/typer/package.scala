@@ -265,7 +265,7 @@ package object typer
     
     override def delayedErrorsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.delayedErrNoTypes)
-    
+        
     override def withDelayedErrorRestoringOrSavingS[V](errs: Map[Int, NoType[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], (Validation[NoType[GlobalSymbol], V], Boolean)) = {
       val savedErrCount = env.delayedErrNoTypes.size
       val (env2, res) = f(env)
@@ -382,13 +382,16 @@ package object typer
     override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
       throw new UnsupportedOperationException
     
-    override def checkUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      env.delayedErrNoTypes.headOption.map {
-        case (_, nt) => (env.withDelayedErrNoTypes(Map()), nt.failure)
-      }.getOrElse((env, ().success))
+    override def prepareToUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), ())
     
-    override def prepareToMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withDelayedErrNoTypes(Map()), ())
+    override def checkMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      if(env.delayedErrNoTypes.keySet === env.prevDelayedErrTypeParamAppIdxs)
+        env.delayedErrNoTypes.headOption.map {
+          case (_, nt) => (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), nt.failure)
+        }.getOrElse((env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), false.success))
+      else
+        (env.withPrevDelayedErrTypeParamAppIdxs(env.delayedErrNoTypes.keySet), true.success)
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = f(env)

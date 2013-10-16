@@ -25,6 +25,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
+    prevDelayedErrTypeParamAppIdxs: Set[Int],
     nextTypeParamAppIdx: Int,
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
@@ -51,10 +52,12 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, res) = f(withMatchingGlobalTypes(syms))
     (env.withoutMatchingGlobalTypes(syms), res)
   }
-  
+
   def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
   
   def withDelayedErrs(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = delayedErrNoTypes ++ noTypes)
+
+  def withPrevDelayedErrTypeParamAppIdxs(paramAppIdxs: Set[Int]) = copy(prevDelayedErrTypeParamAppIdxs = paramAppIdxs)
   
   def allocateTypeParamAppIdx =
     if(nextTypeParamAppIdx < Integer.MAX_VALUE) {

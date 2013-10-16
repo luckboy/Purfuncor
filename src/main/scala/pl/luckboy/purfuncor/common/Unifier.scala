@@ -21,9 +21,9 @@ trait Unifier[E, T, F, P]
   
   def mismatchedTermErrorS(env: F): (F, E)
   
-  def checkUnificationS(env: F): (F, Validation[E, Unit])
+  def prepareToUnificationS(env: F): (F, Unit)
   
-  def prepareToMatchingS(env: F): (F, Unit)
+  def checkMatchingS(env: F): (F, Validation[E, Boolean])
   
   def withSaveS[U, V](f: F => (F, Validation[U, V]))(env: F): (F, Validation[U, V])
 }
@@ -33,13 +33,9 @@ object Unifier
   def unifyS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]) =
     unifier.withSaveS {
       env2 =>
-        val (env3, res) = fullyMatchesAndReplaceS[E, T, F, P](term1, term2)(env2)
-        res.map {
-          unifiedTerm =>
-            val (env4, res2) = unifier.checkUnificationS(env3)
-            res.map { _ => (env4, unifiedTerm.success) }.valueOr { err => (env4, err.failure) }
-        }.valueOr { err => (env3, err.failure) }
-    } (env)
+        val (env3, _) = unifier.prepareToUnificationS(env2)
+        fullyMatchesAndReplaceS[E, T, F, P](term1, term2)(env3)
+    }(env)
     
   def unify[E, T, F, P](term1: T, term2: T)(implicit unifier: Unifier[E, T, F, P]) =
     State(unifyS[E, T, F, P](term1, term2))
@@ -68,9 +64,9 @@ object Unifier
   
   @tailrec
   private def fullyMatchesAndReplaceS[E, T, F, P](term1: T, term2: T)(env: F)(implicit unifier: Unifier[E, T, F, P]): (F, Validation[E, T]) = {
-    val (env2, _) = unifier.prepareToMatchingS(env)
-    val (env3, res) = matchesAndReplaceS(term1, term2)(Set(), false)(env2)
-    res match {
+    val (env2, res) = matchesAndReplaceS(term1, term2)(Set(), false)(env)
+    val (env3, res2) = unifier.checkMatchingS(env2)
+    (for(b2 <- res2; b <- res) yield (b | b2)) match {
       case Success(true)  => fullyMatchesAndReplaceS(term1, term2)(env3)
       case Success(false) => (env3, term1.success)
       case Failure(err)   => (env3, err.failure)
