@@ -17,7 +17,7 @@ object TypeInferrer
         val argKindMap2 = argKinds2.zipWithIndex.map { _.swap }.toMap
         val (env3, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), 0)(env2)
         ((res1 |@| res2) {
-          case ((_, _, inferringTypeValueTerm1), (_, _, inferringTypeValueTerm2)) =>
+          case ((_, _, _, inferringTypeValueTerm1), (_, _, _, inferringTypeValueTerm2)) =>
             val (env4, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env3)
             (env4, res2.map { InferringType(_) }.valueOr(identity))
         }).valueOr { (env3, _) }
@@ -25,7 +25,7 @@ object TypeInferrer
         val argKindMap1 = argKinds1.zipWithIndex.map { _.swap }.toMap
         val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm1, argKindMap1)(Map(), 0)(env)
         res.map {
-          case (_, _, inferringTypeValueTerm1) =>
+          case (_, _, _, inferringTypeValueTerm1) =>
             val (env3, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env2)
             (env3, res2.map { InferringType(_) }.valueOr(identity))
         }.valueOr { (env2, _) }
@@ -33,7 +33,7 @@ object TypeInferrer
         val argKindMap2 = argKinds2.zipWithIndex.map { _.swap }.toMap
         val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), 0)(env)
         res.map {
-          case (_, _, inferringTypeValueTerm2) =>
+          case (_, _, _, inferringTypeValueTerm2) =>
             val (env3, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env2)
             (env3, res2.map { InferringType(_) }.valueOr(identity))
         }.valueOr { (env2, _) }

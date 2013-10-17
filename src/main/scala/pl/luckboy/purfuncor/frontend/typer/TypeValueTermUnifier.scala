@@ -216,7 +216,7 @@ object TypeValueTermUnifier
             val (env5, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env4)
             val (env6, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env5)
             res3.map { 
-              case (_, allocatedArgParams, retTerm2) =>
+              case (_, allocatedArgParams, _, retTerm2) =>
                 val (env7, res4) = if(!allocatedArgParams.isEmpty)
                   envSt.inferTypeValueTermKindS(retTerm)(env6).mapElements(identity, _.map { _ => () })
                 else
@@ -581,19 +581,23 @@ object TypeValueTermUnifier
     }
   
   private def unsafeAllocateTypeParamsFromTypeValueTermsS[T, E](terms: Seq[TypeValueTerm[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
-    terms.foldLeft((env, (allocatedParams, Set[Int](), Seq[TypeValueTerm[T]]()).success[NoType[T]])) {
-      case ((newEnv, Success((newAllocatedParams, newAllocatedArgParams, newTerms))), term) =>
+    terms.foldLeft((env, (allocatedParams, Set[Int](), Set[Int](), Seq[TypeValueTerm[T]]()).success[NoType[T]])) {
+      case ((newEnv, Success((newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms))), term) =>
         val (newEnv2, newRes) = unsafeAllocateTypeValueTermParamsS(term)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
-        (newEnv2, newRes.map { _.mapElements(identity, newAllocatedArgParams | _ , newTerms :+ _) })
+        (newEnv2, newRes.map { 
+          _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newTerms :+ _)
+        })
       case ((newEnv, Failure(noType)), _)                            =>
         (newEnv, noType.failure)
     }
     
   private def unsafeAllocateTypeParamsFromTypeValueLambdasS[T, E](lambdas: Seq[TypeValueLambda[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
-    lambdas.foldLeft((env, (allocatedParams, Set[Int](), Seq[TypeValueLambda[T]]()).success[NoType[T]])) {
-      case ((newEnv, Success((newAllocatedParams, newAllocatedArgParams, newTerms))), lambda) =>
+    lambdas.foldLeft((env, (allocatedParams, Set[Int](), Set[Int](), Seq[TypeValueLambda[T]]()).success[NoType[T]])) {
+      case ((newEnv, Success((newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms))), lambda) =>
         val (newEnv2, newRes) = unsafeAllocateTypeValueLambdaParamsS(lambda)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
-        (newEnv2, newRes.map { _.mapElements(identity, newAllocatedArgParams | _, newTerms :+ _) })
+        (newEnv2, newRes.map {
+          _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newTerms :+ _)
+        })
       case ((newEnv, Failure(noType)), _)                              =>
         (newEnv, noType.failure)
     }
@@ -615,26 +619,26 @@ object TypeValueTermUnifier
         res match {
           case Success((allocatedArgParams, argParams2)) =>
             val (env3, res2) = unsafeAllocateTypeValueTermParamsS(body)(allocatedParams ++ allocatedArgParams, unallocatedParamAppIdx)(env2)
-            (env3, res2.map { _.mapElements(_ -- argParams2, _ => argParams2.toSet, TypeValueLambda(argParams2, _)) })
+            (env3, res2.map { _.mapElements(_ -- argParams2, _ => argParams2.toSet, identity, TypeValueLambda(argParams2, _)) })
           case Failure(noType)                         =>
             (env2, noType.failure)
         }
     }
 
-  private def unsafeAllocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], TypeValueTerm[T])]) =
+  private def unsafeAllocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) =
     term match {
       case TupleType(args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, TupleType(_)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, TupleType(_)) })
       case BuiltinType(bf, args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, BuiltinType(bf, _)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, BuiltinType(bf, _)) })
       case Unittype(loc, args, sym) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, Unittype(loc, _, sym)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, Unittype(loc, _, sym)) })
       case GlobalTypeApp(loc, args, sym) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, GlobalTypeApp(loc, _, sym)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, GlobalTypeApp(loc, _, sym)) })
       case TypeParamApp(param, args, paramAppIdx) =>
         val (env3, res2) = allocatedParams.get(param).map { param2 => (env, (allocatedParams, param2).success) }.getOrElse {
           val (env2, res) = unifier.allocateParamS(env)
@@ -651,7 +655,7 @@ object TypeValueTermUnifier
             res3 match {
               case Success(paramAppIdx2) =>
                 val (env5, res4) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams2, unallocatedParamAppIdx)(env4)
-                (env5, res4.map { _.mapElements(identity, identity, TypeParamApp(param2, _, paramAppIdx2)) })
+                (env5, res4.map { _.mapElements(identity, identity, _ + paramAppIdx2, TypeParamApp(param2, _, paramAppIdx2)) })
               case Failure(noType)       =>
                 (env4, noType.failure)
             }
@@ -660,16 +664,16 @@ object TypeValueTermUnifier
         }
       case TypeConjunction(terms) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(terms.toSeq)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, ts => TypeConjunction(ts.toSet)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, ts => TypeConjunction(ts.toSet)) })
       case TypeDisjunction(terms) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(terms.toSeq)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, ts => TypeDisjunction(ts.toSet)) })
+        (env2, res.map { _.mapElements(identity, identity, identity, ts => TypeDisjunction(ts.toSet)) })
     }
 
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
   
-  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], TypeValueTerm[T])]) =
+  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) =
     throw new UnsupportedOperationException
     
   def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
