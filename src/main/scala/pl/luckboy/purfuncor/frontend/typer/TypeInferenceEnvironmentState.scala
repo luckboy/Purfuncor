@@ -7,7 +7,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 
 trait TypeInferenceEnvironmentState[E, L]
 {
-  def appForGlobalTypeS(funLoc: L, argLambdas: Seq[TypeValueLambda[L]])(env: E): (E, Validation[NoType[L], TypeValueTerm[L]])
+  def appForGlobalTypeS(funLoc: L, argLambdas: Seq[TypeValueLambda[L]], paramCount: Int, paramAppIdx: Int)(env: E): (E, Validation[NoType[L], TypeValueTerm[L]])
   
   def inferTypeValueTermKindS(term: TypeValueTerm[L])(env: E): (E, Validation[NoType[L], Kind])
   
@@ -36,6 +36,8 @@ trait TypeInferenceEnvironmentState[E, L]
   def nextTypeParamAppIdxFromEnvironmentS(env: E): (E, Int)
   
   def allocatedTypeParamsFromEnvironmentS(env: E): (E, Set[Int])
+  
+  def nextTypeParamFromEnvironmentS(env: E): (E, Int)
   
   def withTypeLambdaArgsS[T](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[L], T]))(env: E): (E, Validation[NoType[L], T])
   

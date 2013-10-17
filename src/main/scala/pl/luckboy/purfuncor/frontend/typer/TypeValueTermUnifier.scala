@@ -138,7 +138,7 @@ object TypeValueTermUnifier
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
 
-  private def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+  def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     term match {
       case TypeParamApp(param, args, paramAppIdx) =>
         val (env2, rootParamRes) = unifier.findRootParamS(param)(env)
@@ -200,7 +200,7 @@ object TypeValueTermUnifier
     envSt.setCurrentTypeMatchingS(newTypeMatching)(env2)
   }
   
-  private def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+  def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, res) = argLambdas.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
       case ((newEnv, Success(newArgLambdas)), argLambda) =>
         val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
@@ -210,20 +210,21 @@ object TypeValueTermUnifier
     }
     res.map {
       instantiatedArgLambdas =>
-        val (env3, res2) = envSt.appForGlobalTypeS(funLoc, instantiatedArgLambdas)(env2)
+        val (env3, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env2)
+        val (env4, paramCount) = envSt.nextTypeParamFromEnvironmentS(env3)
+        val (env5, res2) = envSt.appForGlobalTypeS(funLoc, instantiatedArgLambdas, paramCount, unallocatedParamAppIdx)(env4)
         res2.map {
           retTerm =>
-            val (env4, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env3)
-            val (env5, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env4)
-            val (env6, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env5)
+            val (env6, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env5)
+            val (env7, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env6)
             res3.map { 
               case (_, allocatedArgParams, _, retTerm2) =>
-                val (env7, res4) = if(!allocatedArgParams.isEmpty)
-                  envSt.inferTypeValueTermKindS(retTerm)(env6).mapElements(identity, _.map { _ => () })
+                val (env8, res4) = if(!allocatedArgParams.isEmpty)
+                  envSt.inferTypeValueTermKindS(retTerm)(env7).mapElements(identity, _.map { _ => () })
                 else
-                  (env6, ().success)
-                (env7, res4.map { _ => retTerm2 })
-            }.valueOr { nt => (env6, nt.failure) }
+                  (env7, ().success)
+                (env8, res4.map { _ => retTerm2 })
+            }.valueOr { nt => (env7, nt.failure) }
         }.valueOr { nt => (env3, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
   }

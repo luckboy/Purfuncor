@@ -227,9 +227,9 @@ package object typer
   }
   
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] {
-    override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (typeEnv, res) = env.typeEnv.withTypeParamAppIdx(env.nextTypeParamAppIdx) { 
-        _.withTypeParams(env.typeParamForest.next) { 
+    override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]], paramCount: Int, paramAppIdx: Int)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (typeEnv, res) = env.typeEnv.withTypeParamAppIdx(paramAppIdx) { 
+        _.withTypeParams(paramCount) { 
           (_, _, typeEnv2) => TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(typeEnv2)
         }
       }
@@ -287,6 +287,9 @@ package object typer
     
     override def allocatedTypeParamsFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeParamForest.allocatedParams)
+    
+    override def nextTypeParamFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeParamForest.next)
         
     override def withTypeLambdaArgsS[V](argParams: Seq[Set[Int]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) = 
       env.withTypeLambdaArgs(argParams)(f)
