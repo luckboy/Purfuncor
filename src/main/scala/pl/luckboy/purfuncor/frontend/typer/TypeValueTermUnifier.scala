@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.common.Unifier._
 
 object TypeValueTermUnifier
@@ -673,9 +674,31 @@ object TypeValueTermUnifier
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
   
-  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) =
-    throw new UnsupportedOperationException
-    
+  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    unifier.withSaveS {
+      env2 =>
+        val (env3, res) = unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx)(env2)
+        res.map {
+          case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
+            val (env4, res2) = kinds.foldLeft((env3, Map[Int, Kind]().success[NoType[T]])) {
+              case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
+                val (newEnv2, inferringKindRes) = envSt.inferringKindFromInferredKindS(kind)(newEnv)
+                (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
+              case ((newEnv, Failure(noType)), _)                        =>
+                (newEnv, noType.failure)
+            }
+            res2.map { 
+              inferringKinds =>
+                val (env5, _) = envSt.setTypeParamKindsS(inferringKinds)(env4)
+                val (env6, res4) = if(!allocatedArgParams.isEmpty)
+                  envSt.inferTypeValueTermKindS(term2)(env5)
+                else
+                  (env5, ().success)
+                (env6, res4.map { _ => (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) })
+            }.valueOr { nt => (env4, nt.failure) }
+        }.valueOr { nt => (env3, nt.failure) }
+    } (env)
+  
   def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
     val params = definedType.args.flatMap { _.param }.toSet
     val (env2, res) = params.foldLeft((env, BitSet().success[NoType[T]])) {

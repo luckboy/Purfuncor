@@ -2,6 +2,8 @@ package pl.luckboy.purfuncor.frontend.typer
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
+import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 
 trait TypeInferenceEnvironmentState[E, L]
 {
@@ -40,4 +42,8 @@ trait TypeInferenceEnvironmentState[E, L]
   def currentTypeMatchingFromEnvironmentS(env: E): (E, TypeMatching.Value)
   
   def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: E): (E, Unit)
+  
+  def inferringKindFromInferredKindS(kind: InferredKind)(env: E): (E, Validation[NoType[L], InferringKind])
+  
+  def setTypeParamKindsS(kinds: Map[Int, Kind])(env: E): (E, Unit)
 }

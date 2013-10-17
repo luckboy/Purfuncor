@@ -13,6 +13,7 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
+import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
@@ -295,6 +296,15 @@ package object typer
     
     override def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withCurrentTypeMatching(typeMatching), ())
+      
+    override def inferringKindFromInferredKindS(kind: InferredKind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (kindInferenceEnv, res) = allocateKindTermParamsS(kind.kindTerm)(Map())(env.kindInferenceEnv)
+      val env2 = env.withKindInferenceEnv(kindInferenceEnv)
+      res.map { case (_, kt) => (env2, InferringKind(kt).success) }.valueOr { nk => (env2, NoType.fromNoKind[GlobalSymbol](nk).failure) }
+    }
+  
+    override def setTypeParamKindsS(kinds: Map[Int, Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withKindInferenceEnv(env.kindInferenceEnv.withTypeParamKinds(kinds)), ())
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
