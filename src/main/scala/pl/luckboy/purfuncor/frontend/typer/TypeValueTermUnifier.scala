@@ -138,7 +138,7 @@ object TypeValueTermUnifier
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
 
-  def instantiateFunctionTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+  def partiallyInstantiateTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     term match {
       case TypeParamApp(param, args, paramAppIdx) =>
         val (env2, rootParamRes) = unifier.findRootParamS(param)(env)
@@ -147,7 +147,7 @@ object TypeValueTermUnifier
           	val (env3, optParamTerm) = unifier.getParamTermS(rootParam)(env2)
           	optParamTerm match {
           	  case Some(paramTerm) =>
-          	    val (env4, res) = instantiateFunctionTypeValueTermS(paramTerm)(env3)
+          	    val (env4, res) = partiallyInstantiateTypeValueTermS(paramTerm)(env3)
           	    res.map {
           	      case GlobalTypeApp(loc2, args2, sym2) => 
           	        (env4, GlobalTypeApp(loc2, args2 ++ args, sym2).success)
@@ -336,12 +336,12 @@ object TypeValueTermUnifier
     }
   
   private def instantiateAndSortTypeValueTermsS[T, E](term1: TypeValueTerm[T], terms2: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], (TypeValueTerm[T], Seq[TypeValueTerm[T]])]) = {
-    val (env2, res) = instantiateFunctionTypeValueTermS(term1)(env)
+    val (env2, res) = partiallyInstantiateTypeValueTermS(term1)(env)
     res.map {
       instantiatedTerm1 =>
         val (env3, res2) = terms2.foldLeft((env2, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
           case ((newEnv, Success(newTerms2)), term2) =>
-            val (newEnv2, newRes) = instantiateFunctionTypeValueTermS(term2)(newEnv)
+            val (newEnv2, newRes) = partiallyInstantiateTypeValueTermS(term2)(newEnv)
             (newEnv2, newRes.map { newTerms2 :+ _ })
           case ((newEnv, Failure(noType)), _)        =>
             (newEnv, noType.failure)
@@ -454,9 +454,9 @@ object TypeValueTermUnifier
   
   def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
-    val (env6, res) = instantiateFunctionTypeValueTermS(term1)(env2) match {
+    val (env6, res) = partiallyInstantiateTypeValueTermS(term1)(env2) match {
       case (env3, Success(instantiatedTerm1)) =>
-        instantiateFunctionTypeValueTermS(term2)(env3) match {
+        partiallyInstantiateTypeValueTermS(term2)(env3) match {
           case (env4, Success(instantiatedTerm2)) =>
             (instantiatedTerm1, instantiatedTerm2) match {
               case (TupleType(args1), TupleType(args2)) =>

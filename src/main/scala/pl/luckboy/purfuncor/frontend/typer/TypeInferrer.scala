@@ -51,11 +51,11 @@ object TypeInferrer
     }
 
   @tailrec
-  private def evaluateTypeValueTermForInferredTypeS[T, E](term: TypeValueTerm[T], paramCount: Int)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+  private def fullyEvaluateInferredTypeValueTermS[T, E](term: TypeValueTerm[T], paramCount: Int)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     term match {
       case GlobalTypeApp(loc, args, _) =>
         envSt.appForGlobalTypeS(loc, args, paramCount, 0)(env) match {
-          case (env2, Success(term2))  => evaluateTypeValueTermForInferredTypeS(term2, paramCount)(env2)
+          case (env2, Success(term2))  => fullyEvaluateInferredTypeValueTermS(term2, paramCount)(env2)
           case (env2, Failure(noType)) => (env2, noType.failure)
         }
       case _                           =>
@@ -63,13 +63,13 @@ object TypeInferrer
     }
 
   @tailrec
-  private def evaluateTypeValueTermForInferringTypeS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    instantiateFunctionTypeValueTermS(term)(env) match {
+  private def fullyEvaluateInferringTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    partiallyInstantiateTypeValueTermS(term)(env) match {
       case (env2, Success(term2))  =>
         term2 match {
           case GlobalTypeApp(loc2, args2, _) =>
             appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env2) match {
-              case (env3, Success(term3))  => evaluateTypeValueTermForInferringTypeS(term3)(env3)
+              case (env3, Success(term3))  => fullyEvaluateInferringTypeValueTermS(term3)(env3)
               case (env3, Failure(noType)) => (env3, noType.failure)
             }
           case _                             =>
@@ -79,10 +79,10 @@ object TypeInferrer
         (env2, noType.failure)
     }
   
-  private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
+  private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
     val (env2, res) = (0 until argCount).foldLeft((env, (term, List[TypeValueTerm[T]]()).success[NoType[T]])) {
       case ((newEnv, Success((fun, newTypes))), _) =>
-        val (newEnv2, newRes) = evaluate(fun, newEnv)
+        val (newEnv2, newRes) = fullyEvaluate(fun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(arg, ret)) =>
             (ret, arg :: newTypes).success
@@ -98,10 +98,10 @@ object TypeInferrer
   def argTypesFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], List[Type[T]]]) =
     typ match {
       case InferredType(typeValueTerm, kinds) =>
-        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateTypeValueTermForInferredTypeS(_, kinds.size)(_))
+        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferredTypeValueTermS(_, kinds.size)(_))
         (env2, res.map { _.map { InferredType(_, kinds) } })
       case InferringType(typeValueTerm) =>
-        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateTypeValueTermForInferringTypeS(_)(_))
+        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferringTypeValueTermS(_)(_))
         (env2, res.map { _.map { InferringType(_) } })
       case UninferredType() =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
@@ -109,10 +109,10 @@ object TypeInferrer
         (env, noType.failure)
     }
   
-  private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
+  private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
     (0 until argCount).foldLeft((env, term.success[NoType[T]])) {
       case ((newEnv, Success(fun)), _)    =>
-        val (newEnv2, newRes) = evaluate(fun, newEnv)
+        val (newEnv2, newRes) = fullyEvaluate(fun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(_, ret)) =>
             ret.success
@@ -126,10 +126,10 @@ object TypeInferrer
   def returnTypeFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     typ match {
       case InferredType(typeValueTerm, kinds) =>
-        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateTypeValueTermForInferredTypeS(_, kinds.size)(_))
+        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferredTypeValueTermS(_, kinds.size)(_))
         (env2, res.map { InferredType(_, kinds) }.valueOr(identity))
       case InferringType(typeValueTerm) =>
-        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateTypeValueTermForInferringTypeS(_)(_))
+        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferringTypeValueTermS(_)(_))
         (env2, res.map { InferringType(_) }.valueOr(identity))
       case UninferredType() =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)))
