@@ -81,8 +81,8 @@ object TypeInferrer
   
   private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
     val (env2, res) = (0 until argCount).foldLeft((env, (term, List[TypeValueTerm[T]]()).success[NoType[T]])) {
-      case ((newEnv, Success((fun, newTypes))), _) =>
-        val (newEnv2, newRes) = fullyEvaluate(fun, newEnv)
+      case ((newEnv, Success((typeFun, newTypes))), _) =>
+        val (newEnv2, newRes) = fullyEvaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(arg, ret)) =>
             (ret, arg :: newTypes).success
@@ -111,8 +111,8 @@ object TypeInferrer
   
   private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
     (0 until argCount).foldLeft((env, term.success[NoType[T]])) {
-      case ((newEnv, Success(fun)), _)    =>
-        val (newEnv2, newRes) = fullyEvaluate(fun, newEnv)
+      case ((newEnv, Success(typeFun)), _)    =>
+        val (newEnv2, newRes) = fullyEvaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(_, ret)) =>
             ret.success
