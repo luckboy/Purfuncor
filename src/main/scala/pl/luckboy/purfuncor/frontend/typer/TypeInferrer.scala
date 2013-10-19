@@ -12,7 +12,6 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 object TypeInferrer
 {
-  
   private def allocateTypeParamsAndNormalizeTypeValueTermS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, res ) = allocateTypeValueTermParamsWithKindsS(term, kinds)(Map(), 0)(env)
     res.map { 
