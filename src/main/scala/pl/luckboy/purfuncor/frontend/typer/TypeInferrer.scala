@@ -5,37 +5,46 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 object TypeInferrer
 {
+  
+  private def allocateTypeParamsAndNormalizeTypeValueTermS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+    val (env2, res ) = allocateTypeValueTermParamsWithKindsS(term, kinds)(Map(), 0)(env)
+    res.map { 
+      case (_, _, _, term2) => normalizeTypeValueTermS(term2)(env2)
+    }.valueOr { nt => (env2, nt.failure) }
+  }
+  
   def unifyTypesS[T, E](type1: Type[T], type2: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     (type1, type2) match {
       case (InferredType(typeValueTerm1, argKinds1), InferredType(typeValueTerm2, argKinds2)) =>
         val argKindMap1 = argKinds1.zipWithIndex.map { _.swap }.toMap
-        val (env2, res1) = allocateTypeValueTermParamsWithKindsS(typeValueTerm1, argKindMap1)(Map(), 0)(env)
+        val (env2, res1) = allocateTypeParamsAndNormalizeTypeValueTermS(typeValueTerm1, argKindMap1)(env)
         val argKindMap2 = argKinds2.zipWithIndex.map { _.swap }.toMap
-        val (env3, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), 0)(env2)
+        val (env3, res2) = allocateTypeParamsAndNormalizeTypeValueTermS(typeValueTerm2, argKindMap2)(env2)
         ((res1 |@| res2) {
-          case ((_, _, _, inferringTypeValueTerm1), (_, _, _, inferringTypeValueTerm2)) =>
+          case (inferringTypeValueTerm1, inferringTypeValueTerm2) =>
             val (env4, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env3)
             (env4, res2.map { InferringType(_) }.valueOr(identity))
         }).valueOr { (env3, _) }
       case (InferredType(typeValueTerm1, argKinds1), InferringType(inferringTypeValueTerm2)) =>
         val argKindMap1 = argKinds1.zipWithIndex.map { _.swap }.toMap
-        val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm1, argKindMap1)(Map(), 0)(env)
+        val (env2, res) = allocateTypeParamsAndNormalizeTypeValueTermS(typeValueTerm1, argKindMap1)(env)
         res.map {
-          case (_, _, _, inferringTypeValueTerm1) =>
+          case inferringTypeValueTerm1 =>
             val (env3, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env2)
             (env3, res2.map { InferringType(_) }.valueOr(identity))
         }.valueOr { (env2, _) }
       case (InferringType(inferringTypeValueTerm1), InferredType(typeValueTerm2, argKinds2)) =>
         val argKindMap2 = argKinds2.zipWithIndex.map { _.swap }.toMap
-        val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm2, argKindMap2)(Map(), 0)(env)
+        val (env2, res) = allocateTypeParamsAndNormalizeTypeValueTermS(typeValueTerm2, argKindMap2)(env)
         res.map {
-          case (_, _, _, inferringTypeValueTerm2) =>
+          case inferringTypeValueTerm2 =>
             val (env3, res2) = unifyS(inferringTypeValueTerm1, inferringTypeValueTerm2)(env2)
             (env3, res2.map { InferringType(_) }.valueOr(identity))
         }.valueOr { (env2, _) }
@@ -135,5 +144,5 @@ object TypeInferrer
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)))
       case noType: NoType[T] =>
         (env, noType)
-    }
+    }  
 }

@@ -717,4 +717,43 @@ object TypeValueTermUnifier
         val (newEnv2, newRes2) = checkDefinedTypeS(definedType)(newEnv)
         (newEnv2, (newRes |@| newRes2) { (u, _) => u })
     }
+  
+  def normalizeGlobalTypeAppS[T, E](globalTypeApp: GlobalTypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    globalTypeApp match {
+      case GlobalTypeApp(loc, args, sym) =>
+        val (env2, res) = envSt.inferTypeValueTermKindS(globalTypeApp)(env)
+        res.map {
+          kind =>
+            val (env3, res2) = envSt.maxArgCountFromKindS(kind)(env2)
+            res2.map {
+              maxArgCount =>
+                val (env4, res3) = (0 until maxArgCount).foldLeft((env3, Seq[(Int, Int)]().success[NoType[T]])) {
+                  case ((newEnv, Success(newPairs)), _) => 
+                    val (newEnv2, newRes) = unifier.allocateParamS(newEnv)
+                    newRes.map {
+                      param =>
+                        val (newEnv3, newRes2) = envSt.allocateTypeParamAppIdxS(newEnv2)
+                        newRes2.map {
+                          paramAppIdx => (newEnv3, (newPairs :+ (param, paramAppIdx)).success)
+                        }.valueOr { nt =>  (newEnv3, nt.failure) }
+                    }.valueOr { nt => (newEnv2, nt.failure) }
+                  case ((newEnv, Failure(nt)), _) =>
+                    (newEnv, nt.failure)
+                }
+                res3.map {
+                  ps => 
+                    val args2 = ps.map { p => TypeValueLambda[T](Nil, TypeParamApp(p._1, Nil, p._2)) }
+                    val (env5, res4) = envSt.inferTypeValueTermKindS(globalTypeApp)(env4)
+                    (env5, res4.map { _ => GlobalTypeApp(loc, args ++ args2, sym) })
+                }.valueOr { nt => (env4, nt.failure) }
+            }.valueOr { nt => (env3, nt.failure) }
+        }.valueOr { nt => (env2, nt.failure) }
+    }
+  
+  def normalizeTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    partiallyInstantiateTypeValueTermS(term)(env) match {
+      case (env2, Success(globalTypeApp: GlobalTypeApp[T])) => normalizeGlobalTypeAppS(globalTypeApp)(env2)
+      case (env2, Success(_))                               => (env2, term.success)
+      case (env2, Failure(noType))                          => (env2, noType.failure)
+    }
 }

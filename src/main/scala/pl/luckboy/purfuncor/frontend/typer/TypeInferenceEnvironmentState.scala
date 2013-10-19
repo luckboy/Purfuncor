@@ -48,4 +48,6 @@ trait TypeInferenceEnvironmentState[E, L]
   def inferringKindFromInferredKindS(kind: InferredKind)(env: E): (E, Validation[NoType[L], InferringKind])
   
   def setTypeParamKindsS(kinds: Map[Int, Kind])(env: E): (E, Unit)
+  
+  def maxArgCountFromKindS(kind: Kind)(env: E): (E, Validation[NoType[L], Int])
 }
