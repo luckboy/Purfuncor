@@ -1,5 +1,4 @@
 package pl.luckboy.purfuncor.frontend.typer
-import scala.annotation.tailrec
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -57,40 +56,25 @@ object TypeInferrer
       case (_, noType: NoType[T]) =>
         (env, noType)
     }
-
-  @tailrec
-  private def fullyEvaluateInferredTypeValueTermS[T, E](term: TypeValueTerm[T], paramCount: Int)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+  
+  private def evaluateInferredTypeValueTermS[T, E](term: TypeValueTerm[T], paramCount: Int)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
     term match {
-      case GlobalTypeApp(loc, args, _) =>
-        envSt.appForGlobalTypeS(loc, args, paramCount, 0)(env) match {
-          case (env2, Success(term2))  => fullyEvaluateInferredTypeValueTermS(term2, paramCount)(env2)
-          case (env2, Failure(noType)) => (env2, noType.failure)
-        }
-      case _                           =>
-        (env, term.success)
-    }
-
-  @tailrec
-  private def fullyEvaluateInferringTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    partiallyInstantiateTypeValueTermS(term)(env) match {
-      case (env2, Success(term2))  =>
-        term2 match {
-          case GlobalTypeApp(loc2, args2, _) =>
-            appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env2) match {
-              case (env3, Success(term3))  => fullyEvaluateInferringTypeValueTermS(term3)(env3)
-              case (env3, Failure(noType)) => (env3, noType.failure)
-            }
-          case _                             =>
-            (env2, term.success)
-        }
-      case (env2, Failure(noType)) =>
-        (env2, noType.failure)
+      case GlobalTypeApp(loc, args, _) => envSt.appForGlobalTypeS(loc, args, paramCount, 0)(env)
+      case _                           => (env, term.success)
     }
   
-  private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
+  private def evaluateInferringTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
+    val (env2, res) = partiallyInstantiateTypeValueTermS(term)(env)
+    res.map {
+      case GlobalTypeApp(loc, args, _) => appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2)
+      case _                           => (env2, term.success)
+    }.valueOr { nt => (env, nt.failure) }
+  }
+  
+  private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
     val (env2, res) = (0 until argCount).foldLeft((env, (term, List[TypeValueTerm[T]]()).success[NoType[T]])) {
       case ((newEnv, Success((typeFun, newTypes))), _) =>
-        val (newEnv2, newRes) = fullyEvaluate(typeFun, newEnv)
+        val (newEnv2, newRes) = evaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(arg, ret)) =>
             (ret, arg :: newTypes).success
@@ -106,10 +90,10 @@ object TypeInferrer
   def argTypesFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], List[Type[T]]]) =
     typ match {
       case InferredType(typeValueTerm, kinds) =>
-        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferredTypeValueTermS(_, kinds.size)(_))
+        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateInferredTypeValueTermS(_, kinds.size)(_))
         (env2, res.map { _.map { InferredType(_, kinds) } })
       case InferringType(typeValueTerm) =>
-        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferringTypeValueTermS(_)(_))
+        val (env2, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateInferringTypeValueTermS(_)(_))
         (env2, res.map { _.map { InferringType(_) } })
       case UninferredType() =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
@@ -117,10 +101,10 @@ object TypeInferrer
         (env, noType.failure)
     }
   
-  private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(fullyEvaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
+  private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
     (0 until argCount).foldLeft((env, term.success[NoType[T]])) {
       case ((newEnv, Success(typeFun)), _)    =>
-        val (newEnv2, newRes) = fullyEvaluate(typeFun, newEnv)
+        val (newEnv2, newRes) = evaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(_, ret)) =>
             ret.success
@@ -134,10 +118,10 @@ object TypeInferrer
   def returnTypeFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     typ match {
       case InferredType(typeValueTerm, kinds) =>
-        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferredTypeValueTermS(_, kinds.size)(_))
+        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateInferredTypeValueTermS(_, kinds.size)(_))
         (env2, res.map { InferredType(_, kinds) }.valueOr(identity))
       case InferringType(typeValueTerm) =>
-        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(fullyEvaluateInferringTypeValueTermS(_)(_))
+        val (env2, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env)(evaluateInferringTypeValueTermS(_)(_))
         (env2, res.map { InferringType(_) }.valueOr(identity))
       case UninferredType() =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)))
