@@ -128,9 +128,9 @@ object TypeInferrer
   
   def returnTypeFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     normalizeTypeS(typ)(env) match {
-      case (env2, InferredType(typeValueTerm, kinds)) =>
-        val (env3, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env2)(evaluateInferredTypeValueTermS(_, kinds.size)(_))
-        (env3, res.map { InferredType(_, kinds) }.valueOr(identity))
+      case (env2, InferredType(typeValueTerm, argKinds)) =>
+        val (env3, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env2)(evaluateInferredTypeValueTermS(_, argKinds.size)(_))
+        (env3, res.map { InferredType(_, argKinds) }.valueOr(identity))
       case (env2, InferringType(typeValueTerm)) =>
         val (env3, res) = returnTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env2)(evaluateInferringTypeValueTermS(_)(_))
         (env3, res.map { InferringType(_) }.valueOr(identity))
