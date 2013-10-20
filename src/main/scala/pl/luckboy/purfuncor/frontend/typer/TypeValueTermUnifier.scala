@@ -675,7 +675,7 @@ object TypeValueTermUnifier
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
   
-  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+  def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, Kind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS {
       env2 =>
         val (env3, res) = unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx)(env2)
@@ -683,7 +683,10 @@ object TypeValueTermUnifier
           case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
             val (env4, res2) = kinds.foldLeft((env3, Map[Int, Kind]().success[NoType[T]])) {
               case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
-                val (newEnv2, inferringKindRes) = envSt.inferringKindFromInferredKindS(kind)(newEnv)
+                val (newEnv2, inferringKindRes) = kind match {
+                  case inferredKind: InferredKind => envSt.inferringKindFromInferredKindS(inferredKind)(newEnv)
+                  case _                          => (newEnv, kind.success)
+                }
                 (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
               case ((newEnv, Failure(noType)), _)                        =>
                 (newEnv, noType.failure)
