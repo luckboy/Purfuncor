@@ -61,7 +61,7 @@ object TypeInferrer
         val argKindMap = argKinds.zipWithIndex.map { _.swap }.toMap
         val (env2, res) = normalizeInferredTypeValueTermS(typeApp, argKindMap)(env)
         (env2, res.map { InferringType(_) }.valueOr(identity))
-      case _                                     =>
+      case _                                           =>
         (env, typ)
     }
   
