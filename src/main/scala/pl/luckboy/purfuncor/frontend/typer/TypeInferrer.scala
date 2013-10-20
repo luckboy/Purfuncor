@@ -136,5 +136,13 @@ object TypeInferrer
         (env2, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)))
       case (env2, noType: NoType[T]) =>
         (env2, noType)
-    }  
+    }
+  
+  def functionType[T](argCount: Int) = {
+    val typeValueTerm = (0 until argCount).foldRight(TypeParamApp(argCount, Nil, 0): TypeValueTerm[T]) {
+      (p, t) => BuiltinType(TypeBuiltinFunction.Fun, Seq(TypeParamApp(p, Nil, 0), t))
+    }
+    val argKinds = (0 to argCount).map { _ => InferredKind(Star(KindType, NoPosition)) }
+    InferredType(typeValueTerm, argKinds)
+  }
 }
