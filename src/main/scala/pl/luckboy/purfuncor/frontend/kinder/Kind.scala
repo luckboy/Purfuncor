@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
+import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 
 sealed trait Kind
 {
@@ -32,7 +33,18 @@ sealed trait Kind
   
   def instantiatedKindS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     instantiatedKindTermS(env).mapElements(identity, _.map { InferredKind(_) }.valueOr(identity))
-    
+  
+  def uninstantiatedKindTermS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    this match {
+      case noKind: NoKind          => (env, noKind.failure)
+      case InferredKind(kindTerm)  => allocateKindTermParamsS(kindTerm)(Map())(env).mapElements(identity, _.map { _._2 })
+      case InferringKind(kindTerm) => (env, kindTerm.success)
+      case UninferredKind          => (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)).failure)
+    }
+  
+  def uninstantiatedKindS[E](env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    uninstantiatedKindTermS(env).mapElements(identity, _.map { InferringKind(_) }.valueOr(identity))
+  
   def withPos(pos: Position): Kind =
     this match {
       case noKind: NoKind =>

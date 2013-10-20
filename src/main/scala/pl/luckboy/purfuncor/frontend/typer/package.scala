@@ -300,10 +300,13 @@ package object typer
     override def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withCurrentTypeMatching(typeMatching), ())
       
-    override def inferringKindFromInferredKindS(kind: InferredKind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (kindInferenceEnv, res) = allocateKindTermParamsS(kind.kindTerm)(Map())(env.kindInferenceEnv)
-      val env2 = env.withKindInferenceEnv(kindInferenceEnv)
-      res.map { case (_, kt) => (env2, InferringKind(kt).success) }.valueOr { nk => (env2, NoType.fromNoKind[GlobalSymbol](nk).failure) }
+    override def inferringKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (kindInferenceEnv, uninstantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)
+      (env.withKindInferenceEnv(kindInferenceEnv), uninstantiatedKind match {
+        case noKind: NoKind               => NoType.fromNoKind[GlobalSymbol](noKind).failure
+        case inferringKind: InferringKind => inferringKind.success
+        case _                            => NoType.fromError[GlobalSymbol](FatalError("instantiated kind", none, NoPosition)).failure
+      })
     }
   
     override def setTypeParamKindsS(kinds: Map[Int, Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
@@ -311,9 +314,15 @@ package object typer
       
     override def maxArgCountFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
       throw new UnsupportedOperationException
-      
-    override def inferredKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], InferredKind]) =
-      throw new UnsupportedOperationException
+    
+    override def inferredKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (kindInferenceEnv, instantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)
+      (env.withKindInferenceEnv(kindInferenceEnv), instantiatedKind match {
+        case noKind: NoKind             => NoType.fromNoKind[GlobalSymbol](noKind).failure
+        case inferredKind: InferredKind => inferredKind.success
+        case _                          => NoType.fromError[GlobalSymbol](FatalError("uninstantiated kind", none, NoPosition)).failure
+      })
+    }
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

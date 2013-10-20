@@ -45,7 +45,7 @@ trait TypeInferenceEnvironmentState[E, L]
   
   def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: E): (E, Unit)
   
-  def inferringKindFromInferredKindS(kind: InferredKind)(env: E): (E, Validation[NoType[L], InferringKind])
+  def inferringKindFromKindS(kind: Kind)(env: E): (E, Validation[NoType[L], InferringKind])
   
   def setTypeParamKindsS(kinds: Map[Int, Kind])(env: E): (E, Unit)
   

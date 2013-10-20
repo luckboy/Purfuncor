@@ -683,10 +683,7 @@ object TypeValueTermUnifier
           case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
             val (env4, res2) = kinds.foldLeft((env3, Map[Int, Kind]().success[NoType[T]])) {
               case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
-                val (newEnv2, inferringKindRes) = kind match {
-                  case inferredKind: InferredKind => envSt.inferringKindFromInferredKindS(inferredKind)(newEnv)
-                  case _                          => (newEnv, kind.success)
-                }
+                val (newEnv2, inferringKindRes) = envSt.inferringKindFromKindS(kind)(newEnv)
                 (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
               case ((newEnv, Failure(noType)), _)                        =>
                 (newEnv, noType.failure)
