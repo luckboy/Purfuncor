@@ -305,7 +305,7 @@ package object typer
       (env.withKindInferenceEnv(kindInferenceEnv), uninstantiatedKind match {
         case noKind: NoKind               => NoType.fromNoKind[GlobalSymbol](noKind).failure
         case inferringKind: InferringKind => inferringKind.success
-        case _                            => NoType.fromError[GlobalSymbol](FatalError("instantiated kind", none, NoPosition)).failure
+        case _                            => NoType.fromError[GlobalSymbol](FatalError("no inferring kind", none, NoPosition)).failure
       })
     }
   
@@ -320,7 +320,7 @@ package object typer
       (env.withKindInferenceEnv(kindInferenceEnv), instantiatedKind match {
         case noKind: NoKind             => NoType.fromNoKind[GlobalSymbol](noKind).failure
         case inferredKind: InferredKind => inferredKind.success
-        case _                          => NoType.fromError[GlobalSymbol](FatalError("uninstantiated kind", none, NoPosition)).failure
+        case _                          => NoType.fromError[GlobalSymbol](FatalError("no inferred kind", none, NoPosition)).failure
       })
     }
   }
