@@ -92,7 +92,7 @@ object TypeInferrer
       case ((newEnv, Failure(noType)), _)          =>
         (newEnv, noType.failure)
     }
-    (env, res.map { _._2.reverse })
+    (env2, res.map { _._2.reverse })
   }
     
   def argTypesFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], List[Type[T]]]) = {
