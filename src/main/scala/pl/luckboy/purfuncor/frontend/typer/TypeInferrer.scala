@@ -169,7 +169,9 @@ object TypeInferrer
                 (newEnv4, noType.failure)
             }
             res.map {
-              ks => (newEnv6, InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argTypeValueTerm, retTypeValueTerm)), ks))
+              ks =>
+                val argKinds = ks ++ argArgKinds.drop(ks.size) ++ retArgKinds.drop(ks.size)
+                (newEnv6, InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argTypeValueTerm, retTypeValueTerm)), argKinds))
             }.valueOr { (newEnv6, _) }
           case (InferredType(argTypeValueTerm, argArgKinds), InferringType(retInferringTypeValueTerm))    =>
             val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
