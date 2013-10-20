@@ -13,9 +13,7 @@ object TypeInferrer
 {
   private def normalizeInferredTypeValueTermS[T, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
     val (env2, res ) = allocateTypeValueTermParamsWithKindsS(term, kinds)(Map(), 0)(env)
-    res.map { 
-      case (_, _, _, term2) => normalizeTypeValueTermS(term2)(env2)
-    }.valueOr { nt => (env2, nt.failure) }
+    res.map { f => normalizeTypeValueTermS(f._4)(env2) }.valueOr { nt => (env2, nt.failure) }
   }
   
   def unifyTypesS[T, E](type1: Type[T], type2: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
