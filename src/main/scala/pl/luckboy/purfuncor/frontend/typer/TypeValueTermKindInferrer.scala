@@ -7,6 +7,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.common.Inferrer._
 
 object TypeValueTermKindInferrer
@@ -105,4 +106,21 @@ object TypeValueTermKindInferrer
       }.valueOr { (env4, _) }
     }.valueOr { (env3, _) }
   }
+  
+  def unifyStarKindWithKindS[T, E](kind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    kind match {
+      case InferredKind(Star(KindType, _)) | InferringKind(Star(KindType, _)) =>
+        (env, kind)
+      case InferringKind(Star(KindParam(param), _)) =>
+        val (env2, rootParamRes) = unifier.findRootParamS(param)(env)
+        rootParamRes.map {
+          rootParam =>
+            unifier.getParamTermS(rootParam)(env2) match {
+              case (env3, Some(Star(KindType, _))) => (env3, kind)
+              case (env3, _)                       => unifier.mismatchedTermErrorS(env3)
+            }
+        }.valueOr { (env2, _) }
+      case _ =>
+        unifier.mismatchedTermErrorS(env)
+    }
 }

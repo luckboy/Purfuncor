@@ -223,8 +223,10 @@ package object typer
     override def typeParamKindFromEnvironmentS(param: Int)(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.typeParamKind(param))
     
-    override def unifyStarKindWithKindS(kind: Kind)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) =
-      throw new UnsupportedOperationException
+    override def unifyStarKindWithKindS(kind: Kind)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) = {
+      val (env2, res) = kind.instantiatedKindTermS(env)
+      res.map { kt => env2.withKindTermPair(some((Star(KindType, NoPosition), kt)))(TypeValueTermKindInferrer.unifyStarKindWithKindS(kind)) }.valueOr { (env2, _) }
+    }
   }
   
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol] {
