@@ -722,7 +722,7 @@ object TypeValueTermUnifier
     val (env2, res) = envSt.inferTypeValueTermKindS(typeApp)(env)
     res.map {
       kind =>
-        val (env3, res2) = envSt.maxArgCountFromKindS(kind)(env2)
+        val (env3, res2) = envSt.argCountFromKindS(kind)(env2)
         res2.map {
           maxArgCount =>
             if(maxArgCount > 0) {

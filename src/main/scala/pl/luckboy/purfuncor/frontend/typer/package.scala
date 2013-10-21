@@ -15,6 +15,7 @@ import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
+import pl.luckboy.purfuncor.frontend.kinder.KindInferrer
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Evaluator._
@@ -312,8 +313,8 @@ package object typer
     override def setTypeParamKindsS(kinds: Map[Int, Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withKindInferenceEnv(env.kindInferenceEnv.withTypeParamKinds(kinds)), ())
       
-    override def maxArgCountFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
-      throw new UnsupportedOperationException
+    override def argCountFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
+      KindInferrer.argCountFromKindS(kind)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKindResult)
     
     override def inferredKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (kindInferenceEnv, instantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)

@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.kinder
+import scala.annotation.tailrec
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -140,7 +141,7 @@ object KindInferrer
         (newEnv, noKindFromKind(kind))
     }
   
-  def instantiateKindMapS[E, T](kinds: Map[T, Kind])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+  def instantiateKindMapS[T, E](kinds: Map[T, Kind])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     kinds.foldLeft((env, Map[T, Kind]().success[NoKind])) {
       case ((newEnv, Success(ks)), (l, k)) => 
         k.instantiatedKindS(newEnv) match {
@@ -149,5 +150,41 @@ object KindInferrer
         }
       case ((newEnv, Failure(nk)), _)      =>
         (newEnv, nk.failure)
+    }
+  
+  @tailrec
+  private def argCountFromInferredKindTerm(kindTerm: KindTerm[StarKindTerm[Int]])(argCount: Int): Int =
+    kindTerm match {
+      case Arrow(_, r, _) => argCountFromInferredKindTerm(r)(argCount + 1)
+      case _              => argCount
+    }
+  
+  @tailrec
+  private def argCountFromInferringKindTermS[E](kindTerm: KindTerm[StarKindTerm[Int]])(argCount: Int)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, Int]) =
+    kindTerm match {
+      case Arrow(_, r, _)        =>
+        argCountFromInferringKindTermS(r)(argCount + 1)(env)
+      case Star(KindParam(p), _) =>
+        val (env2, rootParamRes) = unifier.findRootParamS(p)(env)
+        rootParamRes match {
+          case Success(rootParam) =>
+            val (env3, optParamKindTerm) = unifier.getParamTermS(rootParam)(env2)
+            optParamKindTerm match {
+              case Some(paramKindTerm) => argCountFromInferringKindTermS(paramKindTerm)(argCount)(env3)
+              case None                => (env3, argCount.success)
+            }
+          case Failure(noKind)    =>
+            (env2, noKind.failure)
+        }
+      case Star(KindType, _)     =>
+        (env, argCount.success)
+    }
+  
+  def argCountFromKindS[E](kind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]): (E, Validation[NoKind, Int]) =
+    kind match {
+      case InferredKind(kindTerm)  => (env, argCountFromInferredKindTerm(kindTerm)(0).success)
+      case InferringKind(kindTerm) => argCountFromInferringKindTermS(kindTerm)(0)(env)
+      case UninferredKind          => (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)).failure)
+      case noKind: NoKind          => (env, noKind.failure) 
     }
 }
