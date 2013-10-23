@@ -64,7 +64,7 @@ object TypeValueTermUnifier
     envSt.setCurrentTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
   }
   
-  private def typeValueLambdasFromTypeParamsS[T, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
+  private def typeValueLambdasFromParamsS[T, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
     params.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
       case ((newEnv, Success(lambdas)), param) =>
         val (newEnv2, res) = envSt.allocateTypeParamAppIdxS(newEnv)
@@ -122,7 +122,7 @@ object TypeValueTermUnifier
         val argParams = argParams1.zip(argParams2).map { case (p1, p2) => Set(p1, p2) } ++ otherArgParams.map(Set(_))
         withTypeLambdaArgsWithReturnKindS(argParams) {
           (env2: E) =>
-            typeValueLambdasFromTypeParamsS(otherArgParams)(env2) match {
+            typeValueLambdasFromParamsS(otherArgParams)(env2) match {
               case (env3, Success(otherArgs)) =>
                 val term1 = typeApp1.withArgs(typeApp1.args ++ otherArgs)
                 envSt.inferTypeValueTermKindS(term1)(env3) match {
