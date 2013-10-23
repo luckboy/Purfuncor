@@ -10,7 +10,6 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
-import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 case class SymbolTypeInferenceEnvironment[T, U](
     typeEnv: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]],
