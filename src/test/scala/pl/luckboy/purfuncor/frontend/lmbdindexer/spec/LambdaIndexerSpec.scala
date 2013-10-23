@@ -13,6 +13,8 @@ import pl.luckboy.purfuncor.frontend.Bind
 
 class LambdaIndexerSpec extends FlatSpec with ShouldMatchers with Inside
 {
+   //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
+  
   "A LambdaIndexer" should "transform the string" in {
     val res = LambdaIndexer.transformString("""
 f x y = \z => let a = 1 in #iAdd a z
