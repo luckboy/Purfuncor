@@ -40,7 +40,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
   
-  def withTypeParamForest(typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = typeParamForest)
+  def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
   

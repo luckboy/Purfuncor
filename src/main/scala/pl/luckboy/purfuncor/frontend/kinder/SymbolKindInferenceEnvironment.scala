@@ -85,7 +85,7 @@ case class SymbolKindInferenceEnvironment[T](
     }.valueOr { (env2, _) } 
   }
     
-  def withKindParamForest(kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = kindParamForest)
+  def withKindParamForest(paramForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = paramForest)
   
   def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
   
