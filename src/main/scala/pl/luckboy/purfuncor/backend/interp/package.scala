@@ -35,8 +35,10 @@ package object interp
             case BuiltinFunValue(_, f) if f.argCount === 0 => f.applyS(Vector())(env)
             case value2                                    => (env, value2)
           }
-        case TypedTerm(term, _)            =>
+        case TypedTerm(term, _)           =>
           evaluateS(term)(env)
+        case _                            =>
+          (env, NoValue.fromString("unsupported term"))
       }
     
     override def valueFromTermS(term: Term[SimpleTerm[Symbol, T, U]])(env: SymbolEnvironment[T, U]) = evaluateS(term)(env)

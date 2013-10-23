@@ -54,7 +54,18 @@ object Kinder
   
   def transformTypeTermNel[T, U, V, W, E](terms: NonEmptyList[Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) =
     transformTermNel1(terms)(env)(transformTypeTerm(_)(_))
+  
+  def transformCase[T, U, V, W, X, Y, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]) =
+    cas match {
+      case Case(name, typ, body, lambdaInfo) =>
+        transformTypeTermWithKindInference(typ)(env).flatMap { 
+          case (tt, _) => transformTerm(body)(env).map { Case(name, tt, _, lambdaInfo) }
+        }
+    }
     
+  def transformCaseNel[T, U, V, W, X, Y, E](cases: NonEmptyList[Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]): ValidationNel[AbstractError, NonEmptyList[Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, Y]]]]] =
+    transformTermNel1(cases)(env)(transformCase(_)(_))
+  
   def transformTerm[T, U, V, W, X, Y, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]): ValidationNel[AbstractError, Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, Y]]]]] =
     term match {
       case App(fun, args, pos) =>
@@ -77,6 +88,18 @@ object Kinder
         transformTypeTermWithKindInference(typ)(env).flatMap {
           case (typ2, _) => transformTerm(term)(env).map { term2 => Simple(TypedTerm(term2, typ2), pos) }
         }
+      case Simple(Construct(n, lambdaInfo), pos) =>
+        Simple(Construct(n, lambdaInfo), pos).successNel
+      case Simple(Select(term, cases), pos) =>
+        transformTerm(term)(env).flatMap {
+          term2 => transformCaseNel(cases)(env).map { cases2 => Simple(Select(term2, cases2), pos)}
+        }
+      case Simple(Extract(term, args, body, lambdaInfo), pos) =>
+        for {
+          term2 <- transformTerm(body)(env)
+          args2 <- transformArgNel(args)(env)
+          body2 <- transformTerm(body)(env)
+        } yield Simple(Extract(term2, args2, body2, lambdaInfo), pos)
     }
   
   def transformTypeTerm[T, U, V, W, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]): ValidationNel[AbstractError, Term[TypeSimpleTerm[T, TypeLambdaInfo[U, W]]]] =

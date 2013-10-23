@@ -215,14 +215,27 @@ object Parser extends StandardTokenParsers with PackratParsers
     
     lazy val expr: PackratParser[TermWrapper] = expr1
 
-    lazy val expr1 = typedExpr | exprN
-    lazy val typedExpr = p(exprN ~~ (":" ~-> typeExpr)					^^ { case t ~ tt => Simple(TypedTerm(t, tt), NoPosition) })
-    lazy val exprN = app | let | lambda | simpleExpr
+    lazy val expr1 = typedExpr | expr2
+    lazy val typedExpr = p(expr2 ~~ (":" ~-> typeExpr)					^^ { case t ~ tt => Simple(TypedTerm(t, tt), NoPosition) })    
+
+    lazy val expr2 = select | extract | exprN
+    lazy val select = p(exprN ~ (("select" ~- "{") ~-> (cas ~ ((semi ~> cas) *)) <~- "}") ^^ {
+      case t ~ (c ~ cs) => Simple(Select(t, NonEmptyList.nel(c, cs)), NoPosition)
+    })
+    lazy val cas = namedCase | wildcardCase
+    lazy val namedCase = (("(" ~-> ident ~~ (":" ~-> typeExpr)) <~- ")") ~- ("=>" ~-> expr) ^^ { case (s ~ tt) ~ t => Case(some(s), tt, t, LambdaInfo) }
+    lazy val wildcardCase = (("(" ~-> ("_" ~~ ":") ~-> typeExpr) <~- ")") ~- ("=>" ~-> expr) ^^ { case tt ~ t => Case(none, tt, t, LambdaInfo) }
+    lazy val extract = p(exprN ~ (("extract" ~- "{") ~-> (arg :+) ~- ("=>" ~-> expr) <~- "}") ^^ {
+      case t1 ~ (as ~ t2) => Simple(Extract(t1, as, t2, LambdaInfo), NoPosition)
+    })
+    
+    lazy val exprN = app | let | lambda | construct | simpleExpr
     lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | "(" ~-> expr <~- ")"
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t, LambdaInfo), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t, LambdaInfo), NoPosition) })
+    lazy val construct =  p("construct" ~-> integer						^^ { case n => Simple(Construct(n, LambdaInfo), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
     

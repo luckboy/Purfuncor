@@ -24,6 +24,16 @@ object LambdaIndexer
   def transformTermNelFromIndexS[T, U, V, W](terms: NonEmptyList[Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]])(idx: Int) =
     transformTermNelFromIndexS1(terms)(idx)(transformTermFromIndexS(_)(_))
   
+  def transformCaseFromIndexS[T, U, V, W](cas: Case[T, U, TypeSimpleTerm[V, W]])(idx: Int): (Int, Case[T, LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W]]]) =
+    cas match {
+      case Case(name, typ, body, lambdaInfo) =>
+        val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
+        (idx2, Case(name, transformTypeTermFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx2)))
+    }
+  
+  def transformCaseNelFromIndexS[T, U, V, W](cases: NonEmptyList[Case[T, U, TypeSimpleTerm[V, W]]])(idx: Int) =
+    transformTermNelFromIndexS1(cases)(idx)(transformCaseFromIndexS(_)(_))
+    
   def transformTermFromIndexS[T, U, V, W](term: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]])(idx: Int): (Int, Term[SimpleTerm[T, LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W]]]]) =
     term match {
       case App(fun, args, pos) => 
@@ -46,6 +56,17 @@ object LambdaIndexer
       case Simple(TypedTerm(term, typ), pos) =>
         val (idx2, term2) = transformTermFromIndexS(term)(idx)
         (idx2, Simple(TypedTerm(term2, transformTypeTermFromIndex(typ).run(0)._2), pos))
+      case Simple(Construct(n, lambdaInfo), pos) =>
+        (idx + 1, Simple(Construct(n, LambdaInfo(lambdaInfo, idx)), pos))
+      case Simple(Select(term, cases), pos) =>
+        val (idx2, term2) = transformTermFromIndexS(term)(idx)
+        val (idx3, cases2) = transformCaseNelFromIndexS(cases)(idx2)
+        (idx2, Simple(Select(term2, cases2), pos))
+      case Simple(Extract(term, args, body, lambdaInfo), pos) =>
+        val (idx2, term2) = transformTermFromIndexS(term)(idx + 1)
+        val args2 = args.map { case Arg(name, typ, argPos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
+        val (idx3, body2) = transformTermFromIndexS(body)(idx2)
+        (idx3, Simple(Extract(term2, args2, body2, LambdaInfo(lambdaInfo, idx)), pos))
     }
   
   def transformTermFromIndex[T, U, V, W](term: Term[SimpleTerm[T, U, TypeSimpleTerm[V, W]]]) =

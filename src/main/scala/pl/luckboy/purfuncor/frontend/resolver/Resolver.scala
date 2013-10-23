@@ -21,7 +21,7 @@ object Resolver
             )
         )
 
-  private def transformTermNel1[T, U](terms: NonEmptyList[Term[T]])(transform: Term[T] => ValidationNel[AbstractError, Term[U]]) =
+  private def transformTermNel1[T, U](terms: NonEmptyList[T])(transform: T => ValidationNel[AbstractError, U]) =
     terms.tail.foldLeft(transform(terms.head).map { NonEmptyList(_) }) {
       (res, t) => (transform(t) |@| res)(_ <:: _)
     }.map { _.reverse }
@@ -67,6 +67,14 @@ object Resolver
     arg.typ.map {
       transformTypeTerm(_)(scope.copy(localVarNames = Set())).map { tt => Arg(arg.name, some(tt), arg.pos) }
     }.getOrElse(Arg(arg.name, none, arg.pos).successNel)
+
+  def transformCase[T, U](cas: Case[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
+    (transformTypeTerm(cas.typ)(scope.copy(localVarNames = Set())) |@| transformTerm(cas.body)(scope.withLocalVars(cas.name.toSet))) {
+      Case(cas.name, _, _, cas.lambdaInfo)
+    }
+    
+  def transformCaseNel[T, U](cases: NonEmptyList[Case[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope) =
+    transformTermNel1(cases)(transformCase(_)(scope))
     
   def transformTerm[T, U](term: Term[SimpleTerm[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope): ValidationNel[AbstractError, Term[SimpleTerm[Symbol, T, TypeSimpleTerm[Symbol, U]]]] =
     term match {
@@ -84,6 +92,15 @@ object Resolver
         Simple(Literal(value), pos).successNel
       case Simple(TypedTerm(term, typ), pos) =>
         (transformTerm(term)(scope) |@| transformTypeTerm(typ)(scope.copy(localVarNames = Set()))) { (t, tt) => Simple(TypedTerm(t, tt), pos) }
+      case Simple(Construct(n, lambdaInfo), pos) =>
+        Simple(Construct(n, lambdaInfo), pos).successNel
+      case Simple(Select(term, cases), pos) =>
+        (transformTerm(term)(scope) |@| transformCaseNel(cases)(scope)) { (t, cs) => Simple(Select(t, cs), pos) }
+      case Simple(Extract(term, args, body, lambdaInfo), pos) =>
+        val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
+        (transformTerm(term)(scope) |@| transformArgNel(args)(scope) |@| transformTerm(body)(newScope)) {
+          (t1, as, t2) => Simple(Extract(t1, as, t2, lambdaInfo), pos)
+        }
     }
   
   def transformTypeTermNel[T](terms: NonEmptyList[Term[TypeSimpleTerm[parser.Symbol, T]]])(scope: Scope) =

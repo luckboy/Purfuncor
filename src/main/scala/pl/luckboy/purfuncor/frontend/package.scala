@@ -24,20 +24,37 @@ package object frontend
   implicit def simpleTermIndenting[T, U, V](implicit showing: Showing[Term[V]]): Indenting[SimpleTerm[T, U, V]] = new Indenting[SimpleTerm[T, U, V]] {
     override def indentedStringFrom(x: SimpleTerm[T, U, V])(n: Int) =
       x match {
-        case Let(binds, body, lambdaInfo)   =>
+        case Let(binds, body, lambdaInfo)          =>
           "let\n" + binds.map { (" " * (n + 2)) + bindIndenting(showing).indentedStringFrom(_)(n + 2) }.list.mkString("\n") + "\n" +
           (" " * (n + 2)) + (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           (" " * n) + "in\n" + (" " * (n + 2)) + termIndenting(showing).indentedStringFrom(body)(n + 2)
-        case Lambda(args, body, lambdaInfo) =>
+        case Lambda(args, body, lambdaInfo)        =>
           "\\" + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.list.mkString("") +
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
-        case Var(loc)                       =>
+        case Var(loc)                              =>
           loc.toString
-        case Literal(value)                 =>
+        case Literal(value)                        =>
           value.toString
-        case TypedTerm(term, typ)           =>
+        case TypedTerm(term, typ)                  =>
           termIndenting(showing).indentedStringFrom(term)(n) + ": " + showing.stringFrom(typ)
+        case Construct(n, lambdaInfo)              =>
+          "construct " + n + (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "")
+        case Select(term, cases)                   =>
+          termIndenting(showing).indentedStringFrom(term)(n) + " select {\n" +
+          cases.map {
+            case Case(name, typ, body, lambdaInfo) =>
+              (" " * (n + 2)) + "(" + name.getOrElse("_") + ": " + showing.stringFrom(typ) + ") " +
+              (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
+              "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
+          }.list.mkString("\n") + "\n" +
+          (" " * n) + "}"
+        case Extract(term, args, body, lambdaInfo) =>
+          termIndenting(showing).indentedStringFrom(term)(n) + " extract {\n" +
+          (" " * (n + 2)) + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.list.mkString("") +
+          (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
+          "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2) + "\n" +
+          (" " * n) + "}"
       }
   }
 
