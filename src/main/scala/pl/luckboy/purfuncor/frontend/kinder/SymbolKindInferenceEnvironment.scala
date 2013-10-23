@@ -48,7 +48,7 @@ case class SymbolKindInferenceEnvironment[T](
       case globalSym @ GlobalSymbol(_) =>
         globalTypeVarKinds.getOrElse(globalSym, NoKind.fromError(FatalError("undefined global type variable", none, NoPosition)))
       case localSym @ LocalSymbol(_)   =>
-        localTypeVarKinds.get(localSym).map { _ head }.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
+        localTypeVarKinds.get(localSym).map { _.head }.getOrElse(NoKind.fromError(FatalError("undefined local type variable", none, NoPosition)))
     }
   
   def typeParamKind(param: Int) = typeParamKinds.getOrElse(param, NoKind.fromError(FatalError("undefined type parameter", none, NoPosition)))
@@ -96,7 +96,7 @@ case class SymbolKindInferenceEnvironment[T](
   def withDefinedKind(kindTerm: KindTerm[StarKindTerm[Int]]) =
     copy(
         definedKindTerms = definedKindTerms :+ kindTerm,
-        irreplaceableKindParams = IntMap() ++ (irreplaceableKindParams.toMap |+| kindParamsFromKindTerm(kindTerm).map { (_, NonEmptyList(kindTerm)) }.toMap))
+        irreplaceableKindParams = IntMap() ++ (irreplaceableKindParams |+| kindParamsFromKindTerm(kindTerm).map { (_, NonEmptyList(kindTerm)) }.toMap))
   
   def withCurrentKindTermPair(pair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])]) = copy(currentKindTermPair = pair)
   
@@ -106,6 +106,8 @@ case class SymbolKindInferenceEnvironment[T](
     (env.withCurrentKindTermPair(oldKindTermPair), res)
   }
   
+  def withErrs(noKind: NoKind) = copy(errNoKind = errNoKind.map { nk => some(nk |+| noKind) }.getOrElse(some(noKind)))
+
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
   
   def withGlobalTypeVarKind(sym: GlobalSymbol, kind: Kind) = copy(globalTypeVarKinds = globalTypeVarKinds + (sym -> kind))
@@ -120,9 +122,7 @@ case class SymbolKindInferenceEnvironment[T](
       (env.copy(kindParamForest = ParamForest.empty, definedKindTerms = Nil, irreplaceableKindParams = Map()), res)
     } else {
       f(this)
-    }
-  
-  def withErrs(noKind: NoKind) = copy(errNoKind = errNoKind.map { nk => some(nk |+| noKind) }.getOrElse(some(noKind)))
+    }  
 }
 
 object SymbolKindInferenceEnvironment
