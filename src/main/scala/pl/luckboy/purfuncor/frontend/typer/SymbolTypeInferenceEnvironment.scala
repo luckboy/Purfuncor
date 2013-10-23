@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -9,6 +10,7 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 case class SymbolTypeInferenceEnvironment[T, U](
     typeEnv: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]],
@@ -17,7 +19,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     currentLambdaIdx: Int,
     globalVarTypes: Map[GlobalSymbol, Type[GlobalSymbol]],
     localVarTypes: Map[LocalSymbol, NonEmptyList[Type[GlobalSymbol]]],
-    localTypeTables: Map[Option[GlobalSymbol], TypeTable[LocalSymbol, GlobalSymbol]],
+    localTypeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]],
@@ -30,7 +32,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
     currentTypeMatching: TypeMatching.Value,
-    currentTypePair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
+    currentTypeValueTermPair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]),
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean)
 {
@@ -40,9 +42,54 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
   
+  def withCurrentCombSym(sym: Option[GlobalSymbol]) = copy(currentCombSym = sym)
+  
+  def withCombSym(sym: Option[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
+    val oldSym = currentCombSym
+    val (env, value) = f(withCurrentCombSym(sym))
+    (env.withCurrentCombSym(oldSym), value)
+  }
+  
+  def withCurrentLambdaIdx(lambdaIdx: Int) = copy(currentLambdaIdx = lambdaIdx)
+  
+  def withLambdaIdx(lambdaIdx: Int)(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
+    val oldLambdaIdx = currentLambdaIdx
+    val (env, value) = f(withCurrentLambdaIdx(lambdaIdx))
+    (env.withCurrentLambdaIdx(oldLambdaIdx), value)
+  }
+  
+  def varType(sym: Symbol) =
+    sym match {
+      case globalSym @ GlobalSymbol(_) =>
+        globalVarTypes.getOrElse(globalSym, NoType.fromError(FatalError("undefined global variable", none, NoPosition)))
+      case localSym @ LocalSymbol(_)   =>
+        localVarTypes.get(localSym).map { _.head }.getOrElse(NoType.fromError(FatalError("undefined local variable", none, NoPosition)))
+  }
+  
+  def pushLocalVarType(types: Map[LocalSymbol, Type[GlobalSymbol]]) = copy(localVarTypes = types.mapValues { NonEmptyList(_) } |+| localVarTypes)
+  
+  def popLocalVarType(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
+  
+  def currentLocalTypeTable = localTypeTables.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, TypeTable(Map()))
+  
+  def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = copy(localTypeTables = localTypeTables + (currentCombSym -> (localTypeTables.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> typeTable))))
+  
+  def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
+  
   def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
+  
+  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]]) = copy(combNodes = nodes)
+  
+  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
+  
+  def withoutCombs(syms: Set[GlobalSymbol]) = copy(combNodes = combNodes -- syms)
+  
+  def withDefinedType(definedType: DefinedType[GlobalSymbol]): SymbolTypeInferenceEnvironment[T, U] =
+    copy(
+        definedTypes = definedTypes :+ definedType,
+        irreplaceableTypeParams = IntMap() ++ (irreplaceableTypeParams |+| definedType.args.flatMap { _.param.map { (_, NonEmptyList(definedType)) } }.toMap))
   
   def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms | syms)
   
@@ -83,4 +130,22 @@ case class SymbolTypeInferenceEnvironment[T, U](
   }
   
   def withCurrentTypeMatching(typeMatching: TypeMatching.Value) = copy(currentTypeMatching = typeMatching)
+  
+  def withCurrentTypeValueTermPair(pair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol])) = copy(currentTypeValueTermPair = pair)
+  
+  def withTypeValueTermPair[V](pair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]))(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val oldPair = currentTypeValueTermPair
+    val (env, res) = f(withCurrentTypeValueTermPair(pair))
+    (env.withCurrentTypeValueTermPair(oldPair), res)
+  }
+  
+  def withErrs(noType: NoType[GlobalSymbol]) = copy(errNoType = errNoType.map { nt => some(nt |+| noType) }.getOrElse(some(noType)))
+  
+  def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
+  
+  def withGlobalVarType(sym: GlobalSymbol, typ: Type[GlobalSymbol]) = copy(globalVarTypes = globalVarTypes + (sym -> typ))
+  
+  def withGlobalVarTypes(types: Map[GlobalSymbol, Type[GlobalSymbol]]) = copy(globalVarTypes = globalVarTypes ++ types)
+  
+  def withoutGlobalVarTypes(syms: Set[GlobalSymbol]) = copy(globalVarTypes = globalVarTypes -- syms)
 }
