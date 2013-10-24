@@ -14,7 +14,8 @@ case class SymbolTypeEnvironment[T](
     typeParamCount: Int,
     currentFile: Option[java.io.File],
     applyingTypeCombSyms: Set[GlobalSymbol],
-    currentTypeParamAppIdx: Int)
+    currentTypeParamAppIdx: Int,
+    isPartial: Boolean)
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -94,6 +95,14 @@ case class SymbolTypeEnvironment[T](
     val (env, res) = f(withCurrentTypeParamAppIdx(paramAppIdx))
     (env.withCurrentTypeParamAppIdx(oldParamAppIdx), res)
   }
+  
+  def withPartial(isPartial: Boolean) = copy(isPartial = isPartial)
+  
+  def withPartialEvaluation[U](isPartial: Boolean)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)) = {
+    val old = this.isPartial
+    val (env, res) = f(withPartial(isPartial))
+    (env.withPartial(old), res)
+  }
 }
 
 object SymbolTypeEnvironment
@@ -104,7 +113,8 @@ object SymbolTypeEnvironment
       typeParamCount = 0,
       currentFile = none,
       applyingTypeCombSyms = Set(),
-      currentTypeParamAppIdx = 0)
+      currentTypeParamAppIdx = 0,
+      isPartial = false)
 }
     
 case class SymbolTypeClosure[T](

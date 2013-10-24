@@ -51,9 +51,9 @@ package object typer
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
-            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) =>
+            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) || env.isPartial =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case _                                                                   =>
+            case _                                                                                        =>
               (env, env.typeVarValue(loc))
           }
         case TypeLiteral(value)            =>
@@ -171,7 +171,7 @@ package object typer
       val (env2, value) = if(comb.argCount === 0) {
         comb match {
           case TypeCombinator(_, _, body, _, file) =>
-            val (newEnv, value) = env.withFile(file) { evaluateS(body)(_) }
+            val (newEnv, value) = env.withFile(file) { _.withPartialEvaluation(false) { evaluateS(body)(_) } }
             (newEnv, value.forFile(file).forCombLoc(some(loc)))
           case UnittypeCombinator(_, _, _)         =>
             (env, EvaluatedTypeValue(Unittype(loc, Nil, loc)))
@@ -236,7 +236,8 @@ package object typer
     override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]], paramCount: Int, paramAppIdx: Int)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (typeEnv, res) = env.typeEnv.withTypeParamAppIdx(paramAppIdx) { 
         _.withTypeParams(paramCount) { 
-          (_, _, typeEnv2) => TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(typeEnv2)
+          (_, _, typeEnv2) => 
+            typeEnv2.withPartialEvaluation(false) { TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(_) }
         }
       }
       (env.withTypeEnv(typeEnv), typeResultFromTypeValueResult(res))
