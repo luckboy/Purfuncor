@@ -212,8 +212,11 @@ package object typer
   //
   
   implicit def noTypeSemigroup[T]: Semigroup[NoType[T]] = new Semigroup[NoType[T]] {
-    override def append(f1: NoType[T], f2: => NoType[T]): NoType[T] =
-      throw new UnsupportedOperationException
+    override def append(f1: NoType[T], f2: => NoType[T]) =
+      (f1, f2) match {
+        case (NoType(prevErrs1, currentErrs1), NoType(prevErrs2, currentErrs2)) =>
+          NoType(prevErrs = prevErrs1 ++ prevErrs2, currentErrs = currentErrs1 ++ currentErrs2)
+      }
   }
   
   implicit def symbolKindInferrenceEnvironmentState[T]: KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
