@@ -68,7 +68,7 @@ case class SymbolKindInferenceEnvironment[T](
   def withLocalKindTables(kindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]) = copy(localKindTables = kindTables)
   
   def withLocalTypeVarKinds[U](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[U]]]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
-    val (env2, res) = kindTerms.foldLeft((this, Map[LocalSymbol, Kind]().success[NoKind])) {
+    val (env, res) = kindTerms.foldLeft((this, Map[LocalSymbol, Kind]().success[NoKind])) {
       case ((newEnv, Success(newKinds)), (sym, kt)) =>
         val kindTerm = kt.map(intKindTermFromKindTerm).getOrElse(Star(KindParam(0), NoPosition))
         val (newEnv2, newRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
@@ -80,9 +80,9 @@ case class SymbolKindInferenceEnvironment[T](
     }
     res.map {
       newKinds =>
-        val (env3, kind) = f(env2.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(currentLocalKindTable.kinds ++ newKinds.filterKeys(kindTerms.keySet.contains))))
-        (env3.popLocalTypeVarKinds(newKinds.keySet), kind)
-    }.valueOr { (env2, _) } 
+        val (env2, kind) = f(env.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(env.currentLocalKindTable.kinds ++ newKinds.filterKeys(kindTerms.keySet.contains))))
+        (env2.popLocalTypeVarKinds(newKinds.keySet), kind)
+    }.valueOr { (env, _) } 
   }
     
   def withKindParamForest(paramForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = paramForest)
