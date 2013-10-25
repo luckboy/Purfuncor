@@ -23,6 +23,7 @@ import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
+import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
@@ -455,11 +456,11 @@ package object typer
     override def returnInfoFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
       throw new UnsupportedOperationException
     
-    override def isNoInfo(info: Type[GlobalSymbol]): Boolean =
-      throw new UnsupportedOperationException
+    override def isNoInfo(info: Type[GlobalSymbol]) =
+      info.isNoType
     
-    override def functionInfo(argCount: Int): Type[GlobalSymbol] =
-      throw new UnsupportedOperationException
+    override def functionInfo(argCount: Int) =
+      functionType(argCount)
     
     override def concatErrors(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol]): Type[GlobalSymbol] =
       throw new UnsupportedOperationException
@@ -467,8 +468,8 @@ package object typer
     override def unequalListLengthNoInfo: Type[GlobalSymbol] =
       throw new UnsupportedOperationException
     
-    override def withPos(res: (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]))(pos: Position): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    override def withPos(res: (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]))(pos: Position) =
+      (res._1, res._2.withPos(pos))
   }
   
   implicit def symbolCombinatorTypeInitializer[T, U]: Initializer[NoType[GlobalSymbol], GlobalSymbol, AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U]] = new Initializer[NoType[GlobalSymbol], GlobalSymbol, AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]], SymbolTypeInferenceEnvironment[T, U]] {
