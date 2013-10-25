@@ -15,6 +15,12 @@ sealed trait Type[T]
   
   def isUninferredType = isInstanceOf[UninferredType[T]]
   
+  def instantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    throw new UnsupportedOperationException
+    
+  def instantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Type[T]) =
+    throw new UnsupportedOperationException
+  
   def withPos(pos: Position) =
     this match {
       case noType: NoType[T] =>

@@ -171,6 +171,12 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withCurrentTypeMatching(typeMatching: TypeMatching.Value) = copy(currentTypeMatching = typeMatching)
   
+  def withTypeMatching[V](typeMatching: TypeMatching.Value)(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val oldTypeMatching = currentTypeMatching
+    val (env, res) = f(withCurrentTypeMatching(typeMatching))
+    (env.withCurrentTypeMatching(oldTypeMatching), res)
+  }
+  
   def withCurrentTypeValueTermPair(pair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol])) = copy(currentTypeValueTermPair = pair)
   
   def withTypeValueTermPair[V](pair: (TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol]))(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {

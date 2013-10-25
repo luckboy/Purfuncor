@@ -444,17 +444,28 @@ package object typer
     override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[U]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
       throw new UnsupportedOperationException
     
-    override def unifyInfosS(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    private def unifyKindsForTypeMatchingS(kind1: Type[GlobalSymbol], kind2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (env2, res) = kind1.instantiatedTypeValueTermS(env)
+      val (env3, res2) = kind2.instantiatedTypeValueTermS(env2)
+      (res |@| res) { 
+        (tvt1, tvt2) =>
+          env3.withTypeValueTermPair((tvt1, tvt2)) { 
+            _.withTypeMatching(typeMatching)(unifyTypesS(kind1, kind2))
+          }
+      }.valueOr { (env3, _) }
+    }
+    
+    override def unifyInfosS(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      unifyKindsForTypeMatchingS(info1, info2, TypeMatching.Types)(env)
 
-    override def unifyArgInfosS(funArgInfo: Type[GlobalSymbol], argInfo: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    override def unifyArgInfosS(funArgInfo: Type[GlobalSymbol], argInfo: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      unifyKindsForTypeMatchingS(funArgInfo, argInfo, TypeMatching.SupertypeWithType)(env)
     
-    override def argInfosFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[Type[GlobalSymbol], Seq[Type[GlobalSymbol]]]) =
-      throw new UnsupportedOperationException
+    override def argInfosFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      argTypesFromTypeS(info, argCount)(env)
     
-    override def returnInfoFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    override def returnInfoFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      returnTypeFromTypeS(info, argCount)(env)
     
     override def isNoInfo(info: Type[GlobalSymbol]) =
       info.isNoType
@@ -462,11 +473,16 @@ package object typer
     override def functionInfo(argCount: Int) =
       functionType(argCount)
     
-    override def concatErrors(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol]): Type[GlobalSymbol] =
-      throw new UnsupportedOperationException
+    override def concatErrors(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol]) =
+      (info1, info2) match {
+        case (noType1: NoType[GlobalSymbol], noType2: NoType[GlobalSymbol]) => noType1 |+| noType2
+        case (noType: NoType[GlobalSymbol], _)                              => noType
+        case (_, noType: NoType[GlobalSymbol])                              => noType
+        case _                                                              => NoType.fromError[GlobalSymbol](FatalError("can't concat errors", none, NoPosition))
+      }
     
-    override def unequalListLengthNoInfo: Type[GlobalSymbol] =
-      throw new UnsupportedOperationException
+    override def unequalListLengthNoInfo =
+      NoType.fromError(FatalError("unequal list lengths", none, NoPosition))
     
     override def withPos(res: (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]))(pos: Position) =
       (res._1, res._2.withPos(pos))
