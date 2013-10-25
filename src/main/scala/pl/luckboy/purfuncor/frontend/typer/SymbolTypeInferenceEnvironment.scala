@@ -77,8 +77,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
   
-  def definedTypeFromTypeTerm(term: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]) = {
-    val (typeEnv2, res) = typeEnv.withPartialEvaluation(false)(DefinedType.evaluateDefinedTypeTerm(term).run)
+  def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]) = {
+    val (typeEnv2, res) = typeEnv.withPartialEvaluation(false)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
     val env = withTypeEnv(typeEnv2)
     res.map {
       case (typeValueTerm, kinds) =>
@@ -89,7 +89,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
             val args = kinds.map { _._1 }.zipWithIndex.map {
               case (kt, p) => allocatedParams.get(p).map { p2 => DefinedTypeArg(some(p2), kt) }.getOrElse(DefinedTypeArg(none, kt))
             }
-            DefinedType(args, typeValueTerm2, term.pos)
+            DefinedType(args, typeValueTerm2, typeTerm.pos)
         })
     }.valueOr { nt => (env, NoType.fromNoTypeValue(nt).failure) }
   }
