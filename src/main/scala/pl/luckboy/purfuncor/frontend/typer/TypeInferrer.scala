@@ -95,7 +95,7 @@ object TypeInferrer
     (env2, res.map { _._2.reverse })
   }
     
-  def argTypesFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], List[Type[T]]]) = {
+  def argTypesFromTypeS[T, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], List[Type[T]]]) =
     normalizeTypeS(typ)(env) match {
       case (env2, InferredType(typeValueTerm, argKinds)) =>
         val (env3, res) = argTypeValueTermFromTypeValueTermS1(typeValueTerm, argCount)(env2)(evaluateInferredTypeValueTermS(_, argKinds.size)(_))
@@ -108,7 +108,6 @@ object TypeInferrer
       case (env2, noType: NoType[T]) =>
         (env2, noType.failure)
     }
-  }
   
   private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
     (0 until argCount).foldLeft((env, term.success[NoType[T]])) {
