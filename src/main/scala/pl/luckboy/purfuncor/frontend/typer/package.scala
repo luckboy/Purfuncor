@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
@@ -217,6 +218,11 @@ package object typer
         case (NoType(prevErrs1, currentErrs1), NoType(prevErrs2, currentErrs2)) =>
           NoType(prevErrs = prevErrs1 ++ prevErrs2, currentErrs = currentErrs1 ++ currentErrs2)
       }
+  }
+  
+  implicit def symbolTypeLambdaInfoArgTabular[T]: ArgTabular[TypeLambda[Symbol, TypeLambdaInfo[T, LocalSymbol]], LocalSymbol] = new ArgTabular[TypeLambda[Symbol, TypeLambdaInfo[T, LocalSymbol]], LocalSymbol] {
+    override def getArgLocationsFromTable(table: TypeLambda[Symbol, TypeLambdaInfo[T, LocalSymbol]]): Seq[Option[LocalSymbol]] =
+      table.args.list.map { _.name.map { LocalSymbol(_) } }
   }
   
   implicit def symbolKindInferrenceEnvironmentState[T]: KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
