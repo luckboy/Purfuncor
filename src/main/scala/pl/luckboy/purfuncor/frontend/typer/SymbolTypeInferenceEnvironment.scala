@@ -10,9 +10,11 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
+import TypeValueTermUnifier._
 
 case class SymbolTypeInferenceEnvironment[T, U](
-    typeEnv: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]],
+    typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]],
     kindInferenceEnv: SymbolKindInferenceEnvironment[U],
     currentCombSym: Option[GlobalSymbol],
     currentLambdaIdx: Int,
@@ -37,7 +39,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
 {
   def typeParamKinds = kindInferenceEnv.typeParamKinds
   
-  def withTypeEnv(env: SymbolTypeEnvironment[lmbdindexer.LambdaInfo[T]]) = copy(typeEnv = env)
+  def withTypeEnv(env: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]]) = copy(typeEnv = env)
   
   def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
   
@@ -63,7 +65,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
         globalVarTypes.getOrElse(globalSym, NoType.fromError(FatalError("undefined global variable", none, NoPosition)))
       case localSym @ LocalSymbol(_)   =>
         localVarTypes.get(localSym).map { _.head }.getOrElse(NoType.fromError(FatalError("undefined local variable", none, NoPosition)))
-  }
+    }
   
   def pushLocalVarType(types: Map[LocalSymbol, Type[GlobalSymbol]]) = copy(localVarTypes = types.mapValues { NonEmptyList(_) } |+| localVarTypes)
   
@@ -74,6 +76,23 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = copy(localTypeTables = localTypeTables + (currentCombSym -> (localTypeTables.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> typeTable))))
   
   def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
+  
+  def definedTypeFromTypeTerm(term: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]) = {
+    val (typeEnv2, res) = typeEnv.withPartialEvaluation(false)(DefinedType.evaluateDefinedTypeTerm(term).run)
+    val env = withTypeEnv(typeEnv2)
+    res.map {
+      case (typeValueTerm, kinds) =>
+        val inferredKinds = kinds.map { _._2 }.zipWithIndex.map { _.swap }.toMap 
+        val (env2, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, inferredKinds)(Map(), nextTypeParamAppIdx)(env)
+        (env2, res2.map {
+          case (allocatedParams, _, _, typeValueTerm2) =>
+            val args = kinds.map { _._1 }.zipWithIndex.map {
+              case (kt, p) => allocatedParams.get(p).map { p2 => DefinedTypeArg(some(p2), kt) }.getOrElse(DefinedTypeArg(none, kt))
+            }
+            DefinedType(args, typeValueTerm2, term.pos)
+        })
+    }.valueOr { nt => (env, NoType.fromNoTypeValue(nt).failure) }
+  }
   
   def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)
   

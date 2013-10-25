@@ -60,7 +60,7 @@ object DefinedType
   
   def evaluateDefinedTypeTermS[T, U, V, W, X, E](term: Term[TypeSimpleTerm[U, TypeLambdaInfo[V, W]]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, TypeLambdaInfo[V, W]], E, TypeValue[T, U, TypeLambdaInfo[V, W], X]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, TypeLambdaInfo[V, W], X]], argTabular: ArgTabular[TypeLambda[U, TypeLambdaInfo[V, W]], W]) = {
     val (env2, value) = evaluateS(term)(env)
-    appForDefinedTypeValueAndKindsS(value)(Seq())(env2)
+    appForDefinedTypeValueAndKindsS(value)(Seq())(env2).mapElements(identity, _.map { _.mapElements(identity, _.toList) })
   }
   
   def evaluateDefinedTypeTerm[T, U, V, W, X, E](term: Term[TypeSimpleTerm[U, TypeLambdaInfo[V, W]]])(implicit eval: Evaluator[TypeSimpleTerm[U, TypeLambdaInfo[V, W]], E, TypeValue[T, U, TypeLambdaInfo[V, W], X]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, TypeLambdaInfo[V, W], X]], argTabular: ArgTabular[TypeLambda[U, TypeLambdaInfo[V, W]], W]) =
