@@ -14,7 +14,7 @@ import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import TypeValueTermUnifier._
 
 case class SymbolTypeInferenceEnvironment[T, U](
-    typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]],
+    typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]],
     kindInferenceEnv: SymbolKindInferenceEnvironment[U],
     currentCombSym: Option[GlobalSymbol],
     currentLambdaIdx: Int,
@@ -23,7 +23,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     localTypeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
-    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]],
+    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     definedTypes: List[DefinedType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSyms: Set[GlobalSymbol],
@@ -39,7 +39,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
 {
   def typeParamKinds = kindInferenceEnv.typeParamKinds
   
-  def withTypeEnv(env: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]]) = copy(typeEnv = env)
+  def withTypeEnv(env: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]]) = copy(typeEnv = env)
   
   def withKindInferenceEnv(env: SymbolKindInferenceEnvironment[U]) = copy(kindInferenceEnv = env)
   
@@ -77,7 +77,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
   
-  def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]) = {
+  def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
     val env = withTypeEnv(typeEnv2)
     res.map {
@@ -94,7 +94,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     }.valueOr { nt => (env, NoType.fromNoTypeValue(nt).failure) }
   }
   
-  def withLocalVarTypes(typeTerms: Map[LocalSymbol, Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
+  def withLocalVarTypes(typeTerms: Map[LocalSymbol, Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
     val (env, res) = typeTerms.foldLeft((this, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
       case ((newEnv, Success(newTypes)), (sym, typeTerm)) =>
         val (newEnv2, newRes2) = typeTerm.map {
@@ -120,9 +120,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
   
-  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]]) = copy(combNodes = nodes)
+  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]]) = copy(combNodes = nodes)
   
-  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, U, TypeSimpleTerm[Symbol, T], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
+  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
   
   def withoutCombs(syms: Set[GlobalSymbol]) = copy(combNodes = combNodes -- syms)
   
