@@ -78,7 +78,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[T, LocalSymbol]]]) = {
-    val (typeEnv2, res) = typeEnv.withPartialEvaluation(false)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
+    val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
     val env = withTypeEnv(typeEnv2)
     res.map {
       case (typeValueTerm, kinds) =>
