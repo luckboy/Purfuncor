@@ -20,6 +20,12 @@ sealed trait Type[T]
     
   def instantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Type[T]) =
     throw new UnsupportedOperationException
+
+  def uninstantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    throw new UnsupportedOperationException
+    
+  def uninstantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Type[T]) =
+    throw new UnsupportedOperationException
   
   def withPos(pos: Position) =
     this match {

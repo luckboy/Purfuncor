@@ -486,8 +486,9 @@ package object typer
           val (env2, info) = inferS(term)(env)
           val (env3, res) = env2.definedTypeFromTypeTerm(typ)
           res.map { dt => unifyArgInfosS(InferringType(dt.term), info)(env3.withDefinedType(dt)) }.valueOr { (env3, _) }
-        case Construct(n, _) =>
-          (env, functionInfo(n))
+        case Construct(n, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, funInfo) = functionInfo(n).uninstantiatedTypeS(env)
+          env2.withLambdaIdx(lambdaIdx) { newEnv => (newEnv.withCurrentConstructType(some(funInfo)), funInfo) }
         case Select(term, cases) =>
           val (env2, termInfo) = inferS(term)(env)
           val (env4, res) = inferCaseTypeS(cases.head)(env2) match {

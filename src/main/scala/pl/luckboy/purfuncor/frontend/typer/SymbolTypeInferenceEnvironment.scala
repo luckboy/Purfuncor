@@ -20,7 +20,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     currentLambdaIdx: Int,
     globalVarTypes: Map[GlobalSymbol, Type[GlobalSymbol]],
     localVarTypes: Map[LocalSymbol, NonEmptyList[Type[GlobalSymbol]]],
-    localTypeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]],
+    lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
@@ -70,12 +70,18 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def pushLocalVarTypes(types: Map[LocalSymbol, Type[GlobalSymbol]]) = copy(localVarTypes = types.mapValues { NonEmptyList(_) } |+| localVarTypes)
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
+
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none))
   
-  def currentLocalTypeTable = localTypeTables.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, TypeTable(Map()))
+  def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
+
+  def currentLocalTypeTable = currentLambdaInfo.typeTable
   
-  def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = copy(localTypeTables = localTypeTables + (currentCombSym -> (localTypeTables.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> typeTable))))
+  def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = withCurrentLambdaInfo(currentLambdaInfo.copy(typeTable = typeTable))
   
-  def withLocalTypeTables(typeTables: Map[Option[GlobalSymbol], Map[Int, TypeTable[LocalSymbol, GlobalSymbol]]]) = copy(localTypeTables = typeTables)
+  def currentConstructType = currentLambdaInfo.constructType
+  
+  def withCurrentConstructType(typ: Option[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(constructType = typ))
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
