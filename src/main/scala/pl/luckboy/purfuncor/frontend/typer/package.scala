@@ -328,15 +328,6 @@ package object typer
       
     override def argCountFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
       KindInferrer.argCountFromKindS(kind)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKindResult)
-    
-    override def inferredKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (kindInferenceEnv, instantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)
-      (env.withKindInferenceEnv(kindInferenceEnv), instantiatedKind match {
-        case noKind: NoKind             => NoType.fromNoKind[GlobalSymbol](noKind).failure
-        case inferredKind: InferredKind => inferredKind.success
-        case _                          => NoType.fromError[GlobalSymbol](FatalError("no inferred kind", none, NoPosition)).failure
-      })
-    }
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

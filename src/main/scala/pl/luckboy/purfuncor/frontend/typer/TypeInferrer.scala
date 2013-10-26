@@ -158,20 +158,14 @@ object TypeInferrer
         val (newEnv3, newRetType2) = normalizeTypeS(newRetType)(newEnv2)
         (argType2, newRetType2) match {
           case (InferredType(argTypeValueTerm, argArgKinds), InferredType(retTypeValueTerm, retArgKinds)) =>
-            val (newEnv6, res) = argArgKinds.zip(retArgKinds).foldLeft((newEnv3, Seq[InferredKind]().success[NoType[T]])) {
-              case ((newEnv4, Success(newUnifiedArgKinds)), (argKind1, argKind2)) =>
-                val (newEnv5, unifiedArgKindRes) = envSt.unifyKindsS(argKind1, argKind2)(newEnv4)
-                unifiedArgKindRes.map {
-                  envSt.inferredKindFromKindS(_)(newEnv5).mapElements(identity, _.map { newUnifiedArgKinds :+ _ })
-                }.valueOr { nt => (newEnv5, nt.failure) }
-              case ((newEnv4, Failure(noType)), _)                                =>
-                (newEnv4, noType.failure)
-            }
-            res.map {
-              ks =>
-                val argKinds = ks ++ argArgKinds.drop(ks.size) ++ retArgKinds.drop(ks.size)
-                (newEnv6, InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argTypeValueTerm, retTypeValueTerm)), argKinds))
-            }.valueOr { (newEnv6, _) }
+            val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
+            val (newEnv4, argRes) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv3)
+            val retArgKindMap = retArgKinds.zipWithIndex.map { _.swap }.toMap
+            val (newEnv5, retRes) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(newEnv4)
+            (argRes |@| retRes) {
+              (argInferringTypeValueTerm, retInferringTypeValueTerm) =>
+                (newEnv5, InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))))
+            }.valueOr { (newEnv5, _) }
           case (InferredType(argTypeValueTerm, argArgKinds), InferringType(retInferringTypeValueTerm))    =>
             val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
             val (newEnv4, res) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv3)
