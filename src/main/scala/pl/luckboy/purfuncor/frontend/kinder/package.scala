@@ -117,7 +117,7 @@ package object kinder
         case KindedTypeTerm(term, kind) =>
           val (env2, info) = inferS(term)(env)
           val (env3, res) = allocateKindTermParamsS(kind)(Map())(env2)
-          res.map { p => unifyInfosS(info, InferringKind(p._2))(env3.withDefinedKind(p._2)) }.valueOr { (env3, _) }
+          res.map { p => unifyInfosS(InferringKind(p._2), info)(env3.withDefinedKind(p._2)) }.valueOr { (env3, _) }
       }
     
     override def unifyInfosS(info1: Kind, info2: Kind)(env: SymbolKindInferenceEnvironment[T]) = {
