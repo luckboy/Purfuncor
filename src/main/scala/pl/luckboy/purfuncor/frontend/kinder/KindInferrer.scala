@@ -124,10 +124,12 @@ object KindInferrer
   def functionKindFromKindsS[E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     argKinds.foldRight((env, retKind)) {
       case (InferredKind(argKindTerm), (newEnv, InferredKind(kindTerm)))                          =>
-        (newEnv, InferredKind(Arrow(argKindTerm, kindTerm, NoPosition)))
-      case (InferredKind(argKindTerm), (newEnv, InferringKind(inferringKindTerm)))                =>
         val (newEnv2, argRes) = allocateKindTermParamsS(argKindTerm)(Map())(newEnv)
-        (newEnv2, argRes.map { p => InferringKind(Arrow(p._2, inferringKindTerm, NoPosition)) }.valueOr(identity))
+        val (newEnv3, retRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv2)
+        (newEnv3, (argRes |@| retRes) { (p1, p2) => InferringKind(Arrow(p1._2, p2._2, NoPosition)) }.valueOr(identity))
+      case (InferredKind(argKindTerm), (newEnv, InferringKind(inferringKindTerm)))                =>
+        val (newEnv2, res) = allocateKindTermParamsS(argKindTerm)(Map())(newEnv)
+        (newEnv2, res.map { p => InferringKind(Arrow(p._2, inferringKindTerm, NoPosition)) }.valueOr(identity))
       case (InferringKind(argInferringKindTerm), (newEnv, InferredKind(kindTerm)))                =>
         val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
         (newEnv2, res.map { p => InferringKind(Arrow(argInferringKindTerm, p._2, NoPosition)) }.valueOr(identity))
