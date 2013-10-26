@@ -432,7 +432,17 @@ package object typer
   }
   
   implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {
-    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) = {
+    private def inferCaseTypeS(cas: Case[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      cas match {
+        case Case(name, typ, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          env.withLambdaIdx(lambdaIdx) {
+            _.withLocalVarTypes(name.map { s => Map(LocalSymbol(s) -> some(typ)) }.getOrElse(Map())) {
+              inferS(body)(_)
+            }
+          }
+      }
+    
+    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
       simpleTerm match {
         case Let(binds, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           val (env2, res) = binds.foldLeft((env, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
@@ -473,16 +483,38 @@ package object typer
         case Literal(value) =>
           throw new UnsupportedOperationException
         case TypedTerm(term, typ) =>
-          throw new UnsupportedOperationException
-        case Construct(n, lambdaInfo) =>
-          throw new UnsupportedOperationException
+          val (env2, info) = inferS(term)(env)
+          val (env3, res) = env2.definedTypeFromTypeTerm(typ)
+          res.map { dt => unifyArgInfosS(InferringType(dt.term), info)(env3.withDefinedType(dt)) }.valueOr { (env3, _) }
+        case Construct(n, _) =>
+          (env, functionInfo(n))
         case Select(term, cases) =>
-          throw new UnsupportedOperationException
-        case Extract(term, arg, body, lambdaInfo) =>
-          throw new UnsupportedOperationException
+          val (env2, termInfo) = inferS(term)(env)
+          val (env4, res) = inferCaseTypeS(cases.head)(env2) match {
+            case (env3, noInfo: NoType[GlobalSymbol]) =>
+              (env3, noInfo.failure)
+            case (env3, caseInfo)                     =>
+              cases.tail.foldLeft((env3, NonEmptyList(caseInfo).success[NoType[GlobalSymbol]])) {
+                case ((newEnv, newRes), cas) =>
+                  val (newEnv2, caseInfo2) = inferCaseTypeS(cas)(newEnv)
+                  (newEnv2, newRes.map { caseInfo2 <:: _ })
+              }.mapElements(identity, _.map { _.reverse })
+          }
+          res.map {
+            caseInfos =>
+              caseInfos.tail.foldLeft((env4, caseInfos.head)) { 
+                case ((newEnv, newInfo), caseInfo) => unifyInfosS(newInfo, caseInfo)(newEnv)
+              }
+          }.valueOr { (env4, _) }
+        case Extract(term, args, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, termInfo) = inferS(term)(env)
+          val (env3, bodyInfo) = env2.withLambdaIdx(lambdaIdx) {
+            _.withLocalVarTypes(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {
+              inferS(body)(_)
+            }
+          }
+          (env3, if(!termInfo.isNoType && !bodyInfo.isNoType) bodyInfo else concatErrors(termInfo, bodyInfo))
       }
-      throw new UnsupportedOperationException
-    }
     
     private def unifyKindsForTypeMatchingS(kind1: Type[GlobalSymbol], kind2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = kind1.instantiatedTypeValueTermS(env)
