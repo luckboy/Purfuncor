@@ -109,12 +109,14 @@ case class SymbolTypeInferenceEnvironment[T, U](
       case ((newEnv, Failure(noType)), _ )                =>
         (newEnv, noType.failure)
     }
-    res.map {
-      newTypes =>
-        val (env2, typ) = f(env.pushLocalVarTypes(newTypes).withCurrentLocalTypeTable(TypeTable(env.currentLocalTypeTable.types ++ newTypes)))
-        (env2.popLocalVarTypes(newTypes.keySet), typ)
-    }.valueOr { nt => (env, nt.failure) }
+    res.map { withLocalVarTypesForLet(_)(f) }.valueOr { (env, _) }
   }
+  
+  def withLocalVarTypesForLet(types: Map[LocalSymbol, Type[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
+    val (env, typ) = f(pushLocalVarTypes(types).withCurrentLocalTypeTable(TypeTable(currentLocalTypeTable.types ++ types)))
+    (env.popLocalVarTypes(types.keySet), typ)
+  }
+    
   
   def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)
   

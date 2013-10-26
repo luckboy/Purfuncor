@@ -441,8 +441,57 @@ package object typer
   }
   
   implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {
-    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) = {
+      simpleTerm match {
+        case Let(binds, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, res) = binds.foldLeft((env, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+            case ((newEnv, newRes), Bind(bindName, bindBody, _)) =>
+              val (newEnv2, bindInfo) = inferS(bindBody)(newEnv)
+              (newEnv2, bindInfo match {
+                case noInfo: NoType[GlobalSymbol] => newRes.flatMap { _ => noInfo.failure }.valueOr { ni => (ni |+| noInfo).failure }
+                case _                            => newRes.map { _ + (LocalSymbol(bindName) -> bindInfo) }
+              })
+          }
+          res match {
+            case Success(bindInfos) =>
+              env2.withLambdaIdx(lambdaIdx) { _.withLocalVarTypesForLet(bindInfos) { inferS(body)(_) } }
+            case Failure(noType)    =>
+              (env2, noType)
+          }
+        case Lambda(args, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          env.withLambdaIdx(lambdaIdx) {
+            _.withLocalVarTypes(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {
+              newEnv =>
+                val (newEnv2, retInfo) = inferS(body)(newEnv)
+                val (newEnv5, argInfos) = args.foldLeft((newEnv, List[Type[GlobalSymbol]]())) {
+                  case ((newEnv3, newArgInfos), arg) =>
+                    arg.name.map { s => (newEnv3, newEnv3.varType(LocalSymbol(s)) :: newArgInfos) }.getOrElse {
+                      val (newEnv4, argInfo) = arg.typ.map { 
+                        newEnv3.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+                      }.getOrElse {
+                        (newEnv3, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
+                      }
+                      (newEnv4, argInfo :: newArgInfos)
+                    }
+                }.mapElements(identity, _.reverse)
+                functionTypeFromTypesS(argInfos, retInfo)(newEnv5)
+            }
+          }
+        case Var(loc) =>
+          (env, env.varType(loc))
+        case Literal(value) =>
+          throw new UnsupportedOperationException
+        case TypedTerm(term, typ) =>
+          throw new UnsupportedOperationException
+        case Construct(n, lambdaInfo) =>
+          throw new UnsupportedOperationException
+        case Select(term, cases) =>
+          throw new UnsupportedOperationException
+        case Extract(term, arg, body, lambdaInfo) =>
+          throw new UnsupportedOperationException
+      }
       throw new UnsupportedOperationException
+    }
     
     private def unifyKindsForTypeMatchingS(kind1: Type[GlobalSymbol], kind2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = kind1.instantiatedTypeValueTermS(env)
