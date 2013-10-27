@@ -523,12 +523,22 @@ package object typer
                   }
                   Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv3) match {
                     case (newEnv4, Success(argTypeValueTerms)) =>
-                      val tmpType = InferringType(TypeDisjunction(argTypeValueTerms.toSet))
-                      val (newEnv5, termType2) = unifyInfosS(tmpType, termType)(newEnv4)
-                      if(!termType2.isNoType && !bodyType.isNoType)
-                        (newEnv5.withCurrentInstanceTypes(Seq(termType)), bodyType)
-                      else
-                        (newEnv5, concatErrors(termType, bodyType))
+                      val (newEnv6, newRes2) = argTypeValueTerms.headOption.map {
+                        tvt =>
+                          val tvt2 = argTypeValueTerms.tail.foldLeft(tvt) { _ | _ }
+                          val (newEnv5, newRes) = symbolTypeInferenceEnvironmentState.inferTypeValueTermKindS(tvt2)(newEnv4)
+                          (newEnv5, newRes.map { _ => InferringType(argTypeValueTerms.tail.foldLeft(tvt) { _ | _ }) })
+                      }.getOrElse((newEnv4, NoType.fromError[GlobalSymbol](FatalError("no type value term", none, NoPosition)).failure))
+                      newRes2 match {
+                        case Success(tmpType) =>
+                          val (newEnv7, termType2) = unifyInfosS(tmpType, termType)(newEnv6)
+                          if(!termType2.isNoType && !bodyType.isNoType)
+                            (newEnv7.withCurrentInstanceTypes(Seq(termType)), bodyType)
+                          else
+                            (newEnv7, concatErrors(termType, bodyType))
+                        case Failure(noType) =>
+                          (newEnv4, concatErrors(termType, concatErrors(bodyType, noType)))
+                      }
                     case (newEnv4, Failure(noType))            =>
                       (newEnv4, noType)
                   }
