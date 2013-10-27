@@ -437,7 +437,127 @@ package object typer
         case Case(name, typ, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
             _.withLocalVarTypes(name.map { s => Map(LocalSymbol(s) -> some(typ)) }.getOrElse(Map())) {
-              inferS(body)(_)
+              newEnv =>
+                val (newEnv2, bodyInfo) = inferS(body)(newEnv)
+                val (newEnv3, argInfo) = name.map { s => (newEnv2, newEnv.varType(LocalSymbol(s))) }.getOrElse {
+                  newEnv.definedTypeFromTypeTerm(typ).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+                }
+                if(!bodyInfo.isNoType && !argInfo.isNoType)
+                  (newEnv3.withCurrentInstanceTypes(Seq(argInfo)), bodyInfo)
+                else
+                  (newEnv3, concatErrors(argInfo, bodyInfo))
+            }
+          }
+      }
+    
+    private def typesFromArgsS(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      args.foldLeft((env, List[Type[GlobalSymbol]]())) {
+        case ((newEnv, newArgInfos), arg) =>
+          arg.name.map { s => (newEnv, newEnv.varType(LocalSymbol(s)) :: newArgInfos) }.getOrElse {
+            val (newEnv2, argInfo) = arg.typ.map { 
+              newEnv.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+            }.getOrElse {
+              (newEnv, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
+            }
+            (newEnv2, argInfo :: newArgInfos)
+          }
+      }.mapElements(identity, _.reverse)
+      
+    private def inferConstructTypeS(construct: Construct[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      construct match {
+        case Construct(n, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, funType) = functionInfo(n).uninstantiatedTypeS(env)
+          val (env3, argTypeRes) = argInfosFromInfoS(funType, n)(env2)
+          val (env4, retType) = returnInfoFromInfoS(funType, n)(env3)
+          env4.withLambdaIdx(lambdaIdx) {
+            newEnv =>
+              argTypeRes match {
+                case Success(argTypes) =>
+                  Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv) match {
+                    case (newEnv2, Success(argTypeValueTerms)) =>
+                      val tmpType = InferringType(TupleType(argTypeValueTerms))
+                      val (newEnv3, retType2) = unifyArgInfosS(tmpType, retType)(newEnv2)
+                      if(!retType.isNoType)
+                        (newEnv3.withCurrentInstanceTypes(Seq(retType)), funType)
+                      else
+                        (newEnv3, retType)
+                    case (newEnv2, Failure(noType))            =>
+                      (newEnv2, noType)
+                  }
+                case Failure(noType)   =>
+                  (newEnv, noType)
+              }
+          }
+      }
+      
+    private def inferSelectTypeS(select: Select[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      select match {
+        case Select(term, cases, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, termType) = inferS(term)(env)
+          val (env3, firstCaseType) = inferCaseTypeS(cases.head)(env2)
+          val res = firstCaseType match {
+            case noType: NoType[GlobalSymbol] => noType.failure
+            case caseType                     => NonEmptyList(caseType).success
+          }
+          val (env4, res2) = cases.tail.foldLeft((env3, res)) {
+            case ((newEnv, newRes), cas) =>
+              inferCaseTypeS(cas)(newEnv) match {
+                case (newEnv2, noType: NoType[GlobalSymbol]) =>
+                  (newEnv2, newRes.flatMap { _ => noType.failure }.valueOr { nt => (nt |+| noType).failure })
+                case (newEnv2, caseInfo)                     =>
+                  (newEnv2, newRes.map { caseInfo <:: _})
+              }
+          }.mapElements(identity, _.map { _.reverse })
+          res2 match {
+            case Success(caseTypes) =>
+              env4.withLambdaIdx(lambdaIdx) {
+                newEnv =>
+                  val (newEnv3, bodyType) = caseTypes.tail.foldLeft((env4, caseTypes.head)) { 
+                    case ((newEnv2, newType), caseType) => unifyInfosS(newType, caseType)(newEnv2)
+                  }
+                  val argTypes = cases.list.flatMap { 
+                    cas => 
+                      newEnv3.lambdaInfos.getOrElse(newEnv3.currentCombSym, Map()).get(cas.lambdaInfo.idx).toSeq.flatMap {
+                        _.instanceTypes
+                      } 
+                  }
+                  Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv3) match {
+                    case (newEnv4, Success(argTypeValueTerms)) =>
+                      val tmpType = InferringType(TypeDisjunction(argTypeValueTerms.toSet))
+                      val (newEnv5, termType2) = unifyInfosS(tmpType, termType)(newEnv4)
+                      if(!termType2.isNoType && !bodyType.isNoType)
+                        (newEnv5.withCurrentInstanceTypes(Seq(termType)), bodyType)
+                      else
+                        (newEnv5, concatErrors(termType, bodyType))
+                    case (newEnv4, Failure(noType))            =>
+                      (newEnv4, noType)
+                  }
+              }
+            case Failure(noType)    =>
+              (env4, concatErrors(termType, noType))
+          }
+      }
+    
+    private def inferExtractTypeS(extract: Extract[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      extract match {
+        case Extract(term, args, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          val (env2, termType) = inferS(term)(env)
+          env2.withLambdaIdx(lambdaIdx) {
+            _.withLocalVarTypes(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {
+              newEnv =>
+                val (newEnv2, bodyType) = inferS(body)(newEnv)
+                val (newEnv3, argTypes) = typesFromArgsS(args.list)(newEnv2)
+                Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv3) match {
+                  case (newEnv4, Success(argTypeValueTerms)) =>
+                    val tmpType = InferringType(TupleType(argTypeValueTerms))
+                    val (newEnv5, termType2) = unifyArgInfosS(tmpType, termType)(newEnv4)
+                    if(!termType2.isNoType && !bodyType.isNoType)
+                      (newEnv5.withCurrentInstanceTypes(Seq(termType)), bodyType)
+                    else 
+                      (newEnv5, concatErrors(termType, bodyType))
+                  case (newEnv4, Failure(noType))            =>
+                    (newEnv4, noType)
+                }
             }
           }
       }
@@ -464,18 +584,8 @@ package object typer
             _.withLocalVarTypes(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {
               newEnv =>
                 val (newEnv2, retInfo) = inferS(body)(newEnv)
-                val (newEnv5, argInfos) = args.foldLeft((newEnv, List[Type[GlobalSymbol]]())) {
-                  case ((newEnv3, newArgInfos), arg) =>
-                    arg.name.map { s => (newEnv3, newEnv3.varType(LocalSymbol(s)) :: newArgInfos) }.getOrElse {
-                      val (newEnv4, argInfo) = arg.typ.map { 
-                        newEnv3.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
-                      }.getOrElse {
-                        (newEnv3, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
-                      }
-                      (newEnv4, argInfo :: newArgInfos)
-                    }
-                }.mapElements(identity, _.reverse)
-                functionTypeFromTypesS(argInfos, retInfo)(newEnv5)
+                val (newEnv3, argInfos) = typesFromArgsS(args.list)(newEnv2)
+                functionTypeFromTypesS(argInfos, retInfo)(newEnv3)
             }
           }
         case Var(loc) =>
@@ -486,35 +596,12 @@ package object typer
           val (env2, info) = inferS(term)(env)
           val (env3, res) = env2.definedTypeFromTypeTerm(typ)
           res.map { dt => unifyArgInfosS(InferringType(dt.term), info)(env3.withDefinedType(dt)) }.valueOr { (env3, _) }
-        case Construct(n, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
-          val (env2, funInfo) = functionInfo(n).uninstantiatedTypeS(env)
-          env2.withLambdaIdx(lambdaIdx) { newEnv => (newEnv.withCurrentConstructType(some(funInfo)), funInfo) }
-        case Select(term, cases) =>
-          val (env2, termInfo) = inferS(term)(env)
-          val (env4, res) = inferCaseTypeS(cases.head)(env2) match {
-            case (env3, noInfo: NoType[GlobalSymbol]) =>
-              (env3, noInfo.failure)
-            case (env3, caseInfo)                     =>
-              cases.tail.foldLeft((env3, NonEmptyList(caseInfo).success[NoType[GlobalSymbol]])) {
-                case ((newEnv, newRes), cas) =>
-                  val (newEnv2, caseInfo2) = inferCaseTypeS(cas)(newEnv)
-                  (newEnv2, newRes.map { caseInfo2 <:: _ })
-              }.mapElements(identity, _.map { _.reverse })
-          }
-          res.map {
-            caseInfos =>
-              caseInfos.tail.foldLeft((env4, caseInfos.head)) { 
-                case ((newEnv, newInfo), caseInfo) => unifyInfosS(newInfo, caseInfo)(newEnv)
-              }
-          }.valueOr { (env4, _) }
-        case Extract(term, args, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
-          val (env2, termInfo) = inferS(term)(env)
-          val (env3, bodyInfo) = env2.withLambdaIdx(lambdaIdx) {
-            _.withLocalVarTypes(args.list.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {
-              inferS(body)(_)
-            }
-          }
-          (env3, if(!termInfo.isNoType && !bodyInfo.isNoType) bodyInfo else concatErrors(termInfo, bodyInfo))
+        case construct @ Construct(_, _) =>
+          inferConstructTypeS(construct)(env)
+        case select @ Select(_, _, _) =>
+          inferSelectTypeS(select)(env)
+        case extract @ Extract(_, _, _, _) =>
+          inferExtractTypeS(extract)(env)
       }
     
     private def unifyKindsForTypeMatchingS(kind1: Type[GlobalSymbol], kind2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {

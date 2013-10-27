@@ -220,7 +220,7 @@ object Parser extends StandardTokenParsers with PackratParsers
 
     lazy val expr2 = select | extract | exprN
     lazy val select = p(exprN ~ (("select" ~- "{") ~-> (cas ~ ((semi ~> cas) *)) <~- "}") ^^ {
-      case t ~ (c ~ cs) => Simple(Select(t, NonEmptyList.nel(c, cs)), NoPosition)
+      case t ~ (c ~ cs) => Simple(Select(t, NonEmptyList.nel(c, cs), LambdaInfo), NoPosition)
     })
     lazy val cas = namedCase | wildcardCase
     lazy val namedCase = (("(" ~-> ident ~~ (":" ~-> typeExpr)) <~- ")") ~- ("=>" ~-> expr) ^^ { case (s ~ tt) ~ t => Case(some(s), tt, t, LambdaInfo) }

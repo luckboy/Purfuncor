@@ -94,8 +94,8 @@ object Resolver
         (transformTerm(term)(scope) |@| transformTypeTerm(typ)(scope.copy(localVarNames = Set()))) { (t, tt) => Simple(TypedTerm(t, tt), pos) }
       case Simple(Construct(n, lambdaInfo), pos) =>
         Simple(Construct(n, lambdaInfo), pos).successNel
-      case Simple(Select(term, cases), pos) =>
-        (transformTerm(term)(scope) |@| transformCaseNel(cases)(scope)) { (t, cs) => Simple(Select(t, cs), pos) }
+      case Simple(Select(term, cases, lambdaInfo), pos) =>
+        (transformTerm(term)(scope) |@| transformCaseNel(cases)(scope)) { (t, cs) => Simple(Select(t, cs, lambdaInfo), pos) }
       case Simple(Extract(term, args, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
         (transformTerm(term)(scope) |@| transformArgNel(args)(scope) |@| transformTerm(body)(newScope)) {

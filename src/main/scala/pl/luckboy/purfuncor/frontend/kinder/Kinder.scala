@@ -90,9 +90,9 @@ object Kinder
         }
       case Simple(Construct(n, lambdaInfo), pos) =>
         Simple(Construct(n, lambdaInfo), pos).successNel
-      case Simple(Select(term, cases), pos) =>
+      case Simple(Select(term, cases, lambdaInfo), pos) =>
         transformTerm(term)(env).flatMap {
-          term2 => transformCaseNel(cases)(env).map { cases2 => Simple(Select(term2, cases2), pos)}
+          term2 => transformCaseNel(cases)(env).map { cases2 => Simple(Select(term2, cases2, lambdaInfo), pos)}
         }
       case Simple(Extract(term, args, body, lambdaInfo), pos) =>
         for {

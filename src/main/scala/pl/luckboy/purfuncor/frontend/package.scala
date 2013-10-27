@@ -39,8 +39,8 @@ package object frontend
         case TypedTerm(term, typ)                  =>
           termIndenting(showing).indentedStringFrom(term)(n) + ": " + showing.stringFrom(typ)
         case Construct(n, lambdaInfo)              =>
-          "construct " + n + (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "")
-        case Select(term, cases)                   =>
+          "construct " + n + (if(lambdaInfo.toString =/= "")  " /*" + lambdaInfo.toString + "*/ " else "")
+        case Select(term, cases, lambdaInfo)       =>
           termIndenting(showing).indentedStringFrom(term)(n) + " select {\n" +
           cases.map {
             case Case(name, typ, body, lambdaInfo) =>
@@ -48,7 +48,7 @@ package object frontend
               (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
               "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
           }.list.mkString("\n") + "\n" +
-          (" " * n) + "}"
+          (" " * n) + "}" + (if(lambdaInfo.toString =/= "")  " /*" + lambdaInfo.toString + "*/ " else "")
         case Extract(term, args, body, lambdaInfo) =>
           termIndenting(showing).indentedStringFrom(term)(n) + " extract {\n" +
           (" " * (n + 2)) + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.list.mkString("") +

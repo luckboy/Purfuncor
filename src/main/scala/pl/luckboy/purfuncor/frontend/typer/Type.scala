@@ -51,6 +51,15 @@ sealed trait Type[T]
     }
 }
 
+object Type
+{
+  def uninstantiatedTypeValueTermFromTypesS[T, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    types.foldLeft((env, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(tvts)), t) => t.uninstantiatedTypeValueTermS(newEnv).mapElements(identity, _.map { tvts :+ _ })
+      case ((newEnv, Failure(nt)), _)   => (newEnv, nt.failure)
+    }
+}
+
 case class NoType[T](prevErrs: List[AbstractError], currentErrs: List[AbstractError]) extends Type[T]
 {
   def errs = prevErrs ++ currentErrs

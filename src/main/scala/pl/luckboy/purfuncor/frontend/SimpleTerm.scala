@@ -11,7 +11,7 @@ case class Var[+T, +U, +V](loc: T) extends SimpleTerm[T, U, V]
 case class Literal[+T, +U, +V](value: LiteralValue) extends SimpleTerm[T, U, V]
 case class TypedTerm[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], typ: Term[V]) extends SimpleTerm[T, U, V]
 case class Construct[+T, +U, +V](n: Int, lambdaInfo: U) extends SimpleTerm[T, U, V]
-case class Select[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], selectCases: NonEmptyList[Case[T, U, V]]) extends SimpleTerm[T, U, V]
+case class Select[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], cases: NonEmptyList[Case[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
 case class Extract[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], args: NonEmptyList[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
 
 case class Bind[+T, +U, +V](name: String, body: Term[SimpleTerm[T, U, V]], pos: Position)

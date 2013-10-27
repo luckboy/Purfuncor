@@ -71,7 +71,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
 
-  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none))
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil))
   
   def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
 
@@ -79,9 +79,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = withCurrentLambdaInfo(currentLambdaInfo.copy(typeTable = typeTable))
   
-  def currentConstructType = currentLambdaInfo.constructType
+  def currentInstanceTypes = currentLambdaInfo.instanceTypes
   
-  def withCurrentConstructType(typ: Option[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(constructType = typ))
+  def withCurrentInstanceTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instanceTypes = types))
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
