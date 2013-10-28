@@ -226,6 +226,8 @@ package object typer
       table.args.list.map { _.name.map { LocalSymbol(_) } }
   }
   
+  implicit val symbolBuiltinFunTypes = new BuiltinFunTypes[GlobalSymbol]
+  
   implicit def symbolKindInferrenceEnvironmentState[T]: KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferrenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
     override def globalTypeVarKindFromEnvironmentS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.typeVarKind(loc))
@@ -572,7 +574,7 @@ package object typer
           }
       }
     
-    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
+    override def inferSimpleTermInfoS(simpleTerm: SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
       simpleTerm match {
         case Let(binds, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           val (env2, res) = binds.foldLeft((env, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
@@ -601,7 +603,19 @@ package object typer
         case Var(loc) =>
           (env, env.varType(loc))
         case Literal(value) =>
-          throw new UnsupportedOperationException
+          value match {
+            case BooleanValue(_)       => (env, InferredType.booleanType)
+            case CharValue(_)          => (env, InferredType.charType)
+            case ByteValue(x)          => (env, InferredType.fromByte(x))
+            case ShortValue(x)         => (env, InferredType.fromShort(x))
+            case IntValue(x)           => (env, InferredType.fromInt(x))
+            case LongValue(x)          => (env, InferredType.fromLong(x))
+            case FloatValue(_)         => (env, InferredType.floatType)
+            case DoubleValue(_)        => (env, InferredType.doubleType)
+            case TupleFunValue(n)      => (env, InferredType.tupleFunType(n))
+            case TupleFieldFunValue(i) => (env, InferredType.tupleFieldFunType(i))
+            case BuiltinFunValue(bf)   => (env, InferredType.fromBuiltinFunction(bf))
+          }
         case TypedTerm(term, typ) =>
           val (env2, info) = inferS(term)(env)
           val (env3, res) = env2.definedTypeFromTypeTerm(typ)

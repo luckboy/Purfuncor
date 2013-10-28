@@ -1,5 +1,6 @@
 package pl.luckboy.purfuncor.frontend.typer
 import scala.util.parsing.input.Position
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -79,5 +80,54 @@ object NoType
 }
 
 case class InferredType[T](typeValueTerm: TypeValueTerm[T], argKinds: Seq[InferredKind]) extends Type[T]
+
+object InferredType
+{
+  def fromBuiltinFunction[T](bf: BuiltinFunction.Value)(implicit builtinFunTypes: BuiltinFunTypes[T]) =
+    builtinFunTypes.builtinFunTypes.get(bf).getOrElse(NoType.fromError[T](FatalError("unsupported built-in function", none, NoPosition)))
+  
+  def booleanType[T] = InferredType[T](BuiltinType(TypeBuiltinFunction.Boolean, Nil), Nil)
+
+  def charType[T] = InferredType[T](BuiltinType(TypeBuiltinFunction.Char, Nil), Nil)
+  
+  def fromByte[T](x: Byte) = {
+    val bf = if(x === 0) TypeBuiltinFunction.Zero else TypeBuiltinFunction.NonZero
+    InferredType[T](BuiltinType(bf, Nil) & BuiltinType(TypeBuiltinFunction.Byte, Nil), Nil)
+  }
+
+  def fromShort[T](x: Short) = {
+    val bf = if(x === 0) TypeBuiltinFunction.Zero else TypeBuiltinFunction.NonZero
+    InferredType[T](BuiltinType(bf, Nil) & BuiltinType(TypeBuiltinFunction.Short, Nil), Nil)
+  }
+  
+  def fromInt[T](x: Int) = {
+    val bf = if(x === 0) TypeBuiltinFunction.Zero else TypeBuiltinFunction.NonZero
+    InferredType[T](BuiltinType(bf, Nil) & BuiltinType(TypeBuiltinFunction.Int, Nil), Nil)
+  }
+  
+  def fromLong[T](x: Long) = {
+    val bf = if(x === 0L) TypeBuiltinFunction.Zero else TypeBuiltinFunction.NonZero
+    InferredType[T](BuiltinType(bf, Nil) & BuiltinType(TypeBuiltinFunction.Long, Nil), Nil)
+  }
+  
+  def floatType[T] = InferredType[T](BuiltinType(TypeBuiltinFunction.Float, Nil), Nil)
+
+  def doubleType[T] = InferredType[T](BuiltinType(TypeBuiltinFunction.Double, Nil), Nil)
+  
+  def tupleFunType[T](n: Int) = {
+    val typeValueTerm = (0 until n).foldRight(TupleType((0 until n).map { TypeParamApp[T](_, Nil, 0) }): TypeValueTerm[T]) {
+      (p, tvt) => BuiltinType[T](TypeBuiltinFunction.Fun, Seq(TypeParamApp(p, Nil, 0), tvt))
+    }
+    InferredType[T](typeValueTerm, Seq.fill(n)(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def tupleFieldFunType[T](i: Int) = {
+    val typeValueTerm = BuiltinType[T](
+        TypeBuiltinFunction.Fun,
+        Seq(TupleType((0 to i).map { TypeParamApp[T](_, Nil, 0) }), TypeParamApp(i, Nil, 0)))
+    InferredType[T](typeValueTerm, Seq.fill(i + 1)(InferredKind(Star(KindType, NoPosition))))
+  }
+}
+
 case class InferringType[T](typeValueTerm: TypeValueTerm[T]) extends Type[T]
 case class UninferredType[T]() extends Type[T]
