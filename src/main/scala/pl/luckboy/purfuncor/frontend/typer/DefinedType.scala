@@ -15,17 +15,17 @@ import TypeValueTermUtils._
 case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], pos: Position)
 {
   override def toString = {
-    val term2 = normalizeTypeParamsForParams(term, args.size)(args.zipWithIndex.flatMap { case (a, i) => a.param.map { (_, i) } }.toMap)
-    if(!args.isEmpty)
-      "\\" +
-      args.map {
-        arg => 
-          arg.kind.map { 
-            kt => "(" + arg.param.map { _.toString }.getOrElse("_") + ": " + intKindTermShowing.stringFrom(kt) + ")"
-          }.getOrElse(arg.param.map { _.toString }.getOrElse("_"))
-      }.mkString(" ") + " => " +
-      term2
-    else
+    val term2 = normalizeTypeParamsForParams(term, args.count { _.param.isDefined })(args.zipWithIndex.flatMap { case (a, i) => a.param.map { (_, i) } }.toMap)
+    if(!args.isEmpty) {
+      val argsWithOptIndexes = args.foldLeft((Seq[(DefinedTypeArg, Option[Int])](), 0)) {
+        case ((as, i), a) => a.param.map { _ => (as :+ (a, some(i)), i + 1) }.getOrElse((as :+ (a, none), i)) 
+      }._1
+      "\\" + argsWithOptIndexes.map { 
+        case (arg, optIdx) => 
+          val s = arg.toStringForName(optIdx.map { i => "t" + (i + 1) }.getOrElse("_"))
+          arg.kind.map { _ => "(" + s + ")" }.getOrElse(s)
+      } + " => " + term2
+    } else
       term2.toString
   }
 }
@@ -85,3 +85,6 @@ object DefinedType
 }
 
 case class DefinedTypeArg(param: Option[Int], kind: Option[KindTerm[StarKindTerm[Int]]])
+{
+  def toStringForName(name: String) = param.map { _ => name }.getOrElse("_") + kind.map { kt => ": " + intKindTermShowing.stringFrom(kt) }
+}
