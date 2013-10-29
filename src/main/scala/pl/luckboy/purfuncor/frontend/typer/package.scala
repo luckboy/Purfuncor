@@ -422,8 +422,12 @@ package object typer
     override def replaceTermParamsS(term: TypeValueTerm[GlobalSymbol])(f: (Int, SymbolTypeInferenceEnvironment[T, U]) => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Either[Int, TypeValueTerm[GlobalSymbol]]]))(env: SymbolTypeInferenceEnvironment[T, U]) =
       replaceTypeValueTermParamsS(term)(f)(env)
     
-    override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+    override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (s1, s2) = env.currentTypePair.map {
+        case (t1, t2) => (t1.toString, t2.toString)
+      }.getOrElse(("<unknown type>", "<unknown type"))
+      (env, NoType.fromError[GlobalSymbol](FatalError("couldn't match type " + s1 + " with type " + s2, none, NoPosition)))
+    }
     
     override def prepareToUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), ())
@@ -642,7 +646,7 @@ package object typer
       val (env3, res2) = type2.instantiatedTypeValueTermWithKindsS(env2)
       (res |@| res) {
         case ((tvt1, ks1), (tvt2, ks2)) =>
-          env3.withTypePair((InferredType(tvt1, ks1), InferredType(tvt2, ks2))) { 
+          env3.withTypePair(some((InferredType(tvt1, ks1), InferredType(tvt2, ks2)))) { 
             _.withTypeMatching(typeMatching)(unifyTypesS(type1, type2))
           }
       }.valueOr { (env3, _) }

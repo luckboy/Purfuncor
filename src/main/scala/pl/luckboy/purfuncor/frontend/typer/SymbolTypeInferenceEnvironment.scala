@@ -33,7 +33,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
     currentTypeMatching: TypeMatching.Value,
-    currentTypePair: (InferredType[GlobalSymbol], InferredType[GlobalSymbol]),
+    currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean)
 {
@@ -185,9 +185,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
     (env.withCurrentTypeMatching(oldTypeMatching), res)
   }
   
-  def withCurrentTypePair(pair: (InferredType[GlobalSymbol], InferredType[GlobalSymbol])) = copy(currentTypePair = pair)
+  def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(currentTypePair = pair)
   
-  def withTypePair[V](pair: (InferredType[GlobalSymbol], InferredType[GlobalSymbol]))(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+  def withTypePair[V](pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val oldPair = currentTypePair
     val (env, res) = f(withCurrentTypePair(pair))
     (env.withCurrentTypePair(oldPair), res)
