@@ -459,11 +459,15 @@ object TypeValueTermUnifier
         partiallyInstantiateTypeValueTermS(term2)(env3) match {
           case (env4, Success(instantiatedTerm2)) =>
             (instantiatedTerm1, instantiatedTerm2) match {
-              case (TupleType(args1), TupleType(args2)) =>
+              case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env4)
-              case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 =>
+              case (TupleType(args1), TupleType(args2)) if typeMatching === TypeMatching.SupertypeWithType && args1.size < args2.size =>
+                matchesTypeValueTermListsWithReturnKindS(args1, args2.take(args1.size))(z)(f)(env4)
+              case (TupleType(args1), TupleType(args2)) if typeMatching === TypeMatching.TypeWithSupertype && args1.size > args2.size =>
+                matchesTypeValueTermListsWithReturnKindS(args1.take(args2.size), args2)(z)(f)(env4)
+              case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env4)
-              case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 =>
+              case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 &&  args1.size === args2.size =>
                 matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env4)
               case (typeParamApp1: TypeParamApp[T], _) =>
                 matchesTypeParamAppWithTypeValueTermS(typeParamApp1, instantiatedTerm2)(z)(f)(env4)
