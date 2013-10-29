@@ -317,7 +317,7 @@ package object typer
       (env.withCurrentTypeMatching(typeMatching), ())
       
     override def inferringKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (kindInferenceEnv, uninstantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)
+      val (kindInferenceEnv, uninstantiatedKind) = kind.uninstantiatedKindS(env.kindInferenceEnv)
       (env.withKindInferenceEnv(kindInferenceEnv), uninstantiatedKind match {
         case noKind: NoKind               => NoType.fromNoKind[GlobalSymbol](noKind).failure
         case inferringKind: InferringKind => inferringKind.success
@@ -330,6 +330,15 @@ package object typer
       
     override def argCountFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Int]) =
       KindInferrer.argCountFromKindS(kind)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKindResult)
+  
+    override def inferredKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], InferredKind]) = {
+      val (kindInferenceEnv, instantiatedKind) = kind.instantiatedKindS(env.kindInferenceEnv)
+      (env.withKindInferenceEnv(kindInferenceEnv), instantiatedKind match {
+        case noKind: NoKind             => NoType.fromNoKind[GlobalSymbol](noKind).failure
+        case inferredKind: InferredKind => inferredKind.success
+        case _                          => NoType.fromError[GlobalSymbol](FatalError("no inferred kind", none, NoPosition)).failure
+      })
+    }
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
@@ -628,22 +637,22 @@ package object typer
           inferExtractTypeS(extract)(env)
       }
     
-    private def unifyKindsForTypeMatchingS(kind1: Type[GlobalSymbol], kind2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (env2, res) = kind1.instantiatedTypeValueTermS(env)
-      val (env3, res2) = kind2.instantiatedTypeValueTermS(env2)
-      (res |@| res) { 
-        (tvt1, tvt2) =>
-          env3.withTypeValueTermPair((tvt1, tvt2)) { 
-            _.withTypeMatching(typeMatching)(unifyTypesS(kind1, kind2))
+    private def unifyTypesForTypeMatchingS(type1: Type[GlobalSymbol], type2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (env2, res) = type1.instantiatedTypeValueTermWithKindsS(env)
+      val (env3, res2) = type2.instantiatedTypeValueTermWithKindsS(env2)
+      (res |@| res) {
+        case ((tvt1, ks1), (tvt2, ks2)) =>
+          env3.withTypePair((InferredType(tvt1, ks1), InferredType(tvt2, ks2))) { 
+            _.withTypeMatching(typeMatching)(unifyTypesS(type1, type2))
           }
       }.valueOr { (env3, _) }
     }
     
     override def unifyInfosS(info1: Type[GlobalSymbol], info2: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
-      unifyKindsForTypeMatchingS(info1, info2, TypeMatching.Types)(env)
+      unifyTypesForTypeMatchingS(info1, info2, TypeMatching.Types)(env)
 
     override def unifyArgInfosS(funArgInfo: Type[GlobalSymbol], argInfo: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
-      unifyKindsForTypeMatchingS(funArgInfo, argInfo, TypeMatching.SupertypeWithType)(env)
+      unifyTypesForTypeMatchingS(funArgInfo, argInfo, TypeMatching.SupertypeWithType)(env)
     
     override def argInfosFromInfoS(info: Type[GlobalSymbol], argCount: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       argTypesFromTypeS(info, argCount)(env)

@@ -7,6 +7,9 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.common.Unifier._
+import TypeValueTermUnifier._
+import TypeValueTermUtils._
 
 sealed trait Type[T]
 {
@@ -16,17 +19,56 @@ sealed trait Type[T]
   
   def isUninferredType = isInstanceOf[UninferredType[T]]
   
-  def instantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    throw new UnsupportedOperationException
+  def instantiatedTypeValueTermWithKindsS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    this match {
+      case noType: NoType[T]                     =>
+        (env, noType.failure)
+      case InferredType(typeValueTerm, argKinds) =>
+        (env, (typeValueTerm, argKinds).success)
+      case InferringType(typeValueTerm)          =>
+        val (env2, res) = instantiateS(typeValueTerm)(env)
+        res.map { 
+          typeValueTerm2 => 
+            val (typeValueTerm3, params) = normalizeTypeParamsWithTypeParams(typeValueTerm2, typeParamsFromTypeValueTerm(typeValueTerm2).size)
+            val (env3, res2) = params.foldLeft((env2, Map[Int, InferredKind]().success[NoType[T]])) {
+              case ((newEnv, Success(newKinds)), (param, param2)) => 
+                val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
+                newRes.map {
+                  kind =>
+                    val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
+                    (newEnv3, newRes2.map { k => newKinds + (param2 -> k) })
+                }.valueOr { nt => (newEnv2, nt.failure) }
+            }
+            (env3, res2.flatMap { 
+              kinds =>
+                val res3 = (0 until kinds.size).foldLeft(some(Seq[InferredKind]())) { 
+                  (optKs, i) => optKs.flatMap { ks => kinds.get(i).map { ks :+ _ } }
+                }.toSuccess(NoType.fromError[T](FatalError("index of out bounds", none, NoPosition)))
+                res3.map { (typeValueTerm3, _) } 
+            })
+        }.valueOr { nt => (env2, nt.failure) }
+      case UninferredType()                      =>
+        (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
+    }
     
-  def instantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Type[T]) =
-    throw new UnsupportedOperationException
+  def instantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Type[T]) =
+    instantiatedTypeValueTermWithKindsS(env).mapElements(identity, _.map { case (tvt, ks) => InferredType(tvt, ks) }.valueOr(identity))
 
-  def uninstantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    throw new UnsupportedOperationException
-    
-  def uninstantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Type[T]) =
-    throw new UnsupportedOperationException
+  def uninstantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    this match {
+      case noType: NoType[T]                     =>
+        (env, noType.failure)
+      case InferredType(typeValueTerm, argKinds) =>
+        val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, argKinds.zipWithIndex.map { _.swap }.toMap)(Map(), 0)(env)
+        (env2, res.map { _._4 })
+      case InferringType(typeValueTerm)          =>
+        (env, typeValueTerm.success)
+      case UninferredType()                      =>
+        (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
+    }
+  
+  def uninstantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    uninstantiatedTypeValueTermS(env).mapElements(identity, _.map { InferringType(_) }.valueOr(identity))
   
   def withPos(pos: Position) =
     this match {

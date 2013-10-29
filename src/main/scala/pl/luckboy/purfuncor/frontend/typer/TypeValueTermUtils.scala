@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer
+import scala.collection.immutable.IntMap
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -63,4 +64,62 @@ object TypeValueTermUtils
       case TypeDisjunction(terms)        =>
         substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeDisjunction(ts.toSet) }
     }
+  
+  private def normalizeTypeParamsInTypeValueTermsForParamsS[T](terms: Seq[TypeValueTerm[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(termParams: Map[Int, Int]) =
+    terms.foldLeft((termParams, Seq[TypeValueTerm[T]]())) {
+      case ((ps, ts), t) => normalizeTypeParamsInTypeValyeTermForParamsS(t, nextArgParam)(lambdaParams)(ps).mapElements(identity, ts :+ _)
+    }
+  
+  private def normalizeTypeParamsInTypeValueLambdasForParamsS[T](lambdas: Seq[TypeValueLambda[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(termParams: Map[Int, Int]) =
+    lambdas.foldLeft((termParams, Seq[TypeValueLambda[T]]())) {
+      case ((ps, ls), l) => normalizeTypeParamsInTypeValueLambdaForParamsS(l, nextArgParam)(lambdaParams)(ps).mapElements(identity, ls :+ _)
+    }
+  
+  private def normalizeTypeParamsInTypeValueLambdaForParamsS[T](lambda: TypeValueLambda[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(termParams: Map[Int, Int]) =
+    lambda match {
+      case TypeValueLambda(argParams, body) =>
+        val argParams2 = 0 until argParams.size
+        val lambdaParams2 = IntMap() ++ (lambdaParams ++ argParams.zipWithIndex.map { p => (p._1, nextArgParam + p._2) })
+        val (termParams2, body2) = normalizeTypeParamsInTypeValyeTermForParamsS(body, nextArgParam)(lambdaParams2)(termParams)
+        (termParams2, TypeValueLambda(argParams2, body2))
+    }
+  
+  private def normalizeTypeParamsInTypeValyeTermForParamsS[T](term: TypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(termParams: Map[Int, Int]): (Map[Int, Int], TypeValueTerm[T]) =
+    term match {
+      case TupleType(args)                        => 
+        val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, TupleType(args2))
+      case BuiltinType(bf, args)                  =>
+        val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, BuiltinType(bf, args2))
+      case Unittype(loc, args, sym)               =>
+        val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, Unittype(loc, args2, sym))
+      case GlobalTypeApp(loc, args, sym)          =>
+        val (termParams2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, GlobalTypeApp(loc, args2, sym))
+      case TypeParamApp(param, args, paramAppIdx) =>
+        val (termParams2, nextParam2) = if(termParams.contains(param) && lambdaParams.contains(param)) 
+          (termParams, nextArgParam)
+        else 
+          (termParams + (param -> nextArgParam), nextArgParam + 1)
+        val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, param))
+        val (termParams3, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextParam2)(lambdaParams)(termParams2)
+        (termParams3, TypeParamApp(param2, args2, paramAppIdx))
+      case TypeConjunction(terms)                 =>
+        val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, TypeConjunction(terms2.toSet))
+      case TypeDisjunction(terms)                 =>
+        val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
+        (termParams2, TypeDisjunction(terms2.toSet))
+    }
+  
+  def normalizeTypeParams[T](term: TypeValueTerm[T], nextArgParam: Int) =
+    normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(IntMap())(IntMap())._2
+
+  def normalizeTypeParamsWithTypeParams[T](term: TypeValueTerm[T], nextArgParam: Int) =
+    normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(IntMap())(IntMap()).swap
+    
+  def normalizeTypeParamsForParams[T](term: TypeValueTerm[T], nextArgParam: Int)(params: Map[Int, Int]) =
+    normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(IntMap())(params)._2
 }
