@@ -10,8 +10,25 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
+import TypeValueTermUtils._
 
 case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], pos: Position)
+{
+  override def toString = {
+    val term2 = normalizeTypeParamsForParams(term, args.size)(args.zipWithIndex.flatMap { case (a, i) => a.param.map { (_, i) } }.toMap)
+    if(!args.isEmpty)
+      "\\" +
+      args.map {
+        arg => 
+          arg.kind.map { 
+            kt => "(" + arg.param.map { _.toString }.getOrElse("_") + ": " + intKindTermShowing.stringFrom(kt) + ")"
+          }.getOrElse(arg.param.map { _.toString }.getOrElse("_"))
+      }.mkString(" ") + " => " +
+      term2
+    else
+      term2.toString
+  }
+}
 
 object DefinedType
 {
