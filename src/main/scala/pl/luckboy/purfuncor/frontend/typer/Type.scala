@@ -26,27 +26,33 @@ sealed trait Type[T]
       case InferredType(typeValueTerm, argKinds) =>
         (env, (typeValueTerm, argKinds).success)
       case InferringType(typeValueTerm)          =>
-        val (env2, res) = instantiateS(typeValueTerm)(env)
-        res.map { 
-          typeValueTerm2 => 
-            val (typeValueTerm3, params) = normalizeTypeParamsWithTypeParams(typeValueTerm2, typeParamsFromTypeValueTerm(typeValueTerm2).size)
-            val (env3, res2) = params.foldLeft((env2, Map[Int, InferredKind]().success[NoType[T]])) {
-              case ((newEnv, Success(newKinds)), (param, param2)) => 
-                val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
-                newRes.map {
-                  kind =>
-                    val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
-                    (newEnv3, newRes2.map { k => newKinds + (param2 -> k) })
-                }.valueOr { nt => (newEnv2, nt.failure) }
-            }
-            (env3, res2.flatMap { 
-              kinds =>
-                val res3 = (0 until kinds.size).foldLeft(some(Seq[InferredKind]())) { 
-                  (optKs, i) => optKs.flatMap { ks => kinds.get(i).map { ks :+ _ } }
-                }.toSuccess(NoType.fromError[T](FatalError("index of out bounds", none, NoPosition)))
-                res3.map { (typeValueTerm3, _) } 
-            })
-        }.valueOr { nt => (env2, nt.failure) }
+        (for {
+          res <- instantiate(typeValueTerm)
+          res3 <- res.map {
+            typeValueTerm2 =>
+              val (typeValueTerm3, params) = normalizeTypeParamsWithTypeParams(typeValueTerm2, typeParamsFromTypeValueTerm(typeValueTerm2).size)
+              State({
+                (env2: E) =>
+                  params.foldLeft((env2, Map[Int, InferredKind]().success[NoType[T]])) {
+                    case ((newEnv, Success(newKinds)), (param, param2)) => 
+                      val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
+                      newRes.map {
+                        kind =>
+                          val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
+                          (newEnv3, newRes2.map { k => newKinds + (param2 -> k) })
+                      }.valueOr { nt => (newEnv2, nt.failure) }
+                  }
+              }).map {
+                _.flatMap { 
+                  kinds =>
+                    val res2 = (0 until kinds.size).foldLeft(some(Seq[InferredKind]())) { 
+                      (optKs, i) => optKs.flatMap { ks => kinds.get(i).map { ks :+ _ } }
+                    }.toSuccess(NoType.fromError[T](FatalError("index of out bounds", none, NoPosition)))
+                    res2.map { (typeValueTerm3, _) } 
+                }
+             }
+          }.valueOr { nt => State((_: E, nt.failure)) }
+        } yield res3).run(env)
       case UninferredType()                      =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }

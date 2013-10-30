@@ -22,15 +22,13 @@ object TypeValueTermUnifier
         case ((newEnv, Success((x, kinds))), (term1, term2)) => 
           val (newEnv2, newRes) = matchesTypeValueTermsS(term1, term2)(x)(f)(newEnv)
           newRes.map {
-            x =>
-              val (newEnv3, kind) = envSt.returnKindFromEnvironmentS(newEnv2)
-              (newEnv3, (x, kinds :+ kind).success)
+            x => envSt.returnKindFromEnvironmentS(newEnv2).mapElements(identity, k => (x, kinds :+ k).success)
           }.valueOr { nt => (newEnv2, nt.failure) }
         case ((newEnv, Failure(nt)), _)                      =>
           (newEnv, nt.failure)
       }
       res.flatMap { 
-        case (x, argKinds) => 
+        case (x, argKinds) =>
           val (env5, res2) = envSt.appStarKindS(argKinds)(env4)
           res2.map { envSt.setReturnKindS(_)(env5).mapElements(identity, _ => x.success) }
       }.valueOr { nt => (env4, nt.failure) }
@@ -47,9 +45,7 @@ object TypeValueTermUnifier
         case ((newEnv, Success((x, kinds))), (lambda1, lambda2)) => 
           val (newEnv2, newRes) = matchesTypeValueLambdasS(lambda1, lambda2)(x)(f)(newEnv)
           newRes.map {
-            x =>
-              val (newEnv3, kind) = envSt.returnKindFromEnvironmentS(newEnv2)
-              (newEnv3, (x, kinds :+ kind).success)
+            x => envSt.returnKindFromEnvironmentS(newEnv2).mapElements(identity, k => (x, kinds :+ k).success)
           }.valueOr { nt => (newEnv2, nt.failure) }
         case ((newEnv, Failure(nt)), _)                          =>
           (newEnv, nt.failure)
@@ -68,9 +64,9 @@ object TypeValueTermUnifier
     params.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
       case ((newEnv, Success(lambdas)), param) =>
         val (newEnv2, res) = envSt.allocateTypeParamAppIdxS(newEnv)
-        res.map {
-          pai => (newEnv2, (lambdas :+ TypeValueLambda(Nil, TypeParamApp(param, Nil, pai))).success)
-        }.valueOr { nt => (newEnv2, nt.failure) }
+        (newEnv2, res.map {
+          pai => (lambdas :+ TypeValueLambda(Nil, TypeParamApp(param, Nil, pai))).success
+        }.valueOr { _.failure })
       case ((newEnv, Failure(noType)), _)      =>
         (newEnv, noType.failure)
     }
@@ -101,10 +97,11 @@ object TypeValueTermUnifier
             val (env4, res2) = f(env3)
             res2.map {
               x =>
-               val (env5, retKind) = envSt.returnKindFromEnvironmentS(env4)
-               val (env6, lambdaKindRes) = envSt.lambdaKindS(argKinds, retKind)(env5)
-               val (env7, _) = envSt.setReturnKindS(lambdaKindRes.valueOr { _.toNoKind })(env6)
-               (env7, x.success)
+                (for {
+                  retKind <- State(envSt.returnKindFromEnvironmentS)
+                  lambdaKindRes <- State(envSt.lambdaKindS(argKinds, retKind))
+                  _ <- State(envSt.setReturnKindS(lambdaKindRes.valueOr { _.toNoKind }))
+                } yield (x.success)).run(env4)
             }.valueOr { nt => (env4, nt.failure) }
           case Failure(noType) =>
             (env3, noType.failure)
@@ -169,17 +166,22 @@ object TypeValueTermUnifier
         (env, term.success)
     }
   
-  private def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, funKindRes1) = envSt.inferTypeValueTermKindS(term1)(env)
-    val (env3, funKindRes2) = envSt.inferTypeValueTermKindS(term2)(env2)
-    val (env4, unifiedFunKindRes) = envSt.unifyKindsS(funKindRes1.valueOr { _.toNoKind }, funKindRes2.valueOr { _.toNoKind })(env3)
-    envSt.setReturnKindS(unifiedFunKindRes.valueOr { _.toNoKind })(env4)      
-  }
+  private def setReturnKindFromTypeValueTermsS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
+    (for {
+      funKindRes1 <- State(envSt.inferTypeValueTermKindS(term1))
+      funKindRes2 <- State(envSt.inferTypeValueTermKindS(term2))
+      unifiedFunKindRes <- State(envSt.unifyKindsS(funKindRes1.valueOr { _.toNoKind }, funKindRes2.valueOr { _.toNoKind }))
+      _ <- State(envSt.setReturnKindS(unifiedFunKindRes.valueOr { _.toNoKind }))
+    } yield ()).run(env)
     
-  private def mismatchedTypeValueTermNoTypeWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, res) = setReturnKindFromTypeValueTermsS(term1, term2)(env)
-    unifier.mismatchedTermErrorS(env2)
-  }
+  private def setReturnKindFromTypeValueTerms[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
+    State(setReturnKindFromTypeValueTermsS[T, E](term1, term2))
+    
+  private def mismatchedTypeValueTermNoTypeWithReturnKindS[T, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    (for {
+      res <- setReturnKindFromTypeValueTerms(term1, term2)
+      noType <- State(unifier.mismatchedTermErrorS)
+    } yield noType).run(env)
 
   private def addDelayedErrorsFromResultS[T, U, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
     res.map { x => (env, x.success) }.valueOr {
@@ -200,34 +202,43 @@ object TypeValueTermUnifier
     envSt.setCurrentTypeMatchingS(newTypeMatching)(env2)
   }
   
-  def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, res) = argLambdas.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
-      case ((newEnv, Success(newArgLambdas)), argLambda) =>
-        val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
-        (newEnv2, newRes.map { b => newArgLambdas :+ TypeValueLambda(argLambda.argParams, b) })
-      case ((newEnv, Failure(noType)), _)                =>
-        (newEnv, noType.failure)
-    }
-    res.map {
-      instantiatedArgLambdas =>
-        val (env3, unallocatedParamAppIdx) = envSt.nextTypeParamAppIdxFromEnvironmentS(env2)
-        val (env4, paramCount) = envSt.nextTypeParamFromEnvironmentS(env3)
-        val (env5, res2) = envSt.appForGlobalTypeS(funLoc, instantiatedArgLambdas, paramCount, unallocatedParamAppIdx)(env4)
-        res2.map {
-          retTerm =>
-            val (env6, allocatedParams) = envSt.allocatedTypeParamsFromEnvironmentS(env5)
-            val (env7, res3) = allocateTypeValueTermParamsS(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)(env6)
-            res3.map { 
-              case (_, allocatedArgParams, _, retTerm2) =>
-                val (env8, res4) = if(!allocatedArgParams.isEmpty)
-                  envSt.inferTypeValueTermKindS(retTerm)(env7).mapElements(identity, _.map { _ => () })
-                else
-                  (env7, ().success)
-                (env8, res4.map { _ => retTerm2 })
-            }.valueOr { nt => (env7, nt.failure) }
-        }.valueOr { nt => (env3, nt.failure) }
-    }.valueOr { nt => (env2, nt.failure) }
-  }
+  def appForGlobalTypeWithAllocatedTypeParamsS[T, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    (for {
+      res <- State({
+        (env2: E) =>
+          argLambdas.foldLeft((env2, Seq[TypeValueLambda[T]]().success[NoType[T]])) {
+            case ((newEnv, Success(newArgLambdas)), argLambda) =>
+              val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
+              (newEnv2, newRes.map { b => newArgLambdas :+ TypeValueLambda(argLambda.argParams, b) })
+            case ((newEnv, Failure(noType)), _)                =>
+              (newEnv, noType.failure)
+          }
+      })
+      res7 <- res.map {
+        instantiatedArgLambdas =>
+          (for {
+            unallocatedParamAppIdx <- State(envSt.nextTypeParamAppIdxFromEnvironmentS)
+            paramCount <- State(envSt.nextTypeParamFromEnvironmentS)
+            res2 <- State(envSt.appForGlobalTypeS(funLoc, instantiatedArgLambdas, paramCount, unallocatedParamAppIdx))
+            res6 <- res2.map {
+              retTerm =>
+                for {
+                  allocatedParams <- State(envSt.allocatedTypeParamsFromEnvironmentS)
+                  res3 <- allocateTypeValueTermParams(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)
+                  res5 <- res3.map {
+                    case (_, allocatedArgParams, _, retTerm2) =>
+                      for {
+                        res4 <- if(!allocatedArgParams.isEmpty)
+                          State(envSt.inferTypeValueTermKindS(retTerm)(_: E).mapElements(identity, _.map { _ => () }))
+                        else
+                          State((_: E, ().success))
+                      } yield (res4.map { _ => retTerm2 })
+                  }.valueOr { nt => State((_: E, nt.failure)) }
+                } yield res5
+            }.valueOr { nt => State((_: E, nt.failure)) }
+          } yield res6)
+      }.valueOr { nt => State((_: E, nt.failure)) }
+    } yield res7).run(env)
   
   private def matchesGlobalTypeAppWithTypeValueTermS[T, U, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (globalTypeApp1, term2) match {
@@ -445,12 +456,12 @@ object TypeValueTermUnifier
     }
   }
   
-  private def matchesBuiltinTypeWithTypeValueTermS[T, U, E](term: TypeValueTerm[T])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, retKindRes) = envSt.inferTypeValueTermKindS(term)(env)
-    val (env3, unifiedRetKindRes) = envSt.unifyKindsS(InferredKind(Star(KindType, NoPosition)), retKindRes.valueOr { _.toNoKind })(env2)
-    val (env4, _) = envSt.setReturnKindS(unifiedRetKindRes.valueOr { _.toNoKind })(env3)
-    (env4, unifiedRetKindRes.map { _ => z })
-  }
+  private def matchesBuiltinTypeWithTypeValueTermS[T, U, E](term: TypeValueTerm[T])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T]) =
+    (for {
+      retKindRes <- State(envSt.inferTypeValueTermKindS(term))
+      unifiedRetKindRes <- State(envSt.unifyKindsS(InferredKind(Star(KindType, NoPosition)), retKindRes.valueOr { _.toNoKind }))
+      _ <- State(envSt.setReturnKindS(unifiedRetKindRes.valueOr { _.toNoKind }))
+    } yield (unifiedRetKindRes.map { _ => z })).run(env)
   
   def matchesTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
@@ -678,6 +689,9 @@ object TypeValueTermUnifier
 
   def allocateTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS(unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx))(env)
+    
+  def allocateTypeValueTermParams[T, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    State(allocateTypeValueTermParamsS[T, E](term)(allocatedParams, unallocatedParamAppIdx))
   
   def allocateTypeValueTermParamsWithKindsS[T, E](term: TypeValueTerm[T], kinds: Map[Int, Kind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     unifier.withSaveS {
@@ -685,22 +699,28 @@ object TypeValueTermUnifier
         val (env3, res) = unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx)(env2)
         res.map {
           case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
-            val (env4, res2) = kinds.foldLeft((env3, Map[Int, Kind]().success[NoType[T]])) {
-              case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
-                val (newEnv2, inferringKindRes) = envSt.inferringKindFromKindS(kind)(newEnv)
-                (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
-              case ((newEnv, Failure(noType)), _)                        =>
-                (newEnv, noType.failure)
-            }
-            res2.map { 
-              inferringKinds =>
-                val (env5, _) = envSt.setTypeParamKindsS(inferringKinds)(env4)
-                val (env6, res4) = if(!allocatedArgParams.isEmpty)
-                  envSt.inferTypeValueTermKindS(term2)(env5)
-                else
-                  (env5, ().success)
-                (env6, res4.map { _ => (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) })
-            }.valueOr { nt => (env4, nt.failure) }
+            (for {
+              res2 <- State({
+                (env4: E) =>
+                  kinds.foldLeft((env4, Map[Int, Kind]().success[NoType[T]])) {
+                    case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
+                      val (newEnv2, inferringKindRes) = envSt.inferringKindFromKindS(kind)(newEnv)
+                      (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
+                    case ((newEnv, Failure(noType)), _)                        =>
+                      (newEnv, noType.failure)
+                  }
+              })
+              res4 <- res2.map {
+                inferringKinds =>
+                  for {
+                    _ <- State(envSt.setTypeParamKindsS(inferringKinds))
+                    res3 <- if(!allocatedArgParams.isEmpty)
+                      State(envSt.inferTypeValueTermKindS(term2))
+                    else
+                      State((_: E, ().success))
+                  } yield (res3.map { _ => (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) })
+              }.valueOr { nt => State((_: E, nt.failure)) }
+            } yield res4).run(env3)
         }.valueOr { nt => (env3, nt.failure) }
     } (env)
   
@@ -718,43 +738,49 @@ object TypeValueTermUnifier
   def checkDefinedTypesS[T, E](definedTypes: Seq[DefinedType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], Unit]) =
     definedTypes.foldLeft((env, ().success[NoType[T]])) {
       case ((newEnv, newRes), definedType) =>
-        val (newEnv2, newRes2) = checkDefinedTypeS(definedType)(newEnv)
-        (newEnv2, (newRes |@| newRes2) { (u, _) => u })
+        checkDefinedTypeS(definedType)(newEnv).mapElements(identity, r => (newRes |@| r) { (u, _) => u })
     }
   
-  def normalizeTypeAppS[T, E](typeApp: TypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) = {
-    val (env2, res) = envSt.inferTypeValueTermKindS(typeApp)(env)
-    res.map {
-      kind =>
-        val (env3, res2) = envSt.argCountFromKindS(kind)(env2)
-        res2.map {
-          maxArgCount =>
-            if(maxArgCount > 0) {
-              val (env4, res3) = (0 until maxArgCount).foldLeft((env3, Seq[(Int, Int)]().success[NoType[T]])) {
-                case ((newEnv, Success(newPairs)), _) => 
-                  val (newEnv2, newRes) = unifier.allocateParamS(newEnv)
-                  newRes.map {
-                    param =>
-                      val (newEnv3, newRes2) = envSt.allocateTypeParamAppIdxS(newEnv2)
-                      newRes2.map {
-                        paramAppIdx => (newEnv3, (newPairs :+ (param, paramAppIdx)).success)
-                      }.valueOr { nt =>  (newEnv3, nt.failure) }
-                  }.valueOr { nt => (newEnv2, nt.failure) }
-                case ((newEnv, Failure(nt)), _) =>
-                  (newEnv, nt.failure)
-              }
-              res3.map {
-                ps => 
-                  val args2 = ps.map { p => TypeValueLambda[T](Nil, TypeParamApp(p._1, Nil, p._2)) }
-                  val typeApp2 = typeApp.withArgs(typeApp.args ++ args2)
-                  val (env5, res4) = envSt.inferTypeValueTermKindS(typeApp2)(env4)
-                  (env5, res4.map { _ => typeApp2 })
-              }.valueOr { nt => (env4, nt.failure) }
-            } else
-              (env3, typeApp.success)
-        }.valueOr { nt => (env3, nt.failure) }
-    }.valueOr { nt => (env2, nt.failure) }
-  }
+  def normalizeTypeAppS[T, E](typeApp: TypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+    (for {
+      res <- State(envSt.inferTypeValueTermKindS(typeApp))
+      res7 <- res.map {
+        kind =>
+          for {
+            res2 <- State(envSt.argCountFromKindS(kind))
+            res5 <- res2.map {
+              argCount =>
+                if(argCount > 0) {
+                  for {
+                    res3 <- State({
+                      (env2: E) =>
+                        (0 until argCount).foldLeft((env2, Seq[(Int, Int)]().success[NoType[T]])) {
+                          case ((newEnv, Success(newPairs)), _) =>
+                            val (newEnv2, newRes) = unifier.allocateParamS(newEnv)
+                            newRes.map {
+                              param =>
+                                val (newEnv3, newRes2) = envSt.allocateTypeParamAppIdxS(newEnv2)
+                                (newEnv3, newRes2.map {
+                                  paramAppIdx => (newPairs :+ (param, paramAppIdx)).success
+                                }.valueOr { _.failure })
+                            }.valueOr { nt => (newEnv2, nt.failure) }
+                          case ((newEnv, Failure(nt)), _) =>
+                           (newEnv, nt.failure)
+                        }
+                    })
+                    res4 <- res3.map {
+                      ps =>
+                        val args2 = ps.map { p => TypeValueLambda[T](Nil, TypeParamApp(p._1, Nil, p._2)) }
+                        val typeApp2 = typeApp.withArgs(typeApp.args ++ args2)
+                        State(envSt.inferTypeValueTermKindS(typeApp2)).map { _.map { _ => typeApp2 } }
+                    }.valueOr { nt => State((_: E, nt.failure)) }
+                  } yield res4
+                } else
+                  State((_: E, typeApp.success))
+            }.valueOr { nt => State((_: E, nt.failure)) }
+          } yield res5
+      }.valueOr { nt => State((_: E, nt.failure)) }
+    } yield res7).run(env)
   
   def normalizeTypeValueTermS[T, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     partiallyInstantiateTypeValueTermS(term)(env) match {
