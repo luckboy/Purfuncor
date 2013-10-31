@@ -60,7 +60,7 @@ object RecursiveInitializer
             val (env7, res) = recInit.withRecursiveS(combs.keySet, newNodes) {
               initializeS(Tree(combs, treeInfo))(_) 
             } (env6)
-            res.map { _ => recInit.postInitializeGlobalVarS(oldNodes)(env6) }.valueOr { e => (env7, e.failure) }
+            res.map { _ => recInit.postInitializeGlobalVarS(oldNodes)(env7) }.valueOr { e => (env7, e.failure) }
           } else
             (env4, ().success)
         }
