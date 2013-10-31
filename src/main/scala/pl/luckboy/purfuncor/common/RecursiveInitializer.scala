@@ -22,7 +22,7 @@ trait RecursiveInitializer[E, L, C, N, F]
   
   def finallyInitializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
 
-  def postInitializeGlobalVarS(oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
+  def postInitializeGlobalVarS(res: Validation[E, Unit], oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
   
   def nodesFromEnvironmentS(env: F): (F, Map[L, N])
   
@@ -60,7 +60,7 @@ object RecursiveInitializer
             val (env7, res) = recInit.withRecursiveS(combs.keySet, newNodes) {
               initializeS(Tree(combs, treeInfo))(_) 
             } (env6)
-            res.map { _ => recInit.postInitializeGlobalVarS(oldNodes)(env7) }.valueOr { e => (env7, e.failure) }
+            recInit.postInitializeGlobalVarS(res, oldNodes)(env7)
           } else
             (env4, ().success)
         }
