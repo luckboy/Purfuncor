@@ -22,10 +22,12 @@ trait RecursiveInitializer[E, L, C, N, F]
   
   def finallyInitializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
 
-  def postInitializeGlobalVarS(res: Validation[E, Unit], oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
+  def postInitializeGlobalVarS(oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
   
   def nodesFromEnvironmentS(env: F): (F, Map[L, N])
   
+  def concatErrors(err1: E, err2: E): E
+
   def withRecursiveS[T](combLocs: Set[L], newNodes: Map[L, N])(f: F => (F, T))(env: F): (F, T)
   
   def withClearS[T](f: F => (F, T))(env: F): (F, T)
@@ -60,7 +62,8 @@ object RecursiveInitializer
             val (env7, res) = recInit.withRecursiveS(combs.keySet, newNodes) {
               initializeS(Tree(combs, treeInfo))(_) 
             } (env6)
-            recInit.postInitializeGlobalVarS(res, oldNodes)(env7)
+            val (env8, res2) = recInit.postInitializeGlobalVarS(oldNodes)(env7)
+            (env8, (res.swap |@| res2.swap)(recInit.concatErrors).swap)
           } else
             (env4, ().success)
         }
