@@ -4,6 +4,6 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.frontend._
 
 case class TypeCombinatorNode[+T, +U, V](
-    comb: TypeCombinator[T, lmbdindexer.TypeLambdaInfo[U]],
+    comb: AbstractTypeCombinator[T, lmbdindexer.TypeLambdaInfo[U]],
     recursiveCombSyms: Set[V],
     markedRecCombSyms: Set[V])

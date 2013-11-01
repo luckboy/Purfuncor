@@ -13,6 +13,7 @@ import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.common.Initializer._
+import pl.luckboy.purfuncor.common.RecursiveInitializer._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
@@ -156,22 +157,22 @@ package object kinder
       (res._1, res._2.withPos(pos))
   }
   
-  implicit def symbolTypeCombinatorKindInitializer[T]: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] {
-    override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.globalTypeVarKinds.keySet)
+  implicit def symbolTypeCombinatorKindRecursiveInitializer[T](implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment[T], Int]): RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolKindInferenceEnvironment[T]] = new RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolKindInferenceEnvironment[T]] {
+    override def combinatorFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.comb
     
-    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]]) =
-      comb match {
-        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
-        case UnittypeCombinator(_, _, _)      => Set()
-      }
+    override def recursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.recursiveCombSyms
     
-    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) =
-      if(!env.isRecursive) {
-        (env.withGlobalTypeVarKind(loc, UninferredKind), ())
-      } else {
-        val (env2, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env)
-        res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
-      }
+    override def markedRecursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.markedRecCombSyms
+    
+    override def createNode(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], recursiveCombLocs: Set[GlobalSymbol], markedRecCombLocs: Set[GlobalSymbol]) =
+      TypeCombinatorNode(comb, recursiveCombLocs, markedRecCombLocs)
+    
+    override def addNodeS(loc: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) =
+      (env.withTypeComb(loc, node), ())
+      
+    override def isRecursiveFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.isRecursive)
+    
+    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) = (env, env.typeVarKind(loc).isUninferredKind)
     
     private def instantiateKindsFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = instantiateKindMapS(syms.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
@@ -193,98 +194,140 @@ package object kinder
           }.valueOr { nk => (env3, nk.failure) }
       }.valueOr { nk => (env2, nk.failure) }
     }
-    
+
     private def failInitializationS(noKind: NoKind, syms: Set[GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) =
       if(noKind.errs.forall { _.isInstanceOf[Error] })
         (env.withErrs(noKind).withGlobalTypeVarKinds(syms.map { s => (s, NoKind.fromError(Error("uninferred kind of global type variable " + s, none, NoPosition))) }.toMap), ().success[NoKind])
       else
         (env, noKind.failure)
     
-    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
-      env.withClear {
-        env2 =>
-          val (env10, res) = comb match {
-            case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(_, lambdaIdx), file) =>
-              val depSyms = if(!env.isRecursive) usedGlobalTypeVarsFromTypeTerm(body).filter { env2.typeVarKind(_).isUninferredKind } else Set[GlobalSymbol]()
-              if(depSyms.isEmpty) {
-                // Infers the kind. 
-                val (env3, tmpTypeCombKind) = env2.withTypeCombSym(some(loc)) {
-                  _.withTypeLambdaIdx(lambdaIdx) {
-                    _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
-                      newEnv =>
-                        val (newEnv2, retKind) = inferS(body)(newEnv)
-                        val argKinds = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }
-                        functionKindFromKindsS(argKinds, retKind)(newEnv2)
-                    }
+    override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
+      comb match {
+        case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(_, lambdaIdx), file) =>
+          (for {
+            // Infers the kind.
+            tmpTypeCombKind <- State((_: SymbolKindInferenceEnvironment[T]).withTypeCombSym(some(loc)) {
+              _.withTypeLambdaIdx(lambdaIdx) {
+                _.withLocalTypeVarKinds(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.kind) } }.toMap) {
+                  newEnv =>
+                    val (newEnv2, retKind) = inferS(body)(newEnv)
+                    val argKinds = args.map { a => a.name.map { s => newEnv2.typeVarKind(LocalSymbol(s)) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))) }
+                    functionKindFromKindsS(argKinds, retKind)(newEnv2)
                   }
+               }
+            })
+            // Unifies the inferred kind with the defined kind.
+            tmpTypeCombKind2 <- kind.map {
+              kt =>
+                for {
+                  res <- allocateKindTermParams(kt)(Map())
+                  tmpKind2 <- res.map {
+                    case (_, kt2) => 
+                      for {
+                        _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withDefinedKind(kt2), ()))
+                        tmpKind <- State(symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind, InferringKind(kt2))(_: SymbolKindInferenceEnvironment[T]))
+                      } yield tmpKind
+                  }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
+                } yield tmpKind2
+            }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind)))
+            // Checks the defined kinds.
+            isRecursive <- State(isRecursiveFromEnvironmentS)
+            res2 <- if(!isRecursive)
+              for {
+                definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
+                res <- checkDefinedKindTerms(definedKindTerms)
+              } yield res
+            else
+              State((_: SymbolKindInferenceEnvironment[T], ().success))
+            // Instantiates the inferred kinds.
+            res4 <- res2.map {
+              _ =>
+                tmpTypeCombKind2 match {
+                  case noKind: NoKind =>
+                    State(failInitializationS(noKind, Set(loc)))
+                  case _              =>
+                    for {
+                      _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ()))
+                      res3 <- if(!isRecursive)
+                        State(instantiateKindsFromGlobalVarsS(Set(loc)))
+                      else
+                        State((_: SymbolKindInferenceEnvironment[T], ().success))
+                    } yield res3
                 }
-                // Unifies the inferred kind with the defined kind.
-                val (env5, tmpTypeCombKind2) = kind.map {
-                  kt =>
-                    val (env4, res) = allocateKindTermParamsS(kt)(Map())(env3)
-                    res.map { 
-                      case (_, kt2) => symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind, InferringKind(kt2))(env4.withDefinedKind(kt2))
-                    }.valueOr { (env4, _) }
-                }.getOrElse((env3, tmpTypeCombKind))
-                // Checks the defined kinds.
-                val (env6, res) = if(!env5.isRecursive) checkDefinedKindTermsS(env5.definedKindTerms)(env5) else (env5, ().success)
-                // Instantiates the inferred kinds.
-                res.map {
-                  _ =>
-                    tmpTypeCombKind2 match {
-                      case noKind: NoKind =>
-                        failInitializationS(noKind, Set(loc))(env6)
-                      case _              =>
-                        if(!env6.isRecursive)
-                          instantiateKindsFromGlobalVarsS(Set(loc))(env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2))
-                        else
-                          (env6.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ().success)
-                    }
-                }.valueOr { failInitializationS(_, Set(loc))(env6) }
-              } else {
-                val (nonRecursiveDepSyms, recusiveDepSyms) = depSyms.partition(env.typeCombNodes.contains)
-                val recursiveTypeCombSyms = recusiveDepSyms ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.recursiveCombSyms } }
-                val markedRecTypeCombSyms = (recursiveTypeCombSyms & Set(loc)) ++ nonRecursiveDepSyms.flatMap { env.typeCombNodes.get(_).toSet.flatMap { _.markedRecCombSyms } }
-                val env2 = env.withTypeComb(loc, TypeCombinatorNode(typeComb, recursiveTypeCombSyms, markedRecTypeCombSyms))
-                if((recursiveTypeCombSyms &~ markedRecTypeCombSyms).isEmpty) {
-                  val combs: Map[GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]]] = env2.typeCombNodes.flatMap {
-                    case (s, n) => if(!(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty) some(s -> n.comb) else Map()
+            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+          } yield res4).run(env)
+        case UnittypeCombinator(n, kind, file) =>
+          val tmpUnittypeCombKind = InferredKind.unittypeCombinatorKind(n)
+          (for {
+            tmpUnittypeCombKind2 <- kind.map {
+              case kt =>
+                for {
+                  res <- allocateKindTermParams(kt)(Map())
+                  tmpKind2 <- res.map {
+                    case (_, kt2) =>
+                      for {
+                        _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withDefinedKind(kt2), ()))
+                        tmpKind <- State(symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpUnittypeCombKind, InferringKind(kt2))(_: SymbolKindInferenceEnvironment[T]))
+                      } yield tmpKind
+                  }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
+                } yield tmpKind2
+            }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpUnittypeCombKind)))
+            definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
+            res <- checkDefinedKindTerms(definedKindTerms)
+            res3 <- res.map {
+              _ =>
+                for {
+                  unittypeCombKind <- State(tmpUnittypeCombKind2.instantiatedKindS(_: SymbolKindInferenceEnvironment[T]))
+                  res2 <- unittypeCombKind match {
+                    case noKind: NoKind =>
+                      State((_: SymbolKindInferenceEnvironment[T], noKind.failure))
+                    case _              =>
+                      State((env2: SymbolKindInferenceEnvironment[T]) => ((env2.withGlobalTypeVarKind(loc, unittypeCombKind), ().success)))
                   }
-                  val (oldTypeCombNodes, newTypeCombNodes) = env2.typeCombNodes.partition { 
-                    case (_, n) => !(n.recursiveCombSyms & recursiveTypeCombSyms).isEmpty
-                  }
-                  // Infers the kinds of the type combinators of the recursive types.
-                  val (env3, res) = initializeS(Tree(combs, resolver.TypeTreeInfo))(env2.withRecursive(true).withoutGlobalTypeVarKinds(combs.keySet)).mapElements(_.withRecursive(false).withTypeCombNodes(newTypeCombNodes), identity)
-                  // Checks the defined kinds.
-                  val (env4, res2) = checkDefinedKindTermsS(env3.definedKindTerms)(env3)
-                  // Instantiates the inferred kinds.
-                  (res |@| res2) {
-                    (_, _) => instantiateKindsFromGlobalVarsS(oldTypeCombNodes.keySet)(env4)
-                  }.valueOr { failInitializationS(_, combs.keySet)(env4) }
-                } else
-                  (env2, ().success)
-              }
-            case UnittypeCombinator(n, kind, file) =>
-              val tmpUnittypeCombKind = InferredKind.unittypeCombinatorKind(n)
-              val (env4, tmpUnittypeCombKind2) = kind.map {
-                kt =>
-                  val (env3, res) = allocateKindTermParamsS(kt)(Map())(env2)
-                  res.map { 
-                    case (_, kt2) => symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpUnittypeCombKind, InferringKind(kt2))(env3.withDefinedKind(kt2))
-                  }.valueOr { (env3, _) }
-              }.getOrElse((env, tmpUnittypeCombKind))
-              val (env5, res) = checkDefinedKindTermsS(env4.definedKindTerms)(env4)
-              res.map {
-                _ =>
-                  val (env6, unittypeCombKind) = tmpUnittypeCombKind2.instantiatedKindS(env5)
-                  unittypeCombKind match {
-                    case noKind: NoKind => (env6, noKind.failure)
-                    case _              => (env6.withGlobalTypeVarKind(loc, unittypeCombKind), ().success)
-                  }
-              }.valueOr { failInitializationS(_, Set(loc))(env5) }
-          }
-          (env10, res.swap.map { _.forFile(comb.file) }.swap)
+                } yield res2
+            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+          } yield res3).run(env)
       }
+    
+    override def checkInitializationS(res: Validation[NoKind, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(env: SymbolKindInferenceEnvironment[T]) = {
+      val (env2, res2) = checkDefinedKindTermsS(env.definedKindTerms)(env)
+      (res |@| res2) {
+        (_, _) => instantiateKindsFromGlobalVarsS(oldNodes.keySet)(env2)
+      }.valueOr { failInitializationS(_, combLocs)(env2) }
+    }
+    
+    override def nodesFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.typeCombNodes)
+    
+    override def withRecursiveS[U](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]) = {
+      val (env2, res) = f(env.withRecursive(true).withoutGlobalTypeVarKinds(combLocs))
+      (env2.withRecursive(false).withTypeCombNodes(newNodes), res)
+    }
+    
+    override def withClearS[U](f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]) =
+      env.withClear(f)
+  }
+  
+  implicit def symbolTypeCombinatorKindInitializer[T]: Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] = new Initializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], SymbolKindInferenceEnvironment[T]] {
+    override def globalVarsFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.globalTypeVarKinds.keySet)
+    
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]]) =
+      comb match {
+        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
+        case UnittypeCombinator(_, _, _)      => Set()
+      }
+    
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) =
+      if(!env.isRecursive) {
+        (env.withGlobalTypeVarKind(loc, UninferredKind), ())
+      } else {
+        val (env2, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env)
+        res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
+      }
+    
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) = {
+      val (env2, res) = recursivelyInitializeGlobalVarS(loc, comb)(resolver.TypeTreeInfo)(env)
+      (env2, res.swap.map { _.forFile(comb.file) }.swap)
+    }
     
     override def checkEnvironmentS(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.errNoKind.map { _.failure }.getOrElse(().success))

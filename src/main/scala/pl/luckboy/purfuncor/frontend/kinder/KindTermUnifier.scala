@@ -78,6 +78,10 @@ object KindTermUnifier
   def allocateKindTermParamsS[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     unifier.withSaveS(unsafeAllocateKindTermParamsS(term)(allocatedParams))(env)
     
+  def allocateKindTermParams[T, E](term: KindTerm[StarKindTerm[T]])(allocatedParams: Map[T, Int])(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    State(allocateKindTermParamsS[T, E](term)(allocatedParams))
+
+    
   def checkDefinedKindTermS[E](term: KindTerm[StarKindTerm[Int]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
     val params = kindParamsFromKindTerm(term)
     val (env2, res) = params.foldLeft((env, BitSet().success[NoKind])) {
@@ -95,4 +99,11 @@ object KindTermUnifier
         val (newEnv2, newRes2) = checkDefinedKindTermS(t)(newEnv)
         (newEnv2, (newRes |@| newRes2) { (u, _) => u })
     }
+  
+  // This method removed the warning of case-insensitive filesystems.
+  private def checkDefinedKindTerms2[E](terms: Seq[KindTerm[StarKindTerm[Int]]])(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    State(checkDefinedKindTermsS[E](terms))
+
+  def checkDefinedKindTerms[E](terms: Seq[KindTerm[StarKindTerm[Int]]])(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
+    checkDefinedKindTerms2[E](terms)
 }
