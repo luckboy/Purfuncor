@@ -22,7 +22,7 @@ trait RecursiveInitializer[E, L, C, N, F]
   
   def finallyInitializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
 
-  def postInitializeGlobalVarS(oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
+  def checkInitializationS(oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
   
   def nodesFromEnvironmentS(env: F): (F, Map[L, N])
   
@@ -35,7 +35,7 @@ trait RecursiveInitializer[E, L, C, N, F]
 
 object RecursiveInitializer
 {
-  def initializeGlobalVarS[E, L, C, I, N, F](loc: L, comb: C)(treeInfo: I)(env: F)(implicit recInit: RecursiveInitializer[E, L, C, N, F], init: Initializer[E, L, C, F], showing: Showing[Tree[L, C, I]]) =
+  def fullyInitializeGlobalVarS[E, L, C, I, N, F](loc: L, comb: C)(treeInfo: I)(env: F)(implicit recInit: RecursiveInitializer[E, L, C, N, F], init: Initializer[E, L, C, F], showing: Showing[Tree[L, C, I]]) =
     recInit.withClearS {
       env2 =>
         val (env3, isRecursive) = recInit.isRecursiveS(env2)
@@ -62,7 +62,7 @@ object RecursiveInitializer
             val (env7, res) = recInit.withRecursiveS(combs.keySet, newNodes) {
               initializeS(Tree(combs, treeInfo))(_) 
             } (env6)
-            val (env8, res2) = recInit.postInitializeGlobalVarS(oldNodes)(env7)
+            val (env8, res2) = recInit.checkInitializationS(oldNodes)(env7)
             (env8, (res.swap |@| res2.swap)(recInit.concatErrors).swap)
           } else
             (env4, ().success)
