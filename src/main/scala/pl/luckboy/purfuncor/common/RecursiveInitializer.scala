@@ -22,7 +22,7 @@ trait RecursiveInitializer[E, L, C, N, F]
   
   def nonRecursivelyInitializeGlobalVarS(loc: L, comb: C)(env: F): (F, Validation[E, Unit])
 
-  def checkInitializationS(res: Validation[E, Unit], locs: Set[L], oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
+  def checkInitializationS(res: Validation[E, Unit], combLocs: Set[L], oldNodes: Map[L, N])(env: F): (F, Validation[E, Unit])
   
   def nodesFromEnvironmentS(env: F): (F, Map[L, N])
 

@@ -9,6 +9,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.Kind
+import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import TypeValueTermUnifier._
@@ -70,7 +71,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def pushLocalVarTypes(types: Map[LocalSymbol, Type[GlobalSymbol]]) = copy(localVarTypes = types.mapValues { NonEmptyList(_) } |+| localVarTypes)
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
-
+  
   def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil))
   
   def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
@@ -82,6 +83,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def currentInstanceTypes = currentLambdaInfo.instanceTypes
   
   def withCurrentInstanceTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instanceTypes = types))
+  
+  def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
@@ -122,7 +125,6 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, typ) = f(pushLocalVarTypes(types).withCurrentLocalTypeTable(TypeTable(currentLocalTypeTable.types ++ types)))
     (env.popLocalVarTypes(types.keySet), typ)
   }
-    
   
   def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)
   
@@ -202,4 +204,27 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withGlobalVarTypes(types: Map[GlobalSymbol, Type[GlobalSymbol]]) = copy(globalVarTypes = globalVarTypes ++ types)
   
   def withoutGlobalVarTypes(syms: Set[GlobalSymbol]) = copy(globalVarTypes = globalVarTypes -- syms)
+  
+  def withClear[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) =
+    if(!isRecursive) {
+      val (kindInferenceEnv2, (env, res)) = kindInferenceEnv.withClear {
+        (_, f(copy(typeParamForest = ParamForest.empty, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0)))
+      }
+      (env.withKindInferenceEnv(kindInferenceEnv2).copy(typeParamForest = ParamForest.empty, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0), res)
+    } else {
+      f(this)
+    }
+  
+  def typesFromArgs(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]) =
+    args.foldLeft((this, List[Type[GlobalSymbol]]())) {
+      case ((newEnv, newArgInfos), arg) =>
+        arg.name.map { s => (newEnv, newEnv.varType(LocalSymbol(s)) :: newArgInfos) }.getOrElse {
+          val (newEnv2, argInfo) = arg.typ.map { 
+            newEnv.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+          }.getOrElse {
+            (newEnv, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
+          }
+          (newEnv2, argInfo :: newArgInfos)
+        }
+    }.mapElements(identity, _.reverse)
 }

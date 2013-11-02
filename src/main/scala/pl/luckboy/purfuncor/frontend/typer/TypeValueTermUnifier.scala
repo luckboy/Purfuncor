@@ -741,6 +741,12 @@ object TypeValueTermUnifier
         checkDefinedTypeS(definedType)(newEnv).mapElements(identity, r => (newRes |@| r) { (u, _) => u })
     }
   
+  private def checkDefinedTypes2[T, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
+    State(checkDefinedTypesS[T, E](definedTypes))
+  
+  def checkDefinedTypes[T, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
+    checkDefinedTypes2[T, E](definedTypes)
+  
   def normalizeTypeAppS[T, E](typeApp: TypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
     (for {
       res <- State(envSt.inferTypeValueTermKindS(typeApp))

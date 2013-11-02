@@ -114,6 +114,8 @@ case class NoType[T](prevErrs: List[AbstractError], currentErrs: List[AbstractEr
   def errs = prevErrs ++ currentErrs
   
   def toNoKind = NoKind(prevErrs, currentErrs)
+  
+  def forFile(file: Option[java.io.File]) = copy[T](prevErrs = prevErrs.map { _.withFile(file) }, currentErrs = currentErrs.map { _.withFile(file) })
 }
 
 object NoType
