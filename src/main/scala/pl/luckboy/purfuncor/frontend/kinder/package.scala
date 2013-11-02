@@ -181,8 +181,8 @@ package object kinder
           val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
             case ((newEnv, Success(ktMaps)), (s, kts)) =>
               kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
-                case ((newEnv2, Success(kts)), (i, kt)) =>
-                  instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
+                case ((newEnv2, Success(newKts)), (i, kt)) =>
+                  instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => newKts + (i -> KindTable(ks)) })
                 case ((newEnv2, Failure(nk)), _)        =>
                   (newEnv2, nk.failure)
               }.mapElements(identity, _.map { kts2 => ktMaps + (some(s) -> kts2) })
