@@ -342,17 +342,29 @@ package object typer
       })
     }
     
-    override def withClearS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
-      throw new UnsupportedOperationException
+    override def withClearS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.withClear(f)
       
-    override def withCombinatorLocationS[V](loc: Option[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
-      throw new UnsupportedOperationException
+    override def withCombinatorLocationS[V](loc: Option[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val oldLoc = env.currentCombSym
+      val (env2, res) = f(env.withCurrentCombSym(loc))
+      (env2.withCurrentCombSym(loc), res)
+    }
       
-    override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) =
-      throw new UnsupportedOperationException
+    override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
+      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, Map()).foldLeft((env, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+        case ((newEnv, Success(lis)), (i, li)) =>
+          instantiateTypeMapS(li.typeTable.types)(newEnv).mapElements(identity, _.map { ts => lis + (i -> li.copy(typeTable = TypeTable(ts))) })
+        case ((newEnv, Failure(nt)), _)        =>
+          (newEnv, nt.failure)
+      }
+      res.map {
+        lis => (env2.copy(lambdaInfos = env2.lambdaInfos + (env.currentCombSym -> lis)), ().success)
+      }.valueOr { nt => (env, nt.failure) }
+    }
     
     override def instantiateTypeS(typ: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
-      throw new UnsupportedOperationException
+      typ.instantiatedTypeS(env)
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
