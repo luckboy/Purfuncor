@@ -98,10 +98,10 @@ object Typer
   // A type inferrer.
   //
   
-  def transfromTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): Validation[NoType[TT], Term[SimpleTerm[T, LambdaInfo[U, Z, Y], TypeSimpleTerm[V, W]]]] =
+  def transfromTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Term[SimpleTerm[T, LambdaInfo[U, Z, Y], TypeSimpleTerm[V, W]]]] =
     throw new UnsupportedOperationException
   
-  def transfromTree[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(implicit enval: TypeInferenceEnvironmental[E, T, TT, TU]): Validation[NoType[TU], Tree[T, AbstractCombinator[U, LambdaInfo[V, T, TT], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], TreeInfo[Z, T, TT]]] =
+  def transfromTree[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(implicit enval: TypeInferenceEnvironmental[E, T, TT, TU]): ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, LambdaInfo[V, T, TT], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], TreeInfo[Z, T, TT]]] =
     throw new UnsupportedOperationException
   
   def inferTermTypesS[T, U, V, W, X, Y, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit inferrer: Inferrer[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]], E, Type[Y]], envSt: TypeInferenceEnvironmentState[E, Y]): (E, Type[Y]) =
@@ -116,9 +116,9 @@ object Typer
   def inferTreeTypes[E, L, C, I, F](tree: Tree[L, C, I])(implicit init: Initializer[E, L, C, F]) =
     State(inferTreeTypesS[E, L, C, I, F](tree))
   
-  def transformS[T, U, V, W, X, Y, Z, TT, TU, E, TC, TE](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(kindTable: InferredKindTable[TT], typeTable: InferredTypeTable[T, TT])(f: (InferredKindTable[TT], InferredTypeTable[T, TT]) => State[TE, E])(typeEnv: TE)(implicit init: Initializer[NoType[TT], T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E], inferrer: Inferrer[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E, Type[TT]], typeInit: Initializer[NoTypeValue[TT, W, TypeLambdaInfo[X, Y], TC], TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TE], envSt: TypeInferenceEnvironmentState[E, TT], enval: TypeInferenceEnvironmental[E, T, TU, TT]): (TE, Validation[NoType[TT], Tree[T, AbstractCombinator[U, LambdaInfo[V, T, TU], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], TreeInfo[Z, T, TU]]]) =
+  def transformS[T, U, V, W, X, Y, Z, TT, TU, E, TC, TE](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(kindTable: InferredKindTable[TT], typeTable: InferredTypeTable[T, TT])(f: (InferredKindTable[TT], InferredTypeTable[T, TT]) => State[TE, E])(typeEnv: TE)(implicit init: Initializer[NoType[TT], T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E], inferrer: Inferrer[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E, Type[TT]], typeInit: Initializer[NoTypeValue[TT, W, TypeLambdaInfo[X, Y], TC], TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TE], envSt: TypeInferenceEnvironmentState[E, TT], enval: TypeInferenceEnvironmental[E, T, TU, TT]): (TE, Validation[NoType[TT], ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, LambdaInfo[V, T, TU], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], TreeInfo[Z, T, TU]]]]) =
     throw new UnsupportedOperationException
-
+  
   def transform[T, U, V, W, X, Y, Z, TT, TU, E, TC, TE](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(kindTable: InferredKindTable[TT], typeTable: InferredTypeTable[T, TT])(f: (InferredKindTable[TT], InferredTypeTable[T, TT]) => State[TE, E])(implicit init: Initializer[NoType[TT], T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E], inferrer: Inferrer[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E, Type[TT]], typeInit: Initializer[NoTypeValue[TT, W, TypeLambdaInfo[X, Y], TC], TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TE], envSt: TypeInferenceEnvironmentState[E, TT], enval: TypeInferenceEnvironmental[E, T, TU, TT]) =
     State(transformS[T, U, V, W, X, Y, Z, TT, TU, E, TC, TE](tree)(kindTable, typeTable)(f))
 }
