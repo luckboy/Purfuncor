@@ -19,7 +19,7 @@ sealed trait Type[T]
   
   def isUninferredType = isInstanceOf[UninferredType[T]]
   
-  def instantiatedTypeValueTermWithKindsS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+  def instantiatedTypeValueTermWithKindsS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     this match {
       case noType: NoType[T]                     =>
         (env, noType.failure)
@@ -57,10 +57,10 @@ sealed trait Type[T]
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }
     
-  def instantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]): (E, Type[T]) =
+  def instantiatedTypeS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Type[T]) =
     instantiatedTypeValueTermWithKindsS(env).mapElements(identity, _.map { case (tvt, ks) => InferredType(tvt, ks) }.valueOr(identity))
 
-  def uninstantiatedTypeValueTermS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+  def uninstantiatedTypeValueTermS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     this match {
       case noType: NoType[T]                     =>
         (env, noType.failure)
@@ -73,7 +73,7 @@ sealed trait Type[T]
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }
   
-  def uninstantiatedTypeS[E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+  def uninstantiatedTypeS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     uninstantiatedTypeValueTermS(env).mapElements(identity, _.map { InferringType(_) }.valueOr(identity))
   
   def withPos(pos: Position) =
@@ -102,7 +102,7 @@ sealed trait Type[T]
 
 object Type
 {
-  def uninstantiatedTypeValueTermFromTypesS[T, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, T]) =
+  def uninstantiatedTypeValueTermFromTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     types.foldLeft((env, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
       case ((newEnv, Success(tvts)), t) => t.uninstantiatedTypeValueTermS(newEnv).mapElements(identity, _.map { tvts :+ _ })
       case ((newEnv, Failure(nt)), _)   => (newEnv, nt.failure)

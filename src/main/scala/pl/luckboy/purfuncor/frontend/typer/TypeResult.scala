@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -23,4 +24,6 @@ object TypeResult
     }
   
   def typeResultFromTypeValueResult[T, U, V, W, X](res: Validation[NoTypeValue[T, U, V, W], X]) = res.swap.map(NoType.fromNoTypeValue[T, U, V, W]).swap
+  
+  def resultFromTypeResult[T, U](res: Validation[NoType[T], U]) = res.swap.map { _.errs.toNel.getOrElse(NonEmptyList(FatalError("no error", none, NoPosition))) }.swap
 }
