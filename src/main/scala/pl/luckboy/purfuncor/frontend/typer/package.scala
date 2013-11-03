@@ -851,6 +851,19 @@ package object typer
     }
   }
   
+  implicit def symbolTypeInferenceEnvironmental[T, U]: TypeInferenceEnvironmental[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, LocalSymbol, GlobalSymbol] = new TypeInferenceEnvironmental[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, LocalSymbol, GlobalSymbol] {
+    override def copyEnvironment(env: SymbolTypeInferenceEnvironment[T, U]) = env
+    
+    override def getLambdaInfoFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(lambdaIdx: Int) =
+      env.lambdaInfos.getOrElse(env.currentCombSym, Map()).get(lambdaIdx)
+    
+    override def globalTypeTableFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U]) =
+      TypeTable(env.globalVarTypes)
+    
+    override def withCurrentCombinatorLocation(env: SymbolTypeInferenceEnvironment[T, U])(loc: Option[GlobalSymbol]) =
+      env.withCurrentCombSym(loc)
+  }
+  
   //
   // A miscellaneous.
   //
