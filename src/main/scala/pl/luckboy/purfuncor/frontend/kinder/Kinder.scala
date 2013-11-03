@@ -150,8 +150,6 @@ object Kinder
           case UnittypeCombinator(kind, n, file) =>
             res.map { cs => (cs + (loc -> UnittypeCombinator(kind, n, file))) }
         }
-      case (Failure(errs), _)            =>
-        errs.failure
     }.flatMap {
       combs =>
         transformKindTable(enval.globalKindTableFromEnvironment(env)).map {
