@@ -6,3 +6,7 @@ case class LambdaInfo[+T, U, V](
     lambdaInfo: T,
     typeTable: InferredTypeTable[U, V],
     instanceTypes: Seq[InferredType[V]])
+{
+  override def toString =
+    (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") + typeTable.types.map { case (l, t) => l + ": " + t }.mkString(",") + ";" + "instance types: " + instanceTypes.mkString(",")
+}
