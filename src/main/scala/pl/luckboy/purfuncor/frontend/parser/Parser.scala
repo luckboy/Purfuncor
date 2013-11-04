@@ -169,7 +169,9 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val floatValue = elem("float", _.isInstanceOf[lexical.FloatLit]) ^^ { t => FloatValue(java.lang.Float.parseFloat(t.chars)) }
   lazy val doubleValue = elem("double", _.isInstanceOf[lexical.DoubleLit]) ^^ { t => DoubleValue(java.lang.Double.parseDouble(t.chars)) }
   lazy val tupleFunValue = "tuple" ~-> integer 							^^ TupleFunValue
-  lazy val tupleFieldFunValue = "#" ~-> integer							^^ { n => TupleFieldFunValue(n - 1) }
+  lazy val tupleFieldFunValue = "#" ~-> integer	 ~- integer				^? ({ 
+    case n ~ i if n >= i && n > 0 => TupleFieldFunValue(n, i - 1) 
+  }, _ => "incorrect number of fields")
   lazy val builtinFunValue = "#" ~-> ident								^? ({
     case s if BuiltinFunction.values.exists { _.toString === s } => BuiltinFunValue(BuiltinFunction.withName(s))
   }, "unknown built-in function " + _)

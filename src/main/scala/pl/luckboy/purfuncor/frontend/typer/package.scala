@@ -630,17 +630,17 @@ package object typer
           (env, env.varType(loc))
         case Literal(value) =>
           value match {
-            case BooleanValue(_)       => (env, InferredType.booleanType)
-            case CharValue(_)          => (env, InferredType.charType)
-            case ByteValue(x)          => (env, InferredType.fromByte(x))
-            case ShortValue(x)         => (env, InferredType.fromShort(x))
-            case IntValue(x)           => (env, InferredType.fromInt(x))
-            case LongValue(x)          => (env, InferredType.fromLong(x))
-            case FloatValue(_)         => (env, InferredType.floatType)
-            case DoubleValue(_)        => (env, InferredType.doubleType)
-            case TupleFunValue(n)      => (env, InferredType.tupleFunType(n))
-            case TupleFieldFunValue(i) => (env, InferredType.tupleFieldFunType(i))
-            case BuiltinFunValue(bf)   => (env, InferredType.fromBuiltinFunction(bf))
+            case BooleanValue(_)          => (env, InferredType.booleanType)
+            case CharValue(_)             => (env, InferredType.charType)
+            case ByteValue(x)             => (env, InferredType.fromByte(x))
+            case ShortValue(x)            => (env, InferredType.fromShort(x))
+            case IntValue(x)              => (env, InferredType.fromInt(x))
+            case LongValue(x)             => (env, InferredType.fromLong(x))
+            case FloatValue(_)            => (env, InferredType.floatType)
+            case DoubleValue(_)           => (env, InferredType.doubleType)
+            case TupleFunValue(n)         => (env, InferredType.tupleFunType(n))
+            case TupleFieldFunValue(n, i) => (env, InferredType.tupleFieldFunType(n, i))
+            case BuiltinFunValue(bf)      => (env, InferredType.fromBuiltinFunction(bf))
           }
         case TypedTerm(term, typ) =>
           val (env2, info) = inferS(term)(env)

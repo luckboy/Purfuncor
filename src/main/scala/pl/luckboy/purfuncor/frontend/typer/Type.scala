@@ -171,10 +171,10 @@ object InferredType
     InferredType[T](typeValueTerm, Seq.fill(n)(InferredKind(Star(KindType, NoPosition))))
   }
   
-  def tupleFieldFunType[T](i: Int) = {
+  def tupleFieldFunType[T](n: Int, i: Int) = {
     val typeValueTerm = BuiltinType[T](
         TypeBuiltinFunction.Fun,
-        Seq(TupleType((0 to i).map { TypeParamApp[T](_, Nil, 0) }), TypeParamApp(i, Nil, 0)))
+        Seq(TupleType((0 until n).map { TypeParamApp[T](_, Nil, 0) }), TypeParamApp(i, Nil, 0)))
     InferredType[T](typeValueTerm, Seq.fill(i + 1)(InferredKind(Star(KindType, NoPosition))))
   }
 }

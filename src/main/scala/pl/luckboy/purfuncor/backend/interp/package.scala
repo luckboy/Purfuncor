@@ -78,7 +78,7 @@ package object interp
             (env, NoValue.fromString("illegal number of arguments"))
         case tupleFunValue @ TupleFunValue(_) =>
           tupleFunValue.fullyApplyS(argValues)(env)
-        case tupleFieldFunValue @ TupleFieldFunValue(_) =>
+        case tupleFieldFunValue @ TupleFieldFunValue(_, _) =>
           tupleFieldFunValue.fullyApplyS(argValues)(env)
         case BuiltinFunValue(_, f) =>
           if(f.argCount === argValues.size)

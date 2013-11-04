@@ -19,7 +19,7 @@ sealed trait Value[+T, +U, +V, +W]
       case LambdaValue(lambda, _, _)            => lambda.args.size
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
       case TupleFunValue(n)                     => n
-      case TupleFieldFunValue(_)                => 1
+      case TupleFieldFunValue(_, _)             => 1
       case BuiltinFunValue(bf, f)               => f.argCount
       case _                                    => 1
     }
@@ -62,7 +62,7 @@ sealed trait Value[+T, +U, +V, +W]
       case FloatValue(x)                        => x + "f"
       case DoubleValue(x)                       => x.toString
       case TupleFunValue(n)                     => "tuple " + n
-      case TupleFieldFunValue(i)                => "#" + (i + 1)
+      case TupleFieldFunValue(n, i)             => "#" + n + " " + (i + 1)
       case BuiltinFunValue(f, _)                => "#" + f
       case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
@@ -83,17 +83,17 @@ object Value
 {
   def fromLiteralValue[T, U, V, W](value: frontend.LiteralValue): Value[T, U, V, W] =
     value match {
-      case frontend.BooleanValue(x)       => BooleanValue(x)
-      case frontend.CharValue(x)          => CharValue(x)
-      case frontend.ByteValue(x)          => ByteValue(x)
-      case frontend.ShortValue(x)         => ShortValue(x)
-      case frontend.IntValue(x)           => IntValue(x)
-      case frontend.LongValue(x)          => LongValue(x)
-      case frontend.FloatValue(x)         => FloatValue(x)
-      case frontend.DoubleValue(x)        => DoubleValue(x)
-      case frontend.TupleFunValue(n)      => TupleFunValue(n)
-      case frontend.TupleFieldFunValue(i) => TupleFieldFunValue(i)
-      case frontend.BuiltinFunValue(bf)   => BuiltinFunValue.fromBuiltinFunction(bf)
+      case frontend.BooleanValue(x)          => BooleanValue(x)
+      case frontend.CharValue(x)             => CharValue(x)
+      case frontend.ByteValue(x)             => ByteValue(x)
+      case frontend.ShortValue(x)            => ShortValue(x)
+      case frontend.IntValue(x)              => IntValue(x)
+      case frontend.LongValue(x)             => LongValue(x)
+      case frontend.FloatValue(x)            => FloatValue(x)
+      case frontend.DoubleValue(x)           => DoubleValue(x)
+      case frontend.TupleFunValue(n)         => TupleFunValue(n)
+      case frontend.TupleFieldFunValue(n, i) => TupleFieldFunValue(n, i)
+      case frontend.BuiltinFunValue(bf)      => BuiltinFunValue.fromBuiltinFunction(bf)
     }
 }
 
@@ -125,7 +125,7 @@ case class TupleFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
       (env, NoValue.fromString("illegal application"))
 }
 
-case class TupleFieldFunValue[+T, +U, +V, W](i: Int) extends Value[T, U, V, W]
+case class TupleFieldFunValue[+T, +U, +V, W](n: Int, i: Int) extends Value[T, U, V, W]
 {
   def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
     argValues match {
