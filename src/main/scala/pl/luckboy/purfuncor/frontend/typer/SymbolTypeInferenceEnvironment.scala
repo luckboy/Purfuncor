@@ -9,9 +9,11 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.Kind
+import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
+import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import TypeValueTermUnifier._
 
 case class SymbolTypeInferenceEnvironment[T, U](
@@ -207,10 +209,11 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withClear[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) =
     if(!isRecursive) {
+      val noKind = NoKind.fromError(FatalError("no type return kind", none, NoPosition))
       val (kindInferenceEnv2, (env, res)) = kindInferenceEnv.withClear {
-        (_, f(copy(typeParamForest = ParamForest.empty, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0)))
+        (_, f(copy(typeParamForest = ParamForest.empty, typeRetKind = noKind, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0)))
       }
-      (env.withKindInferenceEnv(kindInferenceEnv2).copy(typeParamForest = ParamForest.empty, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0), res)
+      (env.withKindInferenceEnv(kindInferenceEnv2).copy(typeParamForest = ParamForest.empty, typeRetKind = noKind, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0), res)
     } else {
       f(this)
     }
@@ -227,4 +230,33 @@ case class SymbolTypeInferenceEnvironment[T, U](
           (newEnv2, argInfo :: newArgInfos)
         }
     }.mapElements(identity, _.reverse)
+}
+
+object SymbolTypeInferenceEnvironment
+{
+  def empty[T, U] = fromInferredTypeTable(InferredTypeTable.empty)
+  
+  def fromInferredTypeTable[T, U](typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol]) = SymbolTypeInferenceEnvironment[T, U](
+    typeEnv = SymbolTypeEnvironment.empty,
+    kindInferenceEnv = SymbolKindInferenceEnvironment.empty,
+    currentCombSym = none,
+    currentLambdaIdx = 0,
+    globalVarTypes = typeTable.types,
+    localVarTypes = Map(),
+    lambdaInfos = Map(),
+    typeParamForest = ParamForest.empty,
+    typeRetKind = NoKind.fromError(FatalError("no type return kind", none, NoPosition)),
+    combNodes = Map(),
+    definedTypes = Nil,
+    irreplaceableTypeParams = Map(),
+    matchingGlobalTypeSyms = Set(),
+    delayedErrNoTypes = Map(),
+    prevDelayedErrTypeParamAppIdxs = Set(),
+    nextTypeParamAppIdx = 0,
+    typeLambdaArgParams = Map(),
+    typeLambdaArgCount = 0,
+    currentTypeMatching = TypeMatching.Types,
+    currentTypePair = none,
+    errNoType = none,
+    isRecursive = false)
 }

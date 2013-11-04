@@ -5,3 +5,8 @@ import scalaz.Scalaz._
 case class InferenceLambdaInfo[T, U](typeTable: TypeTable[T, U], instanceTypes: Seq[Type[U]])
 
 case class TypeTable[T, U](types: Map[T, Type[U]])
+
+object TypeTable
+{
+  def empty[T, U] = TypeTable[T, U](Map())
+}
