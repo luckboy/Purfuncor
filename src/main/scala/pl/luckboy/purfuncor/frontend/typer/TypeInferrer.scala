@@ -75,7 +75,7 @@ object TypeInferrer
     val (env2, res) = partiallyInstantiateTypeValueTermS(term)(env)
     res.map {
       case GlobalTypeApp(loc, args, _) => appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2)
-      case _                           => (env2, term.success)
+      case term2                       => (env2, term2.success)
     }.valueOr { nt => (env, nt.failure) }
   }
   
