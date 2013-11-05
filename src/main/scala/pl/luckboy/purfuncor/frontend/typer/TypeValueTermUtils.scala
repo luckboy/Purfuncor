@@ -80,7 +80,7 @@ object TypeValueTermUtils
       case TypeValueLambda(argParams, body) =>
         val argParams2 = 0 until argParams.size
         val lambdaParams2 = IntMap() ++ (lambdaParams ++ argParams.zipWithIndex.map { p => (p._1, nextArgParam + p._2) })
-        val (termParams2, body2) = normalizeTypeParamsInTypeValyeTermForParamsS(body, nextArgParam)(lambdaParams2)(termParams)
+        val (termParams2, body2) = normalizeTypeParamsInTypeValyeTermForParamsS(body, nextArgParam + argParams.size)(lambdaParams2)(termParams)
         (termParams2, TypeValueLambda(argParams2, body2))
     }
   
@@ -99,12 +99,12 @@ object TypeValueTermUtils
         val (termParams2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams)
         (termParams2, GlobalTypeApp(loc, args2, sym))
       case TypeParamApp(param, args, paramAppIdx) =>
-        val (termParams2, nextParam2) = if(termParams.contains(param) && lambdaParams.contains(param)) 
-          (termParams, nextArgParam)
+        val termParams2 = if(termParams.contains(param) || lambdaParams.contains(param)) 
+          termParams
         else 
-          (termParams + (param -> nextArgParam), nextArgParam + 1)
-        val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, param))
-        val (termParams3, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextParam2)(lambdaParams)(termParams2)
+          termParams + (param -> termParams.size)
+        val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, termParams.size))
+        val (termParams3, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams2)
         (termParams3, TypeParamApp(param2, args2, paramAppIdx))
       case TypeConjunction(terms)                 =>
         val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
