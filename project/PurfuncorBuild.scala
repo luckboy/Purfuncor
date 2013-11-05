@@ -30,7 +30,9 @@ object PurfuncorBuild extends Build {
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.lmbdindexer.LambdaIndexer;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.TypeLambdaInfo;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.Typer;",
-      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment"
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable"
     )
   )
 }
