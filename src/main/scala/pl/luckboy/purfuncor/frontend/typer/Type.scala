@@ -90,7 +90,7 @@ sealed trait Type[T]
         "<no type>\n" + noType.errs.map { (" " * 8) + _ }.mkString("\n") + "\n"
       case InferredType(typeValueTerm, argKinds) =>
         if(!argKinds.isEmpty)
-          "\\" + argKinds.zipWithIndex.map { case (k, i) => "(t" + i + ": " + k + ")" }.mkString(" ") + " => " + typeValueTerm
+          "\\" + argKinds.zipWithIndex.map { case (k, i) => "(t" + (i + 1) + ": " + k + ")" }.mkString(" ") + " => " + typeValueTerm
         else
           typeValueTerm.toString
       case InferringType(typeValueTerm)          =>

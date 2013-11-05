@@ -151,45 +151,69 @@ object TypeInferrer
       case _                 => NoType.fromError[T](FatalError("uninferred type", none, NoPosition))
     }
   
-  def functionTypeFromTypesS[T, U, E](argTypes: Seq[Type[T]], retType: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    argTypes.foldRight((env, retType)) {
-      case (argType, (newEnv, newRetType)) =>
-        val (newEnv2, argType2) = normalizeTypeS(argType)(newEnv)
-        val (newEnv3, newRetType2) = normalizeTypeS(newRetType)(newEnv2)
-        (argType2, newRetType2) match {
+  
+  def functionTypeFromTypesS[T, U, E](argTypes: Seq[Type[T]], retType: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
+    val (env2, retType2) = normalizeTypeS(retType)(env)
+    val (env3, retTypeKindRes) = retType2 match {
+      case noType: NoType[T]            => (env2, noType.failure)
+      case InferringType(typeValueTerm) => envSt.inferTypeValueTermKindS(typeValueTerm)(env2)
+      case _                            => (env2, NoType.fromError[T](FatalError("inferred type or uninferred type", none, NoPosition)).failure)
+    }
+    argTypes.foldRight((env3, retTypeKindRes.map { (retType, _) })) {
+      case (argType, (newEnv, Success((newRetType, newRetTypeKind)))) =>
+        (argType, newRetType) match {
           case (InferredType(argTypeValueTerm, argArgKinds), InferredType(retTypeValueTerm, retArgKinds)) =>
             val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
-            val (newEnv4, argRes) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv3)
+            val (newEnv2, argRes) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv)
             val retArgKindMap = retArgKinds.zipWithIndex.map { _.swap }.toMap
-            val (newEnv5, retRes) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(newEnv4)
+            val (newEnv3, retRes) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(newEnv2)
             (argRes |@| retRes) {
               (argInferringTypeValueTerm, retInferringTypeValueTerm) =>
-                (newEnv5, InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))))
-            }.valueOr { (newEnv5, _) }
+                val (newEnv4, newRes) = envSt.inferTypeValueTermKindS(argInferringTypeValueTerm)(newEnv3)
+                val (newEnv5, newRes2) = envSt.appStarKindS(Seq(newRes.valueOr { _.toNoKind }, newRetTypeKind))(newEnv4)
+                newRes2.map {
+                  k => (newEnv5, (InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))), k).success)
+                }.valueOr { nt => (newEnv5, nt.failure) }
+            }.valueOr { nt => (newEnv3, nt.failure) }
           case (InferredType(argTypeValueTerm, argArgKinds), InferringType(retInferringTypeValueTerm))    =>
             val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
-            val (newEnv4, res) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv3)
+            val (newEnv2, res) = normalizeInferredTypeValueTermS(argTypeValueTerm, argArgKindMap)(newEnv)
             res.map {
               argInferringTypeValueTerm =>
-                (newEnv4, InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))))
-            }.valueOr { (newEnv4, _) }
+                val (newEnv3, newRes) = envSt.inferTypeValueTermKindS(argInferringTypeValueTerm)(newEnv2)
+                val (newEnv4, newRes2) = envSt.appStarKindS(Seq(newRes.valueOr { _.toNoKind }, newRetTypeKind))(newEnv3)
+                newRes2.map {
+                  k => (newEnv4, (InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))), k).success)
+                }.valueOr { nt => (newEnv4, nt.failure) }
+              }.valueOr { nt => (newEnv2, nt.failure) }
           case (InferringType(argInferringTypeValueTerm), InferredType(retTypeValueTerm, retArgKinds))    =>
             val retArgKindMap = retArgKinds.zipWithIndex.map { _.swap }.toMap
-            val (newEnv4, res) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(newEnv3)
+            val (newEnv2, res) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(newEnv)
             res.map {
               retInferringTypeValueTerm =>
-                (newEnv4, InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))))
-            }.valueOr { (newEnv4, _) }
+              	val (newEnv3, newRes) = envSt.inferTypeValueTermKindS(argInferringTypeValueTerm)(newEnv2)
+                val (newEnv4, newRes2) = envSt.appStarKindS(Seq(newRes.valueOr { _.toNoKind }, newRetTypeKind))(newEnv3)
+                newRes2.map {
+                  k => (newEnv4, (InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))), k).success)
+                }.valueOr { nt => (newEnv4, nt.failure) }
+            }.valueOr { nt => (newEnv2, nt.failure) }
           case (InferringType(argInferringTypeValueTerm), InferringType(retInferringTypeValueTerm))       =>
-            (newEnv3, InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))))
+            val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(argInferringTypeValueTerm)(newEnv)
+            val (newEnv3, newRes2) = envSt.appStarKindS(Seq(newRes.valueOr { _.toNoKind }, newRetTypeKind))(newEnv2)
+            newRes2.map {
+              k => (newEnv3, (InferringType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argInferringTypeValueTerm, retInferringTypeValueTerm))), k).success)
+            }.valueOr { nt => (newEnv3, nt.failure) }
           case ((type1 @ (UninferredType() | _: NoType[T])), (type2 @ (UninferredType() | _: NoType[T]))) =>
-            (newEnv3, noTypeFromType(type1) |+| noTypeFromType(type2))
+            (newEnv, (noTypeFromType(type1) |+| noTypeFromType(type2)).failure)
           case ((typ @ (UninferredType() | _: NoType[T])), _)                                             =>
-            (newEnv3, noTypeFromType(typ))
+            (newEnv, noTypeFromType(typ).failure)
           case (_, (typ @ (UninferredType() | _: NoType[T])))                                             =>
-            (newEnv3, noTypeFromType(typ))
+            (newEnv, noTypeFromType(typ).failure)
         }
-    }
+      case (_, (newEnv, Failure(noType))) =>
+        (newEnv, noType.failure)
+    }.mapElements(identity, _.map { _._1 }.valueOr(identity))
+  }
   
   def instantiateTypeMapS[T, U, V, E](types: Map[T, Type[U]])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, V, U]) =
     types.foldLeft((env, Map[T, Type[U]]().success[NoType[U]])) {

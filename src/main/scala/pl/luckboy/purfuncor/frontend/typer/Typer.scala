@@ -294,7 +294,7 @@ object Typer
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
       for {
         tree2 <- lmbdindexer.LambdaIndexer.transform(tree)
-        tree3 <- kinder.Kinder.transform(tree2)(kindTable) { (kt: kinder.InferredKindTable[GlobalSymbol]) => kinder.SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kt) }
+        tree3 <- kinder.Kinder.transform(tree2)(kindTable) { (kt: kinder.InferredKindTable[GlobalSymbol]) => SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kt) }
       } yield tree3
   }
   
@@ -302,7 +302,9 @@ object Typer
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], kindTable: InferredKindTable[GlobalSymbol]) =>
       statefullyTransformToSymbolTree2(kindTable)(tree)
   }
-    
+  
+  val emptySymbolTypeInferenceEnvironment = SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]
+  
   val statefullyMakeSymbolTypeInferenceEnvironment3 = {
     (kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol]) =>
       State({

@@ -116,8 +116,13 @@ object TypeValueTermKindInferrer
         rootParamRes.map {
           rootParam =>
             unifier.getParamTermS(rootParam)(env2) match {
-              case (env3, Some(Star(KindType, _))) => (env3, kind)
-              case (env3, _)                       => unifier.mismatchedTermErrorS(env3)
+              case (env3, Some(Star(KindType, _))) =>
+                (env3, kind)
+              case (env3, None)                    =>
+                val (env4, res) = unifier.replaceParamS(rootParam, Star(KindType, NoPosition))(env3)
+                (env4, res.map { _ => kind }.valueOr(identity))
+              case (env3, _)                       =>
+                unifier.mismatchedTermErrorS(env3)
             }
         }.valueOr { (env2, _) }
       case _ =>

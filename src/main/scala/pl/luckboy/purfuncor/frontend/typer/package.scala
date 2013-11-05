@@ -440,8 +440,8 @@ package object typer
           val env2 = env.withKindInferenceEnv(kindInferenceEnv)
           res.map {
             case (_, kt) =>
-              val kindInferenceEnv2 = env.kindInferenceEnv.withTypeParamKind(p, InferringKind(kt))
-              (env.withTypeParamForest(tpf).withKindInferenceEnv(kindInferenceEnv), p.success)
+              val kindInferenceEnv2 = env2.kindInferenceEnv.withTypeParamKind(p, InferringKind(kt))
+              (env2.withTypeParamForest(tpf).withKindInferenceEnv(kindInferenceEnv2), p.success)
           }.valueOr { nk => (env2, NoType.fromNoKind[GlobalSymbol](nk).failure) }
       }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("can't allocate type parameter", none, NoPosition)).failure))
     
