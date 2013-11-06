@@ -153,11 +153,17 @@ object TypeInferrer
   
   
   def functionTypeFromTypesS[T, U, E](argTypes: Seq[Type[T]], retType: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
-    val (env2, retType2) = normalizeTypeS(retType)(env)
-    val (env3, retTypeKindRes) = retType2 match {
-      case noType: NoType[T]            => (env2, noType.failure)
-      case InferringType(typeValueTerm) => envSt.inferTypeValueTermKindS(typeValueTerm)(env2)
-      case _                            => (env2, NoType.fromError[T](FatalError("inferred type or uninferred type", none, NoPosition)).failure)
+    val (env3, retTypeKindRes) = retType match {
+      case noType: NoType[T]            =>
+        (env, noType.failure)
+      case InferredType(retTypeValueTerm, retArgKinds) =>
+        val retArgKindMap = retArgKinds.zipWithIndex.map { _.swap }.toMap
+        val (env2, retRes) = normalizeInferredTypeValueTermS(retTypeValueTerm, retArgKindMap)(env)
+        retRes.map { envSt.inferTypeValueTermKindS(_)(env2) }.valueOr { nt => (env2, nt.failure) }
+      case InferringType(inferringRetTypeValueTerm)    =>
+        envSt.inferTypeValueTermKindS(inferringRetTypeValueTerm)(env)
+      case UninferredType()                            =>
+        (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }
     argTypes.foldRight((env3, retTypeKindRes.map { (retType, _) })) {
       case (argType, (newEnv, Success((newRetType, newRetTypeKind)))) =>

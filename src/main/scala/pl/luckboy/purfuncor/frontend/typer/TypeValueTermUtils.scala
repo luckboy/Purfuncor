@@ -98,14 +98,14 @@ object TypeValueTermUtils
       case GlobalTypeApp(loc, args, sym)          =>
         val (termParams2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams)
         (termParams2, GlobalTypeApp(loc, args2, sym))
-      case TypeParamApp(param, args, paramAppIdx) =>
+      case TypeParamApp(param, args, _) =>
         val termParams2 = if(termParams.contains(param) || lambdaParams.contains(param)) 
           termParams
         else 
           termParams + (param -> termParams.size)
         val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, termParams.size))
         val (termParams3, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams2)
-        (termParams3, TypeParamApp(param2, args2, paramAppIdx))
+        (termParams3, TypeParamApp(param2, args2, 0))
       case TypeConjunction(terms)                 =>
         val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
         (termParams2, TypeConjunction(terms2.toSet))

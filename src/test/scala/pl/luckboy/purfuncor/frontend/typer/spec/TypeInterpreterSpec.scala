@@ -17,7 +17,7 @@ import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
-class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside
+class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside with TyperSpecUtils
 {
   //TODO: add a tests for the partial evaluation.
   
@@ -372,14 +372,5 @@ unittype 3 U
     }
   }
 
-  val makeInferredKindTable = {
-    (s: String) =>
-      resolver.Resolver.transformString(s)(NameTree.empty).flatMap {
-        res =>
-          val (_, res2) = Typer.statefullyTransformToSymbolTree2(InferredKindTable.empty)(res).run(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]])
-          res2.map { _.treeInfo.typeTree.treeInfo.kindTable }
-    }
-  }
-  
   "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(Typer.statefullyTransformToSymbolTree2)(Typer.transformToSymbolTypeTerm2)
 }

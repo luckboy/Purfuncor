@@ -854,6 +854,12 @@ package object typer
   implicit def symbolTypeInferenceEnvironmental[T, U]: TypeInferenceEnvironmental[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, LocalSymbol, GlobalSymbol] = new TypeInferenceEnvironmental[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, LocalSymbol, GlobalSymbol] {
     override def copyEnvironment(env: SymbolTypeInferenceEnvironment[T, U]) = env
     
+    override def globalVarTypeFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(sym: GlobalSymbol) =
+      env.varType(sym)
+      
+    override def lambdaInfosFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(sym: Option[GlobalSymbol]) =
+      env.lambdaInfos.getOrElse(sym, Map())
+    
     override def getLambdaInfoFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(lambdaIdx: Int) =
       env.lambdaInfos.getOrElse(env.currentCombSym, Map()).get(lambdaIdx)
     
