@@ -20,7 +20,7 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def typeValueTermKindInferrer[T, U, V, W, X, Y, Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y]])(implicit init: Initializer[NoKind, Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TU, E, Kind], envSt2: KindInferrenceEnvironmentState[E, Z], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], TT]], globalSymTabular: GlobalSymbolTabular[TV, Z])
+  def typeValueTermKindInferrer[T, U, V, W, X, Y, Z, TT, TU, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y]])(implicit init: Initializer[NoKind, Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TU, E, Kind], envSt2: KindInferrenceEnvironmentState[E, Z], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], TT]], globalSymTabular: GlobalSymbolTabular[TT, Z])
   {
     it should "infer kind from the type value term" in {
       val typeValueTerm = BuiltinType[Z](TypeBuiltinFunction.Any, Seq())
