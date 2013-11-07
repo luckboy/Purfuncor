@@ -127,6 +127,76 @@ h x y = x y
           }
       }
     }
+    
+    it should "infer the type from the string with the let-expression" is (pending)
+    
+    it should "infer the type from the string with the lambda-expression" is (pending)
+    
+    it should "infer the type from the string with the nested lambda-expression" is (pending)
+
+    it should "infer the type from the covered local variables" is (pending)
+    
+    it should "infer the type for the inferred type of the returned value" is (pending)
+    
+    it should "initialize all types of the non-recursive dependent combinators" is (pending)
+    
+    it should "initialize all types of the recursive dependent combinators" is (pending)
+    
+    it should "infer the type from the string with the construct-expression" is (pending)
+    
+    it should "infer the type from the string with the select-expression" is (pending)
+    
+    it should "infer the type from the string with the extract-expression" is (pending)
+    
+    it should "infer the type for the recursive function that is the lambda-expression" is (pending)
+    
+    it should "infer the type for the defined type of the combinator" is (pending)
+
+    it should "infer the type for the defineds type of the arguments" is (pending)
+    
+    it should "infer the type for the defined type of the expression" is (pending)
+    
+    it should "unify the two built-in types" is (pending)
+    
+    it should "unify the two unit types" is (pending)
+    
+    it should "unify the global type application with the type that isn't global type application" is (pending)
+    
+    it should "unift the two global type applications which are same" is (pending)
+    
+    it should "unify the two global type applications which are different" is (pending)
+    
+    it should "unify the type parameters" is (pending)
+    
+    it should "unify the type parameter application with the other type" is (pending)
+
+    it should "unify the type parameter application with the type global type application" is (pending)
+    
+    it should "unify the type parameter applications which have the equal numbers of the arguments" is (pending)
+    
+    it should "unify the type parameter application which have the unequal numbers of the arguments" is (pending)
+    
+    it should "unify the two type lambda-expressions which have the equal number of the arguments" is (pending)
+    
+    it should "unify the two type lambda-expressions which have the unequal number of the arguments" is (pending)
+    
+    it should "unify the two type disjunctions" is (pending)
+    
+    it should "unify the two type conjunctions" is (pending)
+    
+    it should "unify the two types which are the same logical expression" is (pending)
+
+    it should "unify the two types which are the different logical expressions" is (pending)
+    
+    it should "unify the two types for the first interation of the unification that has the errors" is (pending)
+    
+    it should "unfiy the supertype with the type for the Any type" is (pending)
+    
+    it should "unify the supertype with the type for the Nothing type" is (pending)
+    
+    it should "unify the supertype with the type for the same logical expressions" is (pending)
+
+    it should "unify the supertype with the type for the different logical expressions" is (pending)
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
