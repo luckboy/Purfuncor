@@ -197,6 +197,8 @@ h x y = x y
     it should "unify the supertype with the type for the same logical expressions" is (pending)
 
     it should "unify the supertype with the type for the different logical expressions" is (pending)
+    
+    it should "normalize the type applications before the unification of the types" is (pending)
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
