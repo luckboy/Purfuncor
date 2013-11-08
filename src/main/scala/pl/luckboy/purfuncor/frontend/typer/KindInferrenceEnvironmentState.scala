@@ -11,5 +11,7 @@ trait KindInferrenceEnvironmentState[E, L]
   
   def typeParamKindFromEnvironmentS(param: Int)(env: E): (E, Kind)
   
+  def addTypeParamKindS(param: Int, kind: Kind)(env: E): (E, Unit)
+  
   def unifyStarKindWithKindS(kind: Kind)(env: E): (E, Kind)
 }

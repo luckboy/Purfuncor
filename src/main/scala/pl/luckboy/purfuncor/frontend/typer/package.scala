@@ -237,6 +237,9 @@ package object typer
     override def typeParamKindFromEnvironmentS(param: Int)(env: SymbolKindInferenceEnvironment[T]) =
       (env, env.typeParamKind(param))
     
+    override def addTypeParamKindS(param: Int, kind: Kind)(env: SymbolKindInferenceEnvironment[T]) =
+      (env.withTypeParamKind(param, kind), ())
+    
     override def unifyStarKindWithKindS(kind: Kind)(env: SymbolKindInferenceEnvironment[T]): (SymbolKindInferenceEnvironment[T], Kind) = {
       val (env2, res) = kind.instantiatedKindTermS(env)
       res.map { kt => env2.withKindTermPair(some((Star(KindType, NoPosition), kt)))(TypeValueTermKindInferrer.unifyStarKindWithKindS(kind)) }.valueOr { (env2, _) }

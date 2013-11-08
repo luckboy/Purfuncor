@@ -1,4 +1,5 @@
 package pl.luckboy.purfuncor.frontend.typer.spec
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import org.scalatest.FlatSpec
@@ -21,12 +22,12 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def typeValueTermKindInferrer[T, U, V, W, X, Y, Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y]])(implicit init: Initializer[NoKind, Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TU, E, Kind], envSt: kinder.KindInferenceEnvironmentState[E, Z], envSt2: KindInferrenceEnvironmentState[E, Z], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], TT]], globalSymTabular: GlobalSymbolTabular[TT, Z])
+  def typeValueTermKindInferrer[T, U, V, W, X, Y, Z, TT, TU, TV, E](emptyEnv: E)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y]])(implicit init: Initializer[NoKind, Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TU, E, Kind], unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int], envSt2: KindInferrenceEnvironmentState[E, Z], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], TT]], globalSymTabular: GlobalSymbolTabular[TT, Z])
   {
     it should "infer the kind from the type value term" in {
       val typeValueTerm = BuiltinType[Z](TypeBuiltinFunction.Any, Seq())
       val (env, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(emptyEnv)
-      val (env2, instantiatedKind) = envSt.instantiateKindS(kind)(env)
+      val (env2, instantiatedKind) = kind.instantiatedKindS(env)
       inside(instantiatedKind) {
         case InferredKind(Star(KindType, _)) =>
           // *
@@ -41,7 +42,7 @@ class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with In
           BuiltinType(TypeBuiltinFunction.Char, Seq())
           ))
       val (env, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(emptyEnv)
-      val (env2, instantiatedKind) = envSt.instantiateKindS(kind)(env)
+      val (env2, instantiatedKind) = kind.instantiatedKindS(env)
       inside(instantiatedKind) {
         case InferredKind(Star(KindType, _)) =>
           // *
@@ -57,10 +58,9 @@ class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with In
               BuiltinType(TypeBuiltinFunction.Int, Seq()),
               BuiltinType(TypeBuiltinFunction.Int, Seq())
               )),
-          BuiltinType(TypeBuiltinFunction.Float, Seq())
-          ))
+          BuiltinType(TypeBuiltinFunction.Float, Seq())))
       val (env, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(emptyEnv)
-      val (env2, instantiatedKind) = envSt.instantiateKindS(kind)(env)
+      val (env2, instantiatedKind) = kind.instantiatedKindS(env)
       inside(instantiatedKind) {
         case InferredKind(Star(KindType, _)) =>
           // *
@@ -82,7 +82,7 @@ class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with In
                   BuiltinType(TypeBuiltinFunction.Int, Seq())
                   ), GlobalSymbol(NonEmptyList("T")))
               val (env2, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env)
-              val (env3, instantiatedKind) = envSt.instantiateKindS(kind)(env2)
+              val (env3, instantiatedKind) = kind.instantiatedKindS(env2)
               inside(instantiatedKind) {
                 case InferredKind(Star(KindType, _)) =>
                   // *
@@ -109,7 +109,7 @@ type U t1 t2 = tuple 2 t1 t2
                   TypeValueLambda(Seq(), GlobalTypeApp(loc2, Seq(), GlobalSymbol(NonEmptyList("U"))))
                   ), GlobalSymbol(NonEmptyList("T")))
               val (env2, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env)
-              val (env3, instantiatedKind) = envSt.instantiateKindS(kind)(env2)
+              val (env3, instantiatedKind) = kind.instantiatedKindS(env2)
               inside(instantiatedKind) {
                 case InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) =>
                   // * -> *
@@ -119,7 +119,32 @@ type U t1 t2 = tuple 2 t1 t2
       }
     }
     
-    it should "infer the kind from the type parameter application" is (pending)
+    it should "infer the kind from the type parameter application" in {
+      // \(t1: (k1 -> k2 -> k3) -> k3 -> k1 -> k2) => t1 (\t2 t3 => tuple 2 #Int t3) #Any
+      val typeValueTerm = TypeParamApp[Z](0, Seq(
+          TypeValueLambda(Seq(1, 2), TupleType(Seq(
+              BuiltinType(TypeBuiltinFunction.Int, Seq()),
+              TypeParamApp(2, Seq(), 0)))),
+          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Any, Seq()))
+          ), 0)
+      val kind1 = InferredKind(Arrow(
+          Arrow(Star(KindParam(0), NoPosition), Arrow(Star(KindParam(1), NoPosition), Star(KindParam(2), NoPosition), NoPosition), NoPosition),
+          Arrow(Star(KindParam(2), NoPosition), Arrow(Star(KindParam(0), NoPosition), Star(KindParam(1), NoPosition), NoPosition), NoPosition), NoPosition))
+      val kind2 = InferredKind(Star(KindParam(0), NoPosition))
+      val (env, instantiatedKind1) = kind1.uninstantiatedKindS(emptyEnv)
+      val (env2, _) = envSt2.addTypeParamKindS(0, instantiatedKind1)(env)
+      val (env3, instantiatedKind2) = kind2.uninstantiatedKindS(env2)
+      val (env4, _) = envSt2.addTypeParamKindS(1, instantiatedKind2)(env3)
+      val (env5, instantiatedKind3) = kind2.uninstantiatedKindS(env4)
+      val (env6, _) = envSt2.addTypeParamKindS(2, instantiatedKind3)(env5)
+      val (env7, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env6)
+      val (env8, instantiatedKind) = kind.instantiatedKindS(env7)
+      inside(instantiatedKind) {
+        case InferredKind(Arrow(Star(KindParam(_), NoPosition), Star(KindType, NoPosition), NoPosition)) =>
+          // k1 -> *
+          ()
+      }
+    }
     
     it should "infer the kind from the conjunction" is (pending)
 
