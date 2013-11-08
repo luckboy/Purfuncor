@@ -265,16 +265,16 @@ type U t1 t2 = tuple 3 t1 t2 #Int
                       TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
                       TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))
                       ), GlobalSymbol(NonEmptyList("U")))))
-              val starKind = InferredKind(Star(KindParam(0), NoPosition))
-              val (env2, uninstantiatedKind1) = starKind.uninstantiatedKindS(env)
+              val paramKind = InferredKind(Star(KindParam(0), NoPosition))
+              val (env2, uninstantiatedKind1) = paramKind.uninstantiatedKindS(env)
               val (env3, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env2)
-              val (env4, uninstantiatedKind2) = starKind.uninstantiatedKindS(env3)
+              val (env4, uninstantiatedKind2) = paramKind.uninstantiatedKindS(env3)
               val (env5, _) = envSt2.addTypeParamKindS(1, uninstantiatedKind2)(env4)
-              val (env6, uninstantiatedKind3) = starKind.uninstantiatedKindS(env5)
+              val (env6, uninstantiatedKind3) = paramKind.uninstantiatedKindS(env5)
               val (env7, _) = envSt2.addTypeParamKindS(2, uninstantiatedKind3)(env6)
-              val (env8, uninstantiatedKind4) = starKind.uninstantiatedKindS(env7)
+              val (env8, uninstantiatedKind4) = paramKind.uninstantiatedKindS(env7)
               val (env9, _) = envSt2.addTypeParamKindS(3, uninstantiatedKind4)(env8)
-              val (env10, uninstantiatedKind5) = starKind.uninstantiatedKindS(env9)
+              val (env10, uninstantiatedKind5) = paramKind.uninstantiatedKindS(env9)
               val (env11, _) = envSt2.addTypeParamKindS(4, uninstantiatedKind5)(env10)
               val (env12, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env11)
               val (env13, instantiatedKind) = kind.instantiatedKindS(env12)
@@ -314,6 +314,73 @@ type U t1 t2 = tuple 3 t1 t2 #Int
                   ()
               }
           }
+      }      
+    }
+    
+    it should "infer the kind from the type value term with the type parameters" in {
+      val s = """
+type T t1 t2 = tuple 3 (t1 #Int) t2 #Long
+unittype 2 U
+"""
+    inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+      case Success(tree) =>
+        val (env, _) = kinder.Kinder.inferKindsFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+        val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+        inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo))) {
+          case List(loc1, loc2) =>
+            // \t1 t2 t3 t4 => (#Array t1, (t2, #Any), T t3 #Int, U #Int t4)
+            val typeValueTerm = TupleType[Z](Seq(
+                BuiltinType(TypeBuiltinFunction.Array, Seq(TypeParamApp(0, Seq(), 0))),
+                TupleType(Seq(TypeParamApp(1, Seq(), 0), BuiltinType(TypeBuiltinFunction.Any, Seq()))),
+                GlobalTypeApp(loc1, Seq(
+                    TypeValueLambda(Seq(), TypeParamApp(2, Seq(), 0)),
+                    TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
+                    ), GlobalSymbol(NonEmptyList("T"))),
+                Unittype(loc2, Seq(
+                    BuiltinType(TypeBuiltinFunction.Int, Seq()),
+                    TypeParamApp(3, Seq(), 0)
+                    ), GlobalSymbol(NonEmptyList("U")))))
+            val paramKind = InferredKind(Star(KindParam(0), NoPosition))
+            val (env2, uninstantiatedKind1) = paramKind.uninstantiatedKindS(env)
+            val (env3, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env2)
+            val (env4, uninstantiatedKind2) = paramKind.uninstantiatedKindS(env3)
+            val (env5, _) = envSt2.addTypeParamKindS(1, uninstantiatedKind2)(env4)
+            val (env6, uninstantiatedKind3) = paramKind.uninstantiatedKindS(env5)
+            val (env7, _) = envSt2.addTypeParamKindS(2, uninstantiatedKind3)(env6)
+            val (env8, uninstantiatedKind4) = paramKind.uninstantiatedKindS(env7)
+            val (env9, _) = envSt2.addTypeParamKindS(3, uninstantiatedKind4)(env8)
+            val (env10, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env9)
+            val (env11, instantiatedKind) = kind.instantiatedKindS(env10)
+            inside(instantiatedKind) {
+              case InferredKind(Star(KindType, _)) =>
+                // *
+                ()
+            }
+            val (env12, instantiatedKind1) = uninstantiatedKind1.instantiatedKindS(env11)
+            inside(instantiatedKind1) {
+              case InferredKind(Star(KindType, _)) =>
+                // *
+                ()
+            }
+            val (env13, instantiatedKind2) = uninstantiatedKind2.instantiatedKindS(env12)
+            inside(instantiatedKind2) {
+              case InferredKind(Star(KindType, _)) =>
+                // *
+                ()
+            }
+            val (env14, instantiatedKind3) = uninstantiatedKind3.instantiatedKindS(env13)
+            inside(instantiatedKind3) {
+              case InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) =>
+                // * -> *
+                ()
+            }
+            val (env15, instantiatedKind4) = uninstantiatedKind4.instantiatedKindS(env14)
+            inside(instantiatedKind4) {
+              case InferredKind(Star(KindType, _)) =>
+                // *
+                ()
+            }
+        }
       }
     }
   }
