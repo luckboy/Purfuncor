@@ -76,11 +76,13 @@ object TypeValueTermKindInferrer
  
   def appStarKindS[T, E](argKinds: Seq[Kind])(env: E)(implicit envSt: KindInferrenceEnvironmentState[E, T]) = {
     val (env2, res) = argKinds.foldLeft((env, ().success[NoKind])) {
-      case ((newEnv, Success(_)), kind) =>
+      case ((newEnv, Success(_)), kind)   =>
         envSt.unifyStarKindWithKindS(kind)(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
           case (newEnv2, _)              => (newEnv2, ().success)
         }
+      case ((newEnv, Failure(noKind)), _) =>
+        (newEnv, noKind.failure)
     }
     (env2, res.map { _ => InferredKind(Star(KindType, NoPosition)) }.valueOr(identity))
   }

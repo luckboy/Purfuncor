@@ -235,7 +235,87 @@ type U t1 t2 = tuple 2 t1 t2
       }
     }
     
-    it should "infer the kind from the type value term with the type applications" is (pending)
+    it should "infer the kind from the type value term with the type applications" in {
+      val s = """
+type T t1 t2 t3 = tuple 2 (t1 #Byte t2) t3
+type U t1 t2 = tuple 3 t1 t2 #Int
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          val (env, _) = kinder.Kinder.inferKindsFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+          val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo))) {
+            case List(loc1, loc2) =>
+              // \t1 t2 => (t1 (U #Int), T (\t3 t4 => (t3, t4)) #Boolean #Char, t2 (\t5 => #Int), U #Int #Long)
+              val typeValueTerm = TupleType[Z](Seq(
+                  TypeParamApp(0, Seq(
+                      TypeValueLambda(Seq(), GlobalTypeApp(loc2, Seq(
+                          TypeValueLambda[Z](Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
+                          ), GlobalSymbol(NonEmptyList("U"))))
+                      ), 0),
+                  GlobalTypeApp(loc1, Seq(
+                      TypeValueLambda(Seq(2, 3), TupleType(Seq(TypeParamApp(2, Seq(), 0), TypeParamApp(3, Seq(), 0)))),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq()))
+                      ), GlobalSymbol(NonEmptyList("T"))),
+                  TypeParamApp(1, Seq(
+                      TypeValueLambda(Seq(4), BuiltinType(TypeBuiltinFunction.Int, Seq()))
+                      ), 0),
+                  GlobalTypeApp(loc2, Seq(
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))
+                      ), GlobalSymbol(NonEmptyList("U")))))
+              val starKind = InferredKind(Star(KindParam(0), NoPosition))
+              val (env2, uninstantiatedKind1) = starKind.uninstantiatedKindS(env)
+              val (env3, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env2)
+              val (env4, uninstantiatedKind2) = starKind.uninstantiatedKindS(env3)
+              val (env5, _) = envSt2.addTypeParamKindS(1, uninstantiatedKind2)(env4)
+              val (env6, uninstantiatedKind3) = starKind.uninstantiatedKindS(env5)
+              val (env7, _) = envSt2.addTypeParamKindS(2, uninstantiatedKind3)(env6)
+              val (env8, uninstantiatedKind4) = starKind.uninstantiatedKindS(env7)
+              val (env9, _) = envSt2.addTypeParamKindS(3, uninstantiatedKind4)(env8)
+              val (env10, uninstantiatedKind5) = starKind.uninstantiatedKindS(env9)
+              val (env11, _) = envSt2.addTypeParamKindS(4, uninstantiatedKind5)(env10)
+              val (env12, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env11)
+              val (env13, instantiatedKind) = kind.instantiatedKindS(env12)
+              inside(instantiatedKind) {
+                case InferredKind(Star(KindType, _)) =>
+                  // *
+                  ()
+              }
+              val (env14, instantiatedKind1) = uninstantiatedKind1.instantiatedKindS(env13)
+              inside(instantiatedKind1) {
+                case InferredKind(Arrow(arg1, Star(KindType, _), _)) =>
+                  // (* -> *) -> *
+                  inside(arg1) { case Arrow(Star(KindType, _), Star(KindType, _), _) => () }
+              }
+              val (env15, instantiatedKind2) = uninstantiatedKind2.instantiatedKindS(env14)
+              inside(instantiatedKind2) {
+                case InferredKind(Arrow(arg1, Star(KindType, _), _)) =>
+                  // (k1 -> *) -> *
+                  inside(arg1) { case Arrow(Star(KindParam(_), _), Star(KindType, _), _) => () }
+              }
+              val (env16, instantiatedKind3) = uninstantiatedKind3.instantiatedKindS(env15)
+              inside(instantiatedKind3) {
+                case InferredKind(Star(KindType, _)) =>
+                  // *
+                  ()
+              }
+              val (env17, instantiatedKind4) = uninstantiatedKind4.instantiatedKindS(env16)
+              inside(instantiatedKind4) {
+                case InferredKind(Star(KindType, _)) =>
+                  // *
+                  ()
+              }
+              val (env18, instantiatedKind5) = uninstantiatedKind5.instantiatedKindS(env17)
+              inside(instantiatedKind5) {
+                case InferredKind(Star(KindParam(_), _)) =>
+                  // k1
+                  ()
+              }
+          }
+      }
+    }
   }
   
   "A TypeValueTermKindInferrer" should behave like typeValueTermKindInferrer(kinder.SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(kinder.Kinder.transformToSymbolTree)
