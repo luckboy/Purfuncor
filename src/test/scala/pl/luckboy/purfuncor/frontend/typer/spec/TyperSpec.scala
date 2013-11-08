@@ -165,6 +165,8 @@ h x y = x y
     it should "unift the two global type applications which are same" is (pending)
     
     it should "unify the two global type applications which are different" is (pending)
+
+    it should "unify the two global type applications which are recursive" is (pending)
     
     it should "unify the type parameters" is (pending)
     
