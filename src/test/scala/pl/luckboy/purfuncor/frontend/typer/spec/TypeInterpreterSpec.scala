@@ -403,8 +403,6 @@ unittype 2 U
           }
       }
     }
-    
-    it should "partially interpret the string of the type term for the type parameters" is (pending)
   }
 
   "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(Typer.statefullyTransformToSymbolTree2)(Typer.transformToSymbolTypeTerm2)
