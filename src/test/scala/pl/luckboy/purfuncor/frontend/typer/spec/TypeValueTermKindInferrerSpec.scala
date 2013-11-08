@@ -131,17 +131,47 @@ type U t1 t2 = tuple 2 t1 t2
           Arrow(Star(KindParam(0), NoPosition), Arrow(Star(KindParam(1), NoPosition), Star(KindParam(2), NoPosition), NoPosition), NoPosition),
           Arrow(Star(KindParam(2), NoPosition), Arrow(Star(KindParam(0), NoPosition), Star(KindParam(1), NoPosition), NoPosition), NoPosition), NoPosition))
       val kind2 = InferredKind(Star(KindParam(0), NoPosition))
-      val (env, instantiatedKind1) = kind1.uninstantiatedKindS(emptyEnv)
-      val (env2, _) = envSt2.addTypeParamKindS(0, instantiatedKind1)(env)
-      val (env3, instantiatedKind2) = kind2.uninstantiatedKindS(env2)
-      val (env4, _) = envSt2.addTypeParamKindS(1, instantiatedKind2)(env3)
-      val (env5, instantiatedKind3) = kind2.uninstantiatedKindS(env4)
-      val (env6, _) = envSt2.addTypeParamKindS(2, instantiatedKind3)(env5)
+      val (env, uninstantiatedKind1) = kind1.uninstantiatedKindS(emptyEnv)
+      val (env2, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env)
+      val (env3, uninstantiatedKind2) = kind2.uninstantiatedKindS(env2)
+      val (env4, _) = envSt2.addTypeParamKindS(1, uninstantiatedKind2)(env3)
+      val (env5, uninstantiatedKind3) = kind2.uninstantiatedKindS(env4)
+      val (env6, _) = envSt2.addTypeParamKindS(2, uninstantiatedKind3)(env5)
       val (env7, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env6)
       val (env8, instantiatedKind) = kind.instantiatedKindS(env7)
       inside(instantiatedKind) {
-        case InferredKind(Arrow(Star(KindParam(_), NoPosition), Star(KindType, NoPosition), NoPosition)) =>
+        case InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _)) =>
           // k1 -> *
+          ()
+      }
+      val (env9, instantiatedKind1) = uninstantiatedKind1.instantiatedKindS(env8)
+      inside(instantiatedKind1) {
+        case InferredKind(Arrow(arg1, ret1, _)) =>
+          // (k1 -> * -> *) -> * -> k1 -> *
+          inside(arg1) {
+            case Arrow(Star(KindParam(param11), _), ret11, _) =>
+              inside(ret11) {
+                case Arrow(Star(KindType, _), Star(KindType, _), _) =>
+                  inside(ret1) {
+                    case Arrow(Star(KindType, _), ret2, _) =>
+                      inside(ret2) {
+                        case Arrow(Star(KindParam(param2), _), Star(KindType, _), _) =>
+                          List(param11, param2).toSet should have size(1)
+                      }
+                  }
+              }
+          }
+      }
+      val (env10, instantiatedKind2) = uninstantiatedKind2.instantiatedKindS(env9)
+      inside(instantiatedKind2) {
+        case InferredKind(Star(KindParam(_), _)) =>
+          // k1
+          ()
+      }
+      val (env11, instantiatedKind3) = uninstantiatedKind3.instantiatedKindS(env10)
+      inside(instantiatedKind3) {
+        case InferredKind(Star(KindType, _)) =>
+          // k2
           ()
       }
     }
