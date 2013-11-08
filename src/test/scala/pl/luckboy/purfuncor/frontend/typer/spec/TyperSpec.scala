@@ -192,6 +192,8 @@ h x y = x y
     
     it should "unify the two types for the first interation of the unification that has the errors" is (pending)
     
+    it should "unify the two types which are the logical expression with the type parameters" is (pending)
+    
     it should "unfiy the supertype with the type for the Any type" is (pending)
     
     it should "unify the supertype with the type for the Nothing type" is (pending)
@@ -199,6 +201,8 @@ h x y = x y
     it should "unify the supertype with the type for the same logical expressions" is (pending)
 
     it should "unify the supertype with the type for the different logical expressions" is (pending)
+    
+    it should "unify the supertype with the type for the logical expressions with the type parameters" is (pending)
     
     it should "normalize the type applications before the unification of the types" is (pending)
   }
