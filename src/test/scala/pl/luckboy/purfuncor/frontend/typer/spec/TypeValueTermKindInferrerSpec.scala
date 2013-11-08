@@ -120,7 +120,8 @@ type U t1 t2 = tuple 2 t1 t2
     }
     
     it should "infer the kind from the type parameter application" in {
-      // \(t1: (k1 -> k2 -> k3) -> k3 -> k1 -> k2) => t1 (\t2 t3 => tuple 2 #Int t3) #Any
+      // \t1 => t1 (\t2 t3 => tuple 2 #Int t3) #Any
+      // t1 has inferring kind: (k1 -> k2 -> k3) -> k3 -> k1 -> k2      
       val typeValueTerm = TypeParamApp[Z](0, Seq(
           TypeValueLambda(Seq(1, 2), TupleType(Seq(
               BuiltinType(TypeBuiltinFunction.Int, Seq()),
@@ -171,14 +172,68 @@ type U t1 t2 = tuple 2 t1 t2
       val (env11, instantiatedKind3) = uninstantiatedKind3.instantiatedKindS(env10)
       inside(instantiatedKind3) {
         case InferredKind(Star(KindType, _)) =>
-          // k2
+          // *
           ()
       }
     }
     
-    it should "infer the kind from the conjunction" is (pending)
+    it should "infer the kind from the type conjunction" in {
+      // \t1 => t1 #& #Int #& #Any
+      val typeValueTerm = TypeConjunction[Z](Set(
+          TypeParamApp(0, Seq(), 0),
+          BuiltinType(TypeBuiltinFunction.Int, Seq()),
+          BuiltinType(TypeBuiltinFunction.Any, Seq())))
+      val kind1 = InferredKind(Star(KindParam(0), NoPosition))
+      val (env, uninstantiatedKind1) = kind1.uninstantiatedKindS(emptyEnv)
+      val (env2, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env)
+      val (env3, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env2)
+      val (env4, instantiatedKind) = kind.instantiatedKindS(env3)
+      inside(instantiatedKind) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+      val (env5, instantiatedKind1) = uninstantiatedKind1.instantiatedKindS(env4)
+      inside(instantiatedKind1) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+    }
 
-    it should "infer the kind from the disjunction" is (pending)
+    it should "infer the kind from the type disjunction" in {
+      // \t1 t2 => #Int #| #| t1 #| #Float #| t2
+      val typeValueTerm = TypeConjunction[Z](Set(
+          BuiltinType(TypeBuiltinFunction.Int, Seq()),
+          TypeParamApp(0, Seq(), 0),
+          BuiltinType(TypeBuiltinFunction.Float, Seq()),
+          TypeParamApp(1, Seq(), 0)))
+      val kind1 = InferredKind(Star(KindParam(0), NoPosition))
+      val kind2 = kind1
+      val (env, uninstantiatedKind1) = kind1.uninstantiatedKindS(emptyEnv)
+      val (env2, _) = envSt2.addTypeParamKindS(0, uninstantiatedKind1)(env)
+      val (env3, uninstantiatedKind2) = kind2.uninstantiatedKindS(env2)
+      val (env4, _) = envSt2.addTypeParamKindS(1, uninstantiatedKind2)(env3)
+      val (env5, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env4)
+      val (env6, instantiatedKind) = kind.instantiatedKindS(env5)
+      inside(instantiatedKind) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+      val (env7, instantiatedKind1) = uninstantiatedKind1.instantiatedKindS(env6)
+      inside(instantiatedKind1) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+      val (env8, instantiatedKind2) = uninstantiatedKind2.instantiatedKindS(env7)
+      inside(instantiatedKind2) {
+        case InferredKind(Star(KindType, _)) =>
+          // *
+          ()
+      }
+    }
     
     it should "infer the kind from the type value term with the type applications" is (pending)
   }
