@@ -371,7 +371,38 @@ unittype 3 U
 	  }
     }
     
-    it should "partially interpret the string of the type term" is (pending)
+    it should "partially interpret the string of the type term" in {
+      val s = """
+type T t = #Array t
+unittype 2 U
+"""
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbols(Set(
+          GlobalSymbol(NonEmptyList("T")),
+          GlobalSymbol(NonEmptyList("U"))))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val (env2, res3) = envSt.withPartialEvaluationS(true) {
+            Typer.interpretTypeTermString("tuple 2 (T #Int) (U #Int #Long)")(nameTree)(g2(data)).run
+          } (env)
+          inside(res3) {
+            case Success(EvaluatedTypeValue(term)) =>
+              val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+              inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(env2))) {
+                case List(loc1, loc2) =>
+                  term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                      GlobalTypeApp(loc1, Seq(
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
+                          ), GlobalSymbol(NonEmptyList("T"))),
+                      GlobalTypeApp(loc2, Seq(
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))
+                          ), GlobalSymbol(NonEmptyList("U"))))))
+              }
+          }
+      }
+    }
     
     it should "partially interpret the string of the type term for the type parameters" is (pending)
   }
