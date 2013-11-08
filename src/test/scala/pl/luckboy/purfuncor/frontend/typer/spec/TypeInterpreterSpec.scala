@@ -19,7 +19,6 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside with TyperSpecUtils
 {
-  //TODO: add a tests for the partial evaluation.
   //TODO: add a tests for the EvaluatedTypeLambdaValue class.
   
   def typer[T, U, V, W, X, Y, Z, TT, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], envSt: TypeEnvironmentState[E, Z, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
@@ -371,6 +370,10 @@ unittype 3 U
 	    case TypeCombinatorValue(_, _, _) => ()
 	  }
     }
+    
+    it should "partially interpret the string of the type term" is (pending)
+    
+    it should "partially interpret the string of the type term for the type parameters" is (pending)
   }
 
   "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(Typer.statefullyTransformToSymbolTree2)(Typer.transformToSymbolTypeTerm2)
