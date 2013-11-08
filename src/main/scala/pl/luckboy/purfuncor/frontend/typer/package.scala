@@ -46,6 +46,9 @@ package object typer
     override def currentTypeParamAppIdxFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.currentTypeParamAppIdx)
     
     override def globalTypeVarValueFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) = (env, env.typeVarValue(loc))
+    
+    override def withPartialEvaluationS[U](isPartial: Boolean)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
+      env.withPartialEvaluation(isPartial)(f)
   }
   
   implicit def symbolTypeSimpleTermEvaluator[T]: Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] = new Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {
