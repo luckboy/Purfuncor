@@ -9,13 +9,13 @@ object TypeValueTermUtils
 {
   def typeParamsFromTypeValueTerm[T](term: TypeValueTerm[T]): Set[Int] =
     term match {
-      case TupleType(args)               => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case BuiltinType(_, args)          => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case Unittype(_, args, _)          => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case GlobalTypeApp(_, args, _)     => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case TypeParamApp(param, args, _)  => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case TypeConjunction(terms)        => terms.flatMap(typeParamsFromTypeValueTerm).toSet
-      case TypeDisjunction(terms)        => terms.flatMap(typeParamsFromTypeValueTerm).toSet
+      case TupleType(args)              => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case BuiltinType(_, args)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case Unittype(_, args, _)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case GlobalTypeApp(_, args, _)    => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case TypeParamApp(param, args, _) => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case TypeConjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
+      case TypeDisjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
     }
   
   def typeArgParamsFromTypeValueTerm[T](term: TypeValueTerm[T]): Set[Int] =
