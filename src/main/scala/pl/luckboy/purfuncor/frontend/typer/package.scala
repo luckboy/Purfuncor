@@ -204,9 +204,6 @@ package object typer
     override def globalTypeVarValueFromEnvironment(env: SymbolTypeEnvironment[T])(sym: GlobalSymbol) =
       env.typeVarValue(sym)
     
-    override def withGlobalTypeVar(env: SymbolTypeEnvironment[T])(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) =
-      env.withGlobalTypeVar(sym, value)
-    
     override def withPartialEvaluation[U](env: SymbolTypeEnvironment[T])(isPartial: Boolean)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)) =
       env.withPartialEvaluation(isPartial)(f)
   }

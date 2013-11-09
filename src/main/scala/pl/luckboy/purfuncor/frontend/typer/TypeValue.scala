@@ -66,6 +66,11 @@ sealed trait TypeValue[T, +U, +V, +W]
     evaluatedValue match {
       case EvaluatedTypeValue(term) =>
         (env, TypeValueLambda(param1 until paramN, term).success)
+      case EvaluatedTypeLambdaValue(TypeValueLambda(argParams, body)) =>
+        if((argParams.toSet & (param1 until paramN).toSet).isEmpty)
+          (env, TypeValueLambda(argParams ++ (param1 until paramN), body)success)
+        else
+          (env, NoTypeValue.fromError(FatalError("conflict of type arguments", none, NoPosition)).failure)
       case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _)) =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>

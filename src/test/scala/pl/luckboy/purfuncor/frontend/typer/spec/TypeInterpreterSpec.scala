@@ -19,8 +19,6 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TypeInterpreterSpec extends FlatSpec with ShouldMatchers with Inside with TyperSpecUtils
 {
-  //TODO: add tests for the EvaluatedTypeLambdaValue class.
-  
   def typer[T, U, V, W, X, Y, Z, TT, C, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, X]], Y]]])(g2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, X]]])(implicit init: Initializer[NoTypeValue[Z, W, X, C], Z, AbstractTypeCombinator[W, X], E], eval: Evaluator[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]], envSt: TypeEnvironmentState[E, Z, TypeValue[Z, W, X, C]], enval: TypeEnvironmental[E, TypeValue[Z, W, X, C]], treeInfoExtractor: TreeInfoExtractor[Y, Tree[Z, AbstractTypeCombinator[W, X], TT]], globalSymTabular: GlobalSymbolTabular[E, Z])
   {
     val f = f2(initData)
@@ -399,6 +397,136 @@ unittype 2 U
                           TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
                           TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))
                           ), GlobalSymbol(NonEmptyList("U"))))))
+              }
+          }
+      }
+    }
+    
+    it should "interpret the evaluated type lambda value" in {
+      val s = """
+type T t1 t2 t3 = tuple 3 t1 t2 t3
+unittype 1 U
+"""
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbols(Set(
+          GlobalSymbol(NonEmptyList("T")),
+          GlobalSymbol(NonEmptyList("U"))))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(env))) {
+            case List(loc1, loc2) =>
+              // \t1 t2 => (T t1 t2 t3, U t2, t1, t4)
+              val funValue = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
+                  GlobalTypeApp(loc1, Seq(
+                      TypeValueLambda(Nil, TypeParamApp(0, Nil, 0)),
+                      TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
+                      TypeValueLambda(Nil, TypeParamApp(2, Nil, 0))
+                      ), GlobalSymbol(NonEmptyList("T"))),
+                  GlobalTypeApp(loc2, Seq(
+                      TypeValueLambda(Nil, TypeParamApp(1, Nil, 0))
+                      ), GlobalSymbol(NonEmptyList("U"))),
+                  TypeParamApp(0, Nil, 0),
+                  TypeParamApp(3, Nil, 0)))))
+              val (env2, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(
+                  EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Int, Nil)),
+                  EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Long, Nil)))).run(env)
+              inside(res3) {
+                case EvaluatedTypeValue(term) =>
+                  term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                      GlobalTypeApp(loc1, Seq(
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq())),
+                          TypeValueLambda(Seq(), TypeParamApp(2, Seq(), 0))
+                          ), GlobalSymbol(NonEmptyList("T"))),
+                      GlobalTypeApp(loc2, Seq(
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))
+                          ), GlobalSymbol(NonEmptyList("U"))),
+                      BuiltinType(TypeBuiltinFunction.Int, Seq()),
+                      TypeParamApp(3, Nil, 0))))
+             }
+          }
+      }
+    }
+    
+    it should "interpret the evaluated type lambda value with the type parameter applications" in {
+      val s = "type T t1 t2 = tuple 2 (t1 t2) t2"
+      val (env, res) = Typer.interpretTypeTreeFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbols(Set(GlobalSymbol(NonEmptyList("T"))))
+      inside((res |@| res2) { (_, d) => d }) {
+        case Success(data) =>
+          val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("T")))) {
+            case Some(loc) =>
+              // \t1 t2 => (t1 t2 #Int, t2 #Long #Float #Double, T (t1 t2) #Byte, t1 (\t3 t4 => t2 (t3, t4, #Short) #Int) #Long)
+              val funValue = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
+                  TypeParamApp(0, Seq(
+                      TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Int, Nil))
+                      ), 0),
+                  TypeParamApp(1, Seq(
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Long, Nil)),
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Float, Nil)),
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Double, Nil))
+                      ), 0),
+                  GlobalTypeApp(loc, Seq(
+                      TypeValueLambda(Nil, TypeParamApp(0, Seq(
+                          TypeValueLambda(Nil, TypeParamApp(1, Nil, 0))
+                          ), 0)),
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Byte, Nil))
+                      ), GlobalSymbol(NonEmptyList("T"))),
+                  TypeParamApp(0, Seq(
+                      TypeValueLambda(Seq(2, 3), TypeParamApp(1, Seq(
+                          TypeValueLambda(Nil, TupleType(Seq(
+                              TypeParamApp(2, Nil, 0),
+                              TypeParamApp(3, Nil, 0),
+                              BuiltinType(TypeBuiltinFunction.Short, Nil)))),
+                          TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Int, Nil))
+                          ), 0)),
+                      TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Long, Nil))
+                      ), 0)))))
+              // \t5 t6 => t5 t6 #Boolean #Char
+              val arg1 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(4, 5), TypeParamApp(4, Seq(
+                  TypeValueLambda(Nil, TypeParamApp(5, Nil, 0)),
+                  TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Boolean, Nil)),
+                  TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Char, Nil))
+                  ), 0)))
+              // \t7 t8 t9 => (t1, t2, t3)
+              val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(6, 7, 8), TupleType(Seq(
+                  TypeParamApp(6, Nil, 0),
+                  TypeParamApp(7, Nil, 0),
+                  TypeParamApp(8, Nil, 0)))))
+              val (env2, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(env)
+              inside(res3) {
+                case EvaluatedTypeValue(term) =>
+                  // t1 (\t3 t4 => t2 (t3, t4, #Short) #Int) #Long
+                  // (((#Long, #Boolean, #Short), #Int, #Char)
+                  // ((#Int, #Boolean, #Char), (#Long, #Float, #Double), T (\t2 => (t2, #Boolean, #Char)) #Byte, ((#Long, #Boolean, #Short), #Int, #Char))
+                  term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                      TupleType(Seq(
+                          BuiltinType(TypeBuiltinFunction.Int, Seq()),
+                          BuiltinType(TypeBuiltinFunction.Boolean, Seq()),
+                          BuiltinType(TypeBuiltinFunction.Char, Seq()))),
+                      TupleType(Seq(
+                          BuiltinType(TypeBuiltinFunction.Long, Seq()),
+                          BuiltinType(TypeBuiltinFunction.Float, Seq()),
+                          BuiltinType(TypeBuiltinFunction.Double, Seq()))),
+                      GlobalTypeApp(loc, Seq(
+                          TypeValueLambda(Seq(5), TupleType(Seq(
+                              TypeParamApp(5, Seq(), 0),
+                              BuiltinType(TypeBuiltinFunction.Boolean, Seq()),
+                              BuiltinType(TypeBuiltinFunction.Char, Seq())))),
+                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Byte, Seq()))
+                          ), GlobalSymbol(NonEmptyList("T"))),
+                      TupleType(Seq(
+                          TupleType(Seq(
+                              BuiltinType(TypeBuiltinFunction.Long, Seq()),
+                              BuiltinType(TypeBuiltinFunction.Boolean, Seq()),
+                              BuiltinType(TypeBuiltinFunction.Short, Seq()))),
+                          BuiltinType(TypeBuiltinFunction.Int, Seq()),
+                          BuiltinType(TypeBuiltinFunction.Char, Seq()))))))
               }
           }
       }
