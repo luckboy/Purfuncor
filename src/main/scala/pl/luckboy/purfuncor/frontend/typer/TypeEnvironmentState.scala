@@ -9,6 +9,4 @@ trait TypeEnvironmentState[E, L, V]
   def currentTypeParamAppIdxFromEnvironmentS(env: E): (E, Int)
   
   def globalTypeVarValueFromEnvironmentS(loc: L)(env: E): (E, V)
-  
-  def withPartialEvaluationS[T](isPartial: Boolean)(f: E => (E, T))(env: E): (E, T)
 }

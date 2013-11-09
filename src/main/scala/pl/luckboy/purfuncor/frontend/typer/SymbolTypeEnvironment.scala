@@ -60,7 +60,7 @@ case class SymbolTypeEnvironment[T](
     (newEnv.withTypeParamCount(oldParamCount), res)
   }
   
-  def withGlobalTypeVar(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]) = copy(globalTypeVarValues = globalTypeVarValues + (sym -> value))
+  def withGlobalTypeVar(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]): SymbolTypeEnvironment[T] = copy(globalTypeVarValues = globalTypeVarValues + (sym -> value))
   
   def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
   
@@ -96,7 +96,7 @@ case class SymbolTypeEnvironment[T](
     (env.withCurrentTypeParamAppIdx(oldParamAppIdx), res)
   }
   
-  def withPartial(isPartial: Boolean) = copy(isPartial = isPartial)
+  def withPartial(isPartial: Boolean): SymbolTypeEnvironment[T] = copy(isPartial = isPartial)
   
   def withPartialEvaluation[U](isPartial: Boolean)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)) = {
     val old = this.isPartial

@@ -383,9 +383,9 @@ unittype 2 U
           GlobalSymbol(NonEmptyList("U"))))
       inside((res |@| res2) { (_, d) => d }) {
         case Success(data) =>
-          val (env2, res3) = envSt.withPartialEvaluationS(true) {
+          val (env2, res3) = enval.withPartialEvaluation(env)(true) {
             Typer.interpretTypeTermString("tuple 2 (T #Int) (U #Int #Long)")(nameTree)(g2(data)).run
-          } (env)
+          }
           inside(res3) {
             case Success(EvaluatedTypeValue(term)) =>
               val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
