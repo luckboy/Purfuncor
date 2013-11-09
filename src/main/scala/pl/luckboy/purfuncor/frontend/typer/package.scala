@@ -129,7 +129,7 @@ package object typer
             val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
             val retValue = res.map {
               ls =>
-                substituteTypeValueLambdas(lambda.body, lambda.argParams.zip(ls).toMap).map {
+                substituteTypeValueLambdas(lambda.body, lambda.argParams.zip(ls).toMap, env2.typeParamCount).map {
                   EvaluatedTypeValue(_)
                 }.getOrElse(NoTypeValue.fromError[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](FatalError("can't substitute type value lambdas", none, NoPosition)))
             }.valueOr(identity)

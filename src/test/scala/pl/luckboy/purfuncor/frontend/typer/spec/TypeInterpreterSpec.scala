@@ -487,23 +487,23 @@ unittype 1 U
                           ), 0)),
                       TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Long, Nil))
                       ), 0)))))
-              // \t5 t6 => t5 t6 #Boolean #Char
-              val arg1 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(4, 5), TypeParamApp(4, Seq(
-                  TypeValueLambda(Nil, TypeParamApp(5, Nil, 0)),
+              // \t1 t2 => t1 t2 #Boolean #Char
+              val arg1 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TypeParamApp(0, Seq(
+                  TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
                   TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Boolean, Nil)),
                   TypeValueLambda(Nil, BuiltinType(TypeBuiltinFunction.Char, Nil))
                   ), 0)))
-              // \t7 t8 t9 => (t1, t2, t3)
-              val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(6, 7, 8), TupleType(Seq(
-                  TypeParamApp(6, Nil, 0),
-                  TypeParamApp(7, Nil, 0),
-                  TypeParamApp(8, Nil, 0)))))
+              // \t1 t2 t3 => (t1, t2, t3)
+              val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1, 2), TupleType(Seq(
+                  TypeParamApp(0, Nil, 0),
+                  TypeParamApp(1, Nil, 0),
+                  TypeParamApp(2, Nil, 0)))))
               val (env2, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(env)
               inside(res3) {
                 case EvaluatedTypeValue(term) =>
                   // t1 (\t3 t4 => t2 (t3, t4, #Short) #Int) #Long
                   // (((#Long, #Boolean, #Short), #Int, #Char)
-                  // ((#Int, #Boolean, #Char), (#Long, #Float, #Double), T (\t2 => (t2, #Boolean, #Char)) #Byte, ((#Long, #Boolean, #Short), #Int, #Char))
+                  // ((#Int, #Boolean, #Char), (#Long, #Float, #Double), T (\t1 => (t1, #Boolean, #Char)) #Byte, ((#Long, #Boolean, #Short), #Int, #Char))
                   term should be ===(TupleType(Seq[TypeValueTerm[Z]](
                       TupleType(Seq(
                           BuiltinType(TypeBuiltinFunction.Int, Seq()),
@@ -514,8 +514,8 @@ unittype 1 U
                           BuiltinType(TypeBuiltinFunction.Float, Seq()),
                           BuiltinType(TypeBuiltinFunction.Double, Seq()))),
                       GlobalTypeApp(loc, Seq(
-                          TypeValueLambda(Seq(5), TupleType(Seq(
-                              TypeParamApp(5, Seq(), 0),
+                          TypeValueLambda(Seq(0), TupleType(Seq(
+                              TypeParamApp(0, Seq(), 0),
                               BuiltinType(TypeBuiltinFunction.Boolean, Seq()),
                               BuiltinType(TypeBuiltinFunction.Char, Seq())))),
                           TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Byte, Seq()))
