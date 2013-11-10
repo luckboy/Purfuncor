@@ -351,6 +351,12 @@ f x1 = \x2 g => \h x3 => #fAdd (#fMul x1 x3) (g (h x2))
                   }
               }
           }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
       }
     }
 
