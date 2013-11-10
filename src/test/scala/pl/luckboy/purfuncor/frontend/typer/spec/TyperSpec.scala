@@ -425,7 +425,107 @@ g x y = f (#dAdd 1.0 x) y
       }
     }
     
-    it should "initialize all types of the non-recursive dependent combinators" is (pending)
+    it should "initialize all types of the non-recursive dependent combinators" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x y = tuple 3 (g y) (h x y) (#zXor y true)
+g x = tuple 2 x (i x)
+h x y = i (x y)
+i x = j
+j = 'a'
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // f
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => (#Boolean #-> t1) #-> #Boolean #-> ((#Boolean, #Char), #Char, #Boolean)
+          inside(argType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+              inside(argType11) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              inside(retType11) { case TypeParamApp(_, Seq(), 0) => () }
+          }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              inside(retType2) {
+                case TupleType(Seq(type21, type22, type23)) =>
+                 inside(type21) { case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), BuiltinType(TypeBuiltinFunction.Char, Seq()))) => () }
+                 inside(type22) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+                 inside(type23) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // g
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => t1 #-> (t1, #Char)
+          inside(argType1) {
+            case TypeParamApp(param1, Seq(), 0) =>
+              inside(retType1) {
+                case TupleType(Seq(TypeParamApp(param11, Seq(), 0), BuiltinType(TypeBuiltinFunction.Char, Seq()))) =>
+                  List(param1, param11).toSet should have size(1)
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // h
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 t2 => (t1 #-> t2) #-> t1 #-> #Char
+          inside(argType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+              inside(argType11) {
+                case TypeParamApp(param11, Seq(), 0) =>
+                  inside(retType11) {
+                    case TypeParamApp(param12, Seq(), 0) =>
+                      inside(retType1) {
+                        case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+                          inside(argType2) {
+                            case TypeParamApp(param2, Seq(), 0) =>
+                              inside(retType2) {
+                                case BuiltinType(TypeBuiltinFunction.Char, Seq()) =>
+                                  List(param11, param2).toSet should have size(1)
+                                  List(param11, param12, param2).toSet should have size(2)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // i
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("i")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => t1 #-> #Char
+          inside(argType1) { case TypeParamApp(_, Seq(), 0) => () }
+          inside(retType1) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // j
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("j")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Char, Seq()), Seq()) =>
+          // #Char
+          ()
+      }
+    }
     
     it should "initialize all types of the recursive dependent combinators" is (pending)
     
