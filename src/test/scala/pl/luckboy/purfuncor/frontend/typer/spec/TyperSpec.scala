@@ -416,6 +416,12 @@ g x y = f (#dAdd 1.0 x) y
                   }
               }
           }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
       }
     }
     
