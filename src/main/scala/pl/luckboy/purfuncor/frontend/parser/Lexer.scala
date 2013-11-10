@@ -18,14 +18,14 @@ case class Lexer() extends StdLexical
   case class DoubleLit(chars: String) extends Token
   
   override def token = (
-      keywordOrIdent
+      floatLit
+      | doubleLit
+      | keywordOrIdent
       | charLit
       | byteLit
       | shortLit
       | longLit
       | intLit
-      | floatLit
-      | doubleLit
       | delim)
   
   override def whitespaceChar = elem("space char",  c => c <= ' ' && c =/= '\n' && c =/= EofCh)

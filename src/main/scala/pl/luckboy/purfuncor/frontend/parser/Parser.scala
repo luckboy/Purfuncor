@@ -140,9 +140,9 @@ object Parser extends StandardTokenParsers with PackratParsers
 
   def parseInteger[T](s: String)(f: (String, Int) => T) =
     if(s.startsWith("0x") || s.startsWith("0X"))
-      f(s, 16)
+      f(s.substring(2), 16)
     else if(s.startsWith("0") && s.length >= 2)
-      f(s, 8)
+      f(s.substring(1), 8)
     else
       f(s, 10)
 
@@ -321,14 +321,14 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   def parseTermString(s: String) =
     phrase(parseTerm)(new lexical.Scanner(s)) match {
-      case Success(termWrapper, _) => termWrapperToTerm(termWrapper).success
+      case Success(termWrapper, _) => termWrapperToTerm(termWrapper).successNel[AbstractError]
       case Failure(msg, next)      => common.Error(msg, none, next.pos).failureNel
       case Error(msg, next)        => common.FatalError(msg, none, next.pos).failureNel
     }
   
   def parseTypeTermString(s: String) =
     phrase(parseTypeTerm)(new lexical.Scanner(s)) match {
-      case Success(typeTermWrapper, _) => typeTermWrapperToTypeTerm(typeTermWrapper).success
+      case Success(typeTermWrapper, _) => typeTermWrapperToTypeTerm(typeTermWrapper).successNel[AbstractError]
       case Failure(msg, next)          => common.Error(msg, none, next.pos).failureNel
       case Error(msg, next)            => common.FatalError(msg, none, next.pos).failureNel
     }
