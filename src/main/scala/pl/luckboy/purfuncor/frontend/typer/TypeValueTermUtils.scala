@@ -80,7 +80,13 @@ object TypeValueTermUtils
     }
   
   def substituteTypeValueLambdas[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) = {
-    val params = typeParamsFromTypeValueTerm(term) | typeArgParamsFromTypeValueTerm(term) | paramLambdas.keySet
+    val params = (
+        typeParamsFromTypeValueTerm(term) | 
+        typeArgParamsFromTypeValueTerm(term) |
+        paramLambdas.keySet |
+        paramLambdas.values.flatMap {
+          l => typeParamsFromTypeValueTerm(l.body) | (typeArgParamsFromTypeValueTerm(l.body) ++ l.argParams)
+        }.toSet)
     val nextArgParam2 = params.maximum.map(1 +).getOrElse(nextArgParam)
     val paramLambdas2 = paramLambdas.foldLeft((Map[Int, TypeValueLambda[T]](), nextArgParam2)) {
       case ((newParamLambdas, newNextArgParam), (param, lambda @ TypeValueLambda(argParams, body))) =>

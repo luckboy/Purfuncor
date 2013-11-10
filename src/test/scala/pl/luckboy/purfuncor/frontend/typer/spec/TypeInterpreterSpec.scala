@@ -536,12 +536,12 @@ unittype 1 U
           TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
           TypeValueLambda(Nil, TypeParamApp(2, Nil, 0))
           ), 0)))
-      // \t1 t2 => (t1 t2, t3)
+      // \t1 t2 => (t1 t2, t4)
       val arg1 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
           TypeParamApp(0, Seq(
               TypeValueLambda(Nil, TypeParamApp(1, Nil, 0))
               ), 0),
-          TypeParamApp(2, Nil, 0)))))
+          TypeParamApp(3, Nil, 0)))))
       // \t1 => (t1, t2)
       val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0), TupleType(Seq(
           TypeParamApp(0, Nil, 0),
@@ -549,10 +549,10 @@ unittype 1 U
       val (env, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(emptyEnv)
       inside(res3) {
         case EvaluatedTypeValue(term) =>
-          // ((t3, t2), t3)
+          // ((t3, t2), t4)
           term should be ===(TupleType(Seq[TypeValueTerm[Z]](
               TupleType(Seq(TypeParamApp(2, Nil, 0), TypeParamApp(1, Nil, 0))),
-              TypeParamApp(2, Nil, 0))))
+              TypeParamApp(3, Nil, 0))))
       }
     }
   }
