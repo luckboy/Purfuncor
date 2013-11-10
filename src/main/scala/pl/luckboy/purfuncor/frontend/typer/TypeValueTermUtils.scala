@@ -29,69 +29,75 @@ object TypeValueTermUtils
       case TypeDisjunction(terms)       => terms.flatMap(typeArgParamsFromTypeValueTerm).toSet
     }
   
-  private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) =
+  private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
     terms.foldLeft(some(Seq[TypeValueTerm[T]]())) {
-      (o, t) => for(ts <- o; t2 <- substituteTypeValueLambdasInTypeValueTerm(t, paramLambdas, nextArgParam)) yield (ts :+ t2)
+      (o, t) => for(ts <- o; t2 <- substituteTypeValueLambdasInTypeValueTerm(t, paramLambdas)) yield (ts :+ t2)
     }
 
-  private def substituteTypeValueLambdasInTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) =
+  private def substituteTypeValueLambdasInTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
     lambdas.foldLeft(some(Seq[TypeValueLambda[T]]())) {
-      (o, l) => for(ls <- o; l2 <- substituteTypeValueLambdasInTypeValueLambda(l, paramLambdas -- l.argParams, nextArgParam)) yield (ls :+ l2)
+      (o, l) => for(ls <- o; l2 <- substituteTypeValueLambdasInTypeValueLambda(l, paramLambdas -- l.argParams)) yield (ls :+ l2)
     }
 
-  private def substituteTypeValueLambdasInTypeValueLambda[T](lambda: TypeValueLambda[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int): Option[TypeValueLambda[T]] =
+  private def substituteTypeValueLambdasInTypeValueLambda[T](lambda: TypeValueLambda[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueLambda[T]] =
     lambda match {
       case TypeValueLambda(argParams, typeParamApp @ TypeParamApp(param, args, paramAppIdx)) =>
-        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas, nextArgParam).flatMap {
+        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).flatMap {
           args2 =>
             paramLambdas.get(param).map {
               case TypeValueLambda(argParams2, body2) =>
-                val (argParams3, paramLambdas3, body3) = if((argParams.toSet & argParams2.drop(args2.size).toSet).isEmpty) {
-                  (argParams ++ argParams2.drop(args2.size), argParams2.take(args2.size).zip(args2).toMap, body2)
-                } else {
-                  val bodyParams2 = typeParamsFromTypeValueTerm(body2)
-                  val nextArgParam2 = (
-                      typeParamsFromTypeValueTerm(typeParamApp) |
-                      typeArgParamsFromTypeValueTerm(typeParamApp) |
-                      bodyParams2 |
-                      typeArgParamsFromTypeValueTerm(body2)).maximum.map(+ _).getOrElse(nextArgParam)
-                  val (_, tmpLambda) = normalizeTypeParamsInTypeValueLambdaForParamsS(TypeValueLambda(argParams2, body2), nextArgParam2)(IntMap())(bodyParams2.map { p => p -> p }.toMap)
-                  (argParams ++ tmpLambda.argParams.drop(args2.size), tmpLambda.argParams.take(args2.size).zip(args2).toMap, tmpLambda.body)
-                }
-                val lambda3 = TypeValueLambda(Nil, body3)
-                substituteTypeValueLambdasInTypeValueLambda(lambda3, paramLambdas3, nextArgParam).map {
-                  case TypeValueLambda(_, body4) =>
-                    TypeValueLambda(argParams3, body4)
+                val argParams3 = argParams ++ argParams2.drop(args2.size)
+                val paramLambdas3 = argParams2.take(args2.size).zip(args2).toMap
+                val lambda3 = TypeValueLambda(Nil, body2)
+                substituteTypeValueLambdasInTypeValueLambda(lambda3, paramLambdas3).map {
+                  case TypeValueLambda(_, body3) => TypeValueLambda(argParams3, body3)
                 }
             }.getOrElse(some(TypeValueLambda(argParams, TypeParamApp(param, args2, paramAppIdx))))
         }
       case TypeValueLambda(argParams, body) =>
-        substituteTypeValueLambdasInTypeValueTerm(body, paramLambdas -- argParams, nextArgParam).map { TypeValueLambda(argParams, _) }
+        substituteTypeValueLambdasInTypeValueTerm(body, paramLambdas -- argParams).map { TypeValueLambda(argParams, _) }
     }
   
-  private def substituteTypeValueLambdasInTypeValueTerm[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int): Option[TypeValueTerm[T]] =
+  private def substituteTypeValueLambdasInTypeValueTerm[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueTerm[T]] =
     term match {
       case TupleType(args)               => 
-        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas, nextArgParam).map { TupleType(_) }
+        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { TupleType(_) }
       case BuiltinType(bf, args)         =>
-        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas, nextArgParam).map { BuiltinType(bf, _) }
+        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
       case Unittype(loc, args, sym)      =>
-        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas, nextArgParam).map { Unittype(loc, _, sym) }
+        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { Unittype(loc, _, sym) }
       case GlobalTypeApp(loc, args, sym) =>
-        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas, nextArgParam).map { GlobalTypeApp(loc, _, sym) }
+        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { GlobalTypeApp(loc, _, sym) }
       case typeParamApp: TypeParamApp[T] =>
-        substituteTypeValueLambdasInTypeValueLambda(TypeValueLambda(Nil, typeParamApp), paramLambdas, nextArgParam).flatMap {
+        substituteTypeValueLambdasInTypeValueLambda(TypeValueLambda(Nil, typeParamApp), paramLambdas).flatMap {
           case TypeValueLambda(Seq(), body) => some(body)
           case _                            => none
         }
       case TypeConjunction(terms)        =>
-        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas, nextArgParam).map { ts => TypeConjunction(ts.toSet) }
+        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeConjunction(ts.toSet) }
       case TypeDisjunction(terms)        =>
-        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas, nextArgParam).map { ts => TypeDisjunction(ts.toSet) }
+        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeDisjunction(ts.toSet) }
     }
   
   def substituteTypeValueLambdas[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) = {
-    substituteTypeValueLambdasInTypeValueTerm(term, paramLambdas, nextArgParam).map {
+    val params = typeParamsFromTypeValueTerm(term) | typeArgParamsFromTypeValueTerm(term) | paramLambdas.keySet
+    val nextArgParam2 = params.maximum.map(1 +).getOrElse(nextArgParam)
+    val paramLambdas2 = paramLambdas.foldLeft((Map[Int, TypeValueLambda[T]](), nextArgParam2)) {
+      case ((newParamLambdas, newNextArgParam), (param, lambda @ TypeValueLambda(argParams, body))) =>
+        val lambdaArgParams = typeArgParamsFromTypeValueTerm(body) ++ argParams
+        if((params & lambdaArgParams).isEmpty) {
+          (newParamLambdas + (param -> lambda), newNextArgParam)
+        } else {
+          val bodyParams = typeParamsFromTypeValueTerm(body)
+          val (_, lambda2) = normalizeTypeParamsInTypeValueLambdaForParamsS(lambda, newNextArgParam)(IntMap())(bodyParams.map { p => p -> p }.toMap)
+          lambda2 match {
+            case TypeValueLambda(argParams2, body2) =>
+              val lambdaArgParams2 = typeArgParamsFromTypeValueTerm(body2) ++ argParams2
+              (newParamLambdas + (param -> lambda2), lambdaArgParams2.maximum.map(1 +).getOrElse(newNextArgParam))
+          }
+        }
+    }._1
+    substituteTypeValueLambdasInTypeValueTerm(term, paramLambdas2).map {
       term2 =>
         normalizeTypeParamsForParams(term2, nextArgParam)(typeParamsFromTypeValueTerm(term2).map { p => p -> p }.toMap)
     }

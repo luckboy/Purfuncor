@@ -545,7 +545,7 @@ unittype 1 U
               ), 0),
           TypeParamApp(2, Nil, 0)))))
       // \t1 => (t1, t2)
-      val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
+      val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0), TupleType(Seq(
           TypeParamApp(0, Nil, 0),
           TypeParamApp(1, Nil, 0)))))
       val (env, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(emptyEnv)
