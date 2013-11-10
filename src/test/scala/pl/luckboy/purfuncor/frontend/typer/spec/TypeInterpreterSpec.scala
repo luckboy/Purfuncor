@@ -531,6 +531,32 @@ unittype 1 U
           }
       }
     }
+    
+    it should "interpret the evaluated type lambda for type arguments with free type parameters" in {
+      // \t1 t2 => t1 t2 t3
+      val funValue = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TypeParamApp(0, Seq(
+          TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
+          TypeValueLambda(Nil, TypeParamApp(2, Nil, 0))
+          ), 0)))
+      // \t1 t2 => (t1 t2, t3)
+      val arg1 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
+          TypeParamApp(0, Seq(
+              TypeValueLambda(Nil, TypeParamApp(1, Nil, 0))
+              ), 0),
+          TypeParamApp(2, Nil, 0)))))
+      // \t1 => (t1, t2)
+      val arg2 = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TupleType(Seq(
+          TypeParamApp(0, Nil, 0),
+          TypeParamApp(1, Nil, 0)))))
+      val (env, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(emptyEnv)
+      inside(res3) {
+        case EvaluatedTypeValue(term) =>
+          // ((t3, t2), t3)
+          term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+              TupleType(Seq(TypeParamApp(2, Nil, 0), TypeParamApp(1, Nil, 0))),
+              TypeParamApp(2, Nil, 0))))
+      }
+    }
   }
 
   "A Typer" should behave like typer(SymbolTypeEnvironment.empty[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(Typer.statefullyTransformToSymbolTree2)(Typer.transformToSymbolTypeTerm2)
