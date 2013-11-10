@@ -360,7 +360,27 @@ f x1 = \x2 g => \h x3 => #fAdd (#fMul x1 x3) (g (h x2))
       }
     }
 
-    it should "infer the type from the covered local variables" is (pending)
+    it should "infer the type from the covered local variables" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = let
+    a = true
+    b = 0.1f
+  in
+    tuple 3 (let
+      a = 'a'
+      b = 0.1
+    in
+      tuple 2 a b) a b
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TupleType(Seq(type1, type2, type3)), Seq()) =>
+          // ((#Char, #Double), #Boolean, #Float)
+          inside(type1) { case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Char, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()))) => () }
+          inside(type2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+          inside(type3) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+      }
+    }
     
     it should "infer the type for the inferred type of the returned value" is (pending)
     
