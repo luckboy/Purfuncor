@@ -530,7 +530,7 @@ unittype 1 U
       }
     }
     
-    it should "interpret the evaluated type lambda for the type arguments with the free type parameters" in {
+    it should "interpret the evaluated type lambda value for the type arguments with the free type parameters" in {
       // \t1 t2 => t1 t2 t3
       val funValue = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TypeParamApp(0, Seq(
           TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
