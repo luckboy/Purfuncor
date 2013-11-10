@@ -501,8 +501,6 @@ unittype 1 U
               val (env2, res3) = app[TypeSimpleTerm[W, X], E, TypeValue[Z, W, X, C]](funValue, Seq(arg1, arg2)).run(env)
               inside(res3) {
                 case EvaluatedTypeValue(term) =>
-                  // t1 (\t3 t4 => t2 (t3, t4, #Short) #Int) #Long
-                  // (((#Long, #Boolean, #Short), #Int, #Char)
                   // ((#Int, #Boolean, #Char), (#Long, #Float, #Double), T (\t1 => (t1, #Boolean, #Char)) #Byte, ((#Long, #Boolean, #Short), #Int, #Char))
                   term should be ===(TupleType(Seq[TypeValueTerm[Z]](
                       TupleType(Seq(
@@ -532,7 +530,7 @@ unittype 1 U
       }
     }
     
-    it should "interpret the evaluated type lambda for type arguments with free type parameters" in {
+    it should "interpret the evaluated type lambda for the type arguments with the free type parameters" in {
       // \t1 t2 => t1 t2 t3
       val funValue = EvaluatedTypeLambdaValue[Z, W, X, C](TypeValueLambda(Seq(0, 1), TypeParamApp(0, Seq(
           TypeValueLambda(Nil, TypeParamApp(1, Nil, 0)),
