@@ -382,7 +382,42 @@ f = let
       }
     }
     
-    it should "infer the type for the inferred type of the returned value" is (pending)
+    it should "infer the type for the inferred type of the returned value" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x y z = tuple 3 x y (z y)
+g x y = f (#dAdd 1.0 x) y
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 t2 => #Double #-> t1 #-> (t1 #-> t2) #-> (#Double, t1, t2)
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) {
+                case TypeParamApp(param2, Seq(), 0) =>
+                  inside(retType2) {
+                    case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType3, retType3)) =>
+                      inside(argType3) {
+                        case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType31, retType31)) =>
+                          inside(argType31) {
+                            case TypeParamApp(param31, Seq(), 0) =>
+                              inside(retType31) {
+                                case TypeParamApp(param32, Seq(), 0) =>
+                                  inside(retType3) {
+                                    case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(param33, Seq(), 0), TypeParamApp(param34, Seq(), 0))) =>
+                                      List(param2, param31, param33).toSet should have size(1)
+                                      List(param32, param34).toSet should have size(1)
+                                      List(param2, param31, param32, param33, param34).toSet should have size(2)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "initialize all types of the non-recursive dependent combinators" is (pending)
     
