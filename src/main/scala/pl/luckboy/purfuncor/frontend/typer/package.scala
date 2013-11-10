@@ -458,7 +458,7 @@ package object typer
       val (s1, s2) = env.currentTypePair.map {
         case (t1, t2) => (t1.toString, t2.toString)
       }.getOrElse(("<unknown type>", "<unknown type"))
-      (env, NoType.fromError[GlobalSymbol](FatalError("couldn't match type " + s1 + " with type " + s2, none, NoPosition)))
+      (env, NoType.fromError[GlobalSymbol](Error("couldn't match type " + s1 + " with type " + s2, none, NoPosition)))
     }
     
     override def prepareToUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
