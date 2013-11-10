@@ -663,7 +663,7 @@ package object typer
     private def unifyTypesForTypeMatchingS(type1: Type[GlobalSymbol], type2: Type[GlobalSymbol], typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = type1.instantiatedTypeValueTermWithKindsS(env)
       val (env3, res2) = type2.instantiatedTypeValueTermWithKindsS(env2)
-      (res |@| res) {
+      (res |@| res2) {
         case ((tvt1, ks1), (tvt2, ks2)) =>
           env3.withTypePair(some((InferredType(tvt1, ks1), InferredType(tvt2, ks2)))) { 
             _.withTypeMatching(typeMatching){ env4 => unifyTypesS(type1, type2)(env4) }
