@@ -638,7 +638,69 @@ m = 2.0
       }
     }
     
-    it should "infer the type from the string with the construct-expression" is (pending)
+    it should "infer the type from the string with the construct-expression" in {
+      val (env, res) = Typer.inferTypesFromTreeString("f = construct 3 'a'")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 t2 t3 => t1 #-> t2 #-> t3 #& (#Char, t1, t2)
+          inside(argType1) {
+            case TypeParamApp(param1, Seq(), 0) =>
+              inside(retType1) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+                  inside(argType2) {
+                    case TypeParamApp(param2, Seq(), 0) =>
+                      inside(retType2) {
+                        case TypeConjunction(types2) =>
+                          types2 should have size(2)
+                          inside(for {
+                            x1 <- types2.collectFirst { case TypeParamApp(param21, Seq(), 0) => param21 }
+                            x2 <- types2.collectFirst { case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Char, Seq()), TypeParamApp(param22, Seq(), 0), TypeParamApp(param23, Seq(), 0))) => (param22, param23) }
+                          } yield (x1, x2)) {
+                            case Some((param21, (param22, param23))) =>
+                              List(param1, param22).toSet should have size(1)
+                              List(param2, param23).toSet should have size(1)
+                              List(param1, param2, param21, param22, param23).toSet should have size(3)
+                          }
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+          types should have size(0)
+      }
+      inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
+        case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+          types should have size (0)
+          inside(instanceTypes) {
+            case Seq(InferredType(TypeConjunction(types1), argKinds)) =>
+              types1 should have size(2)
+              inside(for {
+                x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
+                x2 <- types1.collectFirst { case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Char, Seq()), TypeParamApp(param12, Seq(), 0), TypeParamApp(param13, Seq(), 0))) => (param12, param13) }
+              } yield (x1, x2)) {
+                case Some((param11, (param12, param13))) =>
+                  List(param11, param12, param13).toSet should have size(3)
+              }
+              inside(argKinds) {
+                case Seq(
+                    InferredKind(Star(KindType, _)) /* * */,
+                    InferredKind(Star(KindType, _)) /* * */,
+                    InferredKind(Star(KindType, _)) /* * */) =>
+                 ()
+              }
+          }
+      }
+    }
     
     it should "infer the type from the string with the select-expression" is (pending)
     
