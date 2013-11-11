@@ -301,26 +301,6 @@ object TypeValueTermUnifier
             }
         } (env)
         addDelayedErrorsFromResultS(res, Set(paramAppIdx1, paramAppIdx2))(z)(env6)
-      case (TypeParamApp(param1, args1, paramAppIdx1), typeConj2: TypeConjunction[T]) =>
-        val (env2, _) = reverseTypeMatchingS(env)
-        val (env3, res) = unifier.withSaveS { matchesTypeConjunctionWithTypeValueTermS(typeConj2, typeParamApp1)(z)(f)(_: E) }(env2)
-        res.map { x => (env3, x.success) }.getOrElse {
-          val (env4, res2) = if(args1.isEmpty)
-            f(param1, Right(term2), z, env3)
-          else
-            mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
-          addDelayedErrorsFromResultS(res2, Set(paramAppIdx1))(z)(env4)
-        }
-      case (TypeParamApp(param1, args1, paramAppIdx1), typeDisj2: TypeDisjunction[T]) =>
-        val (env2, _) = reverseTypeMatchingS(env)
-        val (env3, res) = unifier.withSaveS { matchesTypeDisjunctionWithTypeValueTermS(typeDisj2, typeParamApp1)(z)(f)(_: E) }(env2)
-        res.map { x => (env3, x.success) }.getOrElse {
-          val (env4, res2) = if(args1.isEmpty)
-            f(param1, Right(term2), z, env3)
-          else
-            mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env3).mapElements(identity, _.failure)
-          addDelayedErrorsFromResultS(res2, Set(paramAppIdx1))(z)(env4)
-        }
       case (TypeParamApp(param1, Seq(), paramAppIdx1), _) =>
         val (env2, res) = f(param1, Right(term2), z, env)
         addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env2)

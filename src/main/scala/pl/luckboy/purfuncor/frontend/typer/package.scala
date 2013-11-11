@@ -360,7 +360,10 @@ package object typer
     override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
       val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, Map()).foldLeft((env, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
         case ((newEnv, Success(lis)), (i, li)) =>
-          instantiateTypeMapS(li.typeTable.types)(newEnv).mapElements(identity, _.map { ts => lis + (i -> li.copy(typeTable = TypeTable(ts))) })
+          val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
+          newRes.map {
+            ts => instantiateTypesS(li.instanceTypes)(newEnv).mapElements(identity, _.map { its => lis + (i -> li.copy(typeTable = TypeTable(ts), instanceTypes = its)) })
+          }.valueOr { nt => (newEnv, nt.failure) }
         case ((newEnv, Failure(nt)), _)        =>
           (newEnv, nt.failure)
       }
@@ -509,12 +512,16 @@ package object typer
                 case Success(argTypes) =>
                   Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv) match {
                     case (newEnv2, Success(argTypeValueTerms)) =>
-                      val tmpType = InferringType(TupleType(argTypeValueTerms))
-                      val (newEnv3, retType2) = unifyArgInfosS(tmpType, retType)(newEnv2)
-                      if(!retType.isNoType)
-                        (newEnv3.withCurrentInstanceTypes(Seq(retType)), funType)
-                      else
-                        (newEnv3, retType)
+                      val (newEnv3, newRes) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0)(newEnv2)
+                      newRes.map {
+                        case (_, _, _, tmpTypeValueTerm) =>
+                          val tmpType = InferringType(tmpTypeValueTerm & TupleType(argTypeValueTerms))
+                          val (newEnv4, retType2) = unifyInfosS(tmpType, retType)(newEnv3)
+                          if(!retType.isNoType)
+                            (newEnv4.withCurrentInstanceTypes(Seq(retType2)), funType)
+                          else
+                            (newEnv4, funType)
+                      }.valueOr { (newEnv3, _) }
                     case (newEnv2, Failure(noType))            =>
                       (newEnv2, noType)
                   }
@@ -729,7 +736,10 @@ package object typer
             case ((newEnv, Success(liMaps)), (s, lis)) =>
               lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
                 case ((newEnv2, Success(newLis)), (i, li)) =>
-                  instantiateTypeMapS(li.typeTable.types)(newEnv2).mapElements(identity, _.map { ts => newLis + (i -> li.copy(typeTable = TypeTable(ts))) })
+                  val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
+                  newRes.map {
+                    ts => instantiateTypesS(li.instanceTypes)(newEnv3).mapElements(identity, _.map { its => newLis + (i -> li.copy(typeTable = TypeTable(ts), instanceTypes = its)) })
+                  }.valueOr { nt => (newEnv2, nt.failure) }
                 case ((newEnv2, Failure(nt)), _)           =>
                   (newEnv2, nt.failure)
               }.mapElements(identity, _.map { lis2 => liMaps + (some(s) -> lis2) })

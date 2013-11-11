@@ -231,4 +231,15 @@ object TypeInferrer
       case ((newEnv, Failure(noType)), _)            =>
         (newEnv, noType.failure)
     }
+  
+  def instantiateTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    types.foldLeft((env, Seq[Type[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(newTypes)), typ) =>
+        typ.instantiatedTypeS(newEnv)  match {
+          case (newEnv2, noType: NoType[T]) => (newEnv2, noType.failure)
+          case (newEnv2, type2)             => (newEnv2, (newTypes :+ type2).success)
+        }
+      case ((newEnv, Failure(noType)), _)     =>
+        (newEnv, noType.failure)
+    }
 }
