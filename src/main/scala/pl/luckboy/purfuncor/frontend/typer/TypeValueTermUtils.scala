@@ -94,7 +94,7 @@ object TypeValueTermUtils
           (newParamLambdas + (param -> lambda), newNextArgParam)
         } else {
           val bodyParams = typeParamsFromTypeValueTerm(body)
-          val (_, lambda2) = normalizeTypeParamsInTypeValueLambdaForParamsS(lambda, newNextArgParam)(IntMap())(bodyParams.map { p => p -> p }.toMap)
+          val (_, lambda2) = normalizeTypeParamsInTypeValueLambdaForParamsS(lambda, newNextArgParam)((lambdaArgParams &~ params).map { p => (p -> p) }.toMap)(bodyParams.map { p => p -> p }.toMap)
           lambda2 match {
             case TypeValueLambda(argParams2, body2) =>
               val lambdaArgParams2 = typeArgParamsFromTypeValueTerm(body2) ++ argParams2
