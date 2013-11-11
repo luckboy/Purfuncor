@@ -527,7 +527,116 @@ j = 'a'
       }
     }
     
-    it should "initialize all types of the recursive dependent combinators" is (pending)
+    it should "initialize all types of the recursive dependent combinators" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = g true 0.1f
+g = h 
+h x y = i (#fAdd y y) x
+i x y = #fAdd (#fAdd (j y x 1.0) (k x (\_ _ => #fMul (#fAdd x x) 0.2f))) (#floatFromDouble (l m))
+j x y z = #cond (\_ => #fAdd y (#floatFromDouble z)) (\_ => h x y) x 
+k x y = #cond (\_ => x) (\_ => f) true
+l = #dNeg
+m = 2.0
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // f
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq()) =>
+          // #Float
+          ()
+      }
+      // g
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+          // #Boolean #-> #Float #-> #Float
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              inside(retType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          }
+      }
+      // h
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+          // #Boolean #-> #Float #-> #Float
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              inside(retType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          }
+      }
+      // i
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("i")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+          // #Float #-> #Boolean #-> #Float
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              inside(retType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          }
+      }
+      // j
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("j")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+          // #Boolean #-> #Float #-> #Double #-> #Float
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              inside(retType2) { 
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType3, retType3)) => 
+                  inside(argType3) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+                  inside(retType3) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              }
+          }
+      }
+      // k
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("k")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 t2 => #Float #-> (t1 #-> t2 #-> #Float) #-> #Float
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType21, retType21)) =>
+                  inside(argType21) {
+                    case TypeParamApp(param21, Seq(), 0) =>
+                      inside(retType21) {
+                        case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType22, retType22)) =>
+                          inside(argType22) {
+                            case TypeParamApp(param22, Seq(), 0) =>
+                              inside(retType22) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+                              List(param21, param22).toSet should have size(2)
+                          }
+                      }
+                  }
+              }
+              inside(retType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // l
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("l")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+          // #Double #-> #Double
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+          inside(retType1) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+      }
+      // m
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("m")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Double, Seq()), Seq()) =>
+          // #Double
+          ()
+      }
+    }
     
     it should "infer the type from the string with the construct-expression" is (pending)
     
