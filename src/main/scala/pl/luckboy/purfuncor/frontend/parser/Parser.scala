@@ -231,15 +231,15 @@ object Parser extends StandardTokenParsers with PackratParsers
       case t1 ~ (as ~ t2) => Simple(Extract(t1, as, t2, LambdaInfo), NoPosition)
     })
     
-    lazy val exprN = app | let | lambda | construct | simpleExpr
-    lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | "(" ~-> expr <~- ")"
+    lazy val exprN = app | let | lambda | simpleExpr
+    lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | construct | "(" ~-> expr <~- ")"
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t, LambdaInfo), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t, LambdaInfo), NoPosition) })
-    lazy val construct =  p("construct" ~-> integer						^^ { case n => Simple(Construct(n, LambdaInfo), NoPosition) })
     lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
+    lazy val construct =  p("construct" ~-> integer						^^ { case n => Simple(Construct(n, LambdaInfo), NoPosition) })
     
     lazy val typeExpr: PackratParser[TypeTermWrapper] = typeExpr1
     
