@@ -837,7 +837,7 @@ package object typer
         (env.withGlobalVarType(loc, UninferredType[GlobalSymbol]()), ())
       } else {
         val (env2, res) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0)(env)
-        res.map { f => (env.withGlobalVarType(loc, InferringType(f._4)), ()) }.valueOr { nt => (env.withGlobalVarType(loc, nt), ()) }
+        res.map { f => (env2.withGlobalVarType(loc, InferringType(f._4)), ()) }.valueOr { nt => (env2.withGlobalVarType(loc, nt), ()) }
       }
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
