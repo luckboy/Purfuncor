@@ -22,7 +22,7 @@ import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TyperSpec extends FlatSpec with ShouldMatchers with Inside with TyperSpecUtils
 {
-  def typer[T, U, V, W, X, Y, Z, TT, TU, TV, E, TC, TE, D](emptyEnv: E, emptyTypeEnv: TE, initData: D)(makeData: String => ValidationNel[AbstractError, D])(kindTableFromData: D => InferredKindTable[TT])(withKindTable: (D, InferredKindTable[TT]) => D)(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z]])(g3: (InferredKindTable[TT], InferredTypeTable[T, TT]) => State[TE, E])(h2: D => Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]]]])(implicit init: Initializer[NoType[TT], T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E], inferrer: Inferrer[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E, Type[TT]], typeInit: Initializer[NoTypeValue[TT, W, TypeLambdaInfo[X, Y], TC], TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TE], envSt: TypeInferenceEnvironmentState[E, T, TT], enval: TypeInferenceEnvironmental[E, T, TU, TT], typeTreeInfoExtractor: TreeInfoExtractor[Z, Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TypeTreeInfo[TV, TT]]], globalSymTabular: GlobalSymbolTabular[Z, T], typeGlobalSymTabular: GlobalSymbolTabular[TV, TT], localSymTabular: LocalSymbolTabular[V, TU])
+  def typer[T, U, V, W, X, Y, Z, TT, TU, TV, E, TC, TE, D](emptyEnv: E, emptyTypeEnv: TE, initData: D)(makeData: String => ValidationNel[AbstractError, D])(kindTableFromData: D => InferredKindTable[TT])(withKindTable: (D, InferredKindTable[TT]) => D)(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z]])(g3: (InferredKindTable[TT], InferredTypeTable[T, TT]) => State[TE, E])(h2: D => Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]]]])(implicit init: Initializer[NoType[TT], T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E], inferrer: Inferrer[SimpleTerm[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], E, Type[TT]], typeInit: Initializer[NoTypeValue[TT, W, TypeLambdaInfo[X, Y], TC], TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TE], envSt: TypeInferenceEnvironmentState[E, T, TT], enval: TypeInferenceEnvironmental[E, T, TU, TT], treeInfoExtractor: TreeInfoExtractor[Z, Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, Y]], TypeTreeInfo[TV, TT]]], globalSymTabular: GlobalSymbolTabular[Z, T], typeGlobalSymTabular: GlobalSymbolTabular[TV, TT], localSymTabular: LocalSymbolTabular[V, TU])
   {
     val f4 = {
       (data: D) => (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], kindTable: InferredKindTable[TT]) =>
@@ -703,7 +703,195 @@ m = 2.0
       }
     }
     
-    it should "infer the type from the string with the select-expression" is (pending)
+    it should "infer the type from the string with the select-expression" in {
+      val s = """
+unittype 3 T
+unittype 0 U
+unittype 1 V
+f x = x select {
+    (y: \t1 t2 => T #Char t1 t2) => 'a'
+    (y: U)                       => 'b'
+    (y: V #Boolean)              => 'c'
+  }
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")),
+                  GlobalSymbol(NonEmptyList("V")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc, vLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+                      // \t1 t2 => ((T #Char t1 t2) | U | (V #Boolean)) #-> #Char
+                      inside(argType1) {
+                        case TypeDisjunction(types1) =>
+                          types1 should have size(3)
+                          inside(for {
+                            x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12, arg13), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12, arg13) }
+                            x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
+                            x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(arg14), GlobalSymbol(NonEmptyList("V"))) => (loc13, arg14) }
+                          } yield (x1, x2, x3)) {
+                            case Some(((loc11, arg11, arg12, arg13), loc12, (loc13, arg14))) =>
+                              loc11 should be ===(tLoc)
+                              loc12 should be ===(uLoc)
+                              loc13 should be ===(vLoc)
+                              inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                              inside(arg12) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                                  inside(arg13) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param13, Seq(), 0)) =>
+                                      List(param12, param13).toSet should have size(2)
+                                  }
+                              }
+                              inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          }
+                      }
+                      inside(retType1) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+                      inside(argKinds) {
+                        case Seq(
+                          InferredKind(Star(KindType, _)) /* * */,
+                          InferredKind(Star(KindType, _)) /* * */) =>
+                            ()
+                      }
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
+                    case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+                      types should have size(1)
+                      inside(types.get(LocalSymbol("x"))) {
+                        case Some(InferredType(TypeDisjunction(types1), argKinds)) =>
+                          types1 should have size(3)
+                          inside(for {
+                            x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12, arg13), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12, arg13) }
+                            x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
+                            x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(arg14), GlobalSymbol(NonEmptyList("V"))) => (loc13, arg14) }
+                          } yield (x1, x2, x3)) {
+                            case Some(((loc11, arg11, arg12, arg13), loc12, (loc13, arg14))) =>
+                              loc11 should be ===(tLoc)
+                              loc12 should be ===(uLoc)
+                              loc13 should be ===(vLoc)
+                              inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                              inside(arg12) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                                  inside(arg13) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param13, Seq(), 0)) =>
+                                      List(param12, param13).toSet should have size(2)
+                                  }
+                              }
+                              inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          }
+                          inside(argKinds) {
+                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                              ()
+                          }
+                      }
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
+                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                      types should have size(0)
+                      inside(instanceTypes) {
+                        case Seq(InferredType(TypeDisjunction(types1), argKinds)) =>
+                          types1 should have size(3)
+                          inside(for {
+                            x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12, arg13), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12, arg13) }
+                            x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
+                            x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(arg14), GlobalSymbol(NonEmptyList("V"))) => (loc13, arg14) }
+                          } yield (x1, x2, x3)) {
+                            case Some(((loc11, arg11, arg12, arg13), loc12, (loc13, arg14))) =>
+                              loc11 should be ===(tLoc)
+                              loc12 should be ===(uLoc)
+                              loc13 should be ===(vLoc)
+                              inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                              inside(arg12) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                                  inside(arg13) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param13, Seq(), 0)) =>
+                                      List(param12, param13).toSet should have size(2)
+                                  }
+                              }
+                              inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          }
+                          inside(argKinds) {
+                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                              ()
+                          }
+                      }
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
+                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                      types should have size(1)
+                      inside(types.get(LocalSymbol("y"))) {
+                        case Some(InferredType(GlobalTypeApp(loc1, Seq(type1, type2, type3), GlobalSymbol(NonEmptyList("T"))), argKinds)) =>
+                          loc1 should be ===(tLoc)
+                          inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          inside(type2) { 
+                            case TypeValueLambda(Seq(), TypeParamApp(param2, Seq(), 0)) =>
+                              inside(type3) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param3, Seq(), 0)) =>
+                                  List(param2, param3).toSet should have size(2)
+                              }
+                          }
+                          inside(argKinds) {
+                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                              ()
+                          }
+                      }
+                      inside(instanceTypes) {
+                        case Seq(InferredType(GlobalTypeApp(loc1, Seq(type1, type2, type3), GlobalSymbol(NonEmptyList("T"))), argKinds)) =>
+                          loc1 should be ===(tLoc)
+                          inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          inside(type2) { 
+                            case TypeValueLambda(Seq(), TypeParamApp(param2, Seq(), 0)) =>
+                              inside(type3) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param3, Seq(), 0)) =>
+                                  List(param2, param3).toSet should have size(2)
+                              }
+                          }
+                          inside(argKinds) {
+                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                              ()
+                          }
+                      }
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
+                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                      types should have size(1)
+                      inside(types.get(LocalSymbol("y"))) {
+                        case Some(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
+                          loc1 should be ===(uLoc)
+                      }
+                      inside(instanceTypes) {
+                        case Seq(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
+                          loc1 should be ===(uLoc)
+                      }
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
+                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                      types should have size(1)
+                      inside(types.get(LocalSymbol("y"))) {
+                        case Some(InferredType(GlobalTypeApp(loc1, Seq(type1), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
+                          loc1 should be ===(vLoc)
+                          inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      }
+                      inside(instanceTypes) {
+                        case Seq(InferredType(GlobalTypeApp(loc1, Seq(type1), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
+                          loc1 should be ===(vLoc)
+                          inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "infer the type from the string with the extract-expression" is (pending)
     
