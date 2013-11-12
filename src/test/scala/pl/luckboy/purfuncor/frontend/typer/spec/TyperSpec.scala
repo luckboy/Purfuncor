@@ -893,7 +893,62 @@ f x = x select {
       }
     }
     
-    it should "infer the type from the string with the extract-expression" is (pending)
+    it should "infer the type from the string with the extract-expression" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x = x extract {
+    y1 y2 y3 => #fAdd y1 (#floatFromDouble y2)
+  }
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => (#Float, #Double, t1) #-> #Float
+          inside(argType1) { case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Float, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(_, Seq(), 0))) => () }
+          inside(retType1) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+          types should have size(1)
+          inside(types.get(LocalSymbol("x"))) {
+            case Some(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Float, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(_, Seq(), 0))), argKinds)) =>
+              inside(argKinds) {
+                case Seq(InferredKind(Star(KindType, _))) =>
+                  ()
+              }
+          }
+      }
+      inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
+        case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+          types should have size(3)
+          inside(types.get(LocalSymbol("y1"))) {
+            case Some(InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq())) =>
+              ()
+          }
+          inside(types.get(LocalSymbol("y2"))) {
+            case Some(InferredType(BuiltinType(TypeBuiltinFunction.Double, Seq()), Seq())) =>
+              ()
+          }
+          inside(types.get(LocalSymbol("y3"))) {
+            case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+              inside(argKinds) {
+                case Seq(InferredKind(Star(KindType, _))) =>
+                  ()
+              }
+          }
+          inside(instanceTypes) {
+            case Seq(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Float, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(_, Seq(), 0))), argKinds)) =>
+              inside(argKinds) {
+                case Seq(InferredKind(Star(KindType, _))) =>
+                  ()
+              }
+          }
+      }
+    }
     
     it should "infer the type for the recursive function that is the lambda-expression" is (pending)
     
