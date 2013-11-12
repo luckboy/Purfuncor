@@ -553,7 +553,7 @@ package object typer
             case Success(caseTypes) =>
               env4.withLambdaIdx(lambdaIdx) {
                 newEnv =>
-                  val (newEnv3, bodyType) = caseTypes.tail.foldLeft((env4, caseTypes.head)) { 
+                  val (newEnv3, bodyType) = caseTypes.tail.foldLeft((newEnv, caseTypes.head)) { 
                     case ((newEnv2, newType), caseType) => unifyInfosS(newType, caseType)(newEnv2)
                   }
                   val argTypes = cases.list.flatMap { 

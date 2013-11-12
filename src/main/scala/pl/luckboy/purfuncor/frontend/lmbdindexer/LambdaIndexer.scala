@@ -59,9 +59,9 @@ object LambdaIndexer
       case Simple(Construct(n, lambdaInfo), pos) =>
         (idx + 1, Simple(Construct(n, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Select(term, cases, lambdaInfo), pos) =>
-        val (idx2, term2) = transformTermFromIndexS(term)(idx + 1)
+        val (idx2, term2) = transformTermFromIndexS(term)(idx)
         val (idx3, cases2) = transformCaseNelFromIndexS(cases)(idx2)
-        (idx2, Simple(Select(term2, cases2, LambdaInfo(lambdaInfo, idx)), pos))
+        (idx3, Simple(Select(term2, cases2, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Extract(term, args, body, lambdaInfo), pos) =>
         val (idx2, term2) = transformTermFromIndexS(term)(idx + 1)
         val args2 = args.map { case Arg(name, typ, argPos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
