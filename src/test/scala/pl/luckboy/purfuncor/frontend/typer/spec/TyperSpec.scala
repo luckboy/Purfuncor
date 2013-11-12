@@ -950,7 +950,32 @@ f x = x extract {
       }
     }
     
-    it should "infer the type for the recursive function that is the lambda-expression" is (pending)
+    it should "infer the type for the recursive function that is the lambda-expression" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = \x y => #cond (\_ => f x false) (\_ => x) y 
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => t1 #-> #Boolean #-> t1
+          inside(argType1) {
+            case TypeParamApp(param1, Seq(), 0) =>
+              inside(retType1) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+                  inside(argType2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+                  inside(retType2) {
+                    case TypeParamApp(param2, Seq(), 0) =>
+                      List(param1, param2).toSet should have size(1)
+                  }
+              } 
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
     
     it should "infer the type for the defined type of the combinator" is (pending)
 
