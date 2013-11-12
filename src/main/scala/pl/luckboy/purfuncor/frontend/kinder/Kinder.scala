@@ -96,7 +96,7 @@ object Kinder
         }
       case Simple(Extract(term, args, body, lambdaInfo), pos) =>
         for {
-          term2 <- transformTerm(body)(env)
+          term2 <- transformTerm(term)(env)
           args2 <- transformArgNel(args)(env)
           body2 <- transformTerm(body)(env)
         } yield Simple(Extract(term2, args2, body2, lambdaInfo), pos)
