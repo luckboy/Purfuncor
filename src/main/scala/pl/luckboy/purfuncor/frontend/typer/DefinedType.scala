@@ -1,5 +1,4 @@
 package pl.luckboy.purfuncor.frontend.typer
-import scala.annotation.tailrec
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
@@ -32,11 +31,10 @@ case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], po
 
 object DefinedType
 {
-  @tailrec
   private def appForDefinedTypeValueAndKindsS[T, U, V, W, X, E](funValue: TypeValue[T, U, TypeLambdaInfo[V, W], X])(kinds: Seq[(Option[KindTerm[StarKindTerm[Int]]], InferredKind)])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, TypeLambdaInfo[V, W]], E, TypeValue[T, U, TypeLambdaInfo[V, W], X]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, TypeLambdaInfo[V, W], X]], argTabular: ArgTabular[TypeLambda[U, TypeLambdaInfo[V, W]], W]): (E, Validation[NoTypeValue[T, U, TypeLambdaInfo[V, W], X], (TypeValueTerm[T], Seq[(Option[KindTerm[StarKindTerm[Int]]], InferredKind)])]) =
     funValue match {
       case lambdaValue: TypeLambdaValue[T, U, TypeLambdaInfo[V, W], X] =>
-        val (env2, res) = envSt.withTypeParamsS(funValue.argCount) {
+        envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
             val (newEnv2, paramAppIdx) = envSt.currentTypeParamAppIdxFromEnvironmentS(newEnv)
             val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U, TypeLambdaInfo[V, W], X](TypeParamApp(i, Nil, paramAppIdx)) }
@@ -59,14 +57,10 @@ object DefinedType
                   case (newEnv2, noValue: NoTypeValue[T, U, TypeLambdaInfo[V, W], X]) =>
                     (newEnv2, noValue.failure)
                   case (newEnv2, newRetValue)                                         =>
-                    (newEnv2, (newRetValue, newKinds).success)
+                    appForDefinedTypeValueAndKindsS(newRetValue)(newKinds)(newEnv2)
                 }
             }.valueOr { nv => (newEnv, nv.failure) }
         } (env)
-        res match {
-          case Success((retValue, kinds2)) => appForDefinedTypeValueAndKindsS(retValue)(kinds2)(env2)
-          case Failure(noValue)            => (env2, noValue.failure)
-        }
       case EvaluatedTypeValue(term) =>
         (env, (term, kinds).success[NoTypeValue[T, U, TypeLambdaInfo[V, W], X]])
       case noValue: NoTypeValue[T, U, TypeLambdaInfo[V, W], X] =>
