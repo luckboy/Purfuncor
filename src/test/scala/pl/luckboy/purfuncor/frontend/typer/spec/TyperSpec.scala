@@ -1128,7 +1128,7 @@ h = g f
       }
       inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
         case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(type1)), argKinds) =>
-          // \t1 => #Array (#Float #-> t1 #-> #Double)
+          // \t1 => #Array (#Double #-> t1 #-> #Float)
           inside(type1) {
             case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
               inside(argType11) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
