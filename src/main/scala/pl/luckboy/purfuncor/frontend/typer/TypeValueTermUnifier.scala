@@ -681,7 +681,12 @@ object TypeValueTermUnifier
                   kinds.foldLeft((env4, Map[Int, Kind]().success[NoType[T]])) {
                     case ((newEnv, Success(newInferringKinds)), (param, kind)) =>
                       val (newEnv2, inferringKindRes) = envSt.inferringKindFromKindS(kind)(newEnv)
-                      (newEnv2, inferringKindRes.map { k => newInferringKinds + (param -> k) })
+                      (newEnv2, inferringKindRes.flatMap { 
+                        inferringKind => 
+                          allocatedParams.get(param).map { p => (newInferringKinds + (p -> inferringKind)).success }.getOrElse {
+                            NoType.fromError[T](FatalError("unallocated parameter", none, NoPosition)).failure
+                          }
+                      })
                     case ((newEnv, Failure(noType)), _)                        =>
                       (newEnv, noType.failure)
                   }
