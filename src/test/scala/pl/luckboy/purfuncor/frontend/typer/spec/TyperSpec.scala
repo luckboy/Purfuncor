@@ -18,6 +18,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.TypeTreeInfo
 import pl.luckboy.purfuncor.common.Tree
+import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 
 class TyperSpec extends FlatSpec with ShouldMatchers with Inside with TyperSpecUtils
@@ -977,11 +978,136 @@ f = \x y => #cond (\_ => f x false) (\_ => x) y
       }
     }
     
-    it should "infer the type for the defined type of the combinator" is (pending)
+    it should "infer the type for the defined type of the combinator" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+(f: \t1 t2 => ##-> #Float (##-> (##-> t1 t2) #Double)) x y = #doubleFromFloat x
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 t2 => #Float #-> (t1 #-> t2) #-> #Double
+          inside(argType1) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType21, retType21)) =>
+                  inside(argType21) { 
+                    case TypeParamApp(param21, Seq(), 0) =>
+                      inside(retType21) {
+                        case TypeParamApp(param22, Seq(), 0) =>
+                          List(param21, param22).toSet should have size(2)
+                      }
+                  }
+              }
+              inside(retType2) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
 
-    it should "infer the type for the defineds type of the arguments" is (pending)
+    it should "infer the type for the defineds type of the arguments" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f (g: ##-> #Int #Int) x (y: \(t1: * -> * -> *) => (\t2 t3 => t1 t2 t3)) = tuple 2 (g x) y
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \(t1: * -> * -> *) (t2: *) (t3: *) => (#Int #-> #-> #Int) #-> #Int #-> (t1 t2 t3) #-> (#Int, t1 t2 t3)
+          inside(argType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+              inside(argType11) { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+              inside(retType11) { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+          }
+          inside(retType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+              inside(argType2) { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+              inside(retType2) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType3, retType3)) =>
+                  inside(argType3) {
+                    case TypeParamApp(param31, Seq(arg31, arg32), 0) =>
+                      inside(arg31) { 
+                        case TypeValueLambda(Seq(), TypeParamApp(param311, Seq(), 0)) => 
+                          inside(arg32) {
+                            case TypeValueLambda(Seq(), TypeParamApp(param321, Seq(), 0)) =>
+                              inside(retType3) { 
+                                case TupleType(Seq(BuiltinType(TypeBuiltinFunction.Int, Seq()), TypeParamApp(param33, Seq(arg33, arg34), 0))) =>
+                                  inside(arg33) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param331, Seq(), 0)) =>
+                                      inside(arg34) {
+                                        case TypeValueLambda(Seq(), TypeParamApp(param341, Seq(), 0)) =>
+                                          List(param31, param33).toSet should have size(1)
+                                          List(param311, param331).toSet should have size(1)
+                                          List(param321, param341).toSet should have size(1)
+                                          List(param31, param311, param321, param33, param331, param341).toSet should have size(3)
+                                          inside(argKinds.lift(param31)) {
+                                            case Some(InferredKind(Arrow(Star(KindType, _), Arrow(Star(KindType, _), Star(KindType, _), _), _))) =>
+                                              // * -> * -> *
+                                              ()
+                                          }
+                                          inside(argKinds.lift(param311)) {
+                                            case Some(InferredKind(Star(KindType, _))) =>
+                                              // *
+                                              ()
+                                          }
+                                          inside(argKinds.lift(param321)) {
+                                            case Some(InferredKind(Star(KindType, _))) =>
+                                              // *
+                                              ()
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
-    it should "infer the type for the defined type of the expression" is (pending)
+    it should "infer the type for the defined type of the expression" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f g x y = (g: \t1 => ##-> #Float (##-> t1 #Double)) x y
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => (#Float #-> t1 #-> #Double) #-> #Float #-> t1 #-> #Double
+          inside(argType1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+              inside(argType11) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              inside(retType11) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType12, retType12)) =>
+                  inside(argType12) {
+                    case TypeParamApp(param12, Seq(), 0) =>
+                      inside(retType12) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+                      inside(retType1) {
+                        case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+                          inside(argType2) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+                          inside(retType2) {
+                            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType3, retType3)) =>
+                              inside(argType3) {
+                                case TypeParamApp(param3, Seq(), 0) =>
+                                  inside(retType3) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+                                  List(param12, param3).toSet should have size(1)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
     
     it should "unify the two built-in types" is (pending)
     
