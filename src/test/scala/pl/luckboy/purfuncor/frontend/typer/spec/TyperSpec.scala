@@ -1109,7 +1109,38 @@ f g x y = (g: \t1 => ##-> #Float (##-> t1 #Double)) x y
       }
     }
     
-    it should "unify the two built-in types" is (pending)
+    it should "unify the two built-in types" in {
+      // Unifies \t1 t2 => #Array (t1 #-> t2 #-> #Float)
+      // with    \t1 t2 => #Array (#Double #-> t1 #-> t2).
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 t2 => #Array (##-> t1 (##-> t2 #Float))
+g (x: \t1 t2 => #Array (##-> #Double (##-> t1 t2))) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(_, _), Seq(_, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(type1)), argKinds) =>
+          // \t1 => #Array (#Float #-> t1 #-> #Double)
+          inside(type1) {
+            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+              inside(argType11) { case BuiltinType(TypeBuiltinFunction.Double, Seq()) => () }
+              inside(retType11) { 
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType12, retType12)) =>
+                  inside(argType12) { case TypeParamApp(_, Seq(), 0) => () }
+                  inside(retType12) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
     
     it should "unify the two unit types" is (pending)
     
