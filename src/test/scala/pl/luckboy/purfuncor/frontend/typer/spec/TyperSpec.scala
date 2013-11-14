@@ -1377,7 +1377,52 @@ h = g f
 
     it should "unify the two global type applications which are recursive" is (pending)
     
-    it should "unify the two global type applications for partial  type application" is (pending)
+    it should "unify the two global type applications for the partial type application" in {
+      // Unifies T #Boolean #Char
+      // with    U #Boolean #Char
+      // for type T t1 t2 = V t1 t2 and type U t1 t2 = V t1 t2 and unittype 2 V.
+      val s = """
+type T t1 t2 t3 = tuple 3 t1 t2 t3
+f = construct 0: T #Boolean #Char
+g (x: T #Boolean #Char) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(tLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _, _), _), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2, arg3), GlobalSymbol(NonEmptyList("T"))), argKinds) =>
+                      // \t1 => T #Boolean #Char t1
+                      inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      inside(arg2) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                      inside(arg3) { case TypeValueLambda(Seq(), TypeParamApp(_, Seq(), 0)) => () }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the type parameters" is (pending)
     
