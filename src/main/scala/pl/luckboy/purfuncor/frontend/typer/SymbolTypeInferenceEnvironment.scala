@@ -15,6 +15,7 @@ import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import TypeValueTermUnifier._
+import TypeValueTermUtils._
 
 case class SymbolTypeInferenceEnvironment[T, U](
     typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]],
@@ -95,13 +96,20 @@ case class SymbolTypeInferenceEnvironment[T, U](
       case (typeValueTerm, kinds) =>
         val inferredKinds = kinds.map { _._2 }.zipWithIndex.map { _.swap }.toMap 
         val (env2, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, inferredKinds)(Map(), 0)(env)
-        (env2, res2.map {
+        res2.map {
           case (allocatedParams, _, _, typeValueTerm2) =>
-            val args = kinds.map { _._1 }.zipWithIndex.map {
-              case (kt, p) => allocatedParams.get(p).map { p2 => DefinedTypeArg(some(p2), kt) }.getOrElse(DefinedTypeArg(none, kt))
-            }
-            DefinedType(args, typeValueTerm2, typeTerm.pos)
-        })
+            val (env3, res3) = normalizeTypeValueTermS(typeValueTerm2)(env2)
+            (env3, res3.map {
+              typeValueTerm3 =>
+                val args1 = kinds.map { _._1 }.zipWithIndex.map {
+                  case (kt, p) => allocatedParams.get(p).map { p2 => DefinedTypeArg(some(p2), kt) }.getOrElse(DefinedTypeArg(none, kt))
+                }
+                val args2 = (typeParamsFromTypeValueTerm(typeValueTerm3) -- allocatedParams.values).toSeq.map {
+                  p => DefinedTypeArg(some(p), none)
+                }
+                DefinedType(args1 ++ args2, typeValueTerm3, typeTerm.pos)
+            })
+        }.valueOr { nt => (env2, nt.failure) }
     }.valueOr { nt => (env, NoType.fromNoTypeValue(nt).failure) }
   }
   
