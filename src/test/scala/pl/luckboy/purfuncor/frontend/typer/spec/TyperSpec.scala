@@ -1326,8 +1326,12 @@ h = g f
           }
       }
     }
+    
+    it should "unify the two global type applications which have the unequal number of the arguments" is (pending)
 
     it should "unify the two global type applications which are recursive" is (pending)
+    
+    it should "unify the two global type applications for partial  type application" is (pending)
     
     it should "unify the type parameters" is (pending)
     
