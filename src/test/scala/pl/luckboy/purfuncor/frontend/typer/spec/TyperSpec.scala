@@ -1379,8 +1379,7 @@ h = g f
     
     it should "unify the two global type applications for the partial type application" in {
       // Unifies T #Boolean #Char
-      // with    U #Boolean #Char
-      // for type T t1 t2 = V t1 t2 and type U t1 t2 = V t1 t2 and unittype 2 V.
+      // with    U #Boolean #Char for type T t1 t2 t3 = (t1, t2, t3).
       val s = """
 type T t1 t2 t3 = tuple 3 t1 t2 t3
 f = construct 0: T #Boolean #Char
