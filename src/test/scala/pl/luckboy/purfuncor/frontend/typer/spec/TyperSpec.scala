@@ -1146,7 +1146,49 @@ h = g f
       }
     }
     
-    it should "unify the two unit types" is (pending)
+    it should "unify the two unit types" in {
+      // Unifies T #Boolean #Char
+      // with    U #Boolean #Char
+      // for type T t1 t2 = V t1 t2 and type U t1 t2 = V t1 t2 and unittype 2 V.
+      val s = """
+type T t1 t2 = V t1 t2
+type U t1 t2 = V t1 t2
+unittype 2 V
+f = construct 0: T #Boolean #Char
+g (x: U #Boolean #Char) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U")))) {
+                case Some(uLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("U"))), Seq()) =>
+                      // U #Boolean #Char
+                      loc1 should be ===(uLoc)
+                      inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      inside(arg2) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the global type application with the type that isn't global type application" in {
       // Unifies \t1 => T #Array t1 #Int
