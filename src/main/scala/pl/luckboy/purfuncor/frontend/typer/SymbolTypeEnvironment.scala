@@ -103,6 +103,11 @@ case class SymbolTypeEnvironment[T](
     val (env, res) = f(withPartial(isPartial))
     (env.withPartial(old), res)
   }
+  
+  def withClear[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)): (SymbolTypeEnvironment[T], U) = {
+    val (env, res) = f(copy(typeClosureStack = List(SymbolTypeClosure(Map()))))
+    (env.copy(typeClosureStack = List(SymbolTypeClosure(Map()))), res)
+  }
 }
 
 object SymbolTypeEnvironment

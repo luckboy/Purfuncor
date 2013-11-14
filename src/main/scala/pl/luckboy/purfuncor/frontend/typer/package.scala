@@ -46,6 +46,9 @@ package object typer
     override def currentTypeParamAppIdxFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.currentTypeParamAppIdx)
     
     override def globalTypeVarValueFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) = (env, env.typeVarValue(loc))
+    
+    override def withClearS[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
+      env.withClear(f)
   }
   
   implicit def symbolTypeSimpleTermEvaluator[T]: Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] = new Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {
@@ -251,10 +254,12 @@ package object typer
   
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] {
     override def appForGlobalTypeS(funLoc: GlobalSymbol, argLambdas: Seq[TypeValueLambda[GlobalSymbol]], paramCount: Int, paramAppIdx: Int)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (typeEnv, res) = env.typeEnv.withTypeParamAppIdx(paramAppIdx) { 
-        _.withTypeParams(paramCount) { 
-          (_, _, typeEnv2) => 
-            typeEnv2.withPartialEvaluation(false) { TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(_) }
+      val (typeEnv, res) = env.typeEnv.withClear {
+        _.withTypeParamAppIdx(paramAppIdx) { 
+          _.withTypeParams(paramCount) { 
+            (_, _, typeEnv2) => 
+              typeEnv2.withPartialEvaluation(false) { TypeValueTerm.appForGlobalTypeS(funLoc, argLambdas)(_) }
+          }
         }
       }
       (env.withTypeEnv(typeEnv), typeResultFromTypeValueResult(res))

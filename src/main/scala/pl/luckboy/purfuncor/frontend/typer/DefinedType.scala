@@ -53,11 +53,11 @@ object DefinedType
             newRes.map {
               inferredKinds =>
                 val newKinds = kinds ++ definedKinds.zip(inferredKinds)
-                appS(funValue, paramValues)(newEnv2) match {
-                  case (newEnv2, noValue: NoTypeValue[T, U, TypeLambdaInfo[V, W], X]) =>
-                    (newEnv2, noValue.failure)
-                  case (newEnv2, newRetValue)                                         =>
-                    appForDefinedTypeValueAndKindsS(newRetValue)(newKinds)(newEnv2)
+                envSt.withClearS(appS(funValue, paramValues))(newEnv2) match {
+                  case (newEnv3, noValue: NoTypeValue[T, U, TypeLambdaInfo[V, W], X]) =>
+                    (newEnv3, noValue.failure)
+                  case (newEnv3, newRetValue)                                         =>
+                    appForDefinedTypeValueAndKindsS(newRetValue)(newKinds)(newEnv3)
                 }
             }.valueOr { nv => (newEnv, nv.failure) }
         } (env)
