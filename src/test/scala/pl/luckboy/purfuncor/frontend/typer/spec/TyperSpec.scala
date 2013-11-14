@@ -1148,7 +1148,44 @@ h = g f
     
     it should "unify the two unit types" is (pending)
     
-    it should "unify the global type application with the type that isn't global type application" is (pending)
+    it should "unify the global type application with the type that isn't global type application" in {
+      // Unifies \t1 => T #Array t1 #Int
+      // with    \t1 => (#Array #Byte, #Short, t1) for (type T t1 t2 t3 = (t1 #Byte, t2, t3).
+      val s = """
+type T t1 t2 t3 = tuple 3 (t1 #Byte) t2 t3
+type U = T (\t1 => #Array t1) #Short #Int
+f = construct 0: \t1 => T #Array t1 #Int
+g (x: \t1 => tuple 3 (#Array #Byte) #Short t1) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                case InferredType(GlobalTypeApp(_, Seq(_, _, _), _), Seq(_)) =>
+                  ()
+              }
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                  ()
+              }
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                case InferredType(TupleType(Seq(type1, type2, type3)), Seq()) =>
+                  // (#Array #Byte, #Short, #Int)
+                  inside(type1) { case BuiltinType(TypeBuiltinFunction.Array, Seq(BuiltinType(TypeBuiltinFunction.Byte, Seq()))) => () }
+                  inside(type2) { case BuiltinType(TypeBuiltinFunction.Short, Seq()) => () }
+                  inside(type3) { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+              }
+          }
+      }
+    }
     
     it should "unift the two global type applications which are same" is (pending)
     
