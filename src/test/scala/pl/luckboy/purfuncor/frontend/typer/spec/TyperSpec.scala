@@ -1423,9 +1423,68 @@ h = g f
       }
     }
     
-    it should "unify the type parameters" is (pending)
+    it should "unify the type parameters" in {
+      // Unifies \t1 => t1 with itself.
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x = x
+g x = f x
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => t1 #-> t1
+          inside(argType1) {
+            case TypeParamApp(param1, Seq(), 0) =>
+              inside(retType1) {
+                case TypeParamApp(param2, Seq(), 0) =>
+                  List(param1, param2).toSet should have size(1)
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
     
-    it should "unify the type parameter application with the other type" is (pending)
+    it should "unify the type parameter with the other type" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f (x: \t1 => #Array t1) = x
+g x = f x
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => #Array t1 #-> #Array t1
+          inside(argType1) {
+            case BuiltinType(TypeBuiltinFunction.Array, Seq(type1)) =>
+              inside(type1) {
+                case TypeParamApp(param11, Seq(), 0) =>
+                  inside(retType1) {
+                    case BuiltinType(TypeBuiltinFunction.Array, Seq(type2)) =>
+                      inside(type2) {
+                        case TypeParamApp(param21, Seq(), 0) =>
+                          List(param11, param21).toSet should have size(1)
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
 
     it should "unify the type parameter application with the type global type application" is (pending)
     
