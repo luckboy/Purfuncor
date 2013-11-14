@@ -1327,7 +1327,53 @@ h = g f
       }
     }
     
-    it should "unify the two global type applications which have the unequal number of the arguments" is (pending)
+    it should "unify the two global type applications which have the unequal number of the arguments" in {
+      // Unifies \t1 => T t1 #Float #Double
+      // with    \t1 => U #Float t1
+      // for type T t1 t2 t3 = (t1 t2, t3) and type U t1 t2 = (t2 t1, #Double).
+val s = """
+type T t1 t2 t3 = tuple 2 (t1 t2) t3
+type U t1 t2 = tuple 2 (t2 t1) #Double
+f = construct 0: \t1 => T t1 #Float #Double
+g (x: \t1 => U #Float t1) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U")))) {
+                case Some(uLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _, _), _), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("U"))), argKinds) =>
+                      // \(t1: * -> *) => U #Float t1
+                      loc1 should be ===(uLoc)
+                      inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq())) => () }
+                      inside(arg2) { case TypeValueLambda(Seq(), TypeParamApp(_, Seq(), 0)) => () }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _)) /* * -> * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
 
     it should "unify the two global type applications which are recursive" is (pending)
     
