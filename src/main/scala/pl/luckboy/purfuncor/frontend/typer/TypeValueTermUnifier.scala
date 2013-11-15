@@ -130,7 +130,8 @@ object TypeValueTermUnifier
             }
         } (env)
       case (_, TypeValueLambda(_, _: TypeApp[T])) =>
-        matchesTypeValueLambdasS(lambda2, lambda1)(z)(f)(env)
+        val (env2, _) = reverseTypeMatchingS(env)
+        matchesTypeValueLambdasS(lambda2, lambda1)(z)(f)(env2)
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
@@ -621,8 +622,9 @@ object TypeValueTermUnifier
         res match {
           case Success((allocatedArgParams, argParams2)) =>
             val (env3, res2) = unsafeAllocateTypeValueTermParamsS(body)(allocatedParams ++ allocatedArgParams, unallocatedParamAppIdx)(env2)
-            (env3, res2.map { _.mapElements(_ -- argParams2, _ => argParams2.toSet, identity, TypeValueLambda(argParams2, _)) })
-          case Failure(noType)                         =>
+            val argParamsSet2 = argParams2.toSet
+            (env3, res2.map { _.mapElements(_.flatMap { case (p, p2) => if(argParamsSet2.contains(p2)) Map() else some(p -> p2) }, _ => argParamsSet2, identity, TypeValueLambda(argParams2, _)) })
+          case Failure(noType)                           =>
             (env2, noType.failure)
         }
     }
