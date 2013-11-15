@@ -285,7 +285,7 @@ package object typer
     override def setReturnKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = (env.withTypeRetKind(kind), ())
     
     override def withRecursionCheckingS[V](locs: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
-      if((env.matchingGlobalTypeSyms & locs).isEmpty)
+      if((env.matchingGlobalTypeSymCounts.keySet & locs).filter { env.matchingGlobalTypeSymCounts.getOrElse(_, 0) >= 3 }.isEmpty)
         env.withGlobalTypes(locs)(f)
       else
         symbolTypeValueTermUnifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)

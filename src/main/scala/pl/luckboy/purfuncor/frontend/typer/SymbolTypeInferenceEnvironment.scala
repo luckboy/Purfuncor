@@ -30,7 +30,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     definedTypes: List[DefinedType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
-    matchingGlobalTypeSyms: Set[GlobalSymbol],
+    matchingGlobalTypeSymCounts: Map[GlobalSymbol, Int],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
     prevDelayedErrTypeParamAppIdxs: Set[Int],
     nextTypeParamAppIdx: Int,
@@ -151,9 +151,11 @@ case class SymbolTypeInferenceEnvironment[T, U](
         definedTypes = definedTypes :+ definedType,
         irreplaceableTypeParams = IntMap() ++ (irreplaceableTypeParams |+| definedType.args.flatMap { _.param.map { (_, NonEmptyList(definedType)) } }.toMap))
   
-  def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms | syms)
+  def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) =
+    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts |+| syms.map { _ -> 1 }.toMap)
   
-  def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) = copy(matchingGlobalTypeSyms = matchingGlobalTypeSyms -- syms)
+  def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) =
+    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts.flatMap { case (s, n) => if(syms.contains(s)) (if(n - 1 > 0) some(s -> (n - 1)) else Map()) else some(s -> n) })
   
   def withGlobalTypes[V](syms: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val (env, res) = f(withMatchingGlobalTypes(syms))
@@ -256,7 +258,7 @@ object SymbolTypeInferenceEnvironment
     combNodes = Map(),
     definedTypes = Nil,
     irreplaceableTypeParams = Map(),
-    matchingGlobalTypeSyms = Set(),
+    matchingGlobalTypeSymCounts = Map(),
     delayedErrNoTypes = Map(),
     prevDelayedErrTypeParamAppIdxs = Set(),
     nextTypeParamAppIdx = 0,
