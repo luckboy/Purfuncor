@@ -1604,11 +1604,157 @@ h = g f
       }
     }
     
-    it should "unify the type parameter application which have the unequal numbers of the arguments" is (pending)
+    it should "unify the type parameter application which have the unequal numbers of the arguments" in {
+      // Unifies \t1 t2 t3 => t1 (t2 #-> #Char) #Byte t3
+      // with    \t1 t2 => t2 #Byte t1.
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 t2 t3 => t1 (##-> t2 #Char) #Byte t3
+g (x: \t1 t2 => t2 #Byte t1) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TypeParamApp(_, Seq(_, _, _), _), Seq(_, _, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(TypeParamApp(param1, Seq(arg1, arg2, arg3), 0), argKinds) =>
+          // \t1 t2 t3 => t1 (t2 #-> #Char) #Byte t3
+          inside(arg1) {
+            case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11))) =>
+              inside(argType11) {
+                case TypeParamApp(param11, Seq(), 0) =>
+                  inside(retType11) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+                  inside(arg2) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Byte, Seq())) => () }
+                  inside(arg3) {
+                    case TypeValueLambda(Seq(), TypeParamApp(param3, Seq(), 0)) =>
+                      List(param1, param11, param3).toSet should have size(3)
+                      argKinds should have size(3)
+                      inside(argKinds.lift(param1)) {
+                        case Some(InferredKind(Arrow(Star(KindType, _), ret1, _))) =>
+                          // * -> * -> k1 -> *
+                          inside(ret1) {
+                            case Arrow(Star(KindType, _), ret2, _) =>
+                              inside(ret2) { case Arrow(Star(KindParam(_), _), Star(KindType, _), _) => () }
+                          }
+                      }
+                      inside(argKinds.lift(param11)) {
+                        case Some(InferredKind(Star(KindType, _))) =>
+                          // *
+                          ()
+                      }
+                      inside(argKinds.lift(param3)) {
+                        case Some(InferredKind(Star(KindParam(_), _))) =>
+                          // k1
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
-    it should "unify the two type lambda-expressions which have the equal number of the arguments" is (pending)
+    it should "unify the two type lambda-expressions which have the equal number of the arguments" in {
+      // Unifies \t1 => t1 (\t2 t3 => t2 #-> #Char #-> (t3, #Float)) 
+      // with    \t1 t2 => t1 (\t3 t4 => t3 #-> t2 #-> (t4, #Float)).
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 => t1 (\t2 t3 => ##-> t2 (##-> #Char (tuple 2 t3 #Float)))
+g (x: \t1 t2 => t1 (\t3 t4 => ##-> t3 (##-> t2 (tuple 2 t4 #Float)))) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TypeParamApp(_, Seq(_), _), Seq(_)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(TypeParamApp(param1, Seq(arg1), 0), argKinds) =>
+          // \t1 => t1 (\t2 t3 => t2 #-> #Char #-> (t3, #Float))
+          inside(arg1) {
+            case TypeValueLambda(Seq(param11, param12), BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11))) =>
+              inside(argType11) {
+                case TypeParamApp(param111, Seq(), 0) =>
+                  inside(retType11) {
+                    case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType12, retType12)) =>
+                      inside(argType12) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+                      inside(retType12) {
+                        case TupleType(Seq(TypeParamApp(param121, Seq(), 0), BuiltinType(TypeBuiltinFunction.Float, Seq()))) =>
+                          List(param11, param111).toSet should have size(1)
+                          List(param12, param121).toSet should have size(1)
+                          List(param1, param11, param12, param111, param121).toSet should have size(3)
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Arrow(Arrow(Star(KindType, _), Arrow(Star(KindType, _), Star(KindType, _), _), _), Star(KindType, _), _)) /* * -> * -> * */) =>
+              ()
+          }
+      }
+    }
     
-    it should "unify the two type lambda-expressions which have the unequal number of the arguments" is (pending)
+    it should "unify the two type lambda-expressions which have the unequal number of the arguments" in {
+      // Unifies T (\t1 t2 t3 => U t2 t1 t3)
+      // with    T (\t1 t2 => U t2 t1)
+      val s = """
+type T t1 = tuple 2 #Char (t1 #Int #Long #Float)
+type U t1 t2 t3 = tuple 3 t1 t2 t3
+f = construct 0: T (\t1 t2 t3 => U t2 t1 t3)
+g (x: T (\t1 t2 => U t2 t1)) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1), GlobalSymbol(NonEmptyList("T"))), Seq()) =>
+                      // T (\t1 t2 => U t2 t1)
+                      loc1 should be ===(tLoc)
+                      inside(arg1) {
+                        case TypeValueLambda(Seq(param11, param12), GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("U")))) =>
+                          loc11 should be ===(uLoc)
+                          inside(arg11) { 
+                            case TypeValueLambda(Seq(), TypeParamApp(param111, Seq(), 0)) =>
+                              inside(arg12) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param121, Seq(), 0)) =>
+                                  List(param11, param121).toSet should have size(1)
+                                  List(param12, param111).toSet should have size(1)
+                                  List(param11, param12, param111, param121).toSet should have size(2)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the two type disjunctions" is (pending)
     
