@@ -1375,7 +1375,49 @@ h = g f
       }
     }
 
-    it should "unify the two global type applications which are recursive" is (pending)
+    it should "unify the two global type applications which are recursive" in {
+      // Unifies \t1 => V t1
+      // with    W
+      // for unittype 1 T and unittype 2 U and type V t1 = (T t1) #| (U t1 (V t1))
+      // and type W = (T #Char) #| (U #Char (V #Char)).
+val s = """
+unittype 1 T
+unittype 2 U
+type V t1 = ##| (T t1) (U t1 (V t1))
+type W = ##| (T #Char) (U #Char (V #Char))
+f = construct 0: \t1 => V t1
+g (x: W) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("W")))) {
+                case Some(wLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("W"))), Seq()) =>
+                      // W
+                      loc1 should be ===(wLoc)
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the two global type applications for the partial type application" in {
       // Unifies T #Boolean #Char
