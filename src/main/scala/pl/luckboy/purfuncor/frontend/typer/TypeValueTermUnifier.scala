@@ -319,6 +319,12 @@ object TypeValueTermUnifier
       case (_, globalTypeApp2: GlobalTypeApp[T]) =>
         val (env2, _) = reverseTypeMatchingS(env)
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, typeParamApp1)(z)(f)(env2)
+      case (TypeParamApp(_, args1, _), typeConj2: TypeConjunction[T]) if !args1.isEmpty =>
+        val (env2, _) = reverseTypeMatchingS(env)
+        matchesTypeConjunctionWithTypeValueTermS(typeConj2, typeParamApp1)(z)(f)(env2)
+      case (TypeParamApp(_, args1, _), typeDisj2: TypeDisjunction[T]) if !args1.isEmpty =>
+        val (env2, _) = reverseTypeMatchingS(env)
+        matchesTypeDisjunctionWithTypeValueTermS(typeDisj2, typeParamApp1)(z)(f)(env2)
       case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
         val (env2, noType) = mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env)
         addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env2)
@@ -527,13 +533,16 @@ object TypeValueTermUnifier
         val (env2, res) = f(param, env)
         res match {
           case Success(Left(param2))     =>
-            (env2, TypeParamApp(param2, args, paramAppIdx).success)
+            val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args)(f)(env2)
+            (env3, res2.map { TypeParamApp(param2, _, paramAppIdx) })
           case Success(Right(paramTerm)) =>
             paramTerm match {
               case TypeParamApp(param2, args2, _)   =>
-                (env2, TypeParamApp(param2, args2 ++ args, paramAppIdx).success)
+                val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
+                (env3, res2.map { TypeParamApp(param2, _, paramAppIdx) })
               case GlobalTypeApp(loc2, args2, sym2) =>
-                (env2, GlobalTypeApp(loc2, args2 ++ args, sym2).success)
+                val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
+                (env3, res2.map { GlobalTypeApp(loc2, _, sym2) })
               case _                                =>
                 if(args.isEmpty)
                   (env2, paramTerm.success)
