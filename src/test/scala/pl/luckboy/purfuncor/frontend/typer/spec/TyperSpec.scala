@@ -1704,7 +1704,7 @@ h = g f
     
     it should "unify the two type lambda-expressions which have the unequal number of the arguments" in {
       // Unifies T (\t1 t2 t3 => U t2 t1 t3)
-      // with    T (\t1 t2 => U t2 t1)
+      // with    T (\t1 t2 => U t2 t1).
       val s = """
 type T t1 = tuple 2 #Char (t1 #Int #Long #Float)
 type U t1 t2 t3 = tuple 3 t1 t2 t3
@@ -1756,9 +1756,69 @@ h = g f
       }
     }
     
-    it should "unify the two type disjunctions" is (pending)
+    it should "unify the two type conjunctions" in {
+      // Unifies \t1 t2 => #Array ((T t1 t2) #& U #& (V (#Int #-> t2)))
+      // with    \t1 => #Aeeay ((T #Boolean t1) #& U #& (V (#Int #-> #Char)))
+      // for unittype 2 T and unittype 0 U and unittype 1 V.
+      val s = """
+unittype 2 T
+unittype 0 U
+unittype 1 V
+f = construct 0: \t1 t2 => #Array (##& (##& (T t1 t2) U) (V (##-> #Int t2)))
+g (x: \t1 => #Array (##& (##& (T #Boolean t1) U) (V (##-> #Int #Char)))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")),
+                  GlobalSymbol(NonEmptyList("V")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc, vLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), Seq()) =>
+                      // #Array ((T #Boolean #Char) #& U #& (V (#Int #-> #Char)))
+                      inside(for {
+                        x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
+                        x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
+                        x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(arg13), GlobalSymbol(NonEmptyList("V"))) => (loc13, arg13) }
+                      } yield (x1, x2, x3)) {
+                        case Some(((loc11, arg11, arg12), loc12, (loc13, arg13))) =>
+                          loc11 should be ===(tLoc)
+                          loc12 should be ===(uLoc)
+                          loc13 should be ===(vLoc)
+                          inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          inside(arg12) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          inside(arg13) {
+                            case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Fun, Seq(argType131, retType131))) =>
+                              inside(argType131) { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+                              inside(retType131) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
-    it should "unify the two type conjunctions" is (pending)
+    it should "unify the two type disjunctions" is (pending)
     
     it should "unify the two types which are the same logical expression" is (pending)
 
