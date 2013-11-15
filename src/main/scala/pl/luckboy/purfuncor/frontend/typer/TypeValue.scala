@@ -256,7 +256,10 @@ object TypeValueTerm
     
   def appForGlobalTypeS[T, U, V, W, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
     val (env2, funValue) = envSt.globalTypeVarValueFromEnvironmentS(funLoc)(env)
-    val (env3, retValue) = appS(funValue, argLambdas.map { EvaluatedTypeLambdaValue(_) })(env2)
+    val (env3, retValue) = if(!argLambdas.isEmpty) 
+      appS(funValue, argLambdas.map { EvaluatedTypeLambdaValue(_) })(env2)
+    else
+      (env2, funValue)
     eval.forceS(retValue)(env3) match {
       case (env4, noType: NoTypeValue[T, U, V, W]) => (env4, noType.failure)
       case (env4, EvaluatedTypeValue(term))        => (env4, term.success)
