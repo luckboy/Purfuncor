@@ -1758,7 +1758,7 @@ h = g f
     
     it should "unify the two type conjunctions" in {
       // Unifies \t1 t2 => #Array ((T t1 t2) #& U #& (V (#Int #-> t2)))
-      // with    \t1 => #Aeeay ((T #Boolean t1) #& U #& (V (#Int #-> #Char)))
+      // with    \t1 => #Array ((T #Boolean t1) #& U #& (V (#Int #-> #Char)))
       // for unittype 2 T and unittype 0 U and unittype 1 V.
       val s = """
 unittype 2 T
@@ -1818,7 +1818,74 @@ h = g f
       }
     }
     
-    it should "unify the two type disjunctions" is (pending)
+    it should "unify the two type disjunctions" in {
+      // Unifies \t1 t2 t3 => #Array ((T #Boolean t1) #| U #| (V t2 t3))
+      // with    \t1 t2 => #Array ((T t2 t1) #| U #| (V t1 t2))
+      // for unittype 2 T and unittype 0 U and unittype 2 V.
+      val s = """
+unittype 2 T
+unittype 0 U
+unittype 2 V
+f = construct 0: \t1 t2 t3 => #Array (##| (##| (T #Boolean t1) U) (V t2 t3))
+g (x: \t1 t2 => #Array (##| (##| (T t2 t1) U) (V t1 t2))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")),
+                  GlobalSymbol(NonEmptyList("V")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc, vLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
+                      // \t1 => (T #Boolean t1) #| U #| (V t1 #Boolean)
+                      inside(for {
+                        x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
+                        x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
+                        x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(arg13, arg14), GlobalSymbol(NonEmptyList("V"))) => (loc13, arg13, arg14) }
+                      } yield (x1, x2, x3)) {
+                        case Some(((loc11, arg11, arg12), loc12, (loc13, arg13, arg14))) =>
+                          loc11 should be ===(tLoc)
+                          loc12 should be ===(uLoc)
+                          loc13 should be ===(vLoc)
+                          inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          inside(arg12) {
+                            case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                              inside(arg13) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param13, Seq(), 0)) =>
+                                  List(param12, param13).toSet should have size(1)
+                              }
+                          }
+                          inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the two types which are the same logical expression" is (pending)
 
