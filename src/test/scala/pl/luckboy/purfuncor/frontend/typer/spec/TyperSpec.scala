@@ -1528,9 +1528,81 @@ g x = f x
       }
     }
 
-    it should "unify the type parameter application with the type global type application" is (pending)
+    it should "unify the type parameter application with the type global type application" in {
+      // Unifies \t1 => T #Char t1 #Double
+      // with    \t1 t2 => t1 #Float t2 for type T t1 t2 t3 = (t1, t2, t3).
+      val s = """
+type T t1 t2 t3 = tuple 3 t1 t2 t3
+f = construct 0: \t1 => T #Char t1 #Double
+g (x: \t1 t2 => t1 #Float t2) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(tLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _, _), _), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(tLoc, Seq(arg1, arg2, arg3), GlobalSymbol(NonEmptyList("T"))), Seq()) =>
+                      // T #Char #Float #Double
+                      inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                      inside(arg2) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq())) => () }
+                      inside(arg3) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Double, Seq())) => () }
+                  }
+              }
+          }
+      }
+    }
     
-    it should "unify the type parameter applications which have the equal numbers of the arguments" is (pending)
+    it should "unify the type parameter applications which have the equal numbers of the arguments" in {
+      // Unifies \t1 t2 => t1 t2 (t2 #-> #Char) #Double
+      // with    \t1 t2 t3 => t1 #Boolean (t2 #-> t3) #Double.
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 t2 => t1 t2 (##-> t2 #Char) #Double
+g (x: \t1 t2 t3 => t1 #Boolean (##-> t2 t3) #Double) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TypeParamApp(_, Seq(_, _, _), _), Seq(_, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _, _)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(TypeParamApp(_, Seq(arg1, arg2, arg3), 0), argKinds) =>
+          // \t1 => t1 #Boolean (#Boolean #-> #Char) #Double
+          inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+          inside(arg2) {
+            case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Fun, Seq(argType21, retType21))) =>
+              inside(argType21) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              inside(retType21) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
+          }
+          inside(arg3) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Double, Seq())) => () }
+          inside(argKinds)  {
+            case Seq(
+                InferredKind(Arrow(Star(KindType, _), Arrow(Star(KindType, _), Arrow(Star(KindType, _), Star(KindType, _), _), _), _)) /* * -> (* -> *) -> * -> * */) =>
+              ()
+          }
+      }
+    }
     
     it should "unify the type parameter application which have the unequal numbers of the arguments" is (pending)
     
