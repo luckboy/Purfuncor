@@ -1795,6 +1795,7 @@ h = g f
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), Seq()) =>
                       // #Array ((T #Boolean #Char) #& U #& (V (#Int #-> #Char)))
+                      types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
                         x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
@@ -1857,6 +1858,7 @@ h = g f
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
                       // \t1 => (T #Boolean t1) #| U #| (V t1 #Boolean)
+                      types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
                         x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc12 }
@@ -1887,7 +1889,114 @@ h = g f
       }
     }
     
-    it should "unify the two types which are the same logical expression" is (pending)
+    it should "unify the two types which are the same logical expression" in {
+      // Unifies \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X))) with itself
+      // for unittype 1 T and unittype 2 U and unittype 1 V and unittype W and unittype X.
+      val s = """
+unittype 1 T
+unittype 2 U
+unittype 1 V
+unittype 0 W
+unittype 0 X
+f = construct 0: \t1 t2 => #Array (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))
+g (x: \t1 t2 => #Array (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")),
+                  GlobalSymbol(NonEmptyList("V")),
+                  GlobalSymbol(NonEmptyList("W")),
+                  GlobalSymbol(NonEmptyList("X")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc, vLoc, wLoc, xLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
+                      // \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X)))
+                      inside(for {
+                        x1 <- types1.collectFirst { case TypeConjunction(types11) if types11.size == 2 => types11 }
+                        x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(arg12), GlobalSymbol(NonEmptyList("V"))) => (loc12, arg12) }
+                        x3 <- types1.collectFirst { case TypeConjunction(types13) if types13.size == 3 => types13 }
+                      } yield (x1, x2, x3)) {
+                        case Some((types11, (loc12, arg12), types13)) =>
+                          loc12 should be ===(vLoc)
+                          inside(for {
+                            x1 <- types11.collectFirst { case GlobalTypeApp(loc111, Seq(arg111), GlobalSymbol(NonEmptyList("T"))) => (loc111, arg111) }
+                            x2 <- types11.collectFirst { case GlobalTypeApp(loc112, Seq(arg112, arg113), GlobalSymbol(NonEmptyList("U"))) => (loc112, arg112, arg113) }
+                          } yield (x1, x2)) {
+                            case Some(((loc111, arg111), (loc112, arg112, arg113))) =>
+                              loc111 should be ===(tLoc)
+                              loc112 should be ===(uLoc)
+                              inside(arg111) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param111, Seq(), 0)) =>
+                                  inside(arg112) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param112, Seq(), 0)) =>
+                                      inside(arg113) {
+                                        case TypeValueLambda(Seq(), TypeParamApp(param113, Seq(), 0)) =>
+                                          inside(arg12) {
+                                            case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                                              inside(for {
+                                                x1 <- types13.collectFirst { case GlobalTypeApp(loc131, Seq(arg131), GlobalSymbol(NonEmptyList("T"))) => (loc131, arg131) }
+                                                x2 <- types13.collectFirst { case GlobalTypeApp(loc132, Seq(), GlobalSymbol(NonEmptyList("W"))) => loc132 }
+                                                x3 <- types13.collectFirst { case TypeDisjunction(types133) => types133 }
+                                              } yield (x1, x2, x3)) {
+                                                case Some(((loc131, arg131), loc132, types133)) =>
+                                                  loc131 should be ===(tLoc)
+                                                  loc132 should be ===(wLoc)
+                                                  inside(arg131) {
+                                                    case TypeValueLambda(Seq(), TypeParamApp(param131, Seq(), 0)) =>
+                                                      types133 should have size(2)
+                                                      inside(for {
+                                                        x1 <- types133.collectFirst { case GlobalTypeApp(loc1331, Seq(arg1331), GlobalSymbol(NonEmptyList("V"))) => (loc1331, arg1331) }
+                                                        x2 <- types133.collectFirst { case GlobalTypeApp(loc1332, Seq(), GlobalSymbol(NonEmptyList("X"))) => loc1332 }
+                                                      } yield (x1, x2)) {
+                                                        case Some(((loc1331, arg1331), loc1332)) =>
+                                                          loc1331 should be ===(vLoc)
+                                                          loc1332 should be ===(xLoc)
+                                                          inside(arg1331) {
+                                                            case TypeValueLambda(Seq(), TypeParamApp(param1331, Seq(), 0)) =>
+                                                              List(param111, param112, param131).toSet should have size(1)
+                                                              List(param113, param12, param1331).toSet should have size(1)
+                                                              List(param111, param112, param113, param12, param131, param1331).toSet should have size(2)
+                                                          }
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */,
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
 
     it should "unify the two types which are the different logical expressions" is (pending)
     
