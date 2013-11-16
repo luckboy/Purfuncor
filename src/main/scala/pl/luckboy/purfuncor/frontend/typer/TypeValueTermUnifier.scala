@@ -11,6 +11,7 @@ import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.frontend.KindTermUtils._
 
 object TypeValueTermUnifier
 {
@@ -683,6 +684,10 @@ object TypeValueTermUnifier
   def allocateTypeValueTermParamsWithKindsS[T, U, E](term: TypeValueTerm[T], kinds: Map[Int, Kind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     unifier.withSaveS {
       env2 =>
+        val mustInferKinds = (kinds.foldLeft(0) {
+          case (s, (_, InferredKind(kt))) => s + (if(kindParamsFromKindTerm(kt).isEmpty) 0 else 1)
+          case (s, _)                     => s
+        } > 1)
         val (env3, res) = unsafeAllocateTypeValueTermParamsS(term)(allocatedParams, unallocatedParamAppIdx)(env2)
         res.map {
           case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
@@ -706,7 +711,7 @@ object TypeValueTermUnifier
                 inferringKinds =>
                   for {
                     _ <- State(envSt.setTypeParamKindsS(inferringKinds))
-                    res3 <- if(!allocatedArgParams.isEmpty)
+                    res3 <- if(mustInferKinds || !allocatedArgParams.isEmpty)
                       State(envSt.inferTypeValueTermKindS(term2))
                     else
                       State((_: E, ().success))
