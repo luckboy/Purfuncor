@@ -184,6 +184,19 @@ sealed trait TypeValueTerm[T]
       case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
     }
   
+  def toTypeConjunction =
+    this match {
+      case typeConj: TypeConjunction[T] => typeConj
+      case _                            => TypeConjunction(Set(this))
+    }
+  
+  
+  def toTypeDisjunction =
+    this match {
+      case typeDisj: TypeDisjunction[T] => typeDisj
+      case _                            => TypeDisjunction(Set(this))
+    }
+  
   def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
   
   def toArgString =

@@ -36,7 +36,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     nextTypeParamAppIdx: Int,
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
-    currentTypeMatching: TypeMatching.Value,
+    currentTypeMatchingPair: (TypeMatching.Value, TypeForm.Value),
     currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean)
@@ -191,12 +191,24 @@ case class SymbolTypeInferenceEnvironment[T, U](
     (env3.withTypeLambdaArgParams(env3.typeLambdaArgParams -- argParams.flatten).withTypeLambdaArgCount(oldArgCount), res)
   }
   
-  def withCurrentTypeMatching(typeMatching: TypeMatching.Value) = copy(currentTypeMatching = typeMatching)
+  def currentTypeMatching = currentTypeMatchingPair._1
+  
+  def withCurrentTypeMatching(typeMatching: TypeMatching.Value) = copy(currentTypeMatchingPair = currentTypeMatchingPair.copy(_1 = typeMatching))
   
   def withTypeMatching[V](typeMatching: TypeMatching.Value)(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val oldTypeMatching = currentTypeMatching
     val (env, res) = f(withCurrentTypeMatching(typeMatching))
     (env.withCurrentTypeMatching(oldTypeMatching), res)
+  }
+  
+  def currentTypeForm = currentTypeMatchingPair._2
+  
+  def withCurrentTypeForm(typeForm: TypeForm.Value) = copy(currentTypeMatchingPair = currentTypeMatchingPair.copy(_2 = typeForm))
+  
+  def withTypeForm[V](typeForm: TypeForm.Value)(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val oldTypeForm = currentTypeForm
+    val (env, res) = f(withCurrentTypeForm(typeForm))
+    (env.withCurrentTypeForm(oldTypeForm), res)
   }
   
   def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(currentTypePair = pair)
@@ -264,7 +276,7 @@ object SymbolTypeInferenceEnvironment
     nextTypeParamAppIdx = 0,
     typeLambdaArgParams = Map(),
     typeLambdaArgCount = 0,
-    currentTypeMatching = TypeMatching.Types,
+    currentTypeMatchingPair = (TypeMatching.Types, TypeForm.Logical),
     currentTypePair = none,
     errNoType = none,
     isRecursive = false)
