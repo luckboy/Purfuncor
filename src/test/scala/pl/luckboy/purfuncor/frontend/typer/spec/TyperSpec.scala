@@ -1891,7 +1891,7 @@ h = g f
     
     it should "unify the two types which are the same logical expression" in {
       // Unifies \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X))) with itself
-      // for unittype 1 T and unittype 2 U and unittype 1 V and unittype W and unittype X.
+      // for unittype 1 T and unittype 2 U and unittype 1 V and unittype 0 W and unittype 0 X.
       val s = """
 unittype 1 T
 unittype 2 U
@@ -1931,6 +1931,7 @@ h = g f
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
                       // \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X)))
+                      types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case TypeConjunction(types11) if types11.size == 2 => types11 }
                         x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(arg12), GlobalSymbol(NonEmptyList("V"))) => (loc12, arg12) }
@@ -1998,7 +1999,82 @@ h = g f
       }
     }
 
-    it should "unify the two types which are the different logical expressions" is (pending)
+    it should "unify the two types which are the different logical expressions" in {
+      // Unifies \t1 t2 => #Array ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t2) #& #Empty) #| (V #& (W #| #Empty)))
+      // Unifies \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty)) 
+      // for unittype 0 T and unittype 1 U and unittype 0 V and unittype 0 W.
+      val s = """
+unittype 0 T
+unittype 1 U
+unittype 0 V
+unittype 0 W
+f = construct 0: \t1 t2 => #Array (##| (##| (##| (##& T (##| W #Empty)) (##& (U t1) W)) (##& (U t2) #Empty)) (##& V (##| W #Empty)))
+g (x: \t1 => #Array (##& (##| (##| T (U t1)) V) (##| W #Empty))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")),
+                  GlobalSymbol(NonEmptyList("V")),
+                  GlobalSymbol(NonEmptyList("W")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc, vLoc, wLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), argKinds) =>
+                      // \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty))
+                      types1 should be ===(2)
+                      inside(for {
+                        x1 <- types1.collectFirst { case TypeConjunction(types11) if types11.size == 3 => types11 }
+                        x2 <- types1.collectFirst { case TypeConjunction(types12) if types12.size == 2 => types12 }
+                      } yield (x1, x2)) {
+                        case Some((types11, types12)) =>
+                          inside(for {
+                            x1 <- types11.collectFirst { case GlobalTypeApp(loc111, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc111 }
+                            x2 <- types11.collectFirst { case GlobalTypeApp(loc112, Seq(arg112), GlobalSymbol(NonEmptyList("U"))) => (loc112, arg112) }
+                            x3 <- types11.collectFirst { case GlobalTypeApp(loc113, Seq(), GlobalSymbol(NonEmptyList("V"))) => loc113 }
+                          } yield (x1, x2, x3)) {
+                            case Some((loc111, (loc112, arg112), loc113)) =>
+                              loc111 should be ===(tLoc)
+                              loc112 should be ===(uLoc)
+                              loc113 should be ===(vLoc)
+                              inside(arg112) { case TypeValueLambda(Seq(), TypeParamApp(_, Seq(), 0)) => () }
+                          }
+                          inside(for {
+                            x1 <- types12.collectFirst { case GlobalTypeApp(loc121, Seq(), GlobalSymbol(NonEmptyList("W"))) => loc121 }
+                            _ <- types12.collectFirst { case BuiltinType(TypeBuiltinFunction.Empty, Seq()) => () }
+                          } yield x1) {
+                            case Some(loc121) =>
+                              loc121 should be ===(wLoc)
+                          }
+                      }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the two types for the first interation of the unification that has the errors" is (pending)
     
