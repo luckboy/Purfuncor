@@ -15,7 +15,8 @@ case class SymbolTypeEnvironment[T](
     currentFile: Option[java.io.File],
     applyingTypeCombSyms: Set[GlobalSymbol],
     currentTypeParamAppIdx: Int,
-    isPartial: Boolean)
+    isPartial: Boolean,
+    recursiveTypeCombSyms: Set[GlobalSymbol])
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -104,6 +105,8 @@ case class SymbolTypeEnvironment[T](
     (env.withPartial(old), res)
   }
   
+  def withRecursiveTypeCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(recursiveTypeCombSyms = syms)
+  
   def withClear[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)): (SymbolTypeEnvironment[T], U) = {
     val (env, res) = f(copy(typeClosureStack = List(SymbolTypeClosure(Map()))))
     (env.copy(typeClosureStack = List(SymbolTypeClosure(Map()))), res)
@@ -119,7 +122,8 @@ object SymbolTypeEnvironment
       currentFile = none,
       applyingTypeCombSyms = Set(),
       currentTypeParamAppIdx = 0,
-      isPartial = false)
+      isPartial = false,
+      recursiveTypeCombSyms = Set())
 }
     
 case class SymbolTypeClosure[T](

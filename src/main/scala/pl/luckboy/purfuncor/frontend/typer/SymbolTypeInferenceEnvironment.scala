@@ -151,11 +151,15 @@ case class SymbolTypeInferenceEnvironment[T, U](
         definedTypes = definedTypes :+ definedType,
         irreplaceableTypeParams = IntMap() ++ (irreplaceableTypeParams |+| definedType.args.flatMap { _.param.map { (_, NonEmptyList(definedType)) } }.toMap))
   
-  def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) =
-    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts |+| syms.map { _ -> 1 }.toMap)
+  def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) = {
+    val recSyms = syms & typeEnv.recursiveTypeCombSyms
+    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts |+| recSyms.map { _ -> 1 }.toMap)
+  }
   
-  def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) =
-    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts.flatMap { case (s, n) => if(syms.contains(s)) (if(n - 1 > 0) some(s -> (n - 1)) else Map()) else some(s -> n) })
+  def withoutMatchingGlobalTypes(syms: Set[GlobalSymbol]) = {
+    val recSyms = syms & typeEnv.recursiveTypeCombSyms
+    copy(matchingGlobalTypeSymCounts = matchingGlobalTypeSymCounts.flatMap { case (s, n) => if(recSyms.contains(s)) (if(n - 1 > 0) some(s -> (n - 1)) else Map()) else some(s -> n) })
+  }
   
   def withGlobalTypes[V](syms: Set[GlobalSymbol])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val (env, res) = f(withMatchingGlobalTypes(syms))

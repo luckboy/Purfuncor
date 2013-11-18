@@ -58,9 +58,12 @@ package object typer
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
-            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) || env.isPartial =>
+            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) =>
+              val env2 = env.withRecursiveTypeCombSyms(env.recursiveTypeCombSyms + globalSym)
+              (env2, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
+            case globalSym: GlobalSymbol if env.isPartial                                =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case _                                                                                        =>
+            case _                                                                       =>
               (env, env.typeVarValue(loc))
           }
         case TypeLiteral(value)            =>
@@ -185,9 +188,10 @@ package object typer
         }
       } else
         (env, TypeCombinatorValue(comb, loc, loc))
+      val env3 = env.withRecursiveTypeCombSyms(env2.recursiveTypeCombSyms)
       value match {
-        case noValue: NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]] => (env, noValue.failure)
-        case _                                                                   => (env.withGlobalTypeVar(loc, value), ().success)
+        case noValue: NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]] => (env3, noValue.failure)
+        case _                                                                   => (env3.withGlobalTypeVar(loc, value), ().success)
       }
     }
       
