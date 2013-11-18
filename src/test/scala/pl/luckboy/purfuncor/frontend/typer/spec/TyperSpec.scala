@@ -2080,7 +2080,7 @@ h = g f
     
     it should "unify the two types which are the logical expression with the type parameters" is (pending)
     
-    it should "unfiy the supertype with the type for the Any type" is (pending)
+    it should "unify the supertype with the type for the Any type" is (pending)
     
     it should "unify the supertype with the type for the Nothing type" is (pending)
     
