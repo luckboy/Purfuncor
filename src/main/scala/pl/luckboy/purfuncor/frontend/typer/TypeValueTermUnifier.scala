@@ -258,25 +258,31 @@ object TypeValueTermUnifier
           case Success(x) =>
             (env3, x.success)
           case Failure(_) =>
-            appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env3) match {
-              case (env4, Success(evaluatedTerm1)) =>
-                appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env4) match {
-                  case (env5, Success(evaluatedTerm2)) =>
-                    envSt.withRecursionCheckingS(Set(loc1, loc2)) { matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f)(_: E) }(env5)
+            envSt.withRecursionCheckingS(Set(loc1, loc2)) { 
+              env4 =>
+                appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env4) match {
+                  case (env5, Success(evaluatedTerm1)) =>
+                    appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env5) match {
+                      case (env6, Success(evaluatedTerm2)) =>
+                        matchesTypeValueTermsS(evaluatedTerm1, evaluatedTerm2)(z)(f)(env6)
+                      case (env6, Failure(noType))         =>
+                        (env6, noType.failure)
+                    }
                   case (env5, Failure(noType))         =>
                     (env5, noType.failure)
                 }
-              case (env4, Failure(noType))         =>
-                (env4, noType.failure)
-            }
+            } (env3)
         }
       case (GlobalTypeApp(loc1, args1, _), _) =>
-        appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env) match {
-          case (env2, Success(evaluatedTerm1)) =>
-            envSt.withRecursionCheckingS(Set(loc1)) { matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(_: E) }(env2)
-          case (env2, Failure(noType))         =>
-            (env2, noType.failure)
-        }
+        envSt.withRecursionCheckingS(Set(loc1)) {
+          env2 =>
+            appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env2) match {
+              case (env3, Success(evaluatedTerm1)) =>
+                matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(env3)
+              case (env3, Failure(noType))         =>
+                (env3, noType.failure)
+            }
+        } (env)
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
@@ -431,12 +437,15 @@ object TypeValueTermUnifier
       case Success(instantiatedTerm) =>
         instantiatedTerm match {
           case GlobalTypeApp(loc, args, _) =>
-            appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
-              case (env3, Success(evaluatedTerm)) =>
-                envSt.withRecursionCheckingS(Set(loc)) { evaluateLogicalTypeValueTermS(evaluatedTerm)(_: E) } (env3)
-              case (env3, Failure(noType))        =>
-                (env3, noType.failure)
-            }
+            envSt.withRecursionCheckingS(Set(loc)) {
+              env3 =>
+                appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env3) match {
+                  case (env4, Success(evaluatedTerm)) =>
+                    evaluateLogicalTypeValueTermS(evaluatedTerm)(env4)
+                  case (env4, Failure(noType))        =>
+                    (env4, noType.failure)
+                }
+            } (env2)
           case TypeConjunction(terms)      =>
             evaluateLogicalTypeValueTermsS(terms)(env2).mapElements(identity, _.map { TypeConjunction(_) })
           case TypeDisjunction(terms)      =>
@@ -519,12 +528,15 @@ object TypeValueTermUnifier
                   case Success(x) =>
                     (env3, x.success)
                   case Failure(_) =>
-                    appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env3) match {
-                      case (env4, Success(evaluatedTerm1)) =>
-                        envSt.withRecursionCheckingS(Set(loc1)) { matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(_: E) } (env4)
-                      case (env4, Failure(noType))         =>
-                        (env4, noType.failure)
-                    }
+                    envSt.withRecursionCheckingS(Set(loc1)) { 
+                      env4 =>
+                        appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env4) match {
+                          case (env5, Success(evaluatedTerm1)) =>
+                            matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(env5)
+                          case (env5, Failure(noType))         =>
+                            (env5, noType.failure)
+                        }
+                    } (env3)
                 }
               case (_, TypeConjunction(terms2)) =>
                 checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(env2)
@@ -534,12 +546,15 @@ object TypeValueTermUnifier
                   case Success(x) =>
                     (env3, x.success)
                   case Failure(_) =>
-                    appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env3) match {
-                      case (env4, Success(evaluatedTerm1)) =>
-                        envSt.withRecursionCheckingS(Set(loc2)) { matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(_: E) } (env4)
-                      case (env4, Failure(noType))         =>
-                        (env4, noType.failure)
-                    }
+                    envSt.withRecursionCheckingS(Set(loc2)) {
+                      env4 =>
+                       appForGlobalTypeWithAllocatedTypeParamsS(loc2, args2)(env4) match {
+                         case (env5, Success(evaluatedTerm1)) =>
+                           matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(env5)
+                         case (env5, Failure(noType))         =>
+                           (env5, noType.failure)
+                       }
+                    } (env3)
                 }
               case (TypeDisjunction(terms1), _) =>
                 checkTypeValueTermSubsetS(Set(normalizedTerm2), terms1, true)(z)(f)(env2)
