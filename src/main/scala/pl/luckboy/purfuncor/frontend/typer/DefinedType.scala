@@ -23,7 +23,7 @@ case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], po
         case (arg, optIdx) => 
           val s = arg.toStringForName(optIdx.map { i => "t" + (i + 1) }.getOrElse("_"))
           arg.kind.map { _ => "(" + s + ")" }.getOrElse(s)
-      } + " => " + term2
+      }.mkString(" ") + " => " + term2
     } else
       term2.toString
   }
@@ -80,5 +80,5 @@ object DefinedType
 
 case class DefinedTypeArg(param: Option[Int], kind: Option[KindTerm[StarKindTerm[Int]]])
 {
-  def toStringForName(name: String) = param.map { _ => name }.getOrElse("_") + kind.map { kt => ": " + intKindTermShowing.stringFrom(kt) }
+  def toStringForName(name: String) = param.map { _ => name }.getOrElse("_") + kind.map { kt => ": " + intKindTermShowing.stringFrom(kt) }.getOrElse("")
 }
