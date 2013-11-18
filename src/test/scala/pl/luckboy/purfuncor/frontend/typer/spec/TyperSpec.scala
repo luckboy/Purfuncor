@@ -2149,7 +2149,66 @@ h = g f
       }
     }
     
-    it should "unify the two types which are the logical expression with the type parameters" is (pending)
+    it should "unify the two types which are the logical expression with the type parameters" in {
+      // Unifies \t1 t2 => #Array (t1 #& (t2 #Char) #& T)
+      // Unifies \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T)
+      // for unittype 0 T and type U t1 t2 = V t1 and unittype 1 V.
+      val s = """
+unittype 0 T
+f = construct 0: \t1 t2 => #Array (##& (##& t1 (t2 #Char)) T)
+g (x: \t1 t2 t3 => #Array (##& (##& t1 (t2 t3)) T)) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(tLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _, _)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), argKinds) =>
+                      // \t1 t2 t3 => #Array (t1 #& (t2 #Char) #& T)
+                      types1 should have size(3)
+                      inside(for {
+                        x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
+                        x2 <- types1.collectFirst { case TypeParamApp(param12, Seq(arg12), 0 ) => (param12, arg12) }
+                        x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc13 }
+                      } yield (x1, x2, x3)) {
+                        case Some((param11, (param12, arg12), loc13)) =>
+                          loc13 should be ===(tLoc)
+                          inside(arg12) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          List(param11, param12).toSet should have size(2)
+                          argKinds should have size(2)
+                          inside(argKinds.lift(param11)) {
+                            case Some(InferredKind(Star(KindType, _))) =>
+                              // *
+                              ()
+                          }
+                          inside(argKinds.lift(param12)) {
+                            case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) =>
+                              // * -> *
+                              ()
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the supertype with the type for the Any type" is (pending)
     
