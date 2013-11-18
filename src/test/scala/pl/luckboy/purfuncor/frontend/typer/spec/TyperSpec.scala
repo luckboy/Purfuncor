@@ -2040,10 +2040,10 @@ h = g f
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), argKinds) =>
                       // \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty))
-                      types1 should be ===(2)
+                      types1.size should be ===(2)
                       inside(for {
-                        x1 <- types1.collectFirst { case TypeConjunction(types11) if types11.size == 3 => types11 }
-                        x2 <- types1.collectFirst { case TypeConjunction(types12) if types12.size == 2 => types12 }
+                        x1 <- types1.collectFirst { case TypeDisjunction(types11) if types11.size == 3 => types11 }
+                        x2 <- types1.collectFirst { case TypeDisjunction(types12) if types12.size == 2 => types12 }
                       } yield (x1, x2)) {
                         case Some((types11, types12)) =>
                           inside(for {
