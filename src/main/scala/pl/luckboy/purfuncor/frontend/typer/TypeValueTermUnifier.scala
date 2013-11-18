@@ -18,10 +18,8 @@ object TypeValueTermUnifier
   def matchesTypeValueTermListsWithReturnKindS[T, U, V, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
-    val (env4, savedTypeForm) = envSt.currentTypeFormFromEnvironmentS(env3)
-    val (env5, _) = envSt.setCurrentTypeFormS(TypeForm.Logical)(env4)
-    val (env8, res2) = if(terms1.size === terms2.size) {
-      val (env6, res) = terms1.zip(terms2).foldLeft((env5, (z, Seq[Kind]()).success[NoType[T]])) {
+    val (env6, res2) = if(terms1.size === terms2.size) {
+      val (env4, res) = terms1.zip(terms2).foldLeft((env3, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (term1, term2)) => 
           val (newEnv2, newRes) = matchesTypeValueTermsS(term1, term2)(x)(f)(newEnv)
           newRes.map {
@@ -32,22 +30,19 @@ object TypeValueTermUnifier
       }
       res.flatMap { 
         case (x, argKinds) =>
-          val (env7, res2) = envSt.appStarKindS(argKinds)(env6)
-          res2.map { envSt.setReturnKindS(_)(env7).mapElements(identity, _ => x.success) }
-      }.valueOr { nt => (env6, nt.failure) }
+          val (env5, res2) = envSt.appStarKindS(argKinds)(env4)
+          res2.map { envSt.setReturnKindS(_)(env5).mapElements(identity, _ => x.success) }
+      }.valueOr { nt => (env4, nt.failure) }
     } else
-      (env5, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
-    val (env9, _) = envSt.setCurrentTypeFormS(savedTypeForm)(env8)
-    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env9).mapElements(identity, _ => res2)
+      (env3, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
+    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
   }
   
   def matchesTypeValueLambdaListsWithReturnKindS[T, U, V, E](lambdas1: Seq[TypeValueLambda[T]], lambdas2: Seq[TypeValueLambda[T]], funKind: Kind)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
-    val (env4, savedTypeForm) = envSt.currentTypeFormFromEnvironmentS(env3)
-    val (env5, _) = envSt.setCurrentTypeFormS(TypeForm.Logical)(env4)
-    val (env8, res2) = if(lambdas1.size === lambdas2.size) {
-      val (env6, res) = lambdas1.zip(lambdas2).foldLeft((env5, (z, Seq[Kind]()).success[NoType[T]])) {
+    val (env6, res2) = if(lambdas1.size === lambdas2.size) {
+      val (env4, res) = lambdas1.zip(lambdas2).foldLeft((env3, (z, Seq[Kind]()).success[NoType[T]])) {
         case ((newEnv, Success((x, kinds))), (lambda1, lambda2)) => 
           val (newEnv2, newRes) = matchesTypeValueLambdasS(lambda1, lambda2)(x)(f)(newEnv)
           newRes.map {
@@ -58,13 +53,12 @@ object TypeValueTermUnifier
       }
       res.flatMap {
         case (x, argKinds) => 
-          val (env7, res2) = envSt.appKindS(funKind, argKinds)(env6)
-          res2.map { envSt.setReturnKindS(_)(env7).mapElements(identity, _ => x.success) }
-      }.valueOr { nt => (env6, nt.failure) }
+          val (env5, res2) = envSt.appKindS(funKind, argKinds)(env4)
+          res2.map { envSt.setReturnKindS(_)(env5).mapElements(identity, _ => x.success) }
+      }.valueOr { nt => (env4, nt.failure) }
     } else
-      (env5, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
-    val (env9, _) = envSt.setCurrentTypeFormS(savedTypeForm)(env8)
-    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env9).mapElements(identity, _ => res2)
+      (env3, NoType.fromError[T](FatalError("unequal list lengths", none, NoPosition)).failure)
+    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env6).mapElements(identity, _ => res2)
   }
   
   private def typeValueLambdasFromParamsS[T, U, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =

@@ -329,12 +329,6 @@ package object typer
     override def setCurrentTypeMatchingS(typeMatching: TypeMatching.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withCurrentTypeMatching(typeMatching), ())
     
-    override def currentTypeFormFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env, env.currentTypeForm)
-  
-    override def setCurrentTypeFormS(typeForm: TypeForm.Value)(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withCurrentTypeForm(typeForm), ())
-    
     override def inferringKindFromKindS(kind: Kind)(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (kindInferenceEnv, uninstantiatedKind) = kind.uninstantiatedKindS(env.kindInferenceEnv)
       (env.withKindInferenceEnv(kindInferenceEnv), uninstantiatedKind match {
