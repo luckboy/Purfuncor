@@ -300,9 +300,9 @@ package object typer
       val savedErrCount = env.delayedErrNoTypes.size
       val (env2, res) = f(env)
       val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
-      res.orElse(res2) match {
+      ((res |@| res2) { (_, _) => () }) match {
         case Success(_)      =>
-          if(savedErrCount === env.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
+          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
         case Failure(noType) =>
           (env, (noType.failure, false))
       }
@@ -774,7 +774,6 @@ package object typer
         case Combinator(typ, args, body, lmbdindexer.LambdaInfo(_, lambdaIdx), file) =>
           (for {
             // Infers the type.
-            _ <- State((_: SymbolTypeInferenceEnvironment[T, U], println("ntgvs " + loc)))
             tmpCombType <- State((_: SymbolTypeInferenceEnvironment[T, U]).withCombSym(some(loc)) {
               _.withLambdaIdx(lambdaIdx) {
                 _.withLocalVarTypes(args.flatMap { a => a.name.map { s => (LocalSymbol(s), a.typ) } }.toMap) {

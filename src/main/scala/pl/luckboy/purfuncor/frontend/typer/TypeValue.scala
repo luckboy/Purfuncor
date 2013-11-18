@@ -184,17 +184,48 @@ sealed trait TypeValueTerm[T]
       case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
     }
   
-  def toTypeConjunction =
+  def distributedTypeValueTerm =
     this match {
-      case typeConj: TypeConjunction[T] => typeConj
-      case _                            => TypeConjunction(Set(this))
-    }
-  
-  
-  def toTypeDisjunction =
-    this match {
-      case typeDisj: TypeDisjunction[T] => typeDisj
-      case _                            => TypeDisjunction(Set(this))
+      case TypeConjunction(terms) =>
+        val (typeDisjs, tmpOtherTerms) = terms.partition { 
+          case TypeDisjunction(ts) => ts.size > 1
+          case _                   => false
+        }
+        typeDisjs.headOption.flatMap {
+          case TypeDisjunction(terms2) =>
+            terms2.headOption.flatMap {
+              term2 =>
+                val typeConj2 = TypeConjunction(typeDisjs.tail | tmpOtherTerms)
+                terms2.tail.headOption.map {
+                  secondTerm2 =>
+                    val typeDisj2 = if(terms2.tail.size > 1) TypeDisjunction(terms2.tail) else secondTerm2
+                    (term2 & typeConj2) | (typeDisj2 & typeConj2)
+                }
+            }
+          case _ =>
+            none
+        }
+      case TypeDisjunction(terms) =>
+        val (typeConjs, tmpOtherTerms) = terms.partition { 
+          case TypeConjunction(ts) => ts.size > 1
+          case _                   => false
+        }
+        typeConjs.headOption.flatMap {
+          case TypeConjunction(terms2) =>
+            terms2.headOption.flatMap {
+              term2 =>
+                val typeDisj2 = TypeDisjunction(typeConjs.tail | tmpOtherTerms)
+                terms2.tail.headOption.map {
+                  secondTerm2 =>
+                    val typeConj2 = if(terms2.tail.size > 1) TypeConjunction(terms2.tail) else secondTerm2
+                    (term2 | typeDisj2) & (typeConj2 | typeDisj2)
+                } 
+            }
+          case _ =>
+            none
+        }
+      case _ =>
+        none
     }
   
   def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
