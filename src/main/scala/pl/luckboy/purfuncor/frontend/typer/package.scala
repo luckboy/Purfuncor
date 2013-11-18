@@ -288,7 +288,7 @@ package object typer
       if((env.matchingGlobalTypeSymCounts.keySet & locs).filter { env.matchingGlobalTypeSymCounts.getOrElse(_, 0) > TypeInferenceEnvironmentState.MaxRecGlobalTypeApps }.isEmpty)
         env.withGlobalTypes(locs)(f)
       else
-        (env, NoType.fromError[GlobalSymbol](Error("exceeded limit of recursive type application", none, NoPosition)).failure)
+        (env, NoType.fromError[GlobalSymbol](Error("exceeded limit of recursive type applications", none, NoPosition)).failure)
     
     override def addDelayedErrorsS(errs: Map[Int, NoType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withDelayedErrs(errs), ())
