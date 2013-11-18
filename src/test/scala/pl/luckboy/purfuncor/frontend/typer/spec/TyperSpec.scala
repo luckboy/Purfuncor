@@ -2151,8 +2151,7 @@ h = g f
     
     it should "unify the two types which are the logical expression with the type parameters" in {
       // Unifies \t1 t2 => #Array (t1 #& (t2 #Char) #& T)
-      // Unifies \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T)
-      // for unittype 0 T and type U t1 t2 = V t1 and unittype 1 V.
+      // Unifies \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T) for unittype 0 T.
       val s = """
 unittype 0 T
 f = construct 0: \t1 t2 => #Array (##& (##& t1 (t2 #Char)) T)
