@@ -61,3 +61,8 @@ trait TypeInferenceEnvironmentState[E, L, M]
   
   def instantiateTypeS(typ: Type[M])(env: E): (E, Type[M])
 }
+
+object TypeInferenceEnvironmentState
+{
+  val MaxRecGlobalTypeApps = 30
+}
