@@ -476,13 +476,14 @@ package object typer
     override def prepareToUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), ())
     
-    override def checkMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
+    override def checkMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) = {
       if(env.delayedErrNoTypes.keySet === env.prevDelayedErrTypeParamAppIdxs)
         env.delayedErrNoTypes.headOption.map {
           case (_, nt) => (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), nt.failure)
         }.getOrElse((env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), false.success))
       else
-        (env.withPrevDelayedErrTypeParamAppIdxs(env.delayedErrNoTypes.keySet), true.success)
+        (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(env.delayedErrNoTypes.keySet), true.success)
+    }
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = f(env)
