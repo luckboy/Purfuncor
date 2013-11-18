@@ -2001,7 +2001,7 @@ h = g f
 
     it should "unify the two types which are the different logical expressions" in {
       // Unifies \t1 t2 => #Array ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t2) #& #Empty) #| (V #& (W #| #Empty)))
-      // Unifies \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty)) 
+      // with    \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty)) 
       // for unittype 0 T and unittype 1 U and unittype 0 V and unittype 0 W.
       val s = """
 unittype 0 T
@@ -2078,7 +2078,7 @@ h = g f
     
     it should "unify the two types for the first interation of the unification that has the errors" in {
       // Unifies \t1 t2 => T (V t2) (t1 t2 #Int) (t1 t2 #Char)
-      // Unifies \t1 t2 => T (t1 t2 #Int) (U t2 #Int) (t1 t2 #Char)
+      // with    \t1 t2 => T (t1 t2 #Int) (U t2 #Int) (t1 t2 #Char)
       // for unittype 3 T and type U t1 t2 = V t1 and unittype 1 V.
       val s = """
 unittype 3 T
@@ -2151,7 +2151,7 @@ h = g f
     
     it should "unify the two types which are the logical expression with the type parameters" in {
       // Unifies \t1 t2 => #Array (t1 #& (t2 #Char) #& T)
-      // Unifies \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T) for unittype 0 T.
+      // with    \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T) for unittype 0 T.
       val s = """
 unittype 0 T
 f = construct 0: \t1 t2 => #Array (##& (##& t1 (t2 #Char)) T)
@@ -2209,9 +2209,70 @@ h = g f
       }
     }
     
-    it should "unify the supertype with the type for the Any type" is (pending)
+    it should "unify the supertype with the type for the Any type" in {
+      // Unifies \t1 => T t1 #Char 
+      // with    #Any for unittype 2 T.
+      val s = """
+unittype 2 T
+f = construct 0: \t1 => T t1 #Char
+g (x: #Any) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq(_)) =>
+                  ()
+              }
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
+                  ()
+              }
+              inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                case InferredType(BuiltinType(TypeBuiltinFunction.Any, Seq()), Seq()) =>
+                  // #Any
+              }
+          }
+      }
+    }
     
-    it should "unify the supertype with the type for the Nothing type" is (pending)
+    it should "unify the supertype with the type for the Nothing type" in {
+      // Unifies #Nothing
+      // with    \t1 => t1 #-> #Float.
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: #Nothing
+g (x: \t1 => ##-> t1 #Float) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(BuiltinType(_, Seq()), Seq()) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+          ()
+      }
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds) =>
+          // \t1 => t1 #-> #Float
+          inside(argType1) { case TypeParamApp(_, Seq(), 0) => () }
+          inside(retType1) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
     
     it should "unify the supertype with the type for the same logical expressions" is (pending)
 
