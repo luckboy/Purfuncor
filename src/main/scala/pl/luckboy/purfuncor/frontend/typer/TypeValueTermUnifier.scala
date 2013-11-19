@@ -378,26 +378,24 @@ object TypeValueTermUnifier
           case (env3, Success(instantiatedTerm2)) =>
             (instantiatedTerm1, instantiatedTerm2) match {
               case (TypeParamApp(_, Seq(), _), TypeConjunction(_) | TypeDisjunction(_)) =>
-                val (env4, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(env3)
-                val (env5, res) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
-                  matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_: E)
-                } (env4).mapElements(identity, _._1)
+                val (env4, res) = unifier.withSaveS {
+                  matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_)
+                } (env3)
                 res match {
                   case Success(x) =>
-                    (env5, x.success)
+                    (env4, x.success)
                   case Failure(_) =>
-                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
+                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env4)
                 }
               case (TypeConjunction(_) | TypeDisjunction(_), TypeParamApp(_, Seq(), _)) =>
-                val (env4, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(env3)
-                val (env5, res) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
-                  matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_: E)
-                } (env4).mapElements(identity, _._1)
+                val (env4, res) = unifier.withSaveS {
+                  matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_)
+                } (env3)
                 res match {
                   case Success(x) =>
-                    (env5, x.success)
+                    (env4, x.success)
                   case Failure(_) =>
-                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
+                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env4)
                 }
               case _ =>
                 matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env3)
@@ -520,34 +518,34 @@ object TypeValueTermUnifier
             (env4, noType.failure)
         }
       case TypeMatching.SupertypeWithType =>
-        val normalizedTermRes1 = normalizeLogicalTypeValueTerm(term1)
-        val normalizedTermRes2 = normalizeLogicalTypeValueTerm(term2)
-        ((normalizeLogicalTypeValueTerm(term1) |@| normalizeLogicalTypeValueTerm(term2)) { (t1, t2) => (t1, t2) }) match {
+        (for { 
+          t1 <- normalizeLogicalTypeValueTerm(term1)
+          t2 <- normalizeLogicalTypeValueTerm(term2)
+        } yield (t1, t2)) match {
           case Success((normalizedTerm1, normalizedTerm2)) =>
             (normalizedTerm1, normalizedTerm2) match {
               case (typeDisj1 @ TypeDisjunction(terms1), typeConj2 @ TypeConjunction(terms2)) =>
-                val (env3, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(env2)
-                val (env4, res) = distributeTypeDisjunctionOrTypeConjunctionS(typeDisj1, typeConj2)(env3)
-                val (env5, res2) = res match {
+                val (env3, res) = distributeTypeDisjunctionOrTypeConjunctionS(typeDisj1, typeConj2)(env2)
+                val (env4, res2) = res match {
                   case Success((distributedTerm1, distributedTerm2)) =>
-                    envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
-                      matchesLogicalTypeValueTermsS(distributedTerm1, distributedTerm2)(z)(f)(_: E)
-                    } (env4).mapElements(identity, _._1)
+                    unifier.withSaveS {
+                      matchesLogicalTypeValueTermsS(distributedTerm1, distributedTerm2)(z)(f)(_)
+                    } (env3)
                   case Failure(noType)                               =>
-                    (env4, noType.failure) 
+                    (env3, noType.failure) 
                 }
                 res2 match {
                   case Success(x) =>
-                    (env5, x.success)
+                    (env4, x.success)
                   case Failure(_) =>
-                    val (env6, res3) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
-                      checkTypeValueTermSubsetS(Set(normalizedTerm2), terms1, true)(z)(f)(_: E)
-                    } (env5).mapElements(identity, _._1)
+                    val (env5, res3) = unifier.withSaveS {
+                      checkTypeValueTermSubsetS(Set(normalizedTerm2), terms1, true)(z)(f)(_)
+                    } (env4)
                     res3 match {
                       case Success(x) =>
-                        (env6, x.success)
+                        (env5, x.success)
                       case Failure(_) =>
-                        checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(env4)
+                        checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(env5)
                     }
                 }
               case (_, TypeDisjunction(terms2)) =>
@@ -555,7 +553,9 @@ object TypeValueTermUnifier
               case (TypeConjunction(terms1), _) =>
                 checkTypeValueTermSubsetS(terms1, Set(normalizedTerm2), false)(z)(f)(env2)
               case (GlobalTypeApp(loc1, args1, _), TypeConjunction(terms2)) =>
-                val (env3, res) = checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(env2)
+                val (env3, res) = unifier.withSaveS {
+                  checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(_)
+                } (env2)
                 res match {
                   case Success(x) =>
                     (env3, x.success)
@@ -573,7 +573,9 @@ object TypeValueTermUnifier
               case (_, TypeConjunction(terms2)) =>
                 checkTypeValueTermSubsetS(Set(normalizedTerm1), terms2, false)(z)(f)(env2)
               case (TypeDisjunction(terms1), GlobalTypeApp(loc2, args2, _)) =>
-                val (env3, res) = checkTypeValueTermSubsetS(Set(normalizedTerm2), terms1, true)(z)(f)(env2)
+                val (env3, res) = unifier.withSaveS {
+                  checkTypeValueTermSubsetS(Set(normalizedTerm2), terms1, true)(z)(f)(_: E)
+                } (env2)
                 res match {
                   case Success(x) =>
                     (env3, x.success)
