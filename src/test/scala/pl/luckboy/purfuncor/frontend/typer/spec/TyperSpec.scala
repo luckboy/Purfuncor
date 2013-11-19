@@ -1757,15 +1757,16 @@ h = g f
     }
     
     it should "unify the two type conjunctions" in {
-      // Unifies \t1 t2 => #Array ((T t1 t2) #& U #& (V (#Int #-> t2)))
-      // with    \t1 => #Array ((T #Boolean t1) #& U #& (V (#Int #-> #Char)))
-      // for unittype 2 T and unittype 0 U and unittype 1 V.
+      // Unifies \t1 t2 => TWI ((T t1 t2) #& U #& (V (#Int #-> t2)))
+      // with    \t1 => TWI ((T #Boolean t1) #& U #& (V (#Int #-> #Char)))
+      // for unittype 1 TWI and unittype 2 T and unittype 0 U and unittype 1 V.
       val s = """
+unittype 1 TWI
 unittype 2 T
 unittype 0 U
 unittype 1 V
-f = construct 0: \t1 t2 => #Array (##& (##& (T t1 t2) U) (V (##-> #Int t2)))
-g (x: \t1 => #Array (##& (##& (T #Boolean t1) U) (V (##-> #Int #Char)))) = x
+f = construct 0: \t1 t2 => TWI (##& (##& (T t1 t2) U) (V (##-> #Int t2)))
+g (x: \t1 => TWI (##& (##& (T #Boolean t1) U) (V (##-> #Int #Char)))) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -1779,13 +1780,14 @@ h = g f
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
               val syms = List(
+                  GlobalSymbol(NonEmptyList("TWI")),
                   GlobalSymbol(NonEmptyList("T")),
                   GlobalSymbol(NonEmptyList("U")),
                   GlobalSymbol(NonEmptyList("V")))
               inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
-                case List(tLoc, uLoc, vLoc) =>
+                case List(twiLoc, tLoc, uLoc, vLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
@@ -1793,8 +1795,9 @@ h = g f
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), Seq()) =>
-                      // #Array ((T #Boolean #Char) #& U #& (V (#Int #-> #Char)))
+                    case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeConjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), Seq()) =>
+                      // TWI ((T #Boolean #Char) #& U #& (V (#Int #-> #Char)))
+                      loc1 should be ===(twiLoc)
                       types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
@@ -1820,15 +1823,16 @@ h = g f
     }
     
     it should "unify the two type disjunctions" in {
-      // Unifies \t1 t2 t3 => #Array ((T #Boolean t1) #| U #| (V t2 t3))
-      // with    \t1 t2 => #Array ((T t2 t1) #| U #| (V t1 t2))
-      // for unittype 2 T and unittype 0 U and unittype 2 V.
+      // Unifies \t1 t2 t3 => TWI ((T #Boolean t1) #| U #| (V t2 t3))
+      // with    \t1 t2 => TWI ((T t2 t1) #| U #| (V t1 t2))
+      // for unittype 1 TWI and unittype 2 T and unittype 0 U and unittype 2 V.
       val s = """
+unittype 1 TWI
 unittype 2 T
 unittype 0 U
 unittype 2 V
-f = construct 0: \t1 t2 t3 => #Array (##| (##| (T #Boolean t1) U) (V t2 t3))
-g (x: \t1 t2 => #Array (##| (##| (T t2 t1) U) (V t1 t2))) = x
+f = construct 0: \t1 t2 t3 => TWI (##| (##| (T #Boolean t1) U) (V t2 t3))
+g (x: \t1 t2 => TWI (##| (##| (T t2 t1) U) (V t1 t2))) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -1842,13 +1846,14 @@ h = g f
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
               val syms = List(
+                  GlobalSymbol(NonEmptyList("TWI")),
                   GlobalSymbol(NonEmptyList("T")),
                   GlobalSymbol(NonEmptyList("U")),
                   GlobalSymbol(NonEmptyList("V")))
               inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
-                case List(tLoc, uLoc, vLoc) =>
+                case List(twiLoc, tLoc, uLoc, vLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _, _)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
@@ -1856,8 +1861,9 @@ h = g f
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
-                      // \t1 => (T #Boolean t1) #| U #| (V t1 #Boolean)
+                    case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeDisjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), argKinds) =>
+                      // \t1 => TWI ((T #Boolean t1) #| U #| (V t1 #Boolean))
+                      loc1 should be ===(twiLoc)
                       types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
@@ -1890,16 +1896,17 @@ h = g f
     }
     
     it should "unify the two types which are the same logical expression" in {
-      // Unifies \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X))) with itself
-      // for unittype 1 T and unittype 2 U and unittype 1 V and unittype 0 W and unittype 0 X.
+      // Unifies \t1 t2 => TWI (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X))) with itself
+      // for unittype 1 TWI and unittype 1 T and unittype 2 U and unittype 1 V and unittype 0 W and unittype 0 X.
       val s = """
+unittype 1 TWI
 unittype 1 T
 unittype 2 U
 unittype 1 V
 unittype 0 W
 unittype 0 X
-f = construct 0: \t1 t2 => #Array (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))
-g (x: \t1 t2 => #Array (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))) = x
+f = construct 0: \t1 t2 => TWI (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))
+g (x: \t1 t2 => TWI (##| (##| (##& (T t1) (U t1 t2)) (V t2)) (##& (##& (T t1) W) (##| (V t2) X)))) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -1913,15 +1920,16 @@ h = g f
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
               val syms = List(
+                  GlobalSymbol(NonEmptyList("TWI")),
                   GlobalSymbol(NonEmptyList("T")),
                   GlobalSymbol(NonEmptyList("U")),
                   GlobalSymbol(NonEmptyList("V")),
                   GlobalSymbol(NonEmptyList("W")),
                   GlobalSymbol(NonEmptyList("X")))
               inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
-                case List(tLoc, uLoc, vLoc, wLoc, xLoc) =>
+                case List(twiLoc, tLoc, uLoc, vLoc, wLoc, xLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
@@ -1929,8 +1937,9 @@ h = g f
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeDisjunction(types1))), argKinds) =>
-                      // \t1 t2 => #Array (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X)))
+                    case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeDisjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), argKinds) =>
+                      // \t1 t2 => TWI (((T t1) #& (U t1 t2)) #| (V t2) #| (T t1 #& W #& ((V t2) #| X)))
+                      loc1 should be ===(twiLoc)
                       types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case TypeConjunction(types11) if types11.size == 2 => types11 }
@@ -2000,16 +2009,17 @@ h = g f
     }
 
     it should "unify the two types which are the different logical expressions" in {
-      // Unifies \t1 t2 => #Array ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t2) #& #Empty) #| (V #& (W #| #Empty)))
-      // with    \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty)) 
-      // for unittype 0 T and unittype 1 U and unittype 0 V and unittype 0 W.
+      // Unifies \t1 t2 => TWI ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t2) #& #Empty) #| (V #& (W #| #Empty)))
+      // with    \t1 => TWI ((T #| (U t1) #| V) #& (W #| #Empty)) 
+      // for unittype 1 TWI and unittype 0 T and unittype 1 U and unittype 0 V and unittype 0 W.
       val s = """
+unittype 1 TWI
 unittype 0 T
 unittype 1 U
 unittype 0 V
 unittype 0 W
-f = construct 0: \t1 t2 => #Array (##| (##| (##| (##& T (##| W #Empty)) (##& (U t1) W)) (##& (U t2) #Empty)) (##& V (##| W #Empty)))
-g (x: \t1 => #Array (##& (##| (##| T (U t1)) V) (##| W #Empty))) = x
+f = construct 0: \t1 t2 => TWI (##| (##| (##| (##& T (##| W #Empty)) (##& (U t1) W)) (##& (U t2) #Empty)) (##& V (##| W #Empty)))
+g (x: \t1 => TWI (##& (##| (##| T (U t1)) V) (##| W #Empty))) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -2023,14 +2033,15 @@ h = g f
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
               val syms = List(
+                  GlobalSymbol(NonEmptyList("TWI")),
                   GlobalSymbol(NonEmptyList("T")),
                   GlobalSymbol(NonEmptyList("U")),
                   GlobalSymbol(NonEmptyList("V")),
                   GlobalSymbol(NonEmptyList("W")))
               inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
-                case List(tLoc, uLoc, vLoc, wLoc) =>
+                case List(twiLoc, tLoc, uLoc, vLoc, wLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
@@ -2038,8 +2049,9 @@ h = g f
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), argKinds) =>
-                      // \t1 => #Array ((T #| (U t1) #| V) #& (W #| #Empty))
+                    case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeConjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), argKinds) =>
+                      // \t1 => TWI ((T #| (U t1) #| V) #& (W #| #Empty))
+                      loc1 should be ===(twiLoc)
                       types1.size should be ===(2)
                       inside(for {
                         x1 <- types1.collectFirst { case TypeDisjunction(types11) if types11.size == 3 => types11 }
@@ -2150,12 +2162,14 @@ h = g f
     }
     
     it should "unify the two types which are the logical expression with the type parameters" in {
-      // Unifies \t1 t2 => #Array (t1 #& (t2 #Char) #& T)
-      // with    \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T) for unittype 0 T.
+      // Unifies \t1 t2 => TWI (t1 #& (t2 #Char) #& T)
+      // with    \t1 t2 t3 => #Array (t1 #& (t2 t3) #& T)
+      // for unittype 1 TWI and unittype 0 T.
       val s = """
+unittype 1 TWI
 unittype 0 T
-f = construct 0: \t1 t2 => #Array (##& (##& t1 (t2 #Char)) T)
-g (x: \t1 t2 t3 => #Array (##& (##& t1 (t2 t3)) T)) = x
+f = construct 0: \t1 t2 => TWI (##& (##& t1 (t2 #Char)) T)
+g (x: \t1 t2 t3 => TWI (##& (##& t1 (t2 t3)) T)) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -2168,10 +2182,11 @@ h = g f
               val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
-              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
-                case Some(tLoc) =>
+              val syms = List(GlobalSymbol(NonEmptyList("TWI")), GlobalSymbol(NonEmptyList("T")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(twiLoc, tLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(BuiltinType(_, Seq(_)), Seq(_, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
@@ -2179,8 +2194,9 @@ h = g f
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeConjunction(types1))), argKinds) =>
-                      // \t1 t2 t3 => #Array (t1 #& (t2 #Char) #& T)
+                    case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeConjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), argKinds) =>
+                      // \t1 t2 t3 => TWI (t1 #& (t2 #Char) #& T)
+                      loc1 should be ===(twiLoc)
                       types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
