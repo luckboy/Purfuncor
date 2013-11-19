@@ -2385,7 +2385,91 @@ h = g f
       }
     }
 
-    it should "unify the supertype with the type for the different logical expressions" is (pending)
+    it should "unify the supertype with the type for the different logical expressions" in {
+      // Unifies \t1 => (T t1 #& U) #| (V #& (W t1) #& X)
+      // with    \t1 => (V #| (T t1) #| #Empty) #& ((W t1) #| (T t1))
+      // for unittype 1 T and unittype 0 U and unittype 0 V and unittype 1 W and unittype 0 X.
+val s = """
+unittype 1 T
+unittype 0 U
+unittype 0 V
+unittype 1 W
+unittype 0 X
+f = construct 0: \t1 => ##| (##& (T t1) U) (##& (##& V (W t1)) X)
+g (x: \t1 => ##& (##| (##| V (T t1)) #Empty) (##| (W t1) (T t1))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("V")),
+                  GlobalSymbol(NonEmptyList("W")))
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, vLoc, wLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(TypeDisjunction(_), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(TypeConjunction(types1), argKinds) =>
+                      // \t1 => (V #| (T t1) #| #Empty) #& ((W t1) #| (T t1))
+                      types1 should have size(2)
+                      inside(for {
+                        x1 <- types1.collectFirst { case TypeDisjunction(types11) if types11.size == 3 => types11 }
+                        x2 <- types1.collectFirst { case TypeDisjunction(types12) if types12.size == 2 => types12 }
+                      } yield (x1, x2)) {
+                        case Some((types11, types12)) =>
+                          inside(for {
+                            x1 <- types11.collectFirst { case GlobalTypeApp(loc111, Seq(), GlobalSymbol(NonEmptyList("V"))) => loc111 }
+                            x2 <- types11.collectFirst { case GlobalTypeApp(loc112, Seq(arg112), GlobalSymbol(NonEmptyList("T"))) => (loc112, arg112) }
+                            _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Empty, Seq()) => () }
+                          } yield (x1, x2)) {
+                            case Some((loc111, (loc112, arg112))) =>
+                              loc111 should be ===(vLoc)
+                              loc112 should be ===(tLoc)
+                              inside(arg112) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param112, Seq(), 0)) =>
+                                  inside(for {
+                                    x1 <- types12.collectFirst { case GlobalTypeApp(loc121, Seq(arg121), GlobalSymbol(NonEmptyList("W"))) => (loc121, arg121) }
+                                    x2 <- types12.collectFirst { case GlobalTypeApp(loc122, Seq(arg122), GlobalSymbol(NonEmptyList("T"))) => (loc122, arg122) }
+                                  } yield (x1, x2)) {
+                                    case Some(((loc121, arg121), (loc122, arg122))) =>
+                                      loc121 should be ===(wLoc)
+                                      loc122 should be ===(tLoc)
+                                      inside(arg121) {
+                                        case TypeValueLambda(Seq(), TypeParamApp(param121, Seq(), 0)) =>
+                                          inside(arg122) {
+                                            case TypeValueLambda(Seq(), TypeParamApp(param122, Seq(), 0)) =>
+                                              List(param112, param121, param122).toSet should have size(1)
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "unify the supertype with the type for the logical expressions with the type parameters" is (pending)
     
