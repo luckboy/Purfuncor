@@ -179,8 +179,8 @@ package object typer
         comb match {
           case TypeCombinator(_, _, body, _, file) =>
             val recSyms = usedGlobalTypeVarsFromTypeTerm(body) & env.uninitializedTypeCombSyms
-            val (newEnv, value) = env.withRecursiveTypeCombs(recSyms).withFile(file) { 
-              _.withPartialEvaluation(false) { evaluateS(body)(_) }
+            val (newEnv, value) = env.withRecursiveTypeCombs(recSyms).withFile(file) {
+              _.withTypeCombSym(loc) { _.withPartialEvaluation(false) { evaluateS(body)(_) } }
             }
             (newEnv, value.forFile(file).forCombLoc(some(loc)))
           case UnittypeCombinator(_, _, _)         =>
