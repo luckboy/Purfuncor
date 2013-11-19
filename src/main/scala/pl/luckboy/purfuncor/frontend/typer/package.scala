@@ -58,12 +58,9 @@ package object typer
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
-            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) =>
-              val env2 = env.withRecursiveTypeCombSyms(env.recursiveTypeCombSyms + globalSym)
-              (env2, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case globalSym: GlobalSymbol if env.isPartial                                =>
+            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) || env.isPartial =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case _                                                                       =>
+            case _                                                                                           =>
               (env, env.typeVarValue(loc))
           }
         case TypeLiteral(value)            =>
@@ -175,20 +172,23 @@ package object typer
       }
       
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
-      (env.withGlobalTypeVar(loc, EvaluatedTypeValue(GlobalTypeApp(loc, Nil, loc))), ())
+      (env.withGlobalTypeVar(loc, EvaluatedTypeValue(GlobalTypeApp(loc, Nil, loc))).withUninitializedTypeComb(loc), ())
       
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]) = {
       val (env2, value) = if(comb.argCount === 0) {
         comb match {
           case TypeCombinator(_, _, body, _, file) =>
-            val (newEnv, value) = env.withFile(file) { _.withPartialEvaluation(false) { evaluateS(body)(_) } }
+            val recSyms = usedGlobalTypeVarsFromTypeTerm(body) & env.uninitializedTypeCombSyms
+            val (newEnv, value) = env.withRecursiveTypeCombs(recSyms).withFile(file) { 
+              _.withPartialEvaluation(false) { evaluateS(body)(_) }
+            }
             (newEnv, value.forFile(file).forCombLoc(some(loc)))
           case UnittypeCombinator(_, _, _)         =>
             (env, EvaluatedTypeValue(Unittype(loc, Nil, loc)))
         }
       } else
         (env, TypeCombinatorValue(comb, loc, loc))
-      val env3 = env.withRecursiveTypeCombSyms(env2.recursiveTypeCombSyms)
+      val env3 = env.withRecursiveTypeCombSyms(env2.recursiveTypeCombSyms).withoutUninitializedTypeComb(loc)
       value match {
         case noValue: NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]] => (env3, noValue.failure)
         case _                                                                   => (env3.withGlobalTypeVar(loc, value), ().success)

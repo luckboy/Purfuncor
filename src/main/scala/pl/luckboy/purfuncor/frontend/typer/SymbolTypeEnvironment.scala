@@ -16,7 +16,8 @@ case class SymbolTypeEnvironment[T](
     applyingTypeCombSyms: Set[GlobalSymbol],
     currentTypeParamAppIdx: Int,
     isPartial: Boolean,
-    recursiveTypeCombSyms: Set[GlobalSymbol])
+    recursiveTypeCombSyms: Set[GlobalSymbol],
+    uninitializedTypeCombSyms: Set[GlobalSymbol])
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -107,6 +108,14 @@ case class SymbolTypeEnvironment[T](
   
   def withRecursiveTypeCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(recursiveTypeCombSyms = syms)
   
+  def withRecursiveTypeCombs(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(recursiveTypeCombSyms = recursiveTypeCombSyms | syms)
+  
+  def withUninitializedTypeCombSyms(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(uninitializedTypeCombSyms = syms)
+  
+  def withUninitializedTypeComb(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(uninitializedTypeCombSyms = uninitializedTypeCombSyms + sym)
+  
+  def withoutUninitializedTypeComb(sym: GlobalSymbol): SymbolTypeEnvironment[T] = copy(uninitializedTypeCombSyms = uninitializedTypeCombSyms - sym)
+  
   def withClear[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)): (SymbolTypeEnvironment[T], U) = {
     val (env, res) = f(copy(typeClosureStack = List(SymbolTypeClosure(Map()))))
     (env.copy(typeClosureStack = List(SymbolTypeClosure(Map()))), res)
@@ -123,7 +132,8 @@ object SymbolTypeEnvironment
       applyingTypeCombSyms = Set(),
       currentTypeParamAppIdx = 0,
       isPartial = false,
-      recursiveTypeCombSyms = Set())
+      recursiveTypeCombSyms = Set(),
+      uninitializedTypeCombSyms = Set())
 }
     
 case class SymbolTypeClosure[T](
