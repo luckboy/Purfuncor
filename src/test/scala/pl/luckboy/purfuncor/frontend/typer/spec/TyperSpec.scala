@@ -2505,7 +2505,6 @@ h = g f
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(TypeConjunction(types1), argKinds) =>
                       // \t1 t2 => t #& (t2 #Char) #& T
-                      println(types1)
                       types1 should have size(3)
                       inside(for { 
                         x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
