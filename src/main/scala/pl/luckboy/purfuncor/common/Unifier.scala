@@ -111,9 +111,9 @@ object Unifier
               val (newEnv3, optParamTerm1) = unifier.getParamTermS(rootParam1)(newEnv2)
               optParamTerm1 match {
                 case Some(paramTerm1) =>
-                  matchesAndReplaceS(paramTerm1, childTerm2)(markedParams + param1, areChangedNewParams)(newEnv3)
+                  matchesAndReplaceS(paramTerm1, childTerm2)(markedParams + rootParam1, areChangedNewParams)(newEnv3)
                 case None             =>
-                  val (newEnv4, res2) = unifier.replaceParamS(param1, childTerm2)(newEnv3)
+                  val (newEnv4, res2) = unifier.replaceParamS(rootParam1, childTerm2)(newEnv3)
                   (newEnv4, res2.map { _ => true })
               }
             } else 
