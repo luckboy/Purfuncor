@@ -329,12 +329,8 @@ object TypeValueTermUnifier
       case (_, globalTypeApp2: GlobalTypeApp[T]) =>
         val (env2, _) = reverseTypeMatchingS(env)
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, typeParamApp1)(z)(f)(env2)
-      case (TypeParamApp(_, args1, _), typeConj2: TypeConjunction[T]) if !args1.isEmpty =>
-        val (env2, _) = reverseTypeMatchingS(env)
-        matchesLogicalTypeValueTermsS(typeConj2, typeParamApp1)(z)(f)(env2)
-      case (TypeParamApp(_, args1, _), typeDisj2: TypeDisjunction[T]) if !args1.isEmpty =>
-        val (env2, _) = reverseTypeMatchingS(env)
-        matchesLogicalTypeValueTermsS(typeDisj2, typeParamApp1)(z)(f)(env2)
+      case (TypeParamApp(_, args1, _), TypeConjunction(_) | TypeDisjunction(_)) if !args1.isEmpty =>
+        matchesLogicalTypeValueTermsS(typeParamApp1, term2)(z)(f)(env)
       case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
         val (env2, noType) = mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env)
         addDelayedErrorsFromResultS(noType.failure, Set(paramAppIdx1))(z)(env2)
@@ -642,16 +638,10 @@ object TypeValueTermUnifier
               case (_, globalTypeApp2: GlobalTypeApp[T]) =>
                 val (env5, _) = reverseTypeMatchingS(env4)
                 matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env5)
-              case (typeConj1: TypeConjunction[T], _) =>
-                matchesLogicalTypeValueTermsS(typeConj1, instantiatedTerm2)(z)(f)(env4)
-              case (_, typeConj2: TypeConjunction[T]) =>
-                val (env5, _) = reverseTypeMatchingS(env4)
-                matchesLogicalTypeValueTermsS(typeConj2, instantiatedTerm1)(z)(f)(env5)
-              case (typeDisj1: TypeDisjunction[T], _) =>
-                matchesLogicalTypeValueTermsS(typeDisj1, instantiatedTerm2)(z)(f)(env4)
-              case (_, typeDisj2: TypeDisjunction[T]) =>
-                val (env5, _) = reverseTypeMatchingS(env4)
-                matchesLogicalTypeValueTermsS(typeDisj2, instantiatedTerm1)(z)(f)(env5)
+              case (TypeConjunction(_) | TypeDisjunction(_), _) =>
+                matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env4)
+              case (_, TypeConjunction(_) | TypeDisjunction(_)) =>
+                matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env4)
               case (_, _) =>
                 unifier.mismatchedTermErrorS(env4).mapElements(identity, _.failure)
             }
