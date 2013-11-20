@@ -2625,7 +2625,7 @@ g = tuple 2 (construct 0: \(t1: (k1 -> k2) -> k1 -> *) t2 => t1 t2) true
       }
     }
     
-    it should "complain on the umatched types" is (pending)
+    it should "complain on the unmatched types" is (pending)
     
     it should "complain on the infinity types" is (pending)
     
@@ -2640,6 +2640,8 @@ g = tuple 2 (construct 0: \(t1: (k1 -> k2) -> k1 -> *) t2 => t1 t2) true
     it should "complain on the lambda argument that was match with the other lambda argument" is (pending)
 
     it should "complain on the lambda argument that was match with the other paremeter" is (pending)
+    
+    it should "complain on the unmatched types with the unmatched kinds" is (pending)
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
