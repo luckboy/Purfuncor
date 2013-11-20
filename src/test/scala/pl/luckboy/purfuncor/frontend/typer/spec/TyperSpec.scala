@@ -2533,7 +2533,97 @@ h = g f
       }
     }
     
-    it should "normalize the type applications before the unification of the types" is (pending)
+    it should "normalize the type applications after the evaluation of the defined types" in {
+      val s = """
+type T t1 t2 t3 t4 = tuple 3 t1 t2 t3 
+(f: T #Boolean #Char) = construct 0
+g = tuple 2 (construct 0: \(t1: (k1 -> k2) -> k1 -> *) t2 => t1 t2) true
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(tLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(loc1, args1, GlobalSymbol(NonEmptyList("T"))), argKinds) =>
+                      // \t1 t2 => T #Boolean #Char t1 t2
+                      loc1 should be ===(tLoc)
+                      inside(args1) {
+                        case Seq(arg11, arg12, arg13, arg14) =>
+                          inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                          inside(arg12) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          inside(arg13) {
+                            case TypeValueLambda(Seq(), TypeParamApp(param13, Seq(), 0)) =>
+                              inside(arg14) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param14, Seq(), 0)) =>
+                                  List(param13, param14).toSet should have size(2)
+                                  argKinds should have size(2)
+                                  inside(argKinds.lift(param13)) {
+                                    case Some(InferredKind(Star(KindType, _))) =>
+                                      // *
+                                      ()
+                                  }
+                                  inside(argKinds.lift(param14)) {
+                                    case Some(InferredKind(Star(KindParam(_), _))) =>
+                                      // k1
+                                      ()
+                                  }
+                              }
+                          }
+                      }
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(TupleType(Seq(type1, type2)), argKinds) =>
+                      // \(t1: (k1 -> k2) -> k1 -> *) t2 t3 => (t1 t2 t3, #Boolean)
+                      inside(type1) {
+                        case TypeParamApp(param1, args1, 0) =>
+                          inside(args1) {
+                            case Seq(arg11, arg12) =>
+                              inside(arg11) {
+                                case TypeValueLambda(Seq(), TypeParamApp(param11, Seq(), 0)) =>
+                                  inside(arg12) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
+                                      List(param1, param11, param12).toSet should have size(3)
+                                      argKinds should have size(3)
+                                      inside(argKinds.lift(param1)) {
+                                        case Some(InferredKind(Arrow(arg1, ret1, _))) =>
+                                          // (k1 -> k2) -> k1 -> *
+                                          inside(arg1) {
+                                            case Arrow(Star(KindParam(kindParam11), _), Star(KindParam(kindParam12), _), _) =>
+                                              inside(ret1) {
+                                                case Arrow(Star(KindParam(kindParam13), _), Star(KindType, _), _) =>
+                                                  List(kindParam11, kindParam13).toSet should have size(1)
+                                                  List(kindParam11, kindParam12, kindParam13).toSet should have size(2)
+                                              }
+                                          }
+                                      }
+                                      inside(argKinds.lift(param11)) {
+                                        case Some(InferredKind(Arrow(Star(KindParam(kindParam1), _), Star(KindParam(kindParam2), _), _))) =>
+                                          // k1 -> k2
+                                          List(kindParam1, kindParam2).toSet should have size(2)
+                                      }
+                                      inside(argKinds.lift(param12)) {
+                                        case Some(InferredKind(Star(KindParam(_), _))) =>
+                                          // k1
+                                          ()
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(type2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+                  }
+              }
+          }
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
