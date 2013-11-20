@@ -401,7 +401,7 @@ package object typer
           env.typeParamForest.findRootParam(param).map {
             rp =>
               env.irreplaceableTypeParams.get(rp).map {
-                dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt =>  FatalError("couldn't instantiate parameter at defined type " + dt, none, NoPosition) }).failure)
+                dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt =>  Error("couldn't instantiate parameter at defined type " + dt, none, NoPosition) }).failure)
               }.getOrElse {
                 val paramKind = env.kindInferenceEnv.typeParamKind(param)
                 val (kindInferenceEnv, termKind) = inferTypeValueTermKindS(term)(env.kindInferenceEnv)
@@ -814,7 +814,7 @@ package object typer
                     State(failInitializationS(noType, Set(loc)))
                   case _                            =>
                     for {
-                      _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType), ()))
+                      _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType2), ()))
                       res3 <- if(!isRecursive)
                         State(instantiateTypesFromGlobalVarsS(Set(loc)))
                       else
