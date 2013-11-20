@@ -25,6 +25,8 @@ trait TypeInferenceEnvironmentState[E, L, M]
   
   def withRecursionCheckingS[T](locs: Set[M])(f: E => (E, Validation[NoType[M], T]))(env: E): (E, Validation[NoType[M], T])
   
+  def withParamCheckingS[T](params: Set[Int])(f: E => (E, Validation[NoType[M], T]))(env: E): (E, Validation[NoType[M], T])
+  
   def addDelayedErrorsS(errs: Map[Int, NoType[M]])(env: E): (E, Unit)
   
   def delayedErrorsFromEnvironmentS(env: E): (E, Map[Int, NoType[M]])

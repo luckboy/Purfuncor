@@ -31,6 +31,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     definedTypes: List[DefinedType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSymCounts: Map[GlobalSymbol, Int],
+    markedTypeParams: Set[Int],
     delayedErrNoTypes: Map[Int, NoType[GlobalSymbol]],
     prevDelayedErrTypeParamAppIdxs: Set[Int],
     nextTypeParamAppIdx: Int,
@@ -38,8 +39,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeLambdaArgCount: Int,
     currentTypeMatching: TypeMatching.Value,
     currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
-    errNoType: Option[NoType[GlobalSymbol]],
-    isRecursive: Boolean)
+    extra: SymbolTypeInferenceEnvironmentExtra[T, U])
 {
   def typeParamKinds = kindInferenceEnv.typeParamKinds
   
@@ -165,6 +165,15 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, res) = f(withMatchingGlobalTypes(syms))
     (env.withoutMatchingGlobalTypes(syms), res)
   }
+  
+  def withMarkedTypeParams(params: Set[Int]) = copy(markedTypeParams = markedTypeParams | params)
+  
+  def withoutMarkedTypeParams(params: Set[Int]) = copy(markedTypeParams = markedTypeParams -- params)
+  
+  def withTypeParams[V](params: Set[Int])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val (env, res) = f(withMarkedTypeParams(params))
+    (env.withoutMarkedTypeParams(params), res)
+  }
 
   def withDelayedErrNoTypes(noTypes: Map[Int, NoType[GlobalSymbol]]) = copy(delayedErrNoTypes = noTypes)
   
@@ -211,9 +220,13 @@ case class SymbolTypeInferenceEnvironment[T, U](
     (env.withCurrentTypePair(oldPair), res)
   }
   
-  def withErrs(noType: NoType[GlobalSymbol]) = copy(errNoType = errNoType.map { nt => some(nt |+| noType) }.getOrElse(some(noType)))
+  def errNoType = extra.errNoType
   
-  def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
+  def withErrs(noType: NoType[GlobalSymbol]) = copy(extra = extra.copy(errNoType = errNoType.map { nt => some(nt |+| noType) }.getOrElse(some(noType))))
+  
+  def isRecursive = extra.isRecursive
+  
+  def withRecursive(isRecursive: Boolean) = copy(extra = extra.copy(isRecursive = isRecursive))
   
   def withGlobalVarType(sym: GlobalSymbol, typ: Type[GlobalSymbol]) = copy(globalVarTypes = globalVarTypes + (sym -> typ))
   
@@ -245,6 +258,10 @@ case class SymbolTypeInferenceEnvironment[T, U](
     }.mapElements(identity, _.reverse)
 }
 
+case class SymbolTypeInferenceEnvironmentExtra[T, U](
+    errNoType: Option[NoType[GlobalSymbol]],
+    isRecursive: Boolean)
+
 object SymbolTypeInferenceEnvironment
 {
   def empty[T, U] = fromInferredTypeTable[T, U](InferredTypeTable.empty)
@@ -263,6 +280,7 @@ object SymbolTypeInferenceEnvironment
     definedTypes = Nil,
     irreplaceableTypeParams = Map(),
     matchingGlobalTypeSymCounts = Map(),
+    markedTypeParams = Set(),
     delayedErrNoTypes = Map(),
     prevDelayedErrTypeParamAppIdxs = Set(),
     nextTypeParamAppIdx = 0,
@@ -270,6 +288,7 @@ object SymbolTypeInferenceEnvironment
     typeLambdaArgCount = 0,
     currentTypeMatching = TypeMatching.Types,
     currentTypePair = none,
-    errNoType = none,
-    isRecursive = false)
+    extra = SymbolTypeInferenceEnvironmentExtra[T, U](
+        errNoType = none,
+        isRecursive = false))
 }

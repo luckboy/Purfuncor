@@ -72,10 +72,10 @@ object TypeInferrer
     }
   
   private def evaluateInferringTypeValueTermS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
-    val (env2, res) = partiallyInstantiateTypeValueTermS(term)(env)
+    val (env2, res) = partiallyInstantiateTypeValueTermS(term) { (_: E, inifityTypeValueTermNoType) } (env)
     res.map {
-      case GlobalTypeApp(loc, args, _) => appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2)
-      case term2                       => (env2, term2.success)
+      case (GlobalTypeApp(loc, args, _), _) => appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2)
+      case (term2, _)                       => (env2, term2.success)
     }.valueOr { nt => (env, nt.failure) }
   }
   
@@ -150,7 +150,6 @@ object TypeInferrer
       case noType: NoType[T] => noType
       case _                 => NoType.fromError[T](FatalError("uninferred type", none, NoPosition))
     }
-  
   
   def functionTypeFromTypesS[T, U, E](argTypes: Seq[Type[T]], retType: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
     val (env3, retTypeKindRes) = retType match {
