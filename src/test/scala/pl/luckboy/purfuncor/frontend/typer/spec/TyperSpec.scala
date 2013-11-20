@@ -2625,9 +2625,31 @@ g = tuple 2 (construct 0: \(t1: (k1 -> k2) -> k1 -> *) t2 => t1 t2) true
       }
     }
     
-    it should "complain on the unmatched types" is (pending)
+    it should "complain on the unmatched types" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x y = tuple 2 (x y) y
+g x y = #zXor (f x y) y
+h x y = #cond 1 f true
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't match type #Boolean with type \\(t1: *) (t2: *) => (t1, t2)",
+              "couldn't match type \\(t1: *) => () #-> t1 with type #NonZero #& #Int",
+              "couldn't match type \\(t1: *) => () #-> t1 with type \\(t1: *) (t2: *) => (t1 #-> t2) #-> t1 #-> (t2, t1)"))
+      }
+    }
     
-    it should "complain on the infinity types" is (pending)
+    it should "complain on the infinity types" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f x y z = tuple 3 (x y) (z x) (z y)
+""")(NameTree.empty)(f).run(emptyEnv)
+     inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't match type \\(t1: *) (t2: *) => t1 #-> t2 with type \\(t1: *) => t1"))
+      }
+    }
     
     it should "complain on the instantiation of the parameters of the defined types" is (pending)
     
