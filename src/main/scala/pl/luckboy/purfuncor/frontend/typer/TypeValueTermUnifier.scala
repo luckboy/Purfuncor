@@ -75,7 +75,7 @@ object TypeValueTermUnifier
   private def withTypeLambdaArgsWithReturnKindS[T, U, V, E](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[T], U]))(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], U]) =
     envSt.withTypeLambdaArgsS(argParams) {
       env2 =>
-        val (env3, res) = argParams.foldLeft((env, Seq[Kind]().success[NoType[T]])) {
+        val (env3, res) = argParams.foldLeft((env2, Seq[Kind]().success[NoType[T]])) {
           case ((newEnv, Success(argParamKinds)), argParamSet) =>
             val argParamSeq = argParamSet.toSeq
             val (newEnv5, unifiedKindRes) = argParamSeq.headOption.map {
