@@ -430,7 +430,9 @@ package object typer
     
     override def unionParamsS(param1: Int, param2: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       if(!env.typeParamForest.containsTerm(param1) && !env.typeParamForest.containsTerm(param2)) 
-        if((env.typeLambdaArgParams.get(param1) |@| env.typeLambdaArgParams.get(param2)) { _ === _ }.getOrElse(true)){
+        if((env.typeLambdaArgParams.get(param1) |@| env.typeLambdaArgParams.get(param2)) { _ === _ }.getOrElse {
+          !(env.typeLambdaArgParams.contains(param1) || env.typeLambdaArgParams.contains(param2))
+        }){
           val paramKind1 = env.kindInferenceEnv.typeParamKind(param1)
           val paramKind2 = env.kindInferenceEnv.typeParamKind(param2)
           val (kindInferenceEnv, retKind) = symbolTypeSimpleTermKindInferrer.unifyInfosS(paramKind1, paramKind2)(env.kindInferenceEnv)
