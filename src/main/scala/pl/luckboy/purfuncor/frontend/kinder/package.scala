@@ -270,7 +270,7 @@ package object kinder
                         tmpKind <- State(symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpUnittypeCombKind, InferringKind(kt2))(_: SymbolKindInferenceEnvironment[T]))
                       } yield tmpKind
                   }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
-                } yield tmpKind2
+                } yield (tmpKind2.withPos(kt.pos))
             }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpUnittypeCombKind)))
             definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
             res <- checkDefinedKindTerms(definedKindTerms)

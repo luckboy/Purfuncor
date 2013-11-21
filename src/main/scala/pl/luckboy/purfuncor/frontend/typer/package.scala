@@ -803,7 +803,7 @@ package object typer
                         tmpType <- State(symbolSimpleTermTypeInferrer.unifyArgInfosS(InferringType(dt.term), tmpCombType)(_: SymbolTypeInferenceEnvironment[T, U]))
                       } yield tmpType
                   }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt))}
-                } yield tmpType2
+                } yield (tmpType2.withPos(tt.pos))
             }.getOrElse(State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType)))
             // Checks the defined types.
             isRecursive <- State(isRecursiveFromEnvironmentS)

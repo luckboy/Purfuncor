@@ -2781,7 +2781,7 @@ h = g f
       }
     }
     
-     it should "infer the types from the string with the integer numbers" in {
+    it should "infer the types from the string with the integer numbers" in {
       val (env, res) = Typer.inferTypesFromTreeString("""
 f = 2
 g = 0
@@ -2844,18 +2844,18 @@ h x = #iAdd (#iAdd 0 10) x
                  _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
                } yield x1) {
                  case Some(types11) =>
-                   types11 should have size(2)
-                   inside(for {
-                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
-                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
-                   } yield ()) {
-                     case Some(_) =>
-                       ()
-                   }
-              }
-           }
-       }
-     }
+                  types11 should have size(2)
+                    inside(for {
+                    _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                    _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                  } yield ()) {
+                    case Some(_) =>
+                      ()
+                  }
+             }
+          }
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
