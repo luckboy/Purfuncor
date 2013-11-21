@@ -378,10 +378,10 @@ object TypeValueTermUnifier
 
   private def matchesTypeValueTermsForTypeValueTermSubsetS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env) match {
-      case (env2, Success((instantiatedTerm1, optUsedParam1))) =>
+      case (env2, Success((instantiatedTerm1, optInstantiatedParam1))) =>
         partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env2) match {
-          case (env3, Success((instantiatedTerm2, optUsedParam2))) =>
-            envSt.withParamCheckingS(optUsedParam1.toSet ++ optUsedParam2) {
+          case (env3, Success((instantiatedTerm2, optInstantiatedParam2))) =>
+            envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
               env4 =>
                 (instantiatedTerm1, instantiatedTerm2) match {
                   case (TypeParamApp(_, Seq(), _), TypeConjunction(_) | TypeDisjunction(_)) =>
@@ -451,8 +451,8 @@ object TypeValueTermUnifier
 
   private def evaluateLogicalTypeValueTermsS[T, U, V, E](terms: Set[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
     terms.foldLeft((env, (Set[TypeValueTerm[T]](), Set[Int]()).success[NoType[T]])) {
-      case ((newEnv, Success((newTerms, newUsedParams))), term) =>
-        evaluateLogicalTypeValueTermS(term)(newEnv).mapElements(identity, _.map { p => (newTerms + p._1, newUsedParams ++ p._2) } )
+      case ((newEnv, Success((newTerms, newInstantiatedParams))), term) =>
+        evaluateLogicalTypeValueTermS(term)(newEnv).mapElements(identity, _.map { p => (newTerms + p._1, newInstantiatedParams ++ p._2) } )
       case ((newEnv, Failure(noType)), _)      =>
         (newEnv, noType.failure)
     }
@@ -460,7 +460,7 @@ object TypeValueTermUnifier
   private def evaluateLogicalTypeValueTermS[T, U, V, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], (TypeValueTerm[T], Set[Int])]) = {
     val (env2, res) = partiallyInstantiateTypeValueTermS(term)(unifier.mismatchedTermErrorS)(env)
     res match {
-      case Success((instantiatedTerm, optUsedParam)) =>
+      case Success((instantiatedTerm, optInstantiatedParam)) =>
         val (env5, res2) = instantiatedTerm match {
           case GlobalTypeApp(loc, args, _) =>
             envSt.withRecursionCheckingS(Set(loc)) {
@@ -479,7 +479,7 @@ object TypeValueTermUnifier
           case _                           =>
             (env2, (instantiatedTerm, Set()).success)
         }
-        (env5, res2.map { p => (p._1, optUsedParam.toSet ++ p._2) })
+        (env5, res2.map { p => (p._1, optInstantiatedParam.toSet ++ p._2) })
       case Failure(noType)           =>
         (env2, noType.failure)
     }
@@ -492,16 +492,16 @@ object TypeValueTermUnifier
     optPair.map { p => (env, (p, Set[Int]()).success) }.getOrElse { 
       val (env2, res) = evaluateLogicalTypeValueTermS(typeDisj1)(env)
       val (env3, res2) = res.map { 
-        case (evaluatedTypeDisj1, usedParams) => 
-          evaluatedTypeDisj1.distributedTypeValueTerm.map { t => (env2, ((t, typeConj2), usedParams).success) }.getOrElse {
+        case (evaluatedTypeDisj1, instantiatedParams) => 
+          evaluatedTypeDisj1.distributedTypeValueTerm.map { t => (env2, ((t, typeConj2), instantiatedParams).success) }.getOrElse {
             unifier.mismatchedTermErrorS(env2).mapElements(identity, _.failure)
           }
       }.valueOr { nt => (env2, nt.failure) }
       res2.map { p => (env3, p.success) }.getOrElse {
         val (env4, res3) = evaluateLogicalTypeValueTermS(typeConj2)(env3)
         res3.map { 
-          case (evaluatedTypeConj2, usedParams) => 
-            evaluatedTypeConj2.distributedTypeValueTerm.map { t => (env4, ((typeDisj1, t), usedParams).success) }.getOrElse {
+          case (evaluatedTypeConj2, instantiatedParams) => 
+            evaluatedTypeConj2.distributedTypeValueTerm.map { t => (env4, ((typeDisj1, t), instantiatedParams).success) }.getOrElse {
               unifier.mismatchedTermErrorS(env4).mapElements(identity, _.failure)
             }
         }.valueOr { nt => (env4, nt.failure) }
@@ -538,8 +538,8 @@ object TypeValueTermUnifier
               case (typeDisj1 @ TypeDisjunction(terms1), typeConj2 @ TypeConjunction(terms2)) =>
                 val (env3, res) = distributeTypeDisjunctionOrTypeConjunctionS(typeDisj1, typeConj2)(env2)
                 val (env4, res2) = res match {
-                  case Success(((distributedTerm1, distributedTerm2), usedParams)) =>
-                    envSt.withParamCheckingS(usedParams) {
+                  case Success(((distributedTerm1, distributedTerm2), instantiatedParams)) =>
+                    envSt.withParamCheckingS(instantiatedParams) {
                       unifier.withSaveS {
                         matchesLogicalTypeValueTermsS(distributedTerm1, distributedTerm2)(z)(f)(_)
                       }
@@ -627,10 +627,10 @@ object TypeValueTermUnifier
   def matchesTypeValueTermsS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env7, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env2) match {
-      case (env3, Success((instantiatedTerm1, optUsedParam1))) =>
+      case (env3, Success((instantiatedTerm1, optInstantiatedParam1))) =>
         partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env3) match {
-          case (env4, Success((instantiatedTerm2, optUsedParam2))) =>
-            envSt.withParamCheckingS(optUsedParam1.toSet ++ optUsedParam2) {
+          case (env4, Success((instantiatedTerm2, optInstantiatedParam2))) =>
+            envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
               env5 =>
                 (instantiatedTerm1, instantiatedTerm2) match {
                   case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>
