@@ -2780,6 +2780,82 @@ h = g f
               "couldn't match kind * -> * with kind (k1 -> *) -> *"))
       }
     }
+    
+     it should "infer the types from the string with the integer numbers" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = 2
+g = 0
+h x = #iAdd (#iAdd 0 10) x
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // f
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TypeConjunction(types1), Seq()) =>
+          // #NonZero #& #Int
+          types1 should have size(2)
+          inside(for {
+            _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+            _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+          } yield ()) {
+            case Some(_) =>
+              ()
+          }
+       }
+       // g
+       inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+         case InferredType(TypeConjunction(types1), argKinds) =>
+           // #Zero #& #Int
+           types1 should have size(2)
+           inside(for {
+             _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+             _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+           } yield ()) {
+             case Some(_) =>
+               ()
+           }
+       }
+       // h
+       inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+         case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+           // ((#Zero #| #NonZero) #& #Int) #-> ((#Zero #| #NonZero) #& #Int)
+           inside(argType1) {
+             case TypeConjunction(types1) =>
+               types1 should have size(2)
+               inside(for { 
+                 x1 <- types1.collectFirst { case TypeDisjunction(types11) => types11 }
+                 _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+               } yield x1) {
+                 case Some(types11) =>
+                   types11 should have size(2)
+                   inside(for {
+                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                   } yield ()) {
+                     case Some(_) =>
+                       ()
+                   }
+              }
+           }
+           inside(retType1) {
+             case TypeConjunction(types1) =>
+               types1 should have size(2)
+               inside(for { 
+                 x1 <- types1.collectFirst { case TypeDisjunction(types11) => types11 }
+                 _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+               } yield x1) {
+                 case Some(types11) =>
+                   types11 should have size(2)
+                   inside(for {
+                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                     _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                   } yield ()) {
+                     case Some(_) =>
+                       ()
+                   }
+              }
+           }
+       }
+     }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
