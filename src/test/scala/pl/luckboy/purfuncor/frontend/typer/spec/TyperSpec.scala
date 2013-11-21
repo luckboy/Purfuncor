@@ -2752,7 +2752,21 @@ h = g f
       }
     }
 
-    it should "complain on the lambda argument that was matched with the other paremeter" is (pending)
+    it should "complain on the lambda argument that was matched with the other paremeter" in {
+      // Unifies \t1 t2 => t1 (\t3 => (t2, t3, t2))
+      // with    \t1 t2 => t1 (\t3 => (t2, t3, t3)).
+      println("test")
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 t2 => t1 (\t3 => tuple 3 t2 t3 t2)
+g (x: \t1 t2 => t1 (\t3 => tuple 3 t2 t3 t3)) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't match type \\(t1: (* -> *) -> *) (t2: *) => t1 (\\t3 => (t2, t3, t3)) with type \\(t1: (* -> *) -> *) (t2: *) => t1 (\\t3 => (t2, t3, t2))"))
+      }
+    }
     
     it should "complain on the unmatched types with the unmatched kinds" is (pending)
   }
