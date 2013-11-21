@@ -2739,7 +2739,6 @@ h = g f
     it should "complain on the lambda argument that was matched with the other lambda argument" in {
       // Unifies \t1 => t1 (\t2 t3 => (t2, t3, t2))
       // with    \t1 => t1 (\t2 t3 => (t2, t3, t3)).
-      println("test")
       val (env, res) = Typer.inferTypesFromTreeString("""
 f = construct 0: \t1 => t1 (\t2 t3 => tuple 3 t2 t3 t2)
 g (x: \t1 => t1 (\t2 t3 => tuple 3 t2 t3 t3)) = x
@@ -2755,7 +2754,6 @@ h = g f
     it should "complain on the lambda argument that was matched with the other paremeter" in {
       // Unifies \t1 t2 => t1 (\t3 => (t2, t3, t2))
       // with    \t1 t2 => t1 (\t3 => (t2, t3, t3)).
-      println("test")
       val (env, res) = Typer.inferTypesFromTreeString("""
 f = construct 0: \t1 t2 => t1 (\t3 => tuple 3 t2 t3 t2)
 g (x: \t1 t2 => t1 (\t3 => tuple 3 t2 t3 t3)) = x
@@ -2768,7 +2766,20 @@ h = g f
       }
     }
     
-    it should "complain on the unmatched types with the unmatched kinds" is (pending)
+    it should "complain on the unmatched types with the unmatched kinds" in {
+      // Unifies \t1 (t2: k1 -> *) => t1 t2
+      // with    \t1 (t2: *) => t1 t2.
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = construct 0: \t1 (t2: k1 -> *) => t1 t2
+g (x: \t1 (t2: *) => t1 t2) = x
+h = g f
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't match kind * -> * with kind (k1 -> *) -> *"))
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
