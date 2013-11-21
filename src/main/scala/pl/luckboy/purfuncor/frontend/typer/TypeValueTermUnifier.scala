@@ -16,6 +16,7 @@ import pl.luckboy.purfuncor.frontend.KindTermUtils._
 object TypeValueTermUnifier
 {
   //TODO: fix the problems with the recursively replaced parameters for example in the type conjunctions.
+  //TODO: adapt the checkTypeValueTermSubsetS method to the detection of the infinity type value terms.
   
   def matchesTypeValueTermListsWithReturnKindS[T, U, V, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
