@@ -15,9 +15,6 @@ import pl.luckboy.purfuncor.frontend.KindTermUtils._
 
 object TypeValueTermUnifier
 {
-  //TODO: fix the problems with the recursively replaced parameters for example in the type conjunctions.
-  //TODO: adapt the checkTypeValueTermSubsetS method to the detection of the infinity type value terms.
-  
   def matchesTypeValueTermListsWithReturnKindS[T, U, V, E](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
@@ -347,30 +344,31 @@ object TypeValueTermUnifier
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
   
-  private def instantiateAndSortTypeValueTermsS[T, U, E](term1: TypeValueTerm[T], terms2: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (TypeValueTerm[T], Seq[TypeValueTerm[T]])]) = {
-    val (env2, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env)
+  private def instantiateAndSortPairsS[T, U, E](pair1: (TypeValueTerm[T], Option[Int]), pairs2: Seq[(TypeValueTerm[T], Option[Int])])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) = {
+    val (env2, res) = partiallyInstantiateTypeValueTermS(pair1._1)(unifier.mismatchedTermErrorS)(env)
     res.map {
-      case (instantiatedTerm1, _) =>
-        val (env3, res2) = terms2.foldLeft((env2, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
-          case ((newEnv, Success(newTerms2)), term2) =>
+      case (instantiatedTerm1, tmpOptInstantiatedParam1) =>
+        val instantiatedPair1 = (instantiatedTerm1, pair1._2.orElse(tmpOptInstantiatedParam1))
+        val (env3, res2) = pairs2.foldLeft((env2, Seq[(TypeValueTerm[T], Option[Int])]().success[NoType[T]])) {
+          case ((newEnv, Success(newPairs2)), (term2, optParam1)) =>
             val (newEnv2, newRes) = partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(newEnv)
-            (newEnv2, newRes.map { newTerms2 :+ _._1 })
-          case ((newEnv, Failure(noType)), _)        =>
+            (newEnv2, newRes.map { case (t, p) => newPairs2 :+ (t, optParam1.orElse(p)) })
+          case ((newEnv, Failure(noType)), _)                                    =>
             (newEnv, noType.failure)
         }
         res2.map {
-          instantiatedTerms2 =>
+          instantiatedPairs2 =>
             instantiatedTerm1 match {
               case TypeParamApp(_, args1, _) =>
-                val (tmpTerms2, thirdTerms2) = instantiatedTerms2.partition { _.isTypeParamApp }
-                val (firstTerms2, secondTerms2) = tmpTerms2.partition { 
-                  case TypeParamApp(_, args2, _) => args1.size === args2.size
-                  case _                         => false 
+                val (tmpPairs2, thirdPairs2) = instantiatedPairs2.partition { _._1.isTypeParamApp }
+                val (firstPairs2, secondPairs2) = tmpPairs2.partition { 
+                  case (TypeParamApp(_, args2, _), _) => args1.size === args2.size
+                  case _                              => false 
                 }
-                (env3, (instantiatedTerm1, firstTerms2 ++ secondTerms2 ++ thirdTerms2).success)
+                (env3, (instantiatedPair1, firstPairs2 ++ secondPairs2 ++ thirdPairs2).success)
               case _                         =>
-                val (firstTerms2, thirdTerms2) = instantiatedTerms2.partition { !_.isTypeParamApp }
-                (env3, (instantiatedTerm1, firstTerms2 ++ thirdTerms2).success)
+                val (firstPairs2, thirdPairs2) = instantiatedPairs2.partition { !_._1.isTypeParamApp }
+                (env3, (instantiatedPair1, firstPairs2 ++ thirdPairs2).success)
             }
         }.valueOr { nt => (env3, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
@@ -417,28 +415,32 @@ object TypeValueTermUnifier
   }
   
   private def checkTypeValueTermSubsetS[T, U, V, E](termSubset: Set[TypeValueTerm[T]], termSet: Set[TypeValueTerm[T]], areSwappedTerms: Boolean)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
-    val (env2, res) = termSubset.toSeq.foldLeft((env, (z, termSet.toSeq, Seq[TypeValueTerm[T]]()).success[NoType[T]])) {
-      case ((newEnv, Success((x, firstTerms2, secondTerms2))), term1)  =>
+    val (env2, res) = termSubset.toSeq.foldLeft((env, (z, termSet.map { (_, none[Int]) }.toSeq, Seq[(TypeValueTerm[T], Option[Int])]()).success[NoType[T]])) {
+      case ((newEnv, Success((x, firstPairs2, secondPairs2))), term1)  =>
         val (newEnv2, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(newEnv)
-        val (newEnv3, newRes) = instantiateAndSortTypeValueTermsS(term1, firstTerms2)(newEnv2)
+        val (newEnv3, newRes) = instantiateAndSortPairsS((term1, none), firstPairs2)(newEnv2)
         newRes match {
-          case Success((instantiatedTerm1, instantiatedFirstTerms2)) =>
-            val terms2 = instantiatedFirstTerms2 ++ secondTerms2
-            val (newEnv6, (newRes3, _)) = (0 until terms2.size).foldLeft(unifier.mismatchedTermErrorS(newEnv3).mapElements(identity, nt => (nt.failure[(U, Int)], false))) {
+          case Success(((instantiatedTerm1, optInstantiatedParam1), instantiatedFirstPairs2)) =>
+            val pairs2 = instantiatedFirstPairs2 ++ secondPairs2
+            val (newEnv6, (newRes3, _)) = (0 until pairs2.size).foldLeft(unifier.mismatchedTermErrorS(newEnv3).mapElements(identity, nt => (nt.failure[(U, Int)], false))) {
               case ((newEnv4, (Failure(_), _) | (Success(_), false)), i) =>
-                val term2 = terms2(i)
+                val (term2, optParam2) = pairs2(i)
                 val (tmpTerm1, tmpTerm2) = if(areSwappedTerms) (term2, instantiatedTerm1) else (instantiatedTerm1, term2)
-                val (newEnv5, (newRes2, areRestoredDelayedErrs)) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) { matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) } (newEnv4)
+                val (newEnv5, (newRes2, areRestoredDelayedErrs)) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) { 
+                  envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optParam2) {
+                    matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) 
+                  }
+                } (newEnv4)
                 (newEnv5, (newRes2.map { (_, i) }, areRestoredDelayedErrs))
               case ((newEnv4, (newRes2, areRestoredDelayedErrs)), _)      =>
                 (newEnv4, (newRes2, areRestoredDelayedErrs))
             }
             newRes3.map { 
               case (y, i) => 
-                if(i < instantiatedFirstTerms2.size) 
-                  (newEnv6, (y, instantiatedFirstTerms2.take(i) ++ instantiatedFirstTerms2.drop(i + 1), secondTerms2 :+ instantiatedFirstTerms2(i)).success)
+                if(i < instantiatedFirstPairs2.size) 
+                  (newEnv6, (y, instantiatedFirstPairs2.take(i) ++ instantiatedFirstPairs2.drop(i + 1), secondPairs2 :+ instantiatedFirstPairs2(i)).success)
                 else
-                  (newEnv6, (y, instantiatedFirstTerms2, secondTerms2).success)
+                  (newEnv6, (y, instantiatedFirstPairs2, secondPairs2).success)
             }.valueOr { nt => (newEnv6, nt.failure) }
           case Failure(noType) =>
             (newEnv3, noType.failure)
