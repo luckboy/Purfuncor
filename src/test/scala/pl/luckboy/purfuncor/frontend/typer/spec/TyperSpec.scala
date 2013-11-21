@@ -2651,9 +2651,28 @@ f x y z = tuple 3 (x y) (z x) (z y)
       }
     }
     
-    it should "complain on the instantiation of the parameters of the defined types" is (pending)
+    it should "complain on the instantiation of the parameters of the defined types" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f (g: \t1 => ##-> #Float (##-> t1 #Float)) = g 0.1f 'a'  
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't instantiate parameter at defined type \\t1 => #Float #-> t1 #-> #Float"))
+      }
+    }
     
-    it should "complain on the distinct parameters in the defined types" is (pending)
+    it should "complain on the distinct parameters in the defined types" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f (g: \t1 t2 t3 => ##-> t1 (##-> t3 #Char)) (h: \t1 t2 t3 => ##-> t1 (##-> t2 (##-> t3 #Char))) x y z = tuple 3 (g x y) (h x y x) (g x x)  
+""")(NameTree.empty)(f).run(emptyEnv)
+      inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "parameters are distinct at defined type \\t1 t2 t3 => t1 #-> t2 #-> t3 #-> #Char",
+              "parameters are distinct at defined type \\t1 _ t2 => t1 #-> t2 #-> #Char"))
+      }
+    }
     
     it should "complain on the supertype and the type which were match as the types" is (pending)
     
