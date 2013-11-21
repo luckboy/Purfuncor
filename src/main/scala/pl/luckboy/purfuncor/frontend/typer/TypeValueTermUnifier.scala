@@ -403,7 +403,7 @@ object TypeValueTermUnifier
       case (env2, Success((instantiatedTerm1, optInstantiatedParam1))) =>
         partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env2) match {
           case (env3, Success((instantiatedTerm2, optInstantiatedParam2))) =>
-            envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
+            envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
               env4 =>
                 (instantiatedTerm1, instantiatedTerm2) match {
                   case (TypeParamApp(_, Seq(), _), TypeConjunction(_) | TypeDisjunction(_)) =>
@@ -451,7 +451,7 @@ object TypeValueTermUnifier
                 val (term2, optParam2) = pairs2(i)
                 val (tmpTerm1, tmpTerm2) = if(areSwappedTerms) (term2, instantiatedTerm1) else (instantiatedTerm1, term2)
                 val (newEnv5, (newRes2, areRestoredDelayedErrs)) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) { 
-                  envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optParam2) {
+                  envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optParam2) {
                     matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) 
                   }
                 } (newEnv4)
@@ -565,7 +565,7 @@ object TypeValueTermUnifier
                 val (env3, res) = distributeTypeDisjunctionOrTypeConjunctionS(typeDisj1, typeConj2)(env2)
                 val (env4, res2) = res match {
                   case Success(((distributedTerm1, distributedTerm2), instantiatedParams)) =>
-                    envSt.withParamCheckingS(instantiatedParams) {
+                    envSt.withInfinityCheckingS(instantiatedParams) {
                       unifier.withSaveS {
                         matchesLogicalTypeValueTermsS(distributedTerm1, distributedTerm2)(z)(f)(_)
                       }
@@ -656,7 +656,7 @@ object TypeValueTermUnifier
       case (env3, Success((instantiatedTerm1, optInstantiatedParam1))) =>
         partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env3) match {
           case (env4, Success((instantiatedTerm2, optInstantiatedParam2))) =>
-            envSt.withParamCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
+            envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
               env5 =>
                 (instantiatedTerm1, instantiatedTerm2) match {
                   case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>

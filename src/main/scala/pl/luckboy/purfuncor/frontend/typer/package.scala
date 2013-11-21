@@ -294,7 +294,7 @@ package object typer
       else
         (env, NoType.fromError[GlobalSymbol](Error("exceeded limit of recursive type applications", none, NoPosition)).failure)
     
-    override def withParamCheckingS[V](params: Set[Int])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
+    override def withInfinityCheckingS[V](params: Set[Int])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], V]))(env: SymbolTypeInferenceEnvironment[T, U]) =
       if(!params.exists(env.markedTypeParams.contains))
         env.withTypeParams(params)(f)
       else
