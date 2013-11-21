@@ -2474,7 +2474,7 @@ h = g f
     it should "unify the supertype with the type for the logical expressions with the type parameters" in {
       // Unifies \t1 t2 t3 => t1 #& t2 #& (t3 #Char) #& T #& U
       // with    \t1 t2 => t1 #& (t2 #Char) #& T
-      // for unittype 1 T and unittype 0 U and unittype 0 V and unittype 1 W and unittype 0 X.
+      // for unittype 0 T and unittype 0 U.
       val s = """
 unittype 0 T
 unittype 0 U
@@ -2674,9 +2674,68 @@ f (g: \t1 t2 t3 => ##-> t1 (##-> t3 #Char)) (h: \t1 t2 t3 => ##-> t1 (##-> t2 (#
       }
     }
     
-    it should "complain on the supertype and the type which were match as the types" is (pending)
+    it should "complain on the supertype and the type which were matched as the types" in {
+      // Unifies \t1 => TWI (T #& (U t1) #& V)
+      // with    \t1 => TWI (T #& (U t1))
+      // for unittype 1 TWI and unittype 0 T and unittype 1 U and unittype 0 V.
+      val s = """
+unittype 1 TWI
+unittype 0 T
+unittype 1 U
+unittype 0 V
+f = construct 0: \t1 => TWI (##& (##& T (U t1)) V)
+g (x: \t1 => TWI (##& T (U t1))) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              inside(res2) {
+                case Success(Failure(noType)) =>
+                  noType.errs.map { _.msg } should be ===(List(
+                      "couldn't match type \\(t1: *) => #.TWI (#.T #& (#.U t1)) with type \\(t1: *) => #.TWI (#.T #& (#.U t1) #& #.V)"))
+              }
+          }
+      }
+    }
     
-    it should "complain on the type and the supertype which were match as the supertype and the type" is (pending)
+    it should "complain on the type and the supertype which were matched as the supertype and the type" in {
+      // Unifies \t1 t2 => (T t1) #| (U #& (V t2)) #| W
+      // with    \t1 => U #& (V t1)
+      // for unittype 1 TWI and unittype 0 T and unittype 1 U and unittype 0 V.
+      val s = """
+unittype 1 TWI
+unittype 1 T
+unittype 0 U
+unittype 1 V
+unittype 0 W
+f = construct 0: \t1 t2 => ##| (##| (T t1) (##& U (V t2))) W
+g (x: \t1 => ##& U (V t1)) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              inside(res2) {
+                case Success(Failure(noType)) =>
+                  noType.errs.map { _.msg } should be ===(List(
+                      "couldn't match type \\(t1: *) => #.U #& (#.V t1) with type \\(t1: *) (t2: *) => (#.T t1) #| (#.U #& (#.V t2)) #| #.W"))
+              }
+          }
+      }
+    }
     
     it should "complain on the lambda argument that was match with the other lambda argument" is (pending)
 
