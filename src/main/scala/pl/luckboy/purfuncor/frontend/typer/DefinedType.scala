@@ -14,11 +14,12 @@ import TypeValueTermUtils._
 case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], pos: Position)
 {
   override def toString = {
-    val term2 = normalizeTypeParamsForParams(term, args.count { _.param.isDefined })(args.zipWithIndex.flatMap { case (a, i) => a.param.map { (_, i) } }.toMap)
-    if(!args.isEmpty) {
-      val argsWithOptIndexes = args.foldLeft((Seq[(DefinedTypeArg, Option[Int])](), 0)) {
-        case ((as, i), a) => a.param.map { _ => (as :+ (a, some(i)), i + 1) }.getOrElse((as :+ (a, none), i)) 
-      }._1
+    val argsWithOptIndexes = args.foldLeft((Seq[(DefinedTypeArg, Option[Int])](), 0)) {
+      case ((as, i), a) => a.param.map { _ => (as :+ (a, some(i)), i + 1) }.getOrElse((as :+ (a, none), i)) 
+    }._1
+    val params = argsWithOptIndexes.flatMap { case (a, o) => o.flatMap { i => a.param.map { (_, i) } }.toSeq }.toMap
+    val term2 = normalizeTypeParamsForParams(term, args.count { _.param.isDefined })(params)
+    if(!args.isEmpty) {      
       "\\" + argsWithOptIndexes.map { 
         case (arg, optIdx) => 
           val s = arg.toStringForName(optIdx.map { i => "t" + (i + 1) }.getOrElse("_"))
