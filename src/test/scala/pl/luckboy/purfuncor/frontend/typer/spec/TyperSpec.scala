@@ -2708,9 +2708,8 @@ h = g f
     it should "complain on the type and the supertype which were matched as the supertype and the type" in {
       // Unifies \t1 t2 => (T t1) #| (U #& (V t2)) #| W
       // with    \t1 => U #& (V t1)
-      // for unittype 1 TWI and unittype 0 T and unittype 1 U and unittype 0 V.
+      // for unittype 1 T and unittype 0 U and unittype 1 V and unittype 0 W.
       val s = """
-unittype 1 TWI
 unittype 1 T
 unittype 0 U
 unittype 1 V
