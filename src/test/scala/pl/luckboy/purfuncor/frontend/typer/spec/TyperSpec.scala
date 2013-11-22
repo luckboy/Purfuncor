@@ -2766,7 +2766,7 @@ h = g f
       }
     }
     
-    it should "complain on the mismatched types with the unmatched kinds" in {
+    it should "complain on the mismatched types with the mismatched kinds" in {
       // Unifies \t1 (t2: k1 -> *) => t1 t2
       // with    \t1 (t2: *) => t1 t2.
       val (env, res) = Typer.inferTypesFromTreeString("""
@@ -2856,6 +2856,20 @@ h x = #iAdd (#iAdd 0 10) x
           }
       }
     }
+    
+    it should "transform the string" is (pending)
+    
+    it should "transform inferred types to global type table" is (pending)
+    
+    it should "transform inferred types to local type tables" is (pending)
+    
+    it should "transform instance types to instance types of lambda informations" is (pending)
+    
+    it should "transform the string with the references of the other tree" is (pending)
+    
+    it should "transform the string of the term with the type inference" is (pending)
+    
+    it should "complain on transformation of the incorrect string" is (pending)
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((_, kt) => kt)(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
