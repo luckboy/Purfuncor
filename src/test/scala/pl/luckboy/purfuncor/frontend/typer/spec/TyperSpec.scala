@@ -2625,7 +2625,7 @@ g = tuple 2 (construct 0: \(t1: (k1 -> k2) -> k1 -> *) t2 => t1 t2) true
       }
     }
     
-    it should "complain on the unmatched types" in {
+    it should "complain on the mismatched types" in {
       val (env, res) = Typer.inferTypesFromTreeString("""
 f x y = tuple 2 (x y) y
 g x y = #zXor (f x y) y
@@ -2766,7 +2766,7 @@ h = g f
       }
     }
     
-    it should "complain on the unmatched types with the unmatched kinds" in {
+    it should "complain on the mismatched types with the unmatched kinds" in {
       // Unifies \t1 (t2: k1 -> *) => t1 t2
       // with    \t1 (t2: *) => t1 t2.
       val (env, res) = Typer.inferTypesFromTreeString("""

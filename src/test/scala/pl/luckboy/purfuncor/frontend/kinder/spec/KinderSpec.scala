@@ -427,7 +427,7 @@ type T (t1: k1 -> k2) t2 (t3: (k1 -> k2) -> * -> k3) = t3 t1 t2
       }
     }
     
-    it should "complain on the unmatched kinds" in {
+    it should "complain on the mismatched kinds" in {
       val (env, res) = Kinder.inferKindsFromTreeString("""
 type T t1 t2 = tuple 2 (t2 t1) #Int
 type U t1 t2 = ##& (T t1 t2) t2
