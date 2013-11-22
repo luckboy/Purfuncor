@@ -383,6 +383,29 @@ unittype 2 U
         }
       }
     }
+    
+    it should "complain on the mismatched kinds" in {
+      val s = "unittype 2 T"
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          val (env, _) = kinder.Kinder.inferKindsFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+          // T #Boolean #Char #Int
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+            case Some(loc1) =>
+              val typeValueTerm = GlobalTypeApp[Z](loc1, Seq(
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())),
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())),
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
+                  ), GlobalSymbol(NonEmptyList("T")))
+              val (env2, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env)
+              inside(kind) {
+                case noKind: NoKind =>
+                  noKind.errs.map { _.msg } should be ===(List(
+                      "couldn't match kind * -> * -> * with kind k1 -> k2 -> k3 -> k4"))
+              }
+          }
+      }
+    }
   }
   
   "A TypeValueTermKindInferrer" should behave like typeValueTermKindInferrer(kinder.SymbolKindInferenceEnvironment.empty[parser.TypeLambdaInfo])(kinder.Kinder.transformToSymbolTree)
