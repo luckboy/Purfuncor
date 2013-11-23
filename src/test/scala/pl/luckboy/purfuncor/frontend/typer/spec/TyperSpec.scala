@@ -2942,9 +2942,135 @@ f x = #iAdd x 1
       }
     }
     
-    it should "transform inferred types to global type table" is (pending)
+    it should "transform inferred types to global type table" in {
+      val (typeEnv, res) = Typer.transformString("""
+f x y = x y
+g = #fAdd 1.0f 2.0f
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(2)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
+            case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
+              // (t1 #-> t2) #-> t1 #-> t2
+              inside(argType1) {
+                case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
+                  inside(argType11) {
+                    case TypeParamApp(param11, Seq(), 0) =>
+                      inside(retType11) {
+                        case TypeParamApp(param12, Seq(), 0) =>
+                          inside(retType1) {
+                            case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType2, retType2)) =>
+                              inside(argType2) {
+                                case TypeParamApp(param2, Seq(), 0) =>
+                                  inside(retType2) {
+                                    case TypeParamApp(param3, Seq(), 0) =>
+                                      List(param11, param2).toSet should have size(1)
+                                      List(param12, param3).toSet should have size(1)
+                                      List(param11, param12, param2, param3).toSet should have size(2)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+              inside(argKinds) {
+                case Seq(
+                    InferredKind(Star(KindType, _)) /* * */,
+                    InferredKind(Star(KindType, _)) /* * */) =>
+                  ()
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(treeInfo.typeTable.types.get)) {
+            case Some(InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq())) =>
+              // #Float
+              ()
+          }
+      }
+    }
     
-    it should "transform inferred types to local type tables" is (pending)
+    it should "transform inferred types to local type tables" in {
+      val (typeEnv, res) = Typer.transformString("""
+f x y = x y
+g x = \y z => tuple 2 (#zAnd x z) y
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(2)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, _, LambdaInfo(lambdaInfo, typeTable, Seq()), _)) =>
+              val syms = Set(LocalSymbol("x"), LocalSymbol("y"))
+              val locs = syms.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo))
+              locs should have size(2)
+              typeTable.types.keySet should be ===(locs)
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
+                  // \t1 t2 => t1 #-> t2
+                  inside(argType1) {
+                    case TypeParamApp(param1, Seq(), 0) =>
+                      inside(retType1) {
+                        case TypeParamApp(param2, Seq(), 0) =>
+                          List(param1, param2).toSet should have size(2)
+                      }
+                  }
+                  inside(argKinds) {
+                    case Seq(
+                        InferredKind(Star(KindType, _)) /* * */,
+                        InferredKind(Star(KindType, _)) /* * */) =>
+                      ()
+                  }
+              }
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("y")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+                  // \t1 => t1
+                  inside(argKinds) {
+                    case Seq(
+                        InferredKind(Star(KindType, _)) /* * */) =>
+                      ()
+                  }
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, typeTable, Seq()), _)) =>
+              val syms = Set(LocalSymbol("x"))
+              val locs = syms.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo))
+              locs should have size(1)
+              typeTable.types.keySet should be ===(locs)
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), Seq())) =>
+                  // #Boolean
+                  ()
+              }
+              inside(body) {
+                case Simple(Lambda(_, _, LambdaInfo(lambdaInfo1, typeTable1, Seq())), _) =>
+                  val syms1 = Set(LocalSymbol("y"), LocalSymbol("z"))
+                  val locs1 = syms1.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo1))
+                  locs1 should have size(2)
+                  typeTable1.types.keySet should be ===(locs1)
+                  inside(localSymTabular.getLocalLocationFromTable(lambdaInfo1)(LocalSymbol("y")).flatMap(typeTable1.types.get)) {
+                    case Some(InferredType(TypeParamApp(_, Seq(), _), argKinds)) =>
+                      // \t1 => t1
+                      inside(argKinds) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+                  inside(localSymTabular.getLocalLocationFromTable(lambdaInfo1)(LocalSymbol("z")).flatMap(typeTable1.types.get)) {
+                    case Some(InferredType(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), Seq())) =>
+                      // #Boolean
+                      ()
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform instance types to instance types of lambda informations" is (pending)
     
