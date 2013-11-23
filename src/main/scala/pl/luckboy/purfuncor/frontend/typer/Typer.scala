@@ -252,7 +252,7 @@ object Typer
           f(InferredKindTable(typeTree.treeInfo.kindTable.kinds ++ kindTable.kinds), typeTable).flatMap {
             env =>
               val (env2, res2) = inferTreeTypesS(tree)(env)
-              State((_: TE, resultFromTypeResult(res2).flatMap { _ => transformTree(tree)(env) }))
+              State((_: TE, resultFromTypeResult(res2).flatMap { _ => transformTree(tree)(env2) }))
           }
       }.valueOr { ntv => State((_: TE, ntv.err.failureNel)) }
     } yield res3).run(typeEnv)
