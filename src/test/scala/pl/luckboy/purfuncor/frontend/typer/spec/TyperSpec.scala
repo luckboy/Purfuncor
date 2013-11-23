@@ -3072,7 +3072,237 @@ g x = \y z => tuple 2 (#zAnd x z) y
       }
     }
     
-    it should "transform instance types to instance types of lambda informations" is (pending)
+    it should "transform instance types to instance types of lambda informations" in {
+      val (typeEnv, res) = Typer.transformString("""
+unittype 2 T
+unittype 1 U
+unittype 0 V
+f x y = (construct 2 x y): \t1 t2 => ##& (T t1 t2) (tuple 2 t1 t2)
+g x = x select {
+    (y: \t1 t2 => T t1 t2) => 1
+    (y: \t1 => U t1)       => 2
+    (y: V)                 => 3
+  }
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(2)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          val typeCombSyms = List(
+              GlobalSymbol(NonEmptyList("T")),
+              GlobalSymbol(NonEmptyList("U")),
+              GlobalSymbol(NonEmptyList("V")))
+          inside(typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))) {
+            case List(tLoc, uLoc, vLoc) =>
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+                case Some(Combinator(None, _, body, _, _)) =>
+                  inside(body) {
+                    case Simple(TypedTerm(term1, _), _) =>
+                      inside(term1) {
+                        case App(Simple(Construct(2, LambdaInfo(lambdaInfo1, typeTable1, instanceTypes1)), _), NonEmptyList(_, _), _) =>
+                          typeTable1.types should be ('empty)
+                          inside(instanceTypes1) {
+                            case Seq(type11) =>
+                              inside(type11) {
+                                case InferredType(TypeConjunction(types11), argKinds11) =>
+                                  // \t1 t2 => (T t1 t2) #& (t1, t2)
+                                  types11 should have size(2)
+                                  println(types11, types11.map { _.getClass() })
+                                  inside(for {
+                                    x1 <- types11.collectFirst { case Unittype(loc111, Seq(arg111, arg112), GlobalSymbol(NonEmptyList("T"))) => (loc111, arg111, arg112) }
+                                    x2 <- types11.collectFirst { case TupleType(Seq(type113, type114)) => (type113, type114) }
+                                  } yield (x1, x2)) {
+                                    case Some(((loc111, arg111, arg112), (type113, type114))) =>
+                                      loc111 should be ===(tLoc)
+                                      inside(arg111) {
+                                        case TypeParamApp(param111, Seq(), 0) =>
+                                          inside(arg112) {
+                                            case TypeParamApp(param112, Seq(), 0) =>
+                                              inside(type113) {
+                                                case TypeParamApp(param113, Seq(), 0) =>
+                                                  inside(type114) {
+                                                    case TypeParamApp(param114, Seq(), 0) =>
+                                                      List(param111, param113).toSet should have size(1)
+                                                      List(param112, param114).toSet should have size(1)
+                                                      List(param111, param112, param113, param114).toSet should have size(2)
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                                  inside(argKinds11) {
+                                    case Seq(
+                                        InferredKind(Star(KindType, _)) /* * */,
+                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                      ()
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
+                case Some(Combinator(None, _, body, _, _)) =>
+                  inside(body) {
+                    case Simple(Select(_, cases1, LambdaInfo(lambdaInfo1, typeTable1, instanceTypes1)), _) =>
+                      typeTable1.types should be ('empty)
+                      inside(instanceTypes1) {
+                        case Seq(type11) =>
+                          inside(type11) {
+                            case InferredType(TypeDisjunction(types11), argKinds11) =>
+                              // \t1 t2 t3 => (T t1 t2) #& (U t3) #& V
+                              inside(for {
+                                x1 <- types11.collectFirst { case GlobalTypeApp(loc111, Seq(arg111, arg112), GlobalSymbol(NonEmptyList("T"))) => (loc111, arg111, arg112) }
+                                x2 <- types11.collectFirst { case GlobalTypeApp(loc112, Seq(arg113), GlobalSymbol(NonEmptyList("U"))) => (loc112, arg113) }
+                                x3 <- types11.collectFirst { case GlobalTypeApp(loc113, Seq(), GlobalSymbol(NonEmptyList("V"))) => loc113 }
+                              } yield (x1, x2, x3)) {
+                                case Some(((loc111, arg111, arg112), (loc112, arg113), loc113)) =>
+                                  loc111 should be ===(tLoc)
+                                  loc112 should be ===(uLoc)
+                                  loc113 should be ===(vLoc)
+                                  inside(arg111) {
+                                    case TypeValueLambda(Seq(), TypeParamApp(param111, Seq(), 0)) =>
+                                      inside(arg112) {
+                                        case TypeValueLambda(Seq(), TypeParamApp(param112, Seq(), 0)) =>
+                                          inside(arg113) {
+                                            case TypeValueLambda(Seq(), TypeParamApp(param113, Seq(), 0)) =>
+                                              List(param111, param112, param113).toSet should have size(3)
+                                          }
+                                      }
+                                  }
+                              }
+                              inside(argKinds11) {
+                                case Seq(
+                                    InferredKind(Star(KindType, _)) /* * */,
+                                    InferredKind(Star(KindType, _)) /* * */,
+                                    InferredKind(Star(KindType, _)) /* * */) =>
+                                  ()
+                              }
+                          }
+                      }
+                      inside(cases1) {
+                        case NonEmptyList(case11, case12, case13) =>
+                          inside(case11) {
+                            case Case(_, _, _, LambdaInfo(lambdaInfo11, typeTable11, instanceTypes11)) =>
+                              val syms11 = Set(LocalSymbol("y"))
+                              val locs11 = syms11.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo11))
+                              locs11 should have size(1)
+                              typeTable11.types.keySet should be ===(locs11)
+                              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("y")).flatMap(typeTable11.types.get)) {
+                                case Some(InferredType(GlobalTypeApp(loc111, args111, GlobalSymbol(NonEmptyList("T"))), argKinds11)) =>
+                                  // \t1 t2 => T t1 t2
+                                  loc111 should be ===(tLoc)
+                                  inside(args111) {
+                                    case Seq(arg1111, arg1112) =>
+                                      inside(arg1111) {
+                                        case TypeValueLambda(Seq(), TypeParamApp(param1111, Seq(), 0)) =>
+                                          inside(arg1112) {
+                                            case TypeValueLambda(Seq(), TypeParamApp(param1112, Seq(), 0)) =>
+                                              List(param1111, param1112).toSet should have size(2)
+                                          }
+                                      }
+                                  }
+                                  inside(argKinds11) {
+                                    case Seq(
+                                        InferredKind(Star(KindType, _)) /* * */,
+                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                      ()
+                                  }
+                              }
+                              inside(instanceTypes11) {
+                                case Seq(type111) =>
+                                  inside(type111) {
+                                    case InferredType(GlobalTypeApp(loc1111, args1111, GlobalSymbol(NonEmptyList("T"))), argKinds111) =>
+                                      // \t1 t2 => T t1 t2
+                                      loc1111 should be ===(tLoc)
+                                      inside(args1111) {
+                                        case Seq(arg11111, arg11112) =>
+                                          inside(arg11111) {
+                                            case TypeValueLambda(Seq(), TypeParamApp(param11111, Seq(), 0)) =>
+                                              inside(arg11112) {
+                                                case TypeValueLambda(Seq(), TypeParamApp(param11112, Seq(), 0)) =>
+                                                  List(param11111, param11112).toSet should have size(2)
+                                              }
+                                          }
+                                      }
+                                      inside(argKinds111) {
+                                        case Seq(
+                                             InferredKind(Star(KindType, _)) /* * */,
+                                             InferredKind(Star(KindType, _)) /* * */) =>
+                                         ()
+                                      }
+                                  }
+                              }
+                          }
+                          inside(case12) {
+                            case Case(_, _, _, LambdaInfo(lambdaInfo12, typeTable12, instanceTypes12)) =>
+                              val syms12 = Set(LocalSymbol("y"))
+                              val locs12 = syms12.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo12))
+                              locs12 should have size(1)
+                              typeTable12.types.keySet should be ===(locs12)
+                              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo12)(LocalSymbol("y")).flatMap(typeTable12.types.get)) {
+                                case Some(InferredType(GlobalTypeApp(loc121, args121, GlobalSymbol(NonEmptyList("U"))), argKinds12)) =>
+                                  // \t1 => U t1
+                                  loc121 should be ===(uLoc)
+                                  inside(args121) {
+                                    case Seq(arg1211) =>
+                                      inside(arg1211) { case TypeValueLambda(Seq(), TypeParamApp(_, Seq(), 0)) => () }
+                                  }
+                                  inside(argKinds12) {
+                                    case Seq(
+                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                      ()
+                                  }
+                              }
+                              inside(instanceTypes12) {
+                                case Seq(type121) =>
+                                  inside(type121) {
+                                    case InferredType(GlobalTypeApp(loc1211, args1211, GlobalSymbol(NonEmptyList("U"))), argKinds121) =>
+                                      // \t1 => U t1
+                                      loc1211 should be ===(uLoc)
+                                      inside(args1211) {
+                                        case Seq(arg12111) =>
+                                          inside(arg12111) { case TypeValueLambda(Seq(), TypeParamApp(_, Seq(), 0)) => () }
+                                      }
+                                      inside(argKinds121) {
+                                        case Seq(
+                                             InferredKind(Star(KindType, _)) /* * */) =>
+                                         ()
+                                      }
+                                  }
+                              }
+                          }
+                          inside(case13) {
+                            case Case(_, _, _, LambdaInfo(lambdaInfo13, typeTable13, instanceTypes13)) =>
+                              val syms13 = Set(LocalSymbol("y"))
+                              val locs13 = syms13.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo13))
+                              locs13 should have size(1)
+                              typeTable13.types.keySet should be ===(locs13)
+                              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo13)(LocalSymbol("y")).flatMap(typeTable13.types.get)) {
+                                case Some(InferredType(GlobalTypeApp(loc131, Seq(), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
+                                  // V
+                                  loc131 should be ===(vLoc)
+                              }
+                              inside(instanceTypes13) {
+                                case Seq(type131) =>
+                                  inside(type131) {
+                                    case InferredType(GlobalTypeApp(loc1311, Seq(), GlobalSymbol(NonEmptyList("V"))), Seq()) =>
+                                      // V
+                                      loc1311 should be ===(vLoc)
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform the string with the references of the other tree" is (pending)
     
