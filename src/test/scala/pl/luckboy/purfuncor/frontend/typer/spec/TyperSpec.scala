@@ -2857,7 +2857,90 @@ h x = #iAdd (#iAdd 0 10) x
       }
     }
     
-    it should "transform the string" is (pending)
+    it should "transform the string" in {
+      val (typeEnv, res) = Typer.transformString("""
+f x = #iAdd x 1
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(1)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, args, body, LambdaInfo(lambdaInfo, typeTable, Seq()), _)) =>
+              inside(args) { case List(Arg(Some("x"), None, _)) => () }
+              inside(body) {
+                case App(Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _), args1, _) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12) =>
+                      inside(arg11) { case Simple(Var(LocalSymbol("x")), _) => () }
+                      inside(arg12) { case Simple(Literal(IntValue(1)), _) => () }
+                  }
+              }
+              typeTable.types should have size(1)
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(TypeConjunction(types1), Seq())) =>
+                  // (#Zero #| #NonZero) #& #Int
+                  types1 should have size(2)
+                  inside(for {
+                    x1 <- types1.collectFirst { case TypeDisjunction(types11) => types11 }
+                    _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+                  } yield x1) {
+                    case Some(types11) =>
+                      types11 should have size(2)
+                      inside(for {
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                      } yield ()) {
+                        case Some(_) =>
+                          ()
+                      }
+                  }
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
+            case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq())) =>
+              // ((#Zero #| #NonZero) #& #Int) #-> ((#Zero #| #NonZero) #& #Int)
+              inside(argType1) {
+                case TypeConjunction(types1) =>
+                  types1 should have size(2)
+                  inside(for {
+                    x1 <- types1.collectFirst { case TypeDisjunction(types11) => types11 }
+                    _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+                  } yield x1) {
+                    case Some(types11) =>
+                      types11 should have size(2)
+                      inside(for {
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                      } yield ()) {
+                        case Some(_) =>
+                          ()
+                      }
+                  }
+              }
+              inside(retType1) {
+                case TypeConjunction(types1) =>
+                  types1 should have size(2)
+                  inside(for {
+                    x1 <- types1.collectFirst { case TypeDisjunction(types11) => types11 }
+                    _ <- types1.collectFirst { case BuiltinType(TypeBuiltinFunction.Int, Seq()) => () }
+                  } yield x1) {
+                    case Some(types11) =>
+                      types11 should have size(2)
+                      inside(for {
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.Zero, Seq()) => () }
+                        _ <- types11.collectFirst { case BuiltinType(TypeBuiltinFunction.NonZero, Seq()) => () }
+                      } yield ()) {
+                        case Some(_) =>
+                          ()
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform inferred types to global type table" is (pending)
     
