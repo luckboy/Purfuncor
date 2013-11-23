@@ -3112,7 +3112,6 @@ g x = x select {
                                 case InferredType(TypeConjunction(types11), argKinds11) =>
                                   // \t1 t2 => (T t1 t2) #& (t1, t2)
                                   types11 should have size(2)
-                                  println(types11, types11.map { _.getClass() })
                                   inside(for {
                                     x1 <- types11.collectFirst { case Unittype(loc111, Seq(arg111, arg112), GlobalSymbol(NonEmptyList("T"))) => (loc111, arg111, arg112) }
                                     x2 <- types11.collectFirst { case TupleType(Seq(type113, type114)) => (type113, type114) }
