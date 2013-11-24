@@ -3525,7 +3525,19 @@ f = construct 0: T
       }
     }
 
-    it should "complain on transformation of the incorrect string" is (pending)
+    it should "complain on transformation of the incorrect string" in {
+      val (typeEnv, res) = Typer.transformString("""
+f = #iAdd true 'a'
+g x y = #zXor (x y) x
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "couldn't match type (#Zero #| #NonZero) #& #Int with type #Boolean",
+              "couldn't match type (#Zero #| #NonZero) #& #Int with type #Char",
+              "couldn't match type #Boolean with type \\(t1: *) => t1 #-> #Boolean"))
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((kt1, kt2) => InferredKindTable(kt1.kinds ++ kt2.kinds))(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
