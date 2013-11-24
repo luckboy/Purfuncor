@@ -274,13 +274,7 @@ sealed trait TypeValueTerm[T]
       case TypeParamApp(param, args, _) => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
       case TypeConjunction(terms)       => 
         if(!terms.isEmpty)
-          terms.map {
-            term =>
-              term match {
-                case TypeDisjunction(_) => "(" + term.toArgString + ")"
-                case _                  => term.toArgString
-              }
-          }.mkString(" #& ")
+          terms.map { _.toArgString }.mkString(" #& ")
         else
           "<type conjunction without terms>"
       case TypeDisjunction(terms)      => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #| ") else "<type disjunction without terms>"
