@@ -3488,7 +3488,42 @@ h = tuple 2 (construct 0: T) (construct 0: U)
       }
     }
 
-    it should "transform the string of the term with the type inference and the global variables" is (pending)
+    it should "transform the string of the term with the type inference and the global variables" in {
+      val s = """
+unittype 0 T
+f = construct 0: T
+"""
+      val (typeEnv, res) = Typer.transformString(s)(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      val res2 = makeData(s)
+      val nameTree = NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T"))) |+| NameTree.fromGlobalSymbol(GlobalSymbol(NonEmptyList("f")))
+      inside((res |@| res2) { (t, d) => (t, d) }) {
+        case Success((Tree(_, treeInfo), data)) =>
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeTreeInfo = typeTree.treeInfo
+          val (typeEnv2, env) = g3(kindTableFromData(data), treeInfo.typeTable).run(typeEnv)
+          val res3 = Typer.transformTermStringWithTypeInference("tuple 2 f true")(nameTree, env)(h2(data))
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+            case Some(tLoc) =>
+              inside(res3) {
+                case Success((App(Simple(Literal(TupleFunValue(2)), _), args1, _), typ)) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12) =>
+                      inside(arg11) { case Simple(Var(GlobalSymbol(NonEmptyList("f"))), _) => () }
+                      inside(arg12) { case Simple(Literal(BooleanValue(true)), _) => () }
+                  }
+                  inside(typ) {
+                    case InferredType(TupleType(Seq(type1, type2)), Seq()) =>
+                      // (T, #Boolean)
+                      inside(type1) {
+                        case GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("T"))) =>
+                          loc1 should be ===(tLoc)
+                      }
+                      inside(type2) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+                  }
+              }
+          }
+      }
+    }
 
     it should "complain on transformation of the incorrect string" is (pending)
   }
