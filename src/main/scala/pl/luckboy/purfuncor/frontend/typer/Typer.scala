@@ -207,7 +207,7 @@ object Typer
     }.flatMap {
       combs =>
         transformTypeTable(enval.globalTypeTableFromEnvironment(env)).map {
-          tt => Tree(combs, TreeInfo(tree.treeInfo, tt))
+          tt => Tree(combs, TreeInfo(tree.treeInfo, InferredTypeTable(tt.types.filterKeys(combs.keySet.contains))))
         }
     }
   
