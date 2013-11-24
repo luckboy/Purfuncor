@@ -337,9 +337,11 @@ object TypeValueTermUnifier
                 matchesLogicalTypeValueTermsS(typeParamApp1, normalizedTerm2)(z)(f)(env4)
             }
             addDelayedErrorsFromResultS(res3, Set(paramAppIdx1))(z)(env5)
-          case _ =>
-            val (env2, res) = f(param1, Right(term2), z, env)
+          case Success(normalizedTerm2) =>
+            val (env2, res) = f(param1, Right(normalizedTerm2), z, env)
             addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env2)
+          case Failure(noType) =>
+            (env, noType.failure)
         }
       case (TypeParamApp(param1, Seq(), paramAppIdx1), _) =>
         val (env2, res) = f(param1, Right(term2), z, env)
