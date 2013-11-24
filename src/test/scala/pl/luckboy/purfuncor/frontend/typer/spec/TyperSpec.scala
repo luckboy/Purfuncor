@@ -3446,7 +3446,47 @@ h = tuple 2 (construct 0: T) (construct 0: U)
       }
     }
     
-    it should "transform the string of the term with the type inference" is (pending)
+    it should "transform the string of the term with the type inference" in {
+      val res = Typer.transformTermStringWithTypeInference("(\\x y => #zXor x y) true")(NameTree.empty, emptyEnv)(h)
+      inside(res) {
+        case Success((App(fun1, args1, _), typ)) =>
+          inside(fun1) {
+            case Simple(Lambda(args11, body11, LambdaInfo(lambdaInfo11, typeTable11, Seq())), _) =>
+              inside(args11) {
+                case NonEmptyList(arg111, arg112) =>
+                  inside(arg111) { case Arg(Some("x"), None, _) => () }
+                  inside(arg112) { case Arg(Some("y"), None, _) => () }
+              }
+              inside(body11) {
+                case App(Simple(Literal(BuiltinFunValue(BuiltinFunction.ZXor)), _), args111, _) =>
+                  inside(args111) {
+                    case NonEmptyList(arg1111, arg1112) =>
+                      inside(arg1111) { case Simple(Var(LocalSymbol("x")), _) => () }
+                      inside(arg1112) { case Simple(Var(LocalSymbol("y")), _) => () }
+                  }
+              }
+              val syms11 = Set(LocalSymbol("x"), LocalSymbol("y"))
+              val locs11 = syms11.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo11))
+              locs11 should have size(2)
+              typeTable11.types.keySet should be ===(locs11)
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("x")).flatMap(typeTable11.types.get)) {
+                case Some(InferredType(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), Seq())) =>
+                  // #Boolean
+              }
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("y")).flatMap(typeTable11.types.get)) {
+                case Some(InferredType(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), Seq())) =>
+                  // #Boolean
+              }
+          }
+          inside(args1) { case NonEmptyList(Simple(Literal(BooleanValue(true)), _)) => () }
+          inside(typ) {
+            case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq()) =>
+              // #Boolean #-> #Boolean
+              inside(argType1) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+              inside(retType1) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }              
+          }
+      }
+    }
 
     it should "transform the string of the term with the type inference and the global variables" is (pending)
 
