@@ -232,7 +232,7 @@ sealed trait TypeValueTerm[T]
   
   def toArgString =
     this match {
-      case TupleType(args) if !args.isEmpty           => "(" + this + ")"
+      case TupleType(args) if args.size === 1         => "(" + this + ")"
       case BuiltinType(_, args) if !args.isEmpty      => "(" + this + ")"
       case Unittype(_, args, _) if !args.isEmpty      => "(" + this + ")"
       case GlobalTypeApp(_, args, _) if !args.isEmpty => "(" + this + ")"
@@ -272,12 +272,18 @@ sealed trait TypeValueTerm[T]
       case Unittype(_, args, sym)       => sym.toString + args.map { " " + _.toArgString }.mkString("")
       case GlobalTypeApp(_, args, sym)  => sym.toString + args.map { " " + _.toArgString }.mkString("")
       case TypeParamApp(param, args, _) => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
-      case TypeConjunction(terms)       => 
+      case TypeConjunction(terms)       => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #& ") else "<type conjunction without terms>"
+      case TypeDisjunction(terms)       =>
         if(!terms.isEmpty)
-          terms.map { _.toArgString }.mkString(" #& ")
+          terms.map { 
+            term => 
+              term match {
+                case TypeConjunction(_) => term.toString
+                case _                  => term.toArgString
+              }
+          }.mkString(" #| ")
         else
-          "<type conjunction without terms>"
-      case TypeDisjunction(terms)      => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #| ") else "<type disjunction without terms>"
+          "<type disjunction without terms>"
     }
 }
 
