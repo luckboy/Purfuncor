@@ -2730,7 +2730,7 @@ h = g f
               inside(res2) {
                 case Success(Failure(noType)) =>
                   noType.errs.map { _.msg } should be ===(List(
-                      "couldn't match type \\(t1: *) => #.U #& (#.V t1) with type \\(t1: *) (t2: *) => (#.T t1) #| (#.U #& (#.V t2)) #| #.W"))
+                      "couldn't match type \\(t1: *) => #.U #& (#.V t1) with type \\(t1: *) (t2: *) => (#.T t1) #| #.U #& (#.V t2) #| #.W"))
               }
           }
       }
