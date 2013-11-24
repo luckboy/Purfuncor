@@ -3447,7 +3447,9 @@ h = tuple 2 (construct 0: T) (construct 0: U)
     }
     
     it should "transform the string of the term with the type inference" is (pending)
-    
+
+    it should "transform the string of the term with the type inference and global variables" is (pending)
+
     it should "complain on transformation of the incorrect string" is (pending)
   }
   
