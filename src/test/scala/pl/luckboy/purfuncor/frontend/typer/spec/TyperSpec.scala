@@ -2869,16 +2869,22 @@ f x = #iAdd x 1
           treeInfo.typeTable.types.keySet should be ===(combLocs)
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
             case Some(Combinator(None, args, body, LambdaInfo(lambdaInfo, typeTable, Seq()), _)) =>
+              val syms = Set(LocalSymbol("x"))
+              val locs = syms.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo))
+              locs should have size(1)
+              typeTable.types.keySet should be ===(locs)
               inside(args) { case List(Arg(Some("x"), None, _)) => () }
               inside(body) {
                 case App(Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _), args1, _) =>
                   inside(args1) {
                     case NonEmptyList(arg11, arg12) =>
-                      inside(arg11) { case Simple(Var(LocalSymbol("x")), _) => () }
+                      inside(arg11) { 
+                        case Simple(Var(loc11), _) =>
+                          some(loc11) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
+                      }
                       inside(arg12) { case Simple(Literal(IntValue(1)), _) => () }
                   }
               }
-              typeTable.types should have size(1)
               inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")).flatMap(typeTable.types.get)) {
                 case Some(InferredType(TypeConjunction(types1), Seq())) =>
                   // (#Zero #| #NonZero) #& #Int
@@ -3345,10 +3351,17 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                           inside(args1) {
                             case NonEmptyList(arg11, arg12) =>
                               inside(arg11) { 
-                                case App(Simple(Var(GlobalSymbol(NonEmptyList("f"))), _), args11, _) =>
-                                  inside(args11) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _)) => () }
+                                case App(Simple(Var(loc11), _), args11, _) =>
+                                  some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
+                                  inside(args11) { 
+                                    case NonEmptyList(Simple(Var(loc111), _)) =>
+                                      some(loc111) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
+                                  }
                               }
-                              inside(arg12) { case Simple(Var(LocalSymbol("y")), _) => () }
+                              inside(arg12) {
+                                case Simple(Var(loc12), _) =>
+                                  some(loc12) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("y")))
+                              }
                           }
                       }
                       val syms = Set(LocalSymbol("x"), LocalSymbol("y"))
@@ -3402,7 +3415,10 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                           }
                                       }
                                   }
-                                  inside(typ11) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("T"))), _) => () }
+                                  inside(typ11) { 
+                                    case Simple(TypeVar(typLoc11), _) =>
+                                      typLoc11 should be ===(tLoc)
+                                  }
                               }
                               inside(arg12) {
                                 case Simple(TypedTerm(term12, typ12), _) =>
@@ -3425,7 +3441,10 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                           }
                                       }
                                   }
-                                  inside(typ12) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("U"))), _) => () }
+                                  inside(typ12) {
+                                    case Simple(TypeVar(typLoc12), _) =>
+                                      typLoc12 should be ===(uLoc)
+                                  }
                               }
                           }
                       }
@@ -3461,8 +3480,14 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                 case App(Simple(Literal(BuiltinFunValue(BuiltinFunction.ZXor)), _), args111, _) =>
                   inside(args111) {
                     case NonEmptyList(arg1111, arg1112) =>
-                      inside(arg1111) { case Simple(Var(LocalSymbol("x")), _) => () }
-                      inside(arg1112) { case Simple(Var(LocalSymbol("y")), _) => () }
+                      inside(arg1111) { 
+                        case Simple(Var(loc1111), _) =>
+                          some(loc1111) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("x")))
+                      }
+                      inside(arg1112) { 
+                        case Simple(Var(loc1112), _) =>
+                          some(loc1112) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("y")))
+                      }
                   }
               }
               val syms11 = Set(LocalSymbol("x"), LocalSymbol("y"))
@@ -3508,7 +3533,10 @@ f = construct 0: T
                 case Success((App(Simple(Literal(TupleFunValue(2)), _), args1, _), typ)) =>
                   inside(args1) {
                     case NonEmptyList(arg11, arg12) =>
-                      inside(arg11) { case Simple(Var(GlobalSymbol(NonEmptyList("f"))), _) => () }
+                      inside(arg11) {
+                        case Simple(Var(loc11), _) =>
+                          some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
+                      }
                       inside(arg12) { case Simple(Literal(BooleanValue(true)), _) => () }
                   }
                   inside(typ) {
