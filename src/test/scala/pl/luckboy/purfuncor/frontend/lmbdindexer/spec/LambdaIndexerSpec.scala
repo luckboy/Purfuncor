@@ -13,7 +13,7 @@ import pl.luckboy.purfuncor.frontend.Bind
 
 class LambdaIndexerSpec extends FlatSpec with ShouldMatchers with Inside
 {
-   //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
+  //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
   
   "A LambdaIndexer" should "transform the string" in {
     val res = LambdaIndexer.transformString("""
@@ -36,8 +36,10 @@ type T t1 = \t2 => \t3 => ##& (##| t1 t2) t3
                     inside(body2) {
                       case App(fun3, args3, _) =>
                         inside(fun3) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
-                        inside(args3) { case NonEmptyList(Simple(Var(LocalSymbol("a")), _), Simple(Var(LocalSymbol("z")), _)) => () }
-                        List(idx, idx1, idx2).toSet should be ===((0 to 2).toSet)
+                        inside(args3) { 
+                          case NonEmptyList(Simple(Var(LocalSymbol("a"), LambdaInfo(parser.LambdaInfo, idx31)), _), Simple(Var(LocalSymbol("z"), LambdaInfo(parser.LambdaInfo, idx32)), _)) => ()
+                            List(idx, idx1, idx2, idx31, idx32).toSet should be ===((0 to 4).toSet)
+                        }
                     }
                 }
             }
@@ -85,16 +87,28 @@ f x y = (let
             inside(fun1) {
               case Simple(Let(NonEmptyList(Bind(_, body2, _)), body3, LambdaInfo(parser.LambdaInfo, idx1)), _) =>
                 inside(body2) {
-                  case Simple(Lambda(_, _, LambdaInfo(parser.LambdaInfo, idx2)), _) =>
+                  case Simple(Lambda(_, body4, LambdaInfo(parser.LambdaInfo, idx2)), _) =>
                     inside(body3) {
-                      case App(fun4, NonEmptyList(arg41), _) =>
-                        inside(fun4) {
-                          case Simple(Lambda(_, _, LambdaInfo(parser.LambdaInfo, idx4)), _) =>
-                            inside(arg41) {
-                              case Simple(Lambda(_, _, LambdaInfo(parser.LambdaInfo, idx41)), _) =>
+                      case App(fun5, NonEmptyList(arg51), _) =>
+                        inside(fun5) {
+                          case Simple(Lambda(_, body5, LambdaInfo(parser.LambdaInfo, idx5)), _) =>
+                            inside(arg51) {
+                              case Simple(Lambda(_, body51, LambdaInfo(parser.LambdaInfo, idx51)), _) =>
                                 inside(arg11) {
-                                  case Simple(Lambda(_, _, LambdaInfo(parser.LambdaInfo, idx11)), _) =>
-                                    List(idx, idx1, idx2, idx4, idx41, idx11).toSet should be ===((0 to 5).toSet)
+                                  case Simple(Lambda(_, body11, LambdaInfo(parser.LambdaInfo, idx11)), _) =>
+                                    inside(body4) {
+                                      case Simple(Var(_, LambdaInfo(parser.LambdaInfo, idx4)), _) =>
+                                        inside(body5) {
+                                          case App(fun6, _, _) =>
+                                            inside(fun6) {
+                                              case Simple(Var(_, LambdaInfo(parser.LambdaInfo, idx6)), _) =>
+                                                inside(body51) {
+                                                  case App(_, NonEmptyList(Simple(Var(_, LambdaInfo(parser.LambdaInfo, idx511)), _), _), _) =>
+                                                    List(idx, idx1, idx2, idx4, idx5, idx51, idx6, idx511, idx11).toSet should be ===((0 to 8).toSet)
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -80,8 +80,8 @@ object Kinder
         transformArgNel(args)(env).flatMap {
           args2 => transformTerm(body)(env).map { body2 => Simple(Lambda(args2, body2, lambdaInfo), pos) }
         }
-      case Simple(Var(loc), pos) =>
-        Simple(Var(loc), pos).successNel
+      case Simple(Var(loc, lambdaInfo), pos) =>
+        Simple(Var(loc, lambdaInfo), pos).successNel
       case Simple(Literal(value), pos) =>
         Simple(Literal(value), pos).successNel
       case Simple(TypedTerm(term, typ), pos) =>

@@ -172,8 +172,8 @@ object Typer
           body2 <- transformTerm(body)(env)
           lambdaInfo2 <- transformLambdaInfo(lambdaInfo)(env)
         } yield Simple(Lambda(args, body2, lambdaInfo2), pos)
-      case Simple(Var(loc), pos) =>
-        Simple(Var(loc), pos).success
+      case Simple(Var(loc, lambdaInfo), pos) =>
+        transformLambdaInfo(lambdaInfo)(env).map { li => Simple(Var(loc, li), pos) }
       case Simple(Literal(value), pos) =>
         Simple(Literal(value), pos).success
       case Simple(TypedTerm(term, typ), pos) =>

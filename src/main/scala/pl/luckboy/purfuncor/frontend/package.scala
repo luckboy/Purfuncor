@@ -13,8 +13,8 @@ package object frontend
       x match {
         case App(fun, args, _)     =>
           (fun :: args.list).map {
-            case term @ Simple((Literal(_) | Var(_)), _) => indentedStringFrom(term)(n + 2)
-            case term                                    => "(" + indentedStringFrom(term)(n + 2) + ")"
+            case term @ Simple((Literal(_) | Var(_, _)), _) => indentedStringFrom(term)(n + 2)
+            case term                                       => "(" + indentedStringFrom(term)(n + 2) + ")"
           }.mkString(" ")
         case Simple(simpleTerm, _) =>
           simpleTermIndenting(showing).indentedStringFrom(simpleTerm)(n)
@@ -32,8 +32,8 @@ package object frontend
           "\\" + args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.list.mkString("") +
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
-        case Var(loc)                              =>
-          loc.toString
+        case Var(loc, lambdaInfo)                  =>
+          loc.toString + (if(lambdaInfo.toString =/= "")  " /*" + lambdaInfo.toString + "*/ " else "")
         case Literal(value)                        =>
           value.toString
         case TypedTerm(term, typ)                  =>

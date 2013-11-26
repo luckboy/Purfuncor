@@ -6,11 +6,11 @@ object TermUtils
 {
   def usedGlobalVarsFromTerm[T, U](term: Term[SimpleTerm[Symbol, T, U]]): Set[GlobalSymbol] =
     term match {
-      case App(fun, args, _)                 => usedGlobalVarsFromTerm(fun) | args.list.flatMap(usedGlobalVarsFromTerm).toSet
-      case Simple(Let(binds, body, _), _)    => binds.list.flatMap { b => usedGlobalVarsFromTerm(b.body) }.toSet | usedGlobalVarsFromTerm(body)
-      case Simple(Lambda(_, body, _), _)     => usedGlobalVarsFromTerm(body)
-      case Simple(Var(sym: GlobalSymbol), _) => Set(sym)
-      case Simple(_, _)                      => Set()
+      case App(fun, args, _)                    => usedGlobalVarsFromTerm(fun) | args.list.flatMap(usedGlobalVarsFromTerm).toSet
+      case Simple(Let(binds, body, _), _)       => binds.list.flatMap { b => usedGlobalVarsFromTerm(b.body) }.toSet | usedGlobalVarsFromTerm(body)
+      case Simple(Lambda(_, body, _), _)        => usedGlobalVarsFromTerm(body)
+      case Simple(Var(sym: GlobalSymbol, _), _) => Set(sym)
+      case Simple(_, _)                         => Set()
     }
   
   def usedGlobalTypeVarsFromTypeTerm[T](term: Term[TypeSimpleTerm[Symbol, T]]): Set[GlobalSymbol] =

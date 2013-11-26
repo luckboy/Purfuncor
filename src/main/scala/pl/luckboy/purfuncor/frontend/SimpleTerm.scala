@@ -7,7 +7,7 @@ sealed trait SimpleTerm[+T, +U, +V]
 // A lambdaInfo field for types.
 case class Let[+T, +U, +V](binds: NonEmptyList[Bind[T, U, V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
 case class Lambda[+T, +U, +V](args: NonEmptyList[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U) extends SimpleTerm[T, U, V]
-case class Var[+T, +U, +V](loc: T) extends SimpleTerm[T, U, V]
+case class Var[+T, +U, +V](loc: T, lambdaInfo: U) extends SimpleTerm[T, U, V]
 case class Literal[+T, +U, +V](value: LiteralValue) extends SimpleTerm[T, U, V]
 case class TypedTerm[+T, +U, +V](term: Term[SimpleTerm[T, U, V]], typ: Term[V]) extends SimpleTerm[T, U, V]
 case class Construct[+T, +U, +V](n: Int, lambdaInfo: U) extends SimpleTerm[T, U, V]

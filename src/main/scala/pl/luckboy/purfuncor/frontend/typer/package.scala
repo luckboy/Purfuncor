@@ -657,8 +657,10 @@ package object typer
                 functionTypeFromTypesS(argInfos, retInfo)(newEnv3)
             }
           }
-        case Var(loc) =>
-          (env, env.varType(loc))
+        case Var(loc, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+          env.withLambdaIdx(lambdaIdx) {
+            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, Seq())), newEnv.varType(loc))
+          }
         case Literal(value) =>
           value match {
             case BooleanValue(_)          => (env, InferredType.booleanType)

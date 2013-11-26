@@ -28,7 +28,7 @@ object LambdaIndexer
     cas match {
       case Case(name, typ, body, lambdaInfo) =>
         val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
-        (idx2, Case(name, transformTypeTermFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx2)))
+        (idx2, Case(name, transformTypeTermFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx)))
     }
   
   def transformCaseNelFromIndexS[T, U, V, W](cases: NonEmptyList[Case[T, U, TypeSimpleTerm[V, W]]])(idx: Int) =
@@ -49,8 +49,8 @@ object LambdaIndexer
         val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
         val args2 = args.map { case Arg(name, typ, argPos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
         (idx2, Simple(Lambda(args2, body2, LambdaInfo(lambdaInfo, idx)), pos))
-      case Simple(Var(loc), pos) =>
-        (idx, Simple(Var(loc), pos))
+      case Simple(Var(loc, lambdaInfo), pos) =>
+        (idx + 1, Simple(Var(loc, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Literal(value), pos) =>
         (idx, Simple(Literal(value), pos))
       case Simple(TypedTerm(term, typ), pos) =>
@@ -59,7 +59,7 @@ object LambdaIndexer
       case Simple(Construct(n, lambdaInfo), pos) =>
         (idx + 1, Simple(Construct(n, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Select(term, cases, lambdaInfo), pos) =>
-        val (idx2, term2) = transformTermFromIndexS(term)(idx)
+        val (idx2, term2) = transformTermFromIndexS(term)(idx + 1)
         val (idx3, cases2) = transformCaseNelFromIndexS(cases)(idx2)
         (idx3, Simple(Select(term2, cases2, LambdaInfo(lambdaInfo, idx)), pos))
       case Simple(Extract(term, args, body, lambdaInfo), pos) =>

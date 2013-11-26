@@ -237,7 +237,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t, LambdaInfo), NoPosition) })
     lazy val lambda = p("\\" ~> (arg :+) ~- ("=>" ~-> expr)				^^ { case as ~ t => Simple(Lambda(as, t, LambdaInfo), NoPosition) })
-    lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s), NoPosition) })
+    lazy val variable = p(symbol										^^ { case s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s, LambdaInfo), NoPosition) })
     lazy val literal = p(literalValue									^^ { case v => Simple(Literal(v), NoPosition) })
     lazy val construct =  p("construct" ~-> integer						^^ { case n => Simple(Construct(n, LambdaInfo), NoPosition) })
     

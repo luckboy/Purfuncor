@@ -28,7 +28,7 @@ package object interp
           }
         case lambda: Lambda[Symbol, T, U] =>
           (env, LambdaValue(lambda, env.currentClosure, env.currentFile))
-        case Var(loc)                     =>
+        case Var(loc, _)                  =>
           (env, env.varValue(loc))
         case Literal(value)               =>
           Value.fromLiteralValue(value) match {

@@ -86,8 +86,8 @@ object Resolver
       case Simple(Lambda(args, body, lambdaInfo), pos) =>
         val newScope = scope.withLocalVars(args.list.flatMap { _.name }.toSet)
         (transformArgNel(args)(scope) |@| transformTerm(body)(newScope)) { (as, t) => Simple(Lambda(as, t, lambdaInfo), pos) }
-      case Simple(Var(sym), pos) =>
-        transformSymbol(sym)(scope).map { s => Simple(Var(s), pos) }
+      case Simple(Var(sym, lambdaInfo), pos) =>
+        transformSymbol(sym)(scope).map { s => Simple(Var(s, lambdaInfo), pos) }
       case Simple(Literal(value), pos) =>
         Simple(Literal(value), pos).successNel
       case Simple(TypedTerm(term, typ), pos) =>

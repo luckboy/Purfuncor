@@ -26,7 +26,7 @@ class ResolverSpec extends FlatSpec with ShouldMatchers with Inside
             inside(body) { 
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
-                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Literal(IntValue(1)), _)) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _), Simple(Literal(IntValue(1)), _)) => () }
             }
         }
         // g
@@ -39,7 +39,7 @@ class ResolverSpec extends FlatSpec with ShouldMatchers with Inside
                   case NonEmptyList(arg11, arg12) =>
                     inside(arg11) { 
                       case App(fun2, args2, _) =>
-                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("f"))), _) => () }
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("f")), parser.LambdaInfo), _) => () }
                         inside(args2) { case NonEmptyList(Simple(Literal(IntValue(10)), _)) => () }
                     }
                     inside(arg12) { case Simple(Literal(IntValue(5)), _) => () }
@@ -80,11 +80,11 @@ module m2 {
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IDiv)), _) => () }
                 inside(args1) {
                   case NonEmptyList(arg11, arg12) =>
-                    inside(arg11) { case Simple(Var(LocalSymbol("x")), _) => () } 
+                    inside(arg11) { case Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _) => () } 
                     inside(arg12) {
                       case App(fun2, args2, _) =>
-                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m2", "f"))), _) => () }
-                        inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("y")), _)) => () }
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m2", "f")), parser.LambdaInfo), _) => () }
+                        inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("y"), parser.LambdaInfo), _)) => () }
                     }
                 }
             }
@@ -99,12 +99,12 @@ module m2 {
                   case NonEmptyList(arg11, arg12) =>
                     inside(arg11) {
                       case App(fun2, args2, _) =>
-                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "f"))), _) => () }
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "f")), parser.LambdaInfo), _) => () }
                         inside(args2) { case NonEmptyList(Simple(Literal(IntValue(10)), _), Simple(Literal(IntValue(2)), _)) => () }
                     }
                     inside(arg12) {
                       case App(fun3, args3, _) =>
-                        inside(fun3) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "h"))), _) => () }
+                        inside(fun3) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "h")), parser.LambdaInfo), _) => () }
                         inside(args3) { case NonEmptyList(Simple(Literal(IntValue(10)), _)) => () }
                     }
                 }
@@ -114,7 +114,7 @@ module m2 {
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "h")))) {
           case Some(Combinator(None, args, body, parser.LambdaInfo, None)) =>
             inside(args) { case List(Arg(Some("x"), None, _)) => () }
-            inside(body) { case Simple(Var(LocalSymbol("x")), _) => () }
+            inside(body) { case Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _) => () }
         }
         // m2.f
         inside(combs.get(GlobalSymbol(NonEmptyList("m2", "f")))) {
@@ -127,10 +127,10 @@ module m2 {
                   case NonEmptyList(arg11, arg12) =>
                     inside(arg11) { 
                       case App(fun2, args2, _) =>
-                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "h"))), _) => () }
-                        inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _)) => () } 
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "h")), parser.LambdaInfo), _) => () }
+                        inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _)) => () } 
                     }
-                    inside(arg12) { case Simple(Var(LocalSymbol("x")), _) => () }
+                    inside(arg12) { case Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _) => () }
                 }
             }
         }
@@ -168,13 +168,13 @@ module b.d {
           case Some(Combinator(None, Nil, body, parser.LambdaInfo, None)) =>
             inside(body) {
               case App(fun1, args1, _) =>
-                inside(fun1) { case Simple(Var(GlobalSymbol(NonEmptyList("a", "g"))), _) => () }
+                inside(fun1) { case Simple(Var(GlobalSymbol(NonEmptyList("a", "g")), parser.LambdaInfo), _) => () }
                 inside(args1) {
                   case NonEmptyList(arg11, arg12) =>
                     inside(arg11) { case Simple(Literal(IntValue(10)), _) => () }
                     inside(arg12) { 
                       case App(fun2, args2, _) =>
-                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h"))), _) => () }
+                        inside(fun2) { case Simple(Var(GlobalSymbol(NonEmptyList("b", "c", "d", "e", "f", "h")), parser.LambdaInfo), _) => () }
                         inside(args2) { case NonEmptyList(Simple(Literal(IntValue(5)), _)) => () }
                     }
                 }
@@ -187,7 +187,7 @@ module b.d {
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IMod)), _) => () }
-                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(GlobalSymbol(NonEmptyList("b", "d", "i"))), _)) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _), Simple(Var(GlobalSymbol(NonEmptyList("b", "d", "i")), parser.LambdaInfo), _)) => () }
             }
         }
         // b.c.d.e.f.g
@@ -197,7 +197,7 @@ module b.d {
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.ISub)), _) => () }
-                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(LocalSymbol("y")), _)) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("y"), parser.LambdaInfo), _)) => () }
             }
         }
         // b.c.d.e.f.h
@@ -207,7 +207,7 @@ module b.d {
             inside(body) {
               case App(fun1, args1, _) =>
                 inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.INeg)), _) => () }
-                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _)) => () }
+                inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _)) => () }
             }
         }
         // b.d.i
@@ -242,14 +242,14 @@ g = \x _ y => #iDiv x y
                       case NonEmptyList(bind21) =>
                         inside(bind21) {
                           case Bind("c", App(fun3, args3, _), _) =>
-                            inside(fun3) { case Simple(Var(GlobalSymbol(NonEmptyList("g"))), _) => () }
+                            inside(fun3) { case Simple(Var(GlobalSymbol(NonEmptyList("g")), parser.LambdaInfo), _) => () }
                             inside(args3) { case NonEmptyList(Simple(Literal(IntValue(2)), _), Simple(Literal(IntValue(3)), _)) => () }
                         }
                     }
                     inside(body2) {
                       case App(fun4, args4, _) =>
                         inside(fun4) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IAdd)), _) => () }
-                        inside(args4) { case NonEmptyList(Simple(Var(LocalSymbol("a")), _), Simple(Var(LocalSymbol("c")), _)) => () }
+                        inside(args4) { case NonEmptyList(Simple(Var(LocalSymbol("a"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("c"), parser.LambdaInfo), _)) => () }
                     }
                 }
             }
@@ -263,7 +263,7 @@ g = \x _ y => #iDiv x y
                 inside(body1) {
                   case App(fun2, args2, _) =>
                     inside(fun2) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.IDiv)), _) => () }
-                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("x")), _), Simple(Var(LocalSymbol("y")), _)) => () }
+                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("y"), parser.LambdaInfo), _)) => () }
                 }
             }
         }
@@ -327,13 +327,13 @@ h x y = \z1 => \z2 => #iSub z1 z2
               case Simple(Let(_, body1, _), _) =>
                 inside(body1) {
                   case Simple(Let(_, App(_, args2, _), _), _) =>
-                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("z2")), _)) => () }
+                    inside(args2) { case NonEmptyList(Simple(Var(LocalSymbol("z1"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("z2"), parser.LambdaInfo), _)) => () }
                 }
             }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("g")))) {
           case Some(Combinator(None, _, App(_, args1, _), _, None)) =>
-            inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("x")), _)) => () }
+            inside(args1) { case NonEmptyList(Simple(Var(LocalSymbol("z1"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _)) => () }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("h")))) {
           case Some(Combinator(None, _, body, _, None)) =>
@@ -341,7 +341,7 @@ h x y = \z1 => \z2 => #iSub z1 z2
               case Simple(Lambda(NonEmptyList(Arg(Some("z1"), None, _)), body1, _), _) =>
                 inside(body1) {
                   case Simple(Lambda(NonEmptyList(Arg(Some("z2"), None, _)), App(_, args3, _), _), _) =>
-                    inside(args3) { case NonEmptyList(Simple(Var(LocalSymbol("z1")), _), Simple(Var(LocalSymbol("z2")), _)) => () }
+                    inside(args3) { case NonEmptyList(Simple(Var(LocalSymbol("z1"), parser.LambdaInfo), _), Simple(Var(LocalSymbol("z2"), parser.LambdaInfo), _)) => () }
                 }
             }
         }
@@ -369,15 +369,15 @@ z3 = 6
       case Success(Tree(combs, treeInfo)) =>
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m2", "f")))) {
           case Some(Combinator(None, _, App(_, args1, _), _, None)) =>
-            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z1"))), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2"))), _)) => () }
+            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z1")), parser.LambdaInfo), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2")), parser.LambdaInfo), _)) => () }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m2", "g")))) {
           case Some(Combinator(None, _, App(_, args1, _), _, None)) =>
-            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z3"))), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z10"))), _)) => () }
+            inside(args1) { case NonEmptyList(Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "z3")), parser.LambdaInfo), _), Simple(Var(GlobalSymbol(NonEmptyList("m1", "z10")), parser.LambdaInfo), _)) => () }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "h")))) {
           case Some(Combinator(None, _, body, _, None)) =>
-            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2"))), _) => () }
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "z2")), parser.LambdaInfo), _) => () }
         }
     }
   }
@@ -411,13 +411,13 @@ module m4 {
 	inside(res) {
       case Success(Tree(combs, treeInfo)) =>
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "m3", "f")))) {
-          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m1", "m3", "m2", "z1"))), _), _, None)) => ()
+          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m1", "m3", "m2", "z1")), parser.LambdaInfo), _), _, None)) => ()
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m4", "m5", "g")))) {
-          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "m2", "z1"))), _), _, None)) => ()          
+          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "m2", "z1")), parser.LambdaInfo), _), _, None)) => ()          
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m4", "h")))) {
-          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "z2"))), _), _, None)) => ()          
+          case Some(Combinator(None, _, Simple(Var(GlobalSymbol(NonEmptyList("m4", "m1", "z2")), parser.LambdaInfo), _), _, None)) => ()          
         }
     }
   }
@@ -523,15 +523,15 @@ m3.h2 = #.m2.h
             GlobalSymbol(NonEmptyList("m3", "h2"))))
         inside(combs.get(GlobalSymbol(NonEmptyList("f2")))) {
           case Some(Combinator(None, Nil, body, parser.LambdaInfo, None)) =>
-            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "f"))), _) => () }
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "m2", "f")), parser.LambdaInfo), _) => () }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m1", "g2")))) {
           case Some(Combinator(None, Nil, body, parser.LambdaInfo, None)) =>
-            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "g"))), _) => () }
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m1", "g")), parser.LambdaInfo), _) => () }
         }
         inside(combs.get(GlobalSymbol(NonEmptyList("m3", "h2")))) {
           case Some(Combinator(None, Nil, body, parser.LambdaInfo, None)) =>
-            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m2", "h"))), _) => () }
+            inside(body) { case Simple(Var(GlobalSymbol(NonEmptyList("m2", "h")), parser.LambdaInfo), _) => () }
         }
     }
   }
@@ -559,7 +559,7 @@ unittype 1 U
                 inside(args1) {
                   case NonEmptyList(arg11, arg12) =>
                     inside(arg11) {
-                      case Simple(TypedTerm(Simple(Var(LocalSymbol("x")), _), typ11), _) =>
+                      case Simple(TypedTerm(Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _), typ11), _) =>
                         inside(typ11) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _) => () }
                     }
                     inside(arg12) {
@@ -581,7 +581,7 @@ unittype 1 U
                 inside(typArgs1) { case NonEmptyList(Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _), Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _)) => () }
             }
             inside(args) { case List(Arg(Some("x"), None, _)) => () }
-            inside(body) { case Simple(Var(LocalSymbol("x")), _) => () }
+            inside(body) { case Simple(Var(LocalSymbol("x"), parser.LambdaInfo), _) => () }
         }
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
           case Some(TypeCombinator(None, args, body, parser.TypeLambdaInfo, None)) =>

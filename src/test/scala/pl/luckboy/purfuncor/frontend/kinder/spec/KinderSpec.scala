@@ -514,7 +514,7 @@ type V = U #Int
                       inside(arg11) { 
                         case Simple(TypedTerm(term11, typ11), _) =>
                           inside(term11) {
-                            case Simple(Var(loc11), _) =>
+                            case Simple(Var(loc11, _), _) =>
                               some(loc11) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
                           }
                           inside(typ11) {
@@ -523,7 +523,7 @@ type V = U #Int
                           }
                       }
                       inside(arg12) { 
-                        case Simple(Var(loc12), _) =>
+                        case Simple(Var(loc12, _), _) =>
                           some(loc12) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
                       }
                   }
