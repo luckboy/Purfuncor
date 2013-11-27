@@ -13,8 +13,8 @@ package object frontend
       x match {
         case App(fun, args, _)     =>
           (fun :: args.list).map {
-            case term @ Simple((Literal(_) | Var(_, _)), _) => indentedStringFrom(term)(n + 2)
-            case term                                       => "(" + indentedStringFrom(term)(n + 2) + ")"
+            case term @ Simple((Literal(_) | Var(_, _) | Construct(_, _)), _) => indentedStringFrom(term)(n + 2)
+            case term                                                         => "(" + indentedStringFrom(term)(n + 2) + ")"
           }.mkString(" ")
         case Simple(simpleTerm, _) =>
           simpleTermIndenting(showing).indentedStringFrom(simpleTerm)(n)

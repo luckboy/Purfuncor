@@ -16,9 +16,12 @@ sealed trait Def
 }
 case class ImportDef(sym: ModuleSymbol) extends Def
 case class CombinatorDef(sym: Symbol, typ: Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]], args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]], body: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def
+case class PolyCombinatorDef(sym: Symbol, typ: Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def
 case class TypeCombinatorDef(sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], body: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Def
 case class UnittypeCombinatorDef(n: Int, sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]]) extends Def
 case class ModuleDef(sym: ModuleSymbol, defs: List[Def]) extends Def
+case class InstanceDef(sym: Symbol, body: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def
+case class SelectConstructInstanceDef(supertype: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]], types: NonEmptyList[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def
 
 sealed trait LambdaInfo
 {

@@ -99,7 +99,8 @@ object Parser extends StandardTokenParsers with PackratParsers
       case term @ Simple(_, _) => term.copy(pos = wrapper.pos)
     }
   implicit def typeWrapperOptionToTypeTermOption(wrapper: Option[TypeTermWrapper]) = wrapper.map(typeTermWrapperToTypeTerm)
-  implicit def typeTermNelWrapperToTypeTermNel(wrappers: NonEmptyList[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
+  implicit def typeTermWrapperNelToTypeTermNel(wrappers: NonEmptyList[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
+  implicit def typeTermWrappersToTypeTerms(wrappers: List[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
   implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = 
     wrapper.sym match {
       case sym @ GlobalSymbol(_, _) => sym.copy(pos = wrapper.pos)
@@ -268,21 +269,32 @@ object Parser extends StandardTokenParsers with PackratParsers
 
   lazy val definition: PackratParser[Def] = (
       importDef |
-      combinatorDef | 
-      typeCombinatorDef | 
+      combinatorDef |
+      polyCombinatorDef |
+      typeCombinatorDef |
       unittypeCombinatorDef |
-      moduleDef)
+      moduleDef |
+      instanceDef |
+      selectConstructInstanceDef)
   lazy val defs = definition ~ ((semi ~> definition) *)					^^ { case d ~ ds => d :: ds }
 
   lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = combinatorDefPart ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case (s, tt) ~ as ~ t => CombinatorDef(s, tt, as, t) }
+  lazy val polyCombinatorDef = "poly" ~-> polyCombinatorDefPart			^^ { case (s, tt) => PolyCombinatorDef(s, tt) }
   lazy val typeCombinatorDef = "type" ~-> typeCombinatorDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s, kt, as, t) }
   lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- typeCombinatorDefPart ^^ { case n ~ ((s, kt)) => UnittypeCombinatorDef(n, s, kt) }
   lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
+  lazy val instanceDef = "instance" ~-> noNlParsers.symbol ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ t => InstanceDef(s, t) }
+  lazy val selectConstructInstanceDef = ("instance" ~- "select") ~-> noNlParsers.typeExpr ~- (("construct" ~- "{") ~-> typeExprs <~- "}") ^^ { case tt ~ (tt2 ~ tts) => SelectConstructInstanceDef(tt, NonEmptyList.nel(tt2, tts)) }
+  lazy val typeExprs = noNlParsers.typeExpr ~ ((semi ~-> noNlParsers.typeExpr) *)
 
   lazy val combinatorDefPart = combinatorDefPart1 | combinatorDefPart2
   lazy val combinatorDefPart1 = noNlParsers.symbol						^^ { case s => (s, None) }
   lazy val combinatorDefPart2 = "(" ~-> noNlParsers.symbol ~- ((":" ~-> noNlParsers.typeExpr) ?) <~- ")" ^^ { case s ~ tt => (s, tt) }
+  
+  lazy val polyCombinatorDefPart = polyCombinatorDefPart1 | polyCombinatorDefPart2
+  lazy val polyCombinatorDefPart1 = noNlParsers.symbol ~- ((":" ~-> noNlParsers.typeExpr) ?) ^^ { case s ~ tt => (s, tt) }
+  lazy val polyCombinatorDefPart2 = combinatorDefPart2
   
   lazy val typeCombinatorDefPart = typeCombinatorDefPart1 | typeCombinatorDefPart2
   lazy val typeCombinatorDefPart1 = noNlParsers.symbol					^^ { case s => (s, None) }
