@@ -284,7 +284,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val typeCombinatorDef = "type" ~-> typeCombinatorDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s, kt, as, t) }
   lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- typeCombinatorDefPart ^^ { case n ~ ((s, kt)) => UnittypeCombinatorDef(n, s, kt) }
   lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
-  lazy val instanceDef = "instance" ~-> noNlParsers.symbol ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ t => InstanceDef(s, t) }
+  lazy val instanceDef = "instance" ~-> noNlParsers.symbol ~- ("=>" ~-> noNlParsers.symbol) ^^ { case s ~ s2 => InstanceDef(s, s2) }
   lazy val selectConstructInstanceDef = ("instance" ~- "select") ~-> noNlParsers.typeExpr ~- (("construct" ~- "{") ~-> typeExprs <~- "}") ^^ { case tt ~ (tt2 ~ tts) => SelectConstructInstanceDef(tt, NonEmptyList.nel(tt2, tts)) }
   lazy val typeExprs = noNlParsers.typeExpr ~ ((semi ~-> noNlParsers.typeExpr) *)
 

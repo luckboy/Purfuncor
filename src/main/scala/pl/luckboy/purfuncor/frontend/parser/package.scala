@@ -20,8 +20,8 @@ package object parser
           "unittype " + n + " " + kind.map { k => "(" + sym + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(sym)
         case ModuleDef(sym, defs)                         =>
           "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { d => (" " * (n + 2)) + defIndenting.indentedStringFrom(d)(n + 2) }.mkString("\n\n") + "\n" + (" " * n) + "}"
-        case InstanceDef(sym, body)                       =>
-          "instance " + sym + " = " + termIndenting[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]].indentedStringFrom(body)(n + 2)
+        case InstanceDef(sym, instanceCombSym)            =>
+          "instance " + sym + " => " + instanceCombSym
         case SelectConstructInstanceDef(supertype, types) =>
           "instance select " + typeTermShowing.stringFrom(supertype) + " construct {\n" + types.map { t => (" " * (n + 2)) + typeTermShowing.stringFrom(t) }.list.mkString("\n") + "\n" + (" " * n) + "}"
       }
