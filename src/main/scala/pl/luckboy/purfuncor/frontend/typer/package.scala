@@ -831,7 +831,7 @@ package object typer
                         State((_: SymbolTypeInferenceEnvironment[T, U], ().success))
                     } yield res3
                 }
-            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+            }.valueOr { nt => State(failInitializationS(nt, Set(loc))) }
           } yield res4).run(env)
         case PolyCombinator(typ, file) =>
           (for {
@@ -862,7 +862,7 @@ package object typer
                       State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, polyCombType), ().success))
                   }
                 } yield res2
-            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+            }.valueOr { nt => State(failInitializationS(nt, Set(loc))) }
           } yield res3).run(env)
       }
     }
