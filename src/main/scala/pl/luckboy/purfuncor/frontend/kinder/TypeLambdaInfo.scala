@@ -5,5 +5,6 @@ import scalaz.Scalaz._
 case class TypeLambdaInfo[T, U](lambdaInfo: T, kindTable: InferredKindTable[U])
 {
   override def toString =
-    (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") + kindTable.kinds.map { case (l, k) => l + ": " + k }.mkString(",")
+    (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") +
+    (if(!kindTable.kinds.isEmpty) "kindTable=" + kindTable.kinds.map { case (l, k) => l + ": " + k }.mkString(",") else "")
 }

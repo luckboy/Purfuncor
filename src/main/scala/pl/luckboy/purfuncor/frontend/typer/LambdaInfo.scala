@@ -8,5 +8,7 @@ case class LambdaInfo[+T, U, V](
     instanceTypes: Seq[InferredType[V]])
 {
   override def toString =
-    (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") + typeTable.types.map { case (l, t) => l + ": " + t }.mkString(",") + ";" + "instance types: " + instanceTypes.mkString(",")
+    (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") +
+    (if(!typeTable.types.isEmpty) "typeTable=" + typeTable.types.map { case (l, t) => l + ": " + t }.mkString(",") + ";" else "") +
+    (if(!instanceTypes.isEmpty) "instanceTypes=" + instanceTypes.mkString(",") else "")
 }
