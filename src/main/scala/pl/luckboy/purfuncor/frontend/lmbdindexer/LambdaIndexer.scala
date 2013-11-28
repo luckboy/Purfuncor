@@ -77,6 +77,9 @@ object LambdaIndexer
   
   def transformTypeTermNelFromIndexS[T, U](terms: NonEmptyList[Term[TypeSimpleTerm[T, U]]])(idx: Int) =
     transformTermNelFromIndexS1(terms)(idx)(transformTypeTermFromIndexS(_)(_))
+    
+  def transformTypeTermNelFromIndex[T, U](terms: NonEmptyList[Term[TypeSimpleTerm[T, U]]]) =
+    State(transformTypeTermNelFromIndexS[T, U](terms))
 
   def transformTypeTermFromIndexS[T, U](term: Term[TypeSimpleTerm[T, U]])(idx: Int): (Int, Term[TypeSimpleTerm[T, TypeLambdaInfo[U]]]) =
     term match {
@@ -108,6 +111,9 @@ object LambdaIndexer
         val typ2 = typ.map { transformTypeTermFromIndex(_).run(0)._2 }
         val args2 = args.map { case Arg(name, typ, pos) => Arg(name, typ.map { transformTypeTermFromIndex(_).run(0)._2 }, pos) }
         Combinator(typ2, args2, transformTermFromIndex(body).run(1)._2, LambdaInfo(lambdaInfo, 0), file): AbstractCombinator[U, LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X]]]
+      case PolyCombinator(typ, file)                     =>
+        val typ2 = typ.map { transformTypeTermFromIndex(_).run(0)._2 }
+        PolyCombinator(typ2, file)
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
@@ -121,6 +127,18 @@ object LambdaIndexer
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
+
+  def transformSelectConstructInstanceFromIndexS[T, U](instance: SelectConstructInstance[T, U])(idx: Int) =
+    (for {
+      supertype <- transformTypeTermFromIndex(instance.supertype)
+      types <- transformTypeTermNelFromIndex(instance.types)
+    } yield SelectConstructInstance(supertype, types, instance.file)).run(idx)
+    
+  def transformSelectConstructInstanceFromIndex[T, U](instance: SelectConstructInstance[T, U]) =
+    State(transformSelectConstructInstanceFromIndexS[T, U](instance))
+  
+  def transformSelectConstructInstances[T, U](instances: List[SelectConstructInstance[T, U]]) =
+    instances.map { transformSelectConstructInstanceFromIndex(_).run(0)._2 }.successNel[AbstractError]
   
   def transform[T, U, V, W, X[_, _], Y, Z](tree: Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, Y]], X[Y, Z]])(implicit treeInfoTransformer: TreeInfoTransformer[X]) =
     for {

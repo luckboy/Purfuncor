@@ -916,7 +916,10 @@ object TypeValueTermUnifier
             } yield res4).run(env3)
         }.valueOr { nt => (env3, nt.failure) }
     } (env)
-  
+
+  def allocateTypeValueTermParamsWithKinds[T, U, E](term: TypeValueTerm[T], kinds: Map[Int, Kind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    State(allocateTypeValueTermParamsWithKindsS[T, U, E](term, kinds)(allocatedParams, unallocatedParamAppIdx))
+    
   def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
     val params = definedType.args.flatMap { _.param }.toSet
     val (env2, res) = params.foldLeft((env, BitSet().success[NoType[T]])) {

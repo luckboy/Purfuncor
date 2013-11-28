@@ -235,6 +235,12 @@ object Resolver
           (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
+      case parser.PolyCombinatorDef(sym, _) =>
+        val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
+        if(nameTree.containsComb(sym2))
+          (nameTree, Error("already defined global variable " + sym2, none, sym.pos).failureNel)
+        else
+          (nameTree |+| NameTree.fromGlobalSymbol(sym2), ().successNel[AbstractError])
       case parser.TypeCombinatorDef(sym, _, _, _) =>
         val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
         if(nameTree.containsTypeComb(sym2))
@@ -253,6 +259,10 @@ object Resolver
             val (nt2, res2) = addDefToNameTreeS(d)(transformModuleSymbol(sym)(currentModuleSym))(nt)
             (nt2, res |+| res2)
         }
+      case parser.InstanceDef(_, _) =>
+        (nameTree, ().successNel[AbstractError])
+      case parser.SelectConstructInstanceDef(_, _) =>
+        (nameTree, ().successNel[AbstractError])
     }
   
   def addDefToNameTree(definition: parser.Def)(currentModuleSym: ModuleSymbol) =
@@ -320,6 +330,18 @@ object Resolver
               }
             } else
               ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
+          case parser.PolyCombinatorDef(sym, typ) =>
+            val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
+            if(scope.nameTree.containsComb(sym2)) {
+              val res2 = transformTypeTermOption(typ)(scope)
+              res2 match {
+                case Success(tt) =>
+                  ((tree2.copy(combs = tree2.combs + (sym2 -> PolyCombinator(tt, none))), (res |@| res2) { (u, _) => u }), scope)
+                case Failure(_) =>
+                  ((tree2, (res |@| res2) { (u, _) => u }), scope)
+              }
+            } else
+              ((tree, res |+| FatalError("name tree doesn't contain combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.TypeCombinatorDef(sym, kind, args, body) =>
             val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
             if(scope.nameTree.containsTypeComb(sym2)) {
@@ -347,6 +369,24 @@ object Resolver
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
             ((newTree2, res |+| res2), scope)
+          case parser.InstanceDef(sym, instanceCombSym) =>
+            val res2 = (transformSymbol(sym)(scope) |@| transformSymbol(sym)(scope)) { (s1, s2) => (s1, s2) }
+            res2 match {
+              case Success((s1: GlobalSymbol, s2: GlobalSymbol)) =>
+                ((tree2.copy(treeInfo = tree2.treeInfo.copy(instances = tree2.treeInfo.instances |+| Map(s1 -> List(Instance(s2, none))))), (res |@| res2) { (u, _) => u }), scope)
+              case Success(_) =>
+                ((tree, res |+| FatalError("scope contains local variable", none, sym.pos).failureNel[Unit]), scope)
+              case Failure(_) =>
+                ((tree2, (res |@| res2) { (u, _) => u }), scope)
+            }
+          case parser.SelectConstructInstanceDef(supertype, types) =>
+            val res2 = (transformTypeTerm(supertype)(scope) |@| transformTypeTermNel(types)(scope)) { (tt, tts) => (tt, tts) }
+            res2 match {
+              case Success((tt, tts)) =>
+                ((tree2.copy(treeInfo = tree2.treeInfo.copy(selectConstructInstances = tree2.treeInfo.selectConstructInstances :+ SelectConstructInstance(tt, tts, none))), (res |@| res2) { (u, _) => u }), scope)
+              case Failure(_) =>
+                ((tree2, (res |@| res2) { (u, _) => u }), scope)
+            }
         }
     }._1
     
@@ -366,7 +406,7 @@ object Resolver
           res2 => res |+| resultForFile(res2, file)
         }.run(nt)
     }
-    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, TypeTreeInfo]](Map(), TreeInfo(Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, parser.TypeLambdaInfo], TypeTreeInfo](Map(), TypeTreeInfo))), res1)) {
+    val (newTree, res2) = parseTrees.foldLeft((Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], TreeInfo[parser.TypeLambdaInfo, TypeTreeInfo]](Map(), TreeInfo(Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, parser.TypeLambdaInfo], TypeTreeInfo](Map(), TypeTreeInfo), Map(), Nil)), res1)) {
       case (p @ (t, res), (file, pt)) => 
         val (newTree, newRes) = transformParseTree[TypeTreeInfo](pt)(newNameTree).map {
           res2 => res |+| resultForFile(res2, file)

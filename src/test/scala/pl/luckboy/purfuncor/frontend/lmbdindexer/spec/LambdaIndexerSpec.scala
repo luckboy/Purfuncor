@@ -21,9 +21,10 @@ f x y = \z => let a = 1 in #iAdd a z
 type T t1 = \t2 => \t3 => ##& (##| t1 t2) t3 
 """)(NameTree.empty)
     inside(res) {
-      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>
         combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f"))))
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T"))))
+        instances should be ('empty)
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
           case Some(Combinator(None, args, body, LambdaInfo(parser.LambdaInfo, idx), _)) =>
             inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
@@ -124,7 +125,7 @@ f x y = (let
 type T t1 = (\t2 => (\t3 => t3) (\t3 => ##& (##& t1 (t2 t1)) t3)) (\t2 => t2)
 """)(NameTree.empty)
     inside(res) {
-      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo)))) =>
+      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo), _, Nil))) =>
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
           case Some(TypeCombinator(None, _, App(fun1, NonEmptyList(arg11), _), TypeLambdaInfo(parser.TypeLambdaInfo, idx), _)) =>
             inside(fun1) {

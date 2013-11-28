@@ -804,7 +804,7 @@ package object typer
                         _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withDefinedType(dt), ()))
                         tmpType <- State(symbolSimpleTermTypeInferrer.unifyArgInfosS(InferringType(dt.term), tmpCombType)(_: SymbolTypeInferenceEnvironment[T, U]))
                       } yield tmpType
-                  }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt))}
+                  }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt)) }
                 } yield (tmpType2.withPos(tt.pos))
             }.getOrElse(State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType)))
             // Checks the defined types.
@@ -833,6 +833,34 @@ package object typer
                 }
             }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
           } yield res4).run(env)
+        case PolyCombinator(typ, file) =>
+          (for {
+            tmpPolyCombType <- typ.map {
+              tt =>
+                for {
+                  res <- State((_: SymbolTypeInferenceEnvironment[T, U]).definedTypeFromTypeTerm(tt))
+                  tmpType <- res.map {
+                    dt => State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withDefinedType(dt), InferringType(dt.term)))
+                  }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt)) }
+                } yield tmpType
+            }.getOrElse { 
+              allocateTypeValueTermParams(TypeParamApp(0, Nil, 0))(Map(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
+            }
+            definedTypes <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
+            res <- checkDefinedTypes(definedTypes)
+            res3 <- res.map {
+              _ =>
+                for {
+                  polyCombType <- State(tmpPolyCombType.instantiatedTypeS(_: SymbolTypeInferenceEnvironment[T, U]))
+                  res2 <- polyCombType match {
+                    case noType: NoType[GlobalSymbol] =>
+                      State(failInitializationS(noType, Set(loc)))
+                    case _                            =>
+                      State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, polyCombType), ().success))
+                  }
+                } yield res2
+            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+          } yield res3).run(env)
       }
     }
     
@@ -860,6 +888,7 @@ package object typer
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) =
       comb match {
         case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body)
+        case PolyCombinator(_, _)         => Set()
       }
     
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
@@ -871,7 +900,7 @@ package object typer
       }
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
-      val (env2, res) = recursivelyInitializeGlobalVarS(loc, comb)(resolver.TreeInfo(Tree(Map[GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo[U, LocalSymbol]]](), resolver.TypeTreeInfo)))(env)
+      val (env2, res) = recursivelyInitializeGlobalVarS(loc, comb)(resolver.TreeInfo(Tree(Map[GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo[U, LocalSymbol]]](), resolver.TypeTreeInfo), Map(), Nil))(env)
       (env2, res.swap.map { _.forFile(comb.file) }.swap)
     }
     

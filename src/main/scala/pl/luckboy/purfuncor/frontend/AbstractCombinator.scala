@@ -19,12 +19,21 @@ sealed trait AbstractCombinator[+T, +U, +V]
         args.map { a => a.typ.map { _ => "(" + argShowing(showing).stringFrom(a) + ")" }.getOrElse(argShowing(showing).stringFrom(a)) + " " }.mkString("") +
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
         "= " + termIndenting(showing).indentedStringFrom(body)(2)
+      case PolyCombinator(typ, _)                     =>
+        "poly " + name + typ.map { ": " + showing.stringFrom(_) }.getOrElse("")
     }
 }
 
 case class Combinator[+T, +U, +V](typ: Option[Term[V]], args: List[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, file: Option[java.io.File]) extends AbstractCombinator[T, U, V]
 {
   override def argCount = args.size
+  
+  override def withFile(file: Option[java.io.File]) = copy(file = file)
+}
+
+case class PolyCombinator[+T, +U, +V](typ: Option[Term[V]], file: Option[java.io.File]) extends AbstractCombinator[T, U, V]
+{
+  override def argCount = 0
   
   override def withFile(file: Option[java.io.File]) = copy(file = file)
 }

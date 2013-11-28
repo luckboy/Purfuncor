@@ -7,6 +7,8 @@ package object lmbdindexer
 {
   implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo] = new TreeInfoTransformer[resolver.TreeInfo] {
     override def transformTreeInfo[U, V](treeInfo: resolver.TreeInfo[U, V]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[U], V]] =
-      LambdaIndexer.transformTypeTree(treeInfo.typeTree).map { resolver.TreeInfo(_) }
+      (LambdaIndexer.transformTypeTree(treeInfo.typeTree) |@| LambdaIndexer.transformSelectConstructInstances(treeInfo.selectConstructInstances)) {
+        (tt, scis) => resolver.TreeInfo(tt, treeInfo.instances, scis)
+      }
   }
 }

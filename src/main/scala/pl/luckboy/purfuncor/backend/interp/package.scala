@@ -108,6 +108,7 @@ package object interp
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {
         case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body)
+        case PolyCombinator(_, _)         => Set()
       }
       
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolEnvironment[T, U]) = 
@@ -119,6 +120,8 @@ package object interp
           case Combinator(_, _, body, _, file) =>
             val (newEnv, value) = evaluateS(body)(env.withCurrentFile(file))
             (newEnv, value.forFileAndCombSym(file, some(loc)))
+          case PolyCombinator(_, _)            =>
+            (env, CombinatorValue(comb, loc))
         }
       } else
         (env, CombinatorValue(comb, loc))

@@ -131,6 +131,11 @@ object Kinder
               (typ2, args2, body2) => Combinator(typ2, args2, body2, lambdaInfo, file)
             }
             (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
+          case PolyCombinator(typ, file)                     =>
+            val res2 = typ.map { 
+              transformTypeTermWithKindInference(_)(env).map { case (tt, _) => PolyCombinator(some(tt), file) }
+            }.getOrElse(PolyCombinator(none, file).successNel)
+            (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
         }
     }.map { combs => Tree(combs = combs, treeInfo = tree.treeInfo) }
   
@@ -156,6 +161,21 @@ object Kinder
           kt => Tree(combs = combs, treeInfo = TypeTreeInfo(tree.treeInfo, InferredKindTable(kt.kinds.filterKeys(combs.keySet.contains))))
         }
     }
+  
+  def transformSelectConstructInstance[T, U, V, W, E](instance: SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) = {
+    val res = for {
+      supertype <- transformTypeTerm(instance.supertype)(env)
+      types <- transformTypeTermNel(instance.types)(env)
+    } yield SelectConstructInstance(supertype, types, instance.file)
+    resultForFile(res, instance.file)
+  }
+    
+  def transformSelectConstructInstances[T, U, V, W, E](instances: List[SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) =
+    instances.foldLeft(List[SelectConstructInstance[T, TypeLambdaInfo[U, W]]]().successNel[AbstractError]) {
+      case (res, instance) =>
+        val res2 = transformSelectConstructInstance(instance)(env)
+        (res |@| res2) { (scis, sci) => sci :: scis }
+    }.map { _.reverse }
   
   def inferTypeTermKindS[T, U, V, E](term: Term[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V]) =
     envSt.withClearS {
