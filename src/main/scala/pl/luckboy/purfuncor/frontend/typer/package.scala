@@ -835,23 +835,26 @@ package object typer
           } yield res4).run(env)
         case PolyCombinator(typ, file) =>
           (for {
-            tmpPolyCombType <- typ.map {
+            tmpPolyCombType <- allocateTypeValueTermParamsWithKinds(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
+            tmpPolyCombType2 <- typ.map {
               tt =>
                 for {
                   res <- State((_: SymbolTypeInferenceEnvironment[T, U]).definedTypeFromTypeTerm(tt))
                   tmpType <- res.map {
-                    dt => State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withDefinedType(dt), InferringType(dt.term)))
+                    dt =>
+                      for {
+                        _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withDefinedType(dt), ()))
+                        tmpType <- State(symbolSimpleTermTypeInferrer.unifyArgInfosS(InferringType(dt.term), tmpPolyCombType)(_: SymbolTypeInferenceEnvironment[T, U]))
+                      } yield tmpType
                   }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt)) }
                 } yield tmpType
-            }.getOrElse { 
-              allocateTypeValueTermParams(TypeParamApp(0, Nil, 0))(Map(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
-            }
+            }.getOrElse(State((_: SymbolTypeInferenceEnvironment[T, U], tmpPolyCombType)))
             definedTypes <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
             res <- checkDefinedTypes(definedTypes)
             res3 <- res.map {
               _ =>
                 for {
-                  polyCombType <- State(tmpPolyCombType.instantiatedTypeS(_: SymbolTypeInferenceEnvironment[T, U]))
+                  polyCombType <- State(tmpPolyCombType2.instantiatedTypeS(_: SymbolTypeInferenceEnvironment[T, U]))
                   res2 <- polyCombType match {
                     case noType: NoType[GlobalSymbol] =>
                       State(failInitializationS(noType, Set(loc)))
