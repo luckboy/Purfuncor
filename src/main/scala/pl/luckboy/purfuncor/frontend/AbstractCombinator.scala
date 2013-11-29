@@ -20,7 +20,7 @@ sealed trait AbstractCombinator[+T, +U, +V]
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
         "= " + termIndenting(showing).indentedStringFrom(body)(2)
       case PolyCombinator(typ, _)                     =>
-        "poly " + name + typ.map { ": " + showing.stringFrom(_) }.getOrElse("")
+        "poly " + typ.map { "(" + name + ": " + showing.stringFrom(_) + ")" }.getOrElse(name)
     }
 }
 

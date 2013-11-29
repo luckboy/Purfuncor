@@ -280,7 +280,7 @@ object Parser extends StandardTokenParsers with PackratParsers
 
   lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = combinatorDefPart ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case (s, tt) ~ as ~ t => CombinatorDef(s, tt, as, t) }
-  lazy val polyCombinatorDef = "poly" ~-> polyCombinatorDefPart			^^ { case (s, tt) => PolyCombinatorDef(s, tt) }
+  lazy val polyCombinatorDef = "poly" ~-> combinatorDefPart			^^ { case (s, tt) => PolyCombinatorDef(s, tt) }
   lazy val typeCombinatorDef = "type" ~-> typeCombinatorDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s, kt, as, t) }
   lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- typeCombinatorDefPart ^^ { case n ~ ((s, kt)) => UnittypeCombinatorDef(n, s, kt) }
   lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
@@ -291,11 +291,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val combinatorDefPart = combinatorDefPart1 | combinatorDefPart2
   lazy val combinatorDefPart1 = noNlParsers.symbol						^^ { case s => (s, None) }
   lazy val combinatorDefPart2 = "(" ~-> noNlParsers.symbol ~- ((":" ~-> noNlParsers.typeExpr) ?) <~- ")" ^^ { case s ~ tt => (s, tt) }
-  
-  lazy val polyCombinatorDefPart = polyCombinatorDefPart1 | polyCombinatorDefPart2
-  lazy val polyCombinatorDefPart1 = noNlParsers.symbol ~- ((":" ~-> noNlParsers.typeExpr) ?) ^^ { case s ~ tt => (s, tt) }
-  lazy val polyCombinatorDefPart2 = combinatorDefPart2
-  
+    
   lazy val typeCombinatorDefPart = typeCombinatorDefPart1 | typeCombinatorDefPart2
   lazy val typeCombinatorDefPart1 = noNlParsers.symbol					^^ { case s => (s, None) }
   lazy val typeCombinatorDefPart2 = "(" ~-> noNlParsers.symbol ~- ((":" ~-> noNlParsers.kindExpr) ?) <~- ")" ^^ { case s ~ kt => (s, kt) }
