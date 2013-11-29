@@ -159,7 +159,7 @@ object Resolver
   def getModuleSymbol(name: String, pos: Position)(scope: Scope) =
     getSymbol4(name, pos)(scope)("module", _.moduleNames.contains(_), _ + _, _.importedModuleSyms)
   
-  def transformSymbol(sym: parser.Symbol)(scope: Scope) =
+  def transformGlobalSymbolForInstance(sym: parser.Symbol)(scope: Scope) =
     sym match {
       case parser.GlobalSymbol(names, pos) =>
         val combSym = GlobalSymbol(names)
@@ -168,10 +168,7 @@ object Resolver
         else
           Error("undefined global variable " + combSym, none, pos).failureNel
       case parser.NormalSymbol(NonEmptyList(name), pos) =>
-        if(scope.localVarNames.contains(name))
-          LocalSymbol(name).successNel
-        else
-          getGlobalSymbol(name, pos)(scope)
+        getGlobalSymbol(name, pos)(scope)
       case parser.NormalSymbol(names, pos) =>
         getModuleSymbol(names.head, pos)(scope).flatMap {
           moduleSym =>
@@ -184,6 +181,17 @@ object Resolver
                   Error("undefined global variable " + combSym, none, pos).failureNel
             }.getOrElse(FatalError("tail of list is empty", none, pos).failureNel)
         }
+    }
+  
+  def transformSymbol(sym: parser.Symbol)(scope: Scope) =
+    sym match {
+      case parser.NormalSymbol(NonEmptyList(name), _) =>
+        if(scope.localVarNames.contains(name))
+          LocalSymbol(name).successNel
+        else
+          transformGlobalSymbolForInstance(sym)(scope)
+      case _ =>
+        transformGlobalSymbolForInstance(sym)(scope)
     }
   
   def transformTypeSymbol(sym: parser.Symbol)(scope: Scope) =
@@ -370,12 +378,10 @@ object Resolver
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
             ((newTree2, res |+| res2), scope)
           case parser.InstanceDef(sym, instanceCombSym) =>
-            val res2 = (transformSymbol(sym)(scope) |@| transformSymbol(sym)(scope)) { (s1, s2) => (s1, s2) }
+            val res2 = (transformGlobalSymbolForInstance(sym)(scope) |@| transformGlobalSymbolForInstance(sym)(scope)) { (s1, s2) => (s1, s2) }
             res2 match {
-              case Success((s1: GlobalSymbol, s2: GlobalSymbol)) =>
+              case Success((s1, s2)) =>
                 ((tree2.copy(treeInfo = tree2.treeInfo.copy(instances = tree2.treeInfo.instances |+| Map(s1 -> List(Instance(s2, none))))), (res |@| res2) { (u, _) => u }), scope)
-              case Success(_) =>
-                ((tree, res |+| FatalError("scope contains local variable", none, sym.pos).failureNel[Unit]), scope)
               case Failure(_) =>
                 ((tree2, (res |@| res2) { (u, _) => u }), scope)
             }
