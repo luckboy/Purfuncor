@@ -83,9 +83,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withCurrentLocalTypeTable(typeTable: TypeTable[LocalSymbol, GlobalSymbol]) = withCurrentLambdaInfo(currentLambdaInfo.copy(typeTable = typeTable))
   
-  def currentInstanceTypes = currentLambdaInfo.instanceTypes
+  def currentInstTypes = currentLambdaInfo.instTypes
   
-  def withCurrentInstanceTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instanceTypes = types))
+  def withCurrentInstTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instTypes = types))
   
   def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   

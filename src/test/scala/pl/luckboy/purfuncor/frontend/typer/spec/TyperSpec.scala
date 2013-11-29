@@ -730,9 +730,9 @@ m = 2.0
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
           types should have size (0)
-          inside(instanceTypes) {
+          inside(instTypes) {
             case Seq(InferredType(TypeConjunction(types1), argKinds)) =>
               types1 should have size(2)
               inside(for {
@@ -846,9 +846,9 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
                       types should have size(0)
-                      inside(instanceTypes) {
+                      inside(instTypes) {
                         case Seq(InferredType(TypeDisjunction(types1), argKinds)) =>
                           types1 should have size(3)
                           inside(for {
@@ -881,7 +881,7 @@ f x = x select {
                       types should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(type1, type2, type3), GlobalSymbol(NonEmptyList("T"))), argKinds)) =>
@@ -899,7 +899,7 @@ f x = x select {
                               ()
                           }
                       }
-                      inside(instanceTypes) {
+                      inside(instTypes) {
                         case Seq(InferredType(GlobalTypeApp(loc1, Seq(type1, type2, type3), GlobalSymbol(NonEmptyList("T"))), argKinds)) =>
                           loc1 should be ===(tLoc)
                           inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
@@ -917,26 +917,26 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
                           loc1 should be ===(uLoc)
                       }
-                      inside(instanceTypes) {
+                      inside(instTypes) {
                         case Seq(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
                           loc1 should be ===(uLoc)
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(type1), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
                           loc1 should be ===(vLoc)
                           inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
                       }
-                      inside(instanceTypes) {
+                      inside(instTypes) {
                         case Seq(InferredType(GlobalTypeApp(loc1, Seq(type1), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
                           loc1 should be ===(vLoc)
                           inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
@@ -977,7 +977,7 @@ f x = x extract {
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), instanceTypes)) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
           types should have size(3)
           inside(types.get(LocalSymbol("y1"))) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq())) =>
@@ -994,7 +994,7 @@ f x = x extract {
                   ()
               }
           }
-          inside(instanceTypes) {
+          inside(instTypes) {
             case Seq(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Float, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(_, Seq(), 0))), argKinds)) =>
               inside(argKinds) {
                 case Seq(InferredKind(Star(KindType, _))) =>
@@ -3172,9 +3172,9 @@ g x = x select {
                   inside(body) {
                     case Simple(TypedTerm(term1, _), _) =>
                       inside(term1) {
-                        case App(Simple(Construct(2, LambdaInfo(lambdaInfo1, typeTable1, instanceTypes1)), _), NonEmptyList(_, _), _) =>
+                        case App(Simple(Construct(2, LambdaInfo(lambdaInfo1, typeTable1, instTypes1)), _), NonEmptyList(_, _), _) =>
                           typeTable1.types should be ('empty)
-                          inside(instanceTypes1) {
+                          inside(instTypes1) {
                             case Seq(type11) =>
                               inside(type11) {
                                 case InferredType(TypeConjunction(types11), argKinds11) =>
@@ -3216,9 +3216,9 @@ g x = x select {
               inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
                 case Some(Combinator(None, _, body, _, _)) =>
                   inside(body) {
-                    case Simple(Select(_, cases1, LambdaInfo(lambdaInfo1, typeTable1, instanceTypes1)), _) =>
+                    case Simple(Select(_, cases1, LambdaInfo(lambdaInfo1, typeTable1, instTypes1)), _) =>
                       typeTable1.types should be ('empty)
-                      inside(instanceTypes1) {
+                      inside(instTypes1) {
                         case Seq(type11) =>
                           inside(type11) {
                             case InferredType(TypeDisjunction(types11), argKinds11) =>
@@ -3255,7 +3255,7 @@ g x = x select {
                       inside(cases1) {
                         case NonEmptyList(case11, case12, case13) =>
                           inside(case11) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo11, typeTable11, instanceTypes11)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo11, typeTable11, instTypes11)) =>
                               val syms11 = Set(LocalSymbol("y"))
                               val locs11 = syms11.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo11))
                               locs11 should have size(1)
@@ -3281,7 +3281,7 @@ g x = x select {
                                       ()
                                   }
                               }
-                              inside(instanceTypes11) {
+                              inside(instTypes11) {
                                 case Seq(type111) =>
                                   inside(type111) {
                                     case InferredType(GlobalTypeApp(loc1111, args1111, GlobalSymbol(NonEmptyList("T"))), argKinds111) =>
@@ -3307,7 +3307,7 @@ g x = x select {
                               }
                           }
                           inside(case12) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo12, typeTable12, instanceTypes12)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo12, typeTable12, instTypes12)) =>
                               val syms12 = Set(LocalSymbol("y"))
                               val locs12 = syms12.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo12))
                               locs12 should have size(1)
@@ -3326,7 +3326,7 @@ g x = x select {
                                       ()
                                   }
                               }
-                              inside(instanceTypes12) {
+                              inside(instTypes12) {
                                 case Seq(type121) =>
                                   inside(type121) {
                                     case InferredType(GlobalTypeApp(loc1211, args1211, GlobalSymbol(NonEmptyList("U"))), argKinds121) =>
@@ -3345,7 +3345,7 @@ g x = x select {
                               }
                           }
                           inside(case13) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo13, typeTable13, instanceTypes13)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo13, typeTable13, instTypes13)) =>
                               val syms13 = Set(LocalSymbol("y"))
                               val locs13 = syms13.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo13))
                               locs13 should have size(1)
@@ -3355,7 +3355,7 @@ g x = x select {
                                   // V
                                   loc131 should be ===(vLoc)
                               }
-                              inside(instanceTypes13) {
+                              inside(instTypes13) {
                                 case Seq(type131) =>
                                   inside(type131) {
                                     case InferredType(GlobalTypeApp(loc1311, Seq(), GlobalSymbol(NonEmptyList("V"))), Seq()) =>
@@ -3462,9 +3462,9 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                               inside(arg11) {
                                 case Simple(TypedTerm(term11, typ11), _) =>
                                   inside(term11) { 
-                                    case Simple(Construct(0, LambdaInfo(lambdaInfo11, typeTable11, instanceTypes11)), _) =>
+                                    case Simple(Construct(0, LambdaInfo(lambdaInfo11, typeTable11, instTypes11)), _) =>
                                       typeTable11.types should be ('empty)
-                                      inside(instanceTypes11) {
+                                      inside(instTypes11) {
                                         case Seq(type111) =>
                                           inside(type111) {
                                             case InferredType(TypeConjunction(types1111), Seq()) =>
@@ -3488,9 +3488,9 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                               inside(arg12) {
                                 case Simple(TypedTerm(term12, typ12), _) =>
                                   inside(term12) {
-                                    case Simple(Construct(0, LambdaInfo(lambdaInfo12, typeTable12, instanceTypes12)), _) =>
+                                    case Simple(Construct(0, LambdaInfo(lambdaInfo12, typeTable12, instTypes12)), _) =>
                                       typeTable12.types should be ('empty)
-                                      inside(instanceTypes12) {
+                                      inside(instTypes12) {
                                         case Seq(type121) =>
                                           inside(type121) {
                                             case InferredType(TypeConjunction(types1211), Seq()) =>

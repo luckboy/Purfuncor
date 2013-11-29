@@ -377,7 +377,7 @@ package object typer
         case ((newEnv, Success(lis)), (i, li)) =>
           val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
           newRes.map {
-            ts => instantiateTypesS(li.instanceTypes)(newEnv).mapElements(identity, _.map { its => lis + (i -> li.copy(typeTable = TypeTable(ts), instanceTypes = its)) })
+            ts => instantiateTypesS(li.instTypes)(newEnv).mapElements(identity, _.map { its => lis + (i -> li.copy(typeTable = TypeTable(ts), instTypes = its)) })
           }.valueOr { nt => (newEnv, nt.failure) }
         case ((newEnv, Failure(nt)), _)        =>
           (newEnv, nt.failure)
@@ -511,7 +511,7 @@ package object typer
                   newEnv.definedTypeFromTypeTerm(typ).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
                 }
                 if(!bodyInfo.isNoType && !argInfo.isNoType)
-                  (newEnv3.withCurrentInstanceTypes(Seq(argInfo)), bodyInfo)
+                  (newEnv3.withCurrentInstTypes(Seq(argInfo)), bodyInfo)
                 else
                   (newEnv3, concatErrors(argInfo, bodyInfo))
             }
@@ -536,7 +536,7 @@ package object typer
                           val tmpType = InferringType(tmpTypeValueTerm & TupleType(argTypeValueTerms))
                           val (newEnv4, retType2) = unifyInfosS(tmpType, retType)(newEnv3)
                           if(!retType.isNoType)
-                            (newEnv4.withCurrentInstanceTypes(Seq(retType2)), funType)
+                            (newEnv4.withCurrentInstTypes(Seq(retType2)), funType)
                           else
                             (newEnv4, funType)
                       }.valueOr { (newEnv3, _) }
@@ -577,7 +577,7 @@ package object typer
                   val argTypes = cases.list.flatMap { 
                     cas => 
                       newEnv3.lambdaInfos.getOrElse(newEnv3.currentCombSym, Map()).get(cas.lambdaInfo.idx).toSeq.flatMap {
-                        _.instanceTypes
+                        _.instTypes
                       } 
                   }
                   Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv3) match {
@@ -592,7 +592,7 @@ package object typer
                         case Success(tmpType) =>
                           val (newEnv7, termType2) = unifyInfosS(tmpType, termType)(newEnv6)
                           if(!termType2.isNoType && !bodyType.isNoType)
-                            (newEnv7.withCurrentInstanceTypes(Seq(termType)), bodyType)
+                            (newEnv7.withCurrentInstTypes(Seq(termType)), bodyType)
                           else
                             (newEnv7, concatErrors(termType, bodyType))
                         case Failure(noType) =>
@@ -621,7 +621,7 @@ package object typer
                     val tmpType = InferringType(TupleType(argTypeValueTerms))
                     val (newEnv5, termType2) = unifyArgInfosS(tmpType, termType)(newEnv4)
                     if(!termType2.isNoType && !bodyType.isNoType)
-                      (newEnv5.withCurrentInstanceTypes(Seq(termType)), bodyType)
+                      (newEnv5.withCurrentInstTypes(Seq(termType)), bodyType)
                     else 
                       (newEnv5, concatErrors(termType, bodyType))
                   case (newEnv4, Failure(noType))            =>
@@ -758,7 +758,7 @@ package object typer
                 case ((newEnv2, Success(newLis)), (i, li)) =>
                   val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                   newRes.map {
-                    ts => instantiateTypesS(li.instanceTypes)(newEnv3).mapElements(identity, _.map { its => newLis + (i -> li.copy(typeTable = TypeTable(ts), instanceTypes = its)) })
+                    ts => instantiateTypesS(li.instTypes)(newEnv3).mapElements(identity, _.map { its => newLis + (i -> li.copy(typeTable = TypeTable(ts), instTypes = its)) })
                   }.valueOr { nt => (newEnv2, nt.failure) }
                 case ((newEnv2, Failure(nt)), _)           =>
                   (newEnv2, nt.failure)

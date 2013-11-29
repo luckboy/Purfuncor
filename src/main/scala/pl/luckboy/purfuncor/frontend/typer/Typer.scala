@@ -125,7 +125,7 @@ object Typer
           inferenceLambdaInfo =>
             for {
               tt2 <- transformTypeTable(inferenceLambdaInfo.typeTable)
-              ts2 <- transformTypes(inferenceLambdaInfo.instanceTypes)
+              ts2 <- transformTypes(inferenceLambdaInfo.instTypes)
             } yield LambdaInfo(lambdaInfo2, tt2, ts2)
         }.getOrElse(FatalError("incorrect lambda index", none, NoPosition).failureNel)
     }
