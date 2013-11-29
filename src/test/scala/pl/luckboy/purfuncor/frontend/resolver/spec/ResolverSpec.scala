@@ -544,10 +544,10 @@ type T t = ##& (##& #Int #NonZero) t
 unittype 1 U
 """)(NameTree.empty) 
     inside(res) {
-      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>        
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), insts, Nil))) =>        
         combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g"))))
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U"))))
-        instances should be ('empty)
+        insts should be ('empty)
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
           case Some(Combinator(None, args, body, parser.LambdaInfo, None)) =>
             inside(args) {
@@ -608,9 +608,9 @@ unittype 1 U
   it should "transform the type lambda-expression" in {
     val res = Resolver.transformString("type T = \\t _ u => ##| t u")(NameTree.empty)    
     inside(res) {
-      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), insts, Nil))) =>
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T"))))
-        instances should be ('empty)
+        insts should be ('empty)
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T")))) {
           case Some(TypeCombinator(None, Nil, body, parser.TypeLambdaInfo, None)) =>
             inside(body) {
@@ -645,7 +645,7 @@ module m2.m3 {
 }
 """)(NameTree.empty)
     inside(res) {
-      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), insts, Nil))) =>
         combs.keySet should be ===(Set(
             GlobalSymbol(NonEmptyList("f")),
             GlobalSymbol(NonEmptyList("m1", "m2", "m3", "g")),
@@ -657,7 +657,7 @@ module m2.m3 {
             GlobalSymbol(NonEmptyList("m1", "W")),
             GlobalSymbol(NonEmptyList("m2", "m3", "X")),
             GlobalSymbol(NonEmptyList("m1", "m2", "Y"))))
-        instances should be ('empty)
+        insts should be ('empty)
     }
   }
   
@@ -763,12 +763,12 @@ type m3.V2 = #.m2.V
     NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("m1", "U"))) |+|
     NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("m2", "V"))))
     inside(res) {
-      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>
+      case Success(Tree(combs, TreeInfo(Tree(typeCombs, typeTreeInfo), insts, Nil))) =>
         typeCombs.keySet should be ===(Set(
             GlobalSymbol(NonEmptyList("T2")),
             GlobalSymbol(NonEmptyList("m1", "U2")),
             GlobalSymbol(NonEmptyList("m3", "V2"))))
-        instances should be ('empty)
+        insts should be ('empty)
         inside(typeCombs.get(GlobalSymbol(NonEmptyList("T2")))) {
           case Some(TypeCombinator(None, Nil, body, parser.TypeLambdaInfo, None)) =>
             inside(body) { case Simple(TypeVar(GlobalSymbol(NonEmptyList("m1", "m2", "T"))), _) => () }

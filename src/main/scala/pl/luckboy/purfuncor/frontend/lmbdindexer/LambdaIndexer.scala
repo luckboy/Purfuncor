@@ -128,17 +128,17 @@ object LambdaIndexer
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }
 
-  def transformSelectConstructInstanceFromIndexS[T, U](instance: SelectConstructInstance[T, U])(idx: Int) =
+  def transformSelectConstructInstanceFromIndexS[T, U](selectConstructInst: SelectConstructInstance[T, U])(idx: Int) =
     (for {
-      supertype <- transformTypeTermFromIndex(instance.supertype)
-      types <- transformTypeTermNelFromIndex(instance.types)
-    } yield SelectConstructInstance(supertype, types, instance.file)).run(idx)
+      supertype <- transformTypeTermFromIndex(selectConstructInst.supertype)
+      types <- transformTypeTermNelFromIndex(selectConstructInst.types)
+    } yield SelectConstructInstance(supertype, types, selectConstructInst.file)).run(idx)
     
-  def transformSelectConstructInstanceFromIndex[T, U](instance: SelectConstructInstance[T, U]) =
-    State(transformSelectConstructInstanceFromIndexS[T, U](instance))
+  def transformSelectConstructInstanceFromIndex[T, U](selectConstructInst: SelectConstructInstance[T, U]) =
+    State(transformSelectConstructInstanceFromIndexS[T, U](selectConstructInst))
   
-  def transformSelectConstructInstances[T, U](instances: List[SelectConstructInstance[T, U]]) =
-    instances.map { transformSelectConstructInstanceFromIndex(_).run(0)._2 }.successNel[AbstractError]
+  def transformSelectConstructInstances[T, U](selectConstructInsts: List[SelectConstructInstance[T, U]]) =
+    selectConstructInsts.map { transformSelectConstructInstanceFromIndex(_).run(0)._2 }.successNel[AbstractError]
   
   def transform[T, U, V, W, X[_, _], Y, Z](tree: Tree[T, AbstractCombinator[U, V, TypeSimpleTerm[W, Y]], X[Y, Z]])(implicit treeInfoTransformer: TreeInfoTransformer[X]) =
     for {

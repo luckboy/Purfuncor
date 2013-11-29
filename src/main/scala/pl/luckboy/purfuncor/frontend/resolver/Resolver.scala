@@ -377,11 +377,11 @@ object Resolver
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
             ((newTree2, res |+| res2), scope)
-          case parser.InstanceDef(sym, instanceCombSym) =>
-            val res2 = (transformGlobalSymbolForInstance(sym)(scope) |@| transformGlobalSymbolForInstance(sym)(scope)) { (s1, s2) => (s1, s2) }
+          case parser.InstanceDef(polyCombSym, instCombSym) =>
+            val res2 = (transformGlobalSymbolForInstance(polyCombSym)(scope) |@| transformGlobalSymbolForInstance(polyCombSym)(scope)) { (s1, s2) => (s1, s2) }
             res2 match {
               case Success((s1, s2)) =>
-                ((tree2.copy(treeInfo = tree2.treeInfo.copy(instances = tree2.treeInfo.instances |+| Map(s1 -> List(Instance(s2, none))))), (res |@| res2) { (u, _) => u }), scope)
+                ((tree2.copy(treeInfo = tree2.treeInfo.copy(insts = tree2.treeInfo.insts |+| Map(s1 -> List(Instance(s2, none))))), (res |@| res2) { (u, _) => u }), scope)
               case Failure(_) =>
                 ((tree2, (res |@| res2) { (u, _) => u }), scope)
             }
@@ -389,7 +389,7 @@ object Resolver
             val res2 = (transformTypeTerm(supertype)(scope) |@| transformTypeTermNel(types)(scope)) { (tt, tts) => (tt, tts) }
             res2 match {
               case Success((tt, tts)) =>
-                ((tree2.copy(treeInfo = tree2.treeInfo.copy(selectConstructInstances = tree2.treeInfo.selectConstructInstances :+ SelectConstructInstance(tt, tts, none))), (res |@| res2) { (u, _) => u }), scope)
+                ((tree2.copy(treeInfo = tree2.treeInfo.copy(selectConstructInsts = tree2.treeInfo.selectConstructInsts :+ SelectConstructInstance(tt, tts, none))), (res |@| res2) { (u, _) => u }), scope)
               case Failure(_) =>
                 ((tree2, (res |@| res2) { (u, _) => u }), scope)
             }

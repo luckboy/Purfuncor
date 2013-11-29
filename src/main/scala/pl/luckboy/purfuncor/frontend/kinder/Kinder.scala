@@ -162,18 +162,18 @@ object Kinder
         }
     }
   
-  def transformSelectConstructInstance[T, U, V, W, E](instance: SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) = {
+  def transformSelectConstructInstance[T, U, V, W, E](selectConstructInst: SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) = {
     val res = for {
-      supertype <- transformTypeTerm(instance.supertype)(env)
-      types <- transformTypeTermNel(instance.types)(env)
-    } yield SelectConstructInstance(supertype, types, instance.file)
-    resultForFile(res, instance.file)
+      supertype <- transformTypeTerm(selectConstructInst.supertype)(env)
+      types <- transformTypeTermNel(selectConstructInst.types)(env)
+    } yield SelectConstructInstance(supertype, types, selectConstructInst.file)
+    resultForFile(res, selectConstructInst.file)
   }
     
-  def transformSelectConstructInstances[T, U, V, W, E](instances: List[SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) =
-    instances.foldLeft(List[SelectConstructInstance[T, TypeLambdaInfo[U, W]]]().successNel[AbstractError]) {
-      case (res, instance) =>
-        val res2 = transformSelectConstructInstance(instance)(env)
+  def transformSelectConstructInstances[T, U, V, W, E](selectConstructInsts: List[SelectConstructInstance[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit enval: KindInferenceEnvironmental[E, V, W]) =
+    selectConstructInsts.foldLeft(List[SelectConstructInstance[T, TypeLambdaInfo[U, W]]]().successNel[AbstractError]) {
+      case (res, inst) =>
+        val res2 = transformSelectConstructInstance(inst)(env)
         (res |@| res2) { (scis, sci) => sci :: scis }
     }.map { _.reverse }
   

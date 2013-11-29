@@ -21,10 +21,10 @@ f x y = \z => let a = 1 in #iAdd a z
 type T t1 = \t2 => \t3 => ##& (##| t1 t2) t3 
 """)(NameTree.empty)
     inside(res) {
-      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo), instances, Nil))) =>
+      case Success(Tree(combs, resolver.TreeInfo(Tree(typeCombs, typeTreeInfo), insts, Nil))) =>
         combs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("f"))))
         typeCombs.keySet should be ===(Set(GlobalSymbol(NonEmptyList("T"))))
-        instances should be ('empty)
+        insts should be ('empty)
         inside(combs.get(GlobalSymbol(NonEmptyList("f")))) {
           case Some(Combinator(None, args, body, LambdaInfo(parser.LambdaInfo, idx), _)) =>
             inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }

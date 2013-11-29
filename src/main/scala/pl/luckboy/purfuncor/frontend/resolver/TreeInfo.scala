@@ -7,22 +7,22 @@ import pl.luckboy.purfuncor.common.Tree
 
 case class TreeInfo[+T, +U](
     typeTree: Tree[GlobalSymbol, AbstractTypeCombinator[Symbol, T], U],
-    instances: Map[GlobalSymbol, List[Instance[GlobalSymbol]]],
-    selectConstructInstances: List[SelectConstructInstance[Symbol, T]])
+    insts: Map[GlobalSymbol, List[Instance[GlobalSymbol]]],
+    selectConstructInsts: List[SelectConstructInstance[Symbol, T]])
 {
   override def toString =
     "//// typeTree\n" +
     typeTree.toString + "\n\n" +
-    "//// instances\n" +
-    instances.flatMap { case (s, is) => is.map { (s, _) } }.groupBy { case (_, i) => i.file }.map {
-      case (file, instances) =>
+    "//// insts\n" +
+    insts.flatMap { case (s, is) => is.map { (s, _) } }.groupBy { case (_, i) => i.file }.map {
+      case (file, insts2) =>
         "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n"
-        instances.map { case (s, i) => i.toStringForName(s.toString) + "\n" }.mkString("\n")
+        insts2.map { case (s, i) => i.toStringForName(s.toString) + "\n" }.mkString("\n")
     }.mkString("\n") + "\n" +
-    "//// selectConstructInstances\n" +
-    selectConstructInstances.groupBy { _.file }.map {
-      case (file, selectConstructInstances) =>
+    "//// selectConstructInsts\n" +
+    selectConstructInsts.groupBy { _.file }.map {
+      case (file, selectConstructInsts2) =>
         "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
-        selectConstructInstances.map { _ + "\n" }.mkString("\n")
+        selectConstructInsts2.map { _ + "\n" }.mkString("\n")
     }.mkString("\n") + "\n"
 }
