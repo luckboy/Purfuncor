@@ -3,7 +3,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 
-case class Instance[+T](instanceCombLoc: T, file: Option[java.io.File])
+case class Instance[+T](instCombLoc: T, file: Option[java.io.File])
 {
-  def toStringForName(name: String) = "instance " + name + " => " + instanceCombLoc
+  def toStringForName(name: String) = "instance " + name + " => " + instCombLoc
 }
