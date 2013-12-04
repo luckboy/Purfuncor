@@ -9,7 +9,7 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
   def findTypesS[V, E](typ: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], Seq[Type[T]]]) =
     throw new UnsupportedOperationException
   
-  def addTypeS[V, E](typ: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], Option[InstanceTable[T, U]]]) =
+  def addInstS[V, E](typ: Type[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], Option[InstanceTable[T, U]]]) =
     throw new UnsupportedOperationException
 }
 
