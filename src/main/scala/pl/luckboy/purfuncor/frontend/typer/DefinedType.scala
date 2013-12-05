@@ -77,6 +77,9 @@ object DefinedType
   
   def evaluateDefinedTypeTerm[T, U, V, W, X, E](term: Term[TypeSimpleTerm[U, TypeLambdaInfo[V, W]]])(implicit eval: Evaluator[TypeSimpleTerm[U, TypeLambdaInfo[V, W]], E, TypeValue[T, U, TypeLambdaInfo[V, W], X]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, TypeLambdaInfo[V, W], X]], argTabular: ArgTabular[TypeLambda[U, TypeLambdaInfo[V, W]], W]) =
     State(evaluateDefinedTypeTermS[T, U, V, W, X, E](term))
+    
+  def fromInferringType[T](typ: InferringType[T]) =
+    DefinedType(typeParamsFromTypeValueTerm(typ.typeValueTerm).toList.map { p => DefinedTypeArg(some(p), none) }, typ.typeValueTerm, NoPosition)
 }
 
 case class DefinedTypeArg(param: Option[Int], kind: Option[KindTerm[StarKindTerm[Int]]])

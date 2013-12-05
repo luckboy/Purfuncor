@@ -389,6 +389,20 @@ package object typer
     
     override def instantiateTypeS(typ: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
       typ.instantiatedTypeS(env)
+    
+    override def withInstanceTypeClearingS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) = {
+      val (_, res) = f(env.withInstTypeMatching(true))
+      (env, res)
+    }
+      
+    override def isInstanceTypeMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.isInstTypeMatching)
+    
+    override def definedTypesFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.definedTypes)
+    
+    override def addDefinedTypeS(definedType: DefinedType[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withDefinedType(definedType), ())
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
@@ -406,8 +420,9 @@ package object typer
         if(!env.typeLambdaArgParams.contains(param))
           env.typeParamForest.findRootParam(param).map {
             rp =>
+              val prefix = if(!env.isInstTypeMatching) "defined" else "instance"
               env.irreplaceableTypeParams.get(rp).map {
-                dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt =>  Error("couldn't instantiate parameter at defined type " + dt, none, NoPosition) }).failure)
+                dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt => Error("couldn't instantiate parameter at " + prefix + " type " + dt, none, NoPosition) }).failure)
               }.getOrElse {
                 val paramKind = env.kindInferenceEnv.typeParamKind(param)
                 val (kindInferenceEnv, termKind) = inferTypeValueTermKindS(term)(env.kindInferenceEnv)

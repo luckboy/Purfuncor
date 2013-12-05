@@ -920,28 +920,30 @@ object TypeValueTermUnifier
   def allocateTypeValueTermParamsWithKinds[T, U, E](term: TypeValueTerm[T], kinds: Map[Int, Kind])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     State(allocateTypeValueTermParamsWithKindsS[T, U, E](term, kinds)(allocatedParams, unallocatedParamAppIdx))
     
-  def checkDefinedTypeS[T, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) = {
+  def checkDefinedTypeS[T, U, E](definedType: DefinedType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
     val params = definedType.args.flatMap { _.param }.toSet
     val (env2, res) = params.foldLeft((env, BitSet().success[NoType[T]])) {
       case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
       case ((newEnv, Failure(nt)), _)  => (newEnv, nt.failure)
     }
+    val (env3, isInstTypeMatching) = envSt.isInstanceTypeMatchingS(env2)
+    val prefix = if(!isInstTypeMatching) "defined" else "instance"
     (env2, res.map {
-      rootParams => if(rootParams.size === params.size) ().success else NoType.fromError[T](Error("parameters are distinct at defined type " + definedType, none, definedType.pos)).failure
+      rootParams => if(rootParams.size === params.size) ().success else NoType.fromError[T](Error("parameters are distinct at " + prefix + " type " + definedType, none, definedType.pos)).failure
     }.valueOr { _.failure })
   }
   
-  def checkDefinedTypesS[T, E](definedTypes: Seq[DefinedType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], Unit]) =
+  def checkDefinedTypesS[T, U, E](definedTypes: Seq[DefinedType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
     definedTypes.foldLeft((env, ().success[NoType[T]])) {
       case ((newEnv, newRes), definedType) =>
         checkDefinedTypeS(definedType)(newEnv).mapElements(identity, r => (newRes |@| r) { (u, _) => u })
     }
   
-  private def checkDefinedTypes2[T, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
-    State(checkDefinedTypesS[T, E](definedTypes))
+  private def checkDefinedTypes2[T, U, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    State(checkDefinedTypesS[T, U, E](definedTypes))
   
-  def checkDefinedTypes[T, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
-    checkDefinedTypes2[T, E](definedTypes)
+  def checkDefinedTypes[T, U, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    checkDefinedTypes2[T, U, E](definedTypes)
   
   def normalizeTypeAppS[T, U, E](typeApp: TypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     (for {
