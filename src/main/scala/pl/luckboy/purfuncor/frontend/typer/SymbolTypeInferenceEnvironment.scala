@@ -38,7 +38,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
     currentTypeMatching: TypeMatching.Value,
-    currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
+    combInstArgs: Map[GlobalSymbol, Seq[InferenceInstanceArg[GlobalSymbol, GlobalSymbol]]],
     extra: SymbolTypeInferenceEnvironmentExtra[T, U])
 {
   def typeParamKinds = kindInferenceEnv.typeParamKinds
@@ -211,8 +211,12 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, res) = f(withCurrentTypeMatching(typeMatching))
     (env.withCurrentTypeMatching(oldTypeMatching), res)
   }
-    
-  def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(currentTypePair = pair)
+  
+  def withCombInstParams(instArgs: Map[GlobalSymbol, Seq[InferenceInstanceArg[GlobalSymbol, GlobalSymbol]]]) = copy(combInstArgs = instArgs)
+  
+  def currentTypePair = extra.currentTypePair
+  
+  def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(extra = extra.copy(currentTypePair = pair))
   
   def withTypePair[V](pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val oldPair = currentTypePair
@@ -263,6 +267,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
 }
 
 case class SymbolTypeInferenceEnvironmentExtra[T, U](
+    currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean,
     isInstTypeMatching: Boolean)
@@ -292,8 +297,9 @@ object SymbolTypeInferenceEnvironment
     typeLambdaArgParams = Map(),
     typeLambdaArgCount = 0,
     currentTypeMatching = TypeMatching.Types,
-    currentTypePair = none,
+    combInstArgs = Map(),
     extra = SymbolTypeInferenceEnvironmentExtra[T, U](
+        currentTypePair = none,
         errNoType = none,
         isRecursive = false,
         isInstTypeMatching = false))
