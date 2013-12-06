@@ -8,12 +8,14 @@ import TypeValueTermUnifier._
 
 case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 {
-  def getInstTable(loc: T) = instTables.get(loc)
+  def findInstsS[W, E](loc: T, typ: Type[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) =
+    instTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
   
-  def + (pair: (T, InstanceTable[U, V])) = copy(instTables = instTables + pair)
+  def addInstS[W, E](loc: T, typ: Type[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) = {
+    val (env2, res) = instTables.getOrElse(loc, InstanceTable.empty).addInstS(typ, inst)(env)
+    (env2, res.map { _.map { case (it, b) => (InstanceTree(instTables + (loc -> it)), b) } })
+  }
   
-  def ++ (instTables: Map[T, InstanceTable[U, V]]) = copy(instTables = this.instTables ++ instTables)
-
   def countInsts = instTables.values.foldLeft(0) { _ + _.countInsts }
 }
 
