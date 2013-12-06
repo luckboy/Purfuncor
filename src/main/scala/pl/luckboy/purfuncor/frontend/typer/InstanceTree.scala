@@ -6,6 +6,22 @@ import pl.luckboy.purfuncor.frontend._
 import TypeInferrer._
 import TypeValueTermUnifier._
 
+case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
+{
+  def getInstTable(loc: T) = instTables.get(loc)
+  
+  def + (pair: (T, InstanceTable[U, V])) = copy(instTables = instTables + pair)
+  
+  def ++ (instTables: Map[T, InstanceTable[U, V]]) = copy(instTables = this.instTables ++ instTables)
+
+  def countInsts = instTables.values.foldLeft(0) { _ + _.countInsts }
+}
+
+object InstanceTree
+{
+  def empty[T, U, V] = InstanceTree[T, U, V](Map())
+}
+
 case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
 {
   private def matchesInstTypesS[V, E](typ: Type[T], instType: Type[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
@@ -69,6 +85,8 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
         (env3, noType.failure)
     }
   }
+  
+  def countInsts = pairs.size
 }
 
 object InstanceTable
