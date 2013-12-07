@@ -373,7 +373,7 @@ package object typer
     }
       
     override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
-      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, Map()).foldLeft((env, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, Map()).foldLeft((env, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
         case ((newEnv, Success(lis)), (i, li)) =>
           val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
           newRes.map {
@@ -674,7 +674,7 @@ package object typer
           }
         case Var(loc, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
-            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, Seq())), newEnv.varType(loc))
+            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, Seq(), Seq(), Seq())), newEnv.varType(loc))
           }
         case Literal(value) =>
           value match {
@@ -767,9 +767,9 @@ package object typer
       val (env2, res) = instantiateTypeMapS(syms.map { s => (s, env.varType(s)) }.toMap)(env)
       res.map {
         ts =>
-          val (env3, res2) = syms.flatMap { s => env2.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
+          val (env3, res2) = syms.flatMap { s => env2.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
             case ((newEnv, Success(liMaps)), (s, lis)) =>
-              lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+              lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
                 case ((newEnv2, Success(newLis)), (i, li)) =>
                   val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                   newRes.map {

@@ -46,7 +46,7 @@ h x y = x y
           // #Boolean
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       // g
@@ -67,7 +67,7 @@ h x y = x y
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("g")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(1)
           inside(types.get(LocalSymbol("x"))) {
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
@@ -75,7 +75,7 @@ h x y = x y
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("g")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       // h
@@ -111,7 +111,7 @@ h x y = x y
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(2)
           inside(types.get(LocalSymbol("x"))) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
@@ -133,11 +133,11 @@ h x y = x y
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(2)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
     }
@@ -189,7 +189,7 @@ f g x = let
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(2)
           inside(types.get(LocalSymbol("g"))) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
@@ -211,7 +211,7 @@ f g x = let
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(2)
           inside(types.get(LocalSymbol("a"))) {
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
@@ -223,19 +223,19 @@ f g x = let
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
     }
@@ -291,7 +291,7 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(2)
           inside(types.get(LocalSymbol("g"))) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
@@ -313,7 +313,7 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(2)
           inside(types.get(LocalSymbol("y"))) {
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
@@ -335,23 +335,23 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(6)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
 
@@ -726,11 +726,11 @@ m = 2.0
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), polyFuns)) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), instTypes, insts, Seq())) =>
           types should have size (0)
           inside(instTypes) {
             case Seq(InferredType(TypeConjunction(types1), argKinds)) =>
@@ -815,7 +815,7 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), polyFuns)) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("x"))) {
                         case Some(InferredType(TypeDisjunction(types1), argKinds)) =>
@@ -846,7 +846,7 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes, insts, Seq())) =>
                       types should have size(0)
                       inside(instTypes) {
                         case Seq(InferredType(TypeDisjunction(types1), argKinds)) =>
@@ -877,11 +877,11 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
                       types should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes, Seq(), Seq())) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(type1, type2, type3), GlobalSymbol(NonEmptyList("T"))), argKinds)) =>
@@ -917,7 +917,7 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes, Seq(), Seq())) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
@@ -929,7 +929,7 @@ f x = x select {
                       }
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
-                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+                    case Some(InferenceLambdaInfo(TypeTable(types), instTypes, Seq(), Seq())) =>
                       types should have size(1)
                       inside(types.get(LocalSymbol("y"))) {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(type1), GlobalSymbol(NonEmptyList("V"))), Seq())) =>
@@ -966,7 +966,7 @@ f x = x extract {
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(1)
           inside(types.get(LocalSymbol("x"))) {
             case Some(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Float, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()), TypeParamApp(_, Seq(), 0))), argKinds)) =>
@@ -977,7 +977,7 @@ f x = x extract {
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), instTypes)) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), instTypes, Seq(), Seq())) =>
           types should have size(3)
           inside(types.get(LocalSymbol("y1"))) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq())) =>
@@ -1003,11 +1003,11 @@ f x = x extract {
           }
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
-        case Some(InferenceLambdaInfo(TypeTable(types), Seq())) =>
+        case Some(InferenceLambdaInfo(TypeTable(types), Seq(), Seq(), Seq())) =>
           types should have size(0)
       }
     }

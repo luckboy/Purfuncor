@@ -24,7 +24,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     currentLambdaIdx: Int,
     globalVarTypes: Map[GlobalSymbol, Type[GlobalSymbol]],
     localVarTypes: Map[LocalSymbol, NonEmptyList[Type[GlobalSymbol]]],
-    lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]],
+    lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
@@ -38,7 +38,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     typeLambdaArgParams: Map[Int, Int],
     typeLambdaArgCount: Int,
     currentTypeMatching: TypeMatching.Value,
-    combInstArgs: Map[GlobalSymbol, Seq[InferenceInstanceArg[GlobalSymbol, GlobalSymbol]]],
+    currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
     extra: SymbolTypeInferenceEnvironmentExtra[T, U])
 {
   def typeParamKinds = kindInferenceEnv.typeParamKinds
@@ -75,9 +75,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
   
-  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil))
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil, Nil, Nil))
   
-  def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
+  def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
 
   def currentLocalTypeTable = currentLambdaInfo.typeTable
   
@@ -87,7 +87,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withCurrentInstTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instTypes = types))
   
-  def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
+  def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
@@ -211,12 +211,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, res) = f(withCurrentTypeMatching(typeMatching))
     (env.withCurrentTypeMatching(oldTypeMatching), res)
   }
-  
-  def withCombInstParams(instArgs: Map[GlobalSymbol, Seq[InferenceInstanceArg[GlobalSymbol, GlobalSymbol]]]) = copy(combInstArgs = instArgs)
-  
-  def currentTypePair = extra.currentTypePair
-  
-  def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(extra = extra.copy(currentTypePair = pair))
+    
+  def withCurrentTypePair(pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])]) = copy(currentTypePair = pair)
   
   def withTypePair[V](pair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val oldPair = currentTypePair
@@ -267,7 +263,6 @@ case class SymbolTypeInferenceEnvironment[T, U](
 }
 
 case class SymbolTypeInferenceEnvironmentExtra[T, U](
-    currentTypePair: Option[(InferredType[GlobalSymbol], InferredType[GlobalSymbol])],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean,
     isInstTypeMatching: Boolean)
@@ -297,9 +292,8 @@ object SymbolTypeInferenceEnvironment
     typeLambdaArgParams = Map(),
     typeLambdaArgCount = 0,
     currentTypeMatching = TypeMatching.Types,
-    combInstArgs = Map(),
+    currentTypePair = none,
     extra = SymbolTypeInferenceEnvironmentExtra[T, U](
-        currentTypePair = none,
         errNoType = none,
         isRecursive = false,
         isInstTypeMatching = false))
