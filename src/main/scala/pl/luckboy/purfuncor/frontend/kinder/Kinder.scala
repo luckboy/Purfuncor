@@ -110,7 +110,7 @@ object Kinder
         transformTypeTerm(body)(env).flatMap {
           body2 =>
             enval.getLocalKindTableFromEnvironment(env)(lambdaIdx).map {
-              kt => transformKindTable(kt).map { kt2 => Simple(TypeLambda(args, body2, TypeLambdaInfo(lambdaInfo, kt2)), pos) }
+              kt => transformKindTable(kt).map { kt2 => Simple(TypeLambda(args, body2, TypeLambdaInfo(lambdaInfo, lambdaIdx, kt2)), pos) }
             }.getOrElse(FatalError("incorrect type lambda index", none, NoPosition).failureNel)
         }
       case Simple(TypeVar(loc), pos) =>
@@ -148,7 +148,7 @@ object Kinder
             val res2 = transformTypeTerm(body)(env2).flatMap {
               body2 =>
                 enval.getLocalKindTableFromEnvironment(env2)(lambdaIdx).map {
-                  kt => transformKindTable(kt).map { kt2 => TypeCombinator(kind, args, body2, TypeLambdaInfo(lambdaInfo, kt2), file) }
+                  kt => transformKindTable(kt).map { kt2 => TypeCombinator(kind, args, body2, TypeLambdaInfo(lambdaInfo, lambdaIdx, kt2), file) }
                 }.getOrElse(FatalError("incorrect type lambda index", none, NoPosition).failureNel)
             }
             (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }

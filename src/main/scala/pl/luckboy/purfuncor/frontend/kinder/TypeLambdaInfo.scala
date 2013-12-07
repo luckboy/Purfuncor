@@ -2,9 +2,10 @@ package pl.luckboy.purfuncor.frontend.kinder
 import scalaz._
 import scalaz.Scalaz._
 
-case class TypeLambdaInfo[T, U](lambdaInfo: T, kindTable: InferredKindTable[U])
+case class TypeLambdaInfo[T, U](lambdaInfo: T, idx: Int, kindTable: InferredKindTable[U])
 {
   override def toString =
     (if(!lambdaInfo.toString.isEmpty) lambdaInfo + ";" else "") +
+    "idx=" + idx + ";" +
     (if(!kindTable.kinds.isEmpty) "kindTable=" + kindTable.kinds.map { case (l, k) => l + ": " + k }.mkString(",") else "")
 }

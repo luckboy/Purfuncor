@@ -530,7 +530,7 @@ type V = U #Int
               }
           }
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeCombs.get)) {
-            case Some(TypeCombinator(None, args, body, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+            case Some(TypeCombinator(None, args, body, TypeLambdaInfo(lambdaInfo, 0, kindTable), _)) =>
               kindTable should be ===(InferredKindTable.empty)
               inside(body) {
                 case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Int)), _) => ()
@@ -596,7 +596,7 @@ type U t1 = \t2 t3 => ##-> t1 (t3 t2)
           typeCombs.keySet should be ===(typeCombLocs)
           typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeCombs.get)) {
-            case Some(TypeCombinator(None, _, _, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+            case Some(TypeCombinator(None, _, _, TypeLambdaInfo(lambdaInfo, 0, kindTable), _)) =>
               val syms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
               val locs = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
               locs should have size(syms.size)
@@ -613,7 +613,7 @@ type U t1 = \t2 t3 => ##-> t1 (t3 t2)
               }
           }
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeCombs.get)) {
-            case Some(TypeCombinator(None, _, body, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+            case Some(TypeCombinator(None, _, body, TypeLambdaInfo(lambdaInfo, 0, kindTable), _)) =>
               val syms = Set(LocalSymbol("t1"))
               val locs = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
               inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")).flatMap(kindTable.kinds.get)) {
@@ -622,7 +622,7 @@ type U t1 = \t2 t3 => ##-> t1 (t3 t2)
                   ()
               }
               inside(body) {
-                case Simple(TypeLambda(_, _, TypeLambdaInfo(lambdaInfo1, kindTable1)), _) =>
+                case Simple(TypeLambda(_, _, TypeLambdaInfo(lambdaInfo1, 1, kindTable1)), _) =>
                   val syms1 = Set(LocalSymbol("t2"), LocalSymbol("t3"))
                   val locs1 = syms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo1))
                   inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo1)(LocalSymbol("t2")).flatMap(kindTable1.kinds.get)) {
@@ -662,7 +662,7 @@ type T = tuple 2
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
             case Some(Combinator(Some(typ), _, _, _, _)) =>
               inside(typ) {
-                case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, kindTable)), _) =>
+                case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, 0, kindTable)), _) =>
                   inside(typArgs) { case NonEmptyList(TypeArg(Some("t1"), None, _), TypeArg(Some("t2"), None, _)) => () }
                   val typSyms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
                   val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
@@ -747,7 +747,7 @@ f x (y: \t => T) = #iSub x y
               inside(args) {
                 case List(_, Arg(_, Some(typ), _)) =>
                   inside(typ) {
-                    case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, kindTable)), _) =>
+                    case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, 0, kindTable)), _) =>
                       inside(typArgs) { case NonEmptyList(TypeArg(Some("t"), None, _)) => () }
                       val typSyms = Set(LocalSymbol("t"))
                       val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
@@ -796,7 +796,7 @@ f x y = tuple 2 (x: \t u => tuple 2 (u t) T) y
                       inside(arg11) {
                         case Simple(TypedTerm(_, typ), _) =>
                           inside(typ) {
-                            case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, kindTable)), _) =>
+                            case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, 0, kindTable)), _) =>
                               inside(typArgs) { case NonEmptyList(TypeArg(Some("t"), None, _), TypeArg(Some("u"), None, _)) => () }
                               val typSyms = Set(LocalSymbol("t"), LocalSymbol("u"))
                     		  val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
@@ -903,7 +903,7 @@ g (x: \t => tuple 2 t (t #Int)) = x
                   }
               }
               inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeCombs2.get)) {
-                case Some(TypeCombinator(None, Nil, body, TypeLambdaInfo(lambdaInfo, kindTable), _)) =>
+                case Some(TypeCombinator(None, Nil, body, TypeLambdaInfo(lambdaInfo, 0, kindTable), _)) =>
                   kindTable.kinds.keySet should be ('empty)
                   inside(body) {
                     case Simple(TypeVar(loc1), _) =>
@@ -955,7 +955,7 @@ g (x: \t => tuple 2 t (t #Int)) = x
           inside(typeTerm) {
             case App(fun1, args1, _) =>
               inside(fun1) {
-                case Simple(TypeLambda(args2, body2, TypeLambdaInfo(lambdaInfo2, kindTable2)), _) =>
+                case Simple(TypeLambda(args2, body2, TypeLambdaInfo(lambdaInfo2, 0, kindTable2)), _) =>
                   inside(args2) { case NonEmptyList(TypeArg(Some("t"), None, _), TypeArg(Some("u"), None, _)) => () }
                   val syms2 = Set(LocalSymbol("t"), LocalSymbol("u"))
                   val locs2 = syms2.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2))
