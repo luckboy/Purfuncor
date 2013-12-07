@@ -5,8 +5,7 @@ import scalaz.Scalaz._
 case class InferenceLambdaInfo[T, U, V](
     typeTable: TypeTable[T, U],
     instTypes: Seq[Type[U]],
-    insts: Seq[LocalInstance[V]],
-    polyFuns: Seq[AbstractPolyFunction[V]])
+    insts: Seq[LocalInstance[V]])
 
 case class TypeTable[T, U](types: Map[T, Type[U]])
 

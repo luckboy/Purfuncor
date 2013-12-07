@@ -674,7 +674,7 @@ package object typer
           }
         case Var(loc, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
-            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, Seq(), Seq(), Seq())), newEnv.varType(loc))
+            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, Seq(), Seq())), newEnv.varType(loc))
           }
         case Literal(value) =>
           value match {
