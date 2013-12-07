@@ -71,14 +71,14 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
     val (env3, subtypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env2)
     (for { ps1 <- supertypePairListRes; ps2 <- subtypePairListRes } yield (ps1, ps2)) match {
       case Success((Seq(), Seq()))                     =>
-        (env3, some((copy(pairs = pairs :+ (typ, inst)), true)).success)
-      case Success((Seq((oldInst, i)), Seq())) =>
-        (env3, some((copy(pairs = pairs.take(i) ++ Seq((typ, oldInst)) ++ pairs.drop(i + 1)), false)).success)
-      case Success((Seq(), Seq(_)))                    =>
-        (env3, some((this, false)).success)
+        (env3, some((copy(pairs = pairs :+ (typ, inst)), none)).success)
+      case Success((Seq((oldInst, i)), Seq()))         =>
+        (env3, some((copy(pairs = pairs.take(i) ++ Seq((typ, oldInst)) ++ pairs.drop(i + 1)), some(oldInst))).success)
+      case Success((Seq(), Seq((oldInst, _))))         =>
+        (env3, some((this, some(oldInst))).success)
       case Success((Seq((oldInst, i1)), Seq((_, i2)))) =>
         if(i1 === i2)
-          (env3, some((copy(pairs = pairs.take(i1) ++ Seq((typ, oldInst)) ++ pairs.drop(i1 + 1)), false)).success)
+          (env3, some((copy(pairs = pairs.take(i1) ++ Seq((typ, oldInst)) ++ pairs.drop(i1 + 1)), some(oldInst))).success)
         else
           (env3, none.success)
       case Success(_)                                  =>
