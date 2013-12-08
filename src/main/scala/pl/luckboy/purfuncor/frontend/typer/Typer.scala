@@ -111,12 +111,11 @@ object Typer
       case (Failure(errs), _)                     => errs.failure
     }.map { InferredTypeTable(_) }
   
-  def transformTypes[T](types: Seq[Type[T]]) =
-    types.foldLeft(Seq[InferredType[T]]().successNel[AbstractError]) {
-      case (Success(ts), t: InferredType[T]) => (ts :+ t).successNel
-      case (Success(_), _)                   => FatalError("can't instantiate type", none, NoPosition).failureNel
-      case (Failure(errs), _)                => errs.failure
-    }
+  def transformTypeOption[T](optType: Option[Type[T]]) =
+    optType.map {
+      case t: InferredType[T] => some(t).successNel
+      case _                  => FatalError("can't instantiate type", none, NoPosition).failureNel
+    }.getOrElse(none.successNel)
     
   def transformLambdaInfo[T, U, V, W, E](lambdaInfo: lmbdindexer.LambdaInfo[T])(env: E)(implicit enval: TypeInferenceEnvironmental[E, U, V, W]) =
     lambdaInfo match {
@@ -125,8 +124,8 @@ object Typer
           inferenceLambdaInfo =>
             for {
               tt2 <- transformTypeTable(inferenceLambdaInfo.typeTable)
-              ts2 <- transformTypes(inferenceLambdaInfo.instTypes)
-            } yield LambdaInfo(lambdaInfo2, lambdaIdx, tt2, ts2)
+              pft2 <- transformTypeOption(inferenceLambdaInfo.polyFunType)
+            } yield LambdaInfo(lambdaInfo2, lambdaIdx, tt2, pft2)
         }.getOrElse(FatalError("incorrect lambda index", none, NoPosition).failureNel)
     }
   

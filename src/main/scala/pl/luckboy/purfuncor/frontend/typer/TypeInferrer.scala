@@ -241,4 +241,13 @@ object TypeInferrer
       case ((newEnv, Failure(noType)), _)     =>
         (newEnv, noType.failure)
     }
+  
+  def instantiateTypeOptionS[T, U, E](optType: Option[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    optType.map {
+      typ => 
+        typ.instantiatedTypeS(env) match {
+          case (env2, noType: NoType[T]) => (env2, noType.failure)
+          case (env2, type2)             => (env2, some(type2).success)
+        }
+    }.getOrElse((env, none.success))
 }
