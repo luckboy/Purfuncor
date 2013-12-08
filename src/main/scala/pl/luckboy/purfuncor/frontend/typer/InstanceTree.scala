@@ -22,8 +22,6 @@ case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 object InstanceTree
 {
   def empty[T, U, V] = InstanceTree[T, U, V](Map())
-  
-  def fromGlobalInstanceTree[T, U, V](instTree: GlobalInstanceTree[T, U, V]) = InstanceTree(instTree.instTables.mapValues(InstanceTable.fromGlobalInstanceTable))
 }
 
 case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
@@ -96,6 +94,4 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
 object InstanceTable
 {
   def empty[T, U] = InstanceTable[T, U](Seq())
-  
-  def fromGlobalInstanceTable[T, U](instTable: GlobalInstanceTable[T, U]) = InstanceTable(instTable.pairs)
 }
