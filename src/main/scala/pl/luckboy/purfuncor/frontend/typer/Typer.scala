@@ -126,7 +126,7 @@ object Typer
             for {
               tt2 <- transformTypeTable(inferenceLambdaInfo.typeTable)
               ts2 <- transformTypes(inferenceLambdaInfo.instTypes)
-            } yield LambdaInfo(lambdaInfo2, lambdaIdx, tt2, ts2, inferenceLambdaInfo.insts)
+            } yield LambdaInfo(lambdaInfo2, lambdaIdx, tt2, ts2)
         }.getOrElse(FatalError("incorrect lambda index", none, NoPosition).failureNel)
     }
   
@@ -148,7 +148,7 @@ object Typer
   def transformBind[T, U, V, W, X, Y, Z, TT, E](bind: Bind[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]) =
     transformTerm(bind.body)(env).map { Bind(bind.name, _, bind.pos) }
   
-  def transformCase[T, U, V, W, X, Y, Z, TT, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Case[T, LambdaInfo[U, Z, TT, Y], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]] =
+  def transformCase[T, U, V, W, X, Y, Z, TT, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Case[T, LambdaInfo[U, Z, TT], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]] =
     cas match {
       case Case(name, typ, body, lambdaInfo) =>
         for {
@@ -157,7 +157,7 @@ object Typer
         } yield Case(name, typ, body2, lambdaInfo2)
     }
   
-  def transformTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Term[SimpleTerm[T, LambdaInfo[U, Z, TT, Y], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]]] = {
+  def transformTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Term[SimpleTerm[T, LambdaInfo[U, Z, TT], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]]] = {
     term match {
       case App(fun, args, pos) =>
         (transformTerm(fun)(env) |@| transformTermNel(args)(env)) { App(_, _, pos) }
@@ -196,7 +196,7 @@ object Typer
   }
   
   def transformTree[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]], Z])(env: E)(implicit enval: TypeInferenceEnvironmental[E, T, TT, TU]) =
-    tree.combs.foldLeft(Map[T, AbstractCombinator[U, LambdaInfo[V, TT, TU, T], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]]]().successNel[AbstractError]) {
+    tree.combs.foldLeft(Map[T, AbstractCombinator[U, LambdaInfo[V, TT, TU], TypeSimpleTerm[W, TypeLambdaInfo[X, Y]]]]().successNel[AbstractError]) {
       case (res, (loc, Combinator(typ, args, body, lambdaInfo, file))) =>
         val env2 = enval.withCurrentCombinatorLocation(env)(some(loc))
         val res2 = for {

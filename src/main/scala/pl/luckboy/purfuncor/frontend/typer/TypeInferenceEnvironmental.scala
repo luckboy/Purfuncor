@@ -10,9 +10,9 @@ trait TypeInferenceEnvironmental[E, L, M, N]
   
   def globalVarTypeFromEnvironment(env: E)(sym: GlobalSymbol): Type[N]
   
-  def lambdaInfosFromEnvironment(env: E)(sym: Option[GlobalSymbol]): Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]
+  def lambdaInfosFromEnvironment(env: E)(sym: Option[GlobalSymbol]): Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]
   
-  def getLambdaInfoFromEnvironment(env: E)(lambdaIdx: Int): Option[InferenceLambdaInfo[M, N, L]]
+  def getLambdaInfoFromEnvironment(env: E)(lambdaIdx: Int): Option[InferenceLambdaInfo[M, N]]
   
   def globalTypeTableFromEnvironment(env: E): TypeTable[L, N]
   

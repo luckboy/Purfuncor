@@ -24,7 +24,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     currentLambdaIdx: Int,
     globalVarTypes: Map[GlobalSymbol, Type[GlobalSymbol]],
     localVarTypes: Map[LocalSymbol, NonEmptyList[Type[GlobalSymbol]]],
-    lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]],
+    lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
@@ -75,9 +75,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
   
-  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil, Nil))
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), Nil))
   
-  def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
+  def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
 
   def currentLocalTypeTable = currentLambdaInfo.typeTable
   
@@ -87,7 +87,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withCurrentInstTypes(types: Seq[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(instTypes = types))
   
-  def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
+  def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   
   def definedTypeFromTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) = {
     val (typeEnv2, res) = typeEnv.withPartialEvaluation(true)(DefinedType.evaluateDefinedTypeTerm(typeTerm).run)
