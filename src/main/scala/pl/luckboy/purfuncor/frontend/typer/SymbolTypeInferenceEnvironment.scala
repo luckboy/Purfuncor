@@ -75,7 +75,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
   
-  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none))
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none, Map()))
   
   def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
 
@@ -86,6 +86,10 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def currentPolyFunType = currentLambdaInfo.polyFunType
   
   def withCurrentPolyFunType(typ: Option[Type[GlobalSymbol]]) = withCurrentLambdaInfo(currentLambdaInfo.copy(polyFunType = typ))
+  
+  def currentCombTypeParams = currentLambdaInfo.combTypeParams
+  
+  def withCurrentCombTypeParams(params: Map[Int, Int]) = withCurrentLambdaInfo(currentLambdaInfo.copy(combTypeParams = params)) 
   
   def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   

@@ -165,4 +165,7 @@ object TypeValueTermUtils
     
   def normalizeTypeParamsForParams[T](term: TypeValueTerm[T], nextArgParam: Int)(params: Map[Int, Int]) =
     normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(IntMap())(params)._2
+    
+  def normalizeTypeParamsWithTypeParamsForParams[T](term: TypeValueTerm[T], nextArgParam: Int)(params: Map[Int, Int]) =
+    normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(IntMap())(params).swap
 }

@@ -220,16 +220,16 @@ object TypeInferrer
     }.mapElements(identity, _.map { _._1 }.valueOr(identity))
   }
   
-  def instantiateTypeMapS[T, U, V, E](types: Map[T, Type[U]])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, V, U]) =
-    types.foldLeft((env, Map[T, Type[U]]().success[NoType[U]])) {
-      case ((newEnv, Success(newTypes)), (loc, typ)) =>
-        typ.instantiatedTypeS(newEnv) match {
-          case (newEnv2, noType: NoType[U]) => (newEnv2, noType.failure)
-          case (newEnv2, type2)             => (newEnv2, (newTypes + (loc -> type2)).success)
-        }
+  def instantiateTypeMapWithTypeParamsS[T, U, V, E](types: Map[T, Type[U]])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, V, U]) =
+    types.foldLeft((env, Map[T, (Type[U], Map[Int, Int])]().success[NoType[U]])) {
+      case ((newEnv, Success(newPairs)), (loc, typ)) =>
+        typ.instantiatedTypeWithTypeParamsS(newEnv).mapElements(identity, _.map { p => newPairs + (loc -> p) })
       case ((newEnv, Failure(noType)), _)            =>
         (newEnv, noType.failure)
     }
+  
+  def instantiateTypeMapS[T, U, V, E](types: Map[T, Type[U]])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, V, U]) =
+    instantiateTypeMapWithTypeParamsS(types)(env).mapElements(identity, _.map { _.mapValues { _._1 } })
   
   def instantiateTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     types.foldLeft((env, Seq[Type[T]]().success[NoType[T]])) {
@@ -242,12 +242,15 @@ object TypeInferrer
         (newEnv, noType.failure)
     }
   
-  def instantiateTypeOptionS[T, U, E](optType: Option[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def instantiateTypeOptionForParamsS[T, U, E](optType: Option[Type[T]])(params: Map[Int, Int])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     optType.map {
       typ => 
-        typ.instantiatedTypeS(env) match {
+        typ.instantiatedTypeForParamsS(params)(env) match {
           case (env2, noType: NoType[T]) => (env2, noType.failure)
           case (env2, type2)             => (env2, some(type2).success)
         }
     }.getOrElse((env, none.success))
+    
+  def instantiateTypeOptionS[T, U, E](optType: Option[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    instantiateTypeOptionForParamsS(optType)(Map())(env)
 }

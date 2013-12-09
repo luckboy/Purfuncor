@@ -22,6 +22,7 @@ import pl.luckboy.purfuncor.frontend.kinder.symbolTypeSimpleTermKindInferrer
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.common.Inferrer._
+import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.common.RecursiveInitializer._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
@@ -674,7 +675,7 @@ package object typer
           }
         case Var(loc, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
-            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, none)), newEnv.varType(loc))
+            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, none, Map())), newEnv.varType(loc))
           }
         case Literal(value) =>
           value match {
@@ -764,25 +765,43 @@ package object typer
     override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) = (env, env.varType(loc).isUninferredType)
     
     private def instantiateTypesFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
-      val (env2, res) = instantiateTypeMapS(syms.map { s => (s, env.varType(s)) }.toMap)(env)
+      val (env2, res) = instantiateTypeMapWithTypeParamsS(syms.map { s => (s, env.varType(s)) }.toMap)(env)
       res.map {
-        ts =>
-          val (env3, res2) = syms.flatMap { s => env2.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
-            case ((newEnv, Success(liMaps)), (s, lis)) =>
-              lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
-                case ((newEnv2, Success(newLis)), (i, li)) =>
-                  val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
-                  newRes.map {
-                    ts => instantiateTypeOptionS(li.polyFunType)(newEnv3).mapElements(identity, _.map { pft => newLis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
-                  }.valueOr { nt => (newEnv2, nt.failure) }
-                case ((newEnv2, Failure(nt)), _)           =>
-                  (newEnv2, nt.failure)
-              }.mapElements(identity, _.map { lis2 => liMaps + (some(s) -> lis2) })
-            case ((newEnv, Failure(nt)), _)            =>
+        ps =>
+          val (env3, res2) = syms.toList.flatMap { s => env2.lambdaInfos.get(some(s)).toList.flatMap { _.toList.flatMap { _._2.polyFunType.toList } } }.foldLeft((env2, Set[Int]().success[NoType[GlobalSymbol]])) {
+            case ((newEnv, Success(ps2)), InferringType(tvt)) =>
+              val (newEnv2, newRes) = instantiateS(tvt)(newEnv)
+              (newEnv2, newRes.map { tvt2 => ps2 | typeParamsFromTypeValueTerm(tvt2) })
+            case ((newEnv, Success(_)), _)                    =>
+              (newEnv, NoType.fromError[GlobalSymbol](FatalError("uninferring type", none, NoPosition)).failure)
+            case ((newEnv, Failure(nt)), _)                   =>
               (newEnv, nt.failure)
           }
           res2.map {
-            lis => (env3.withGlobalVarTypes(ts).withLambdaInfos(env3.lambdaInfos ++ lis), ().success)
+            ps2 =>
+              val ps3 = ps2.zipWithIndex.toMap
+              val (env4, res3) = syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env3, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
+                case ((newEnv, Success(liMaps)), (s, lis)) =>
+                  lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+                    case ((newEnv2, Success(newLis)), (i, li)) =>
+                      val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
+                      newRes.map {
+                        ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps3)(newEnv3).mapElements(identity, _.map { pft => newLis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
+                      }.valueOr { nt => (newEnv2, nt.failure) }
+                    case ((newEnv2, Failure(nt)), _)           =>
+                      (newEnv2, nt.failure)
+                  }.mapElements(identity, _.map { lis2 => liMaps + (some(s) -> lis2) })
+                case ((newEnv, Failure(nt)), _)            =>
+                  (newEnv, nt.failure)
+              }
+              res3.map {
+                liMaps =>
+                  val liMaps2 = liMaps.map {
+                    case (s, lis) => 
+                      (s, lis ++ lis.get(0).map { li => 0 -> li.copy(combTypeParams = ps3.flatMap { p2 => s.flatMap { ps.get(_).flatMap { _._2.get(p2._1).map { _ -> p2._2 } } } }) })
+                  }
+                  (env4.withGlobalVarTypes(ps.mapValues { _._1 }).withLambdaInfos(env4.lambdaInfos ++ liMaps2), ().success)
+              }.valueOr { nt => (env4, nt.failure) }
           }.valueOr { nt => (env3, nt.failure) }
       }.valueOr { nt => (env2, nt.failure) }
     }
