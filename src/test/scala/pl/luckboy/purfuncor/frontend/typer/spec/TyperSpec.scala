@@ -3415,13 +3415,19 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                           inside(args1) {
                             case NonEmptyList(arg11, arg12) =>
                               inside(arg11) { 
-                                case App(Simple(Var(loc11, LambdaInfo(lambdaInfo11, 1, typeTable11, None, combTypeParams11)), _), args11, _) =>
+                                case App(Simple(Var(loc11, LambdaInfo(lambdaInfo11, 1, typeTable11, polyFunType11, combTypeParams11)), _), args11, _) =>
                                   some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
                                   typeTable11.types should be ('empty)
                                   inside(args11) { 
                                     case NonEmptyList(Simple(Var(loc111, LambdaInfo(lambdaInfo111, 2, typeTable111, None, combTypeParams111)), _)) =>
                                       some(loc111) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
                                       typeTable111.types should be ('empty)
+                                  }
+                                  inside(polyFunType11) {
+                                    case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg111, ret111)), Seq())) =>
+                                      // #Float #-> #Float
+                                      inside(arg111) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
+                                      inside(ret111) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
                                   }
                               }
                               inside(arg12) {
@@ -3597,9 +3603,13 @@ f = construct 0: T
                   inside(args1) {
                     case NonEmptyList(arg11, arg12) =>
                       inside(arg11) {
-                        case Simple(Var(loc11, LambdaInfo(lambdaInfo11, 0, typeTable11, None, combTypeParams11)), _) =>
+                        case Simple(Var(loc11, LambdaInfo(lambdaInfo11, 0, typeTable11, polyFunType11, combTypeParams11)), _) =>
                           some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
                           typeTable11.types should be ('empty)
+                          inside(polyFunType11) {
+                            case Some(InferredType(GlobalTypeApp(loc111, Seq(), GlobalSymbol(NonEmptyList("T"))), Seq())) =>
+                              loc111 should be ===(tLoc)
+                          }
                       }
                       inside(arg12) { case Simple(Literal(BooleanValue(true)), _) => () }
                   }

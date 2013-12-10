@@ -224,6 +224,10 @@ case class SymbolTypeInferenceEnvironment[T, U](
     (env.withCurrentTypePair(oldPair), res)
   }
   
+  def recursiveCombSyms = extra.recursiveCombSyms
+  
+  def withRecursiveCombSyms(syms: Set[GlobalSymbol]) = copy(extra = extra.copy(recursiveCombSyms = syms))
+  
   def errNoType = extra.errNoType
   
   def withErrs(noType: NoType[GlobalSymbol]) = copy(extra = extra.copy(errNoType = errNoType.map { nt => some(nt |+| noType) }.getOrElse(some(noType))))
@@ -267,6 +271,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
 }
 
 case class SymbolTypeInferenceEnvironmentExtra[T, U](
+    recursiveCombSyms: Set[GlobalSymbol],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean,
     isInstTypeMatching: Boolean)
@@ -298,6 +303,7 @@ object SymbolTypeInferenceEnvironment
     currentTypeMatching = TypeMatching.Types,
     currentTypePair = none,
     extra = SymbolTypeInferenceEnvironmentExtra[T, U](
+        recursiveCombSyms = Set(),
         errNoType = none,
         isRecursive = false,
         isInstTypeMatching = false))

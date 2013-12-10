@@ -61,7 +61,7 @@ package object typer
           loc match {
             case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) || env.isPartial =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case _                                                                                           =>
+            case _                                                                                        =>
               (env, env.typeVarValue(loc))
           }
         case TypeLiteral(value)            =>
@@ -493,7 +493,7 @@ package object typer
     override def mismatchedTermErrorS(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (s1, s2) = env.currentTypePair.map {
         case (t1, t2) => (t1.toString, t2.toString)
-      }.getOrElse(("<unknown type>", "<unknown type"))
+      }.getOrElse(("<unknown type>", "<unknown type>"))
       (env, NoType.fromError[GlobalSymbol](Error("couldn't match type " + s1 + " with type " + s2, none, NoPosition)))
     }
     
@@ -675,7 +675,14 @@ package object typer
           }
         case Var(loc, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
-            newEnv => (newEnv.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, none, Map())), newEnv.varType(loc))
+            newEnv =>
+              val (newEnv2, polyFunType) = loc match {
+                case globalSym: GlobalSymbol if !newEnv.recursiveCombSyms.contains(globalSym) => 
+                  newEnv.varType(loc).uninstantiatedTypeS(newEnv).mapElements(identity, some)
+                case _                                                                        => 
+                  (newEnv, none)
+              }
+              (newEnv2.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, polyFunType, Map())), polyFunType.getOrElse(newEnv2.varType(loc)))
           }
         case Literal(value) =>
           value match {
@@ -923,8 +930,8 @@ package object typer
     override def nodesFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) = (env, env.combNodes)
     
     override def withRecursiveS[V](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val (env2, res) = f(env.withRecursive(true).withoutGlobalVarTypes(combLocs))
-      (env2.withRecursive(false).withCombNodes(newNodes), res)
+      val (env2, res) = f(env.withRecursive(true).withoutGlobalVarTypes(combLocs).withRecursiveCombSyms(combLocs))
+      (env2.withRecursive(false).withCombNodes(newNodes).withRecursiveCombSyms(Set()), res)
     }
     
     override def withClearS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]) =
