@@ -767,7 +767,7 @@ package object typer
     private def instantiateTypesFromGlobalVarsS(syms: Set[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
       val (env2, res) = instantiateTypeMapWithTypeParamsS(syms.map { s => (s, env.varType(s)) }.toMap)(env)
       res.map {
-        ps =>
+        tswps =>
           val (env3, res2) = syms.toList.flatMap { s => env2.lambdaInfos.get(some(s)).toList.flatMap { _.toList.flatMap { _._2.polyFunType.toList } } }.foldLeft((env2, Set[Int]().success[NoType[GlobalSymbol]])) {
             case ((newEnv, Success(ps2)), InferringType(tvt)) =>
               val (newEnv2, newRes) = instantiateS(tvt)(newEnv)
@@ -778,15 +778,15 @@ package object typer
               (newEnv, nt.failure)
           }
           res2.map {
-            ps2 =>
-              val ps3 = ps2.zipWithIndex.toMap
+            tmpPs =>
+              val ps1 = tmpPs.zipWithIndex.toMap
               val (env4, res3) = syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env3, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
                 case ((newEnv, Success(liMaps)), (s, lis)) =>
                   lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
                     case ((newEnv2, Success(newLis)), (i, li)) =>
                       val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                       newRes.map {
-                        ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps3)(newEnv3).mapElements(identity, _.map { pft => newLis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
+                        ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps1)(newEnv3).mapElements(identity, _.map { pft => newLis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
                       }.valueOr { nt => (newEnv2, nt.failure) }
                     case ((newEnv2, Failure(nt)), _)           =>
                       (newEnv2, nt.failure)
@@ -797,10 +797,22 @@ package object typer
               res3.map {
                 liMaps =>
                   val liMaps2 = liMaps.map {
-                    case (s, lis) => 
-                      (s, lis ++ lis.get(0).map { li => 0 -> li.copy(combTypeParams = ps3.flatMap { p2 => s.flatMap { ps.get(_).flatMap { _._2.get(p2._1).map { _ -> p2._2 } } } }) })
+                    case (s, lis) =>
+                      (s, lis ++ lis.get(0).map { 
+                        li =>
+                          val ps5 = s.toList.flatMap {
+                            tswps.get(_).toList.flatMap {
+                              case (_, ps2) =>
+                                val ps3 = ps1 ++ ((ps2.keySet &~ ps1.keySet).zipWithIndex.toMap.mapValues(ps1.size +))
+                                val ps4 = ps2 ++ ((ps1.keySet &~ ps2.keySet).zipWithIndex.toMap.mapValues(ps2.size +))
+                                // Type parameters of polynomial functions to type parameters of combinators. 
+                                ps3.toList.flatMap { p => ps4.get(p._1).map(p._2 ->) }
+                            }
+                          }.toMap
+                          0 -> li.copy(combTypeParams = ps5)
+                      })
                   }
-                  (env4.withGlobalVarTypes(ps.mapValues { _._1 }).withLambdaInfos(env4.lambdaInfos ++ liMaps2), ().success)
+                  (env4.withGlobalVarTypes(tswps.mapValues { _._1 }).withLambdaInfos(env4.lambdaInfos ++ liMaps2), ().success)
               }.valueOr { nt => (env4, nt.failure) }
           }.valueOr { nt => (env3, nt.failure) }
       }.valueOr { nt => (env2, nt.failure) }
