@@ -73,10 +73,14 @@ h x y = x y
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
               ()
           }
+          combTypeParams should have size(1)
+          combTypeParams.keySet should be ===(Set(0))
+          combTypeParams.values.toSet should be ===(Set(0))
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("g")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       // h
       inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
@@ -131,14 +135,19 @@ h x y = x y
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
               ()
           }
+          combTypeParams should have size(2)
+          combTypeParams.keySet should be ===(Set(0, 1))
+          combTypeParams.values.toSet should be ===(Set(0, 1))
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(2)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
     }
     
@@ -209,6 +218,9 @@ f g x = let
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
               ()
           }
+          combTypeParams should have size(2)
+          combTypeParams.keySet should be ===(Set(0, 1))
+          combTypeParams.values.toSet should be ===(Set(0, 1))
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
@@ -221,22 +233,27 @@ f g x = let
             case Some(InferredType(TupleType(Seq(TypeParamApp(_, Seq(), 0), BuiltinType(TypeBuiltinFunction.Boolean, Seq()))), Seq(InferredKind(Star(KindType, _))))) =>
               ()
           }
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
     }
     
@@ -311,6 +328,9 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
             case Some(InferredType(TypeParamApp(_, Seq(), 0), Seq(InferredKind(Star(KindType, _))))) =>
               ()
           }
+          combTypeParams should have size(3)
+          combTypeParams.keySet should be ===((0 to 2).toSet)
+          combTypeParams.values.toSet should be ===((0 to 2).toSet)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
@@ -333,10 +353,12 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
                   ()
               }
           }
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
@@ -345,14 +367,17 @@ f g x = (\y h => tuple 2 (g x) (h y)) x
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(6)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
     }
     
@@ -727,6 +752,9 @@ m = 2.0
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(0)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(3)
+          combTypeParams.keySet should be ===((0 to 2).toSet)
+          combTypeParams.values.toSet should be ===((0 to 2).toSet)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -749,6 +777,7 @@ m = 2.0
                  ()
               }
           }
+          combTypeParams should have size(0)
       }
     }
     
@@ -843,6 +872,9 @@ f x = x select {
                               ()
                           }
                       }
+                      combTypeParams should have size(2)
+                      combTypeParams.keySet should be ===(Set(0, 1))
+                      combTypeParams.values.toSet should be ===(Set(0, 1))
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
                     case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -874,10 +906,12 @@ f x = x select {
                               ()
                           }
                       }
+                      combTypeParams should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
                     case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
                       types should have size(0)
+                      combTypeParams should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
                     case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -914,6 +948,7 @@ f x = x select {
                               ()
                           }
                       }
+                      combTypeParams should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(4)) {
                     case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -930,6 +965,7 @@ f x = x select {
                               ()
                           }
                       }
+                      combTypeParams should have size(0)
                   }
                   inside(enval.lambdaInfosFromEnvironment(env2)(Some(GlobalSymbol(NonEmptyList("f")))).get(5)) {
                     case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -948,6 +984,7 @@ f x = x select {
                               ()
                           }
                       }
+                      combTypeParams should have size(0)
                   }
               }
           }
@@ -982,6 +1019,9 @@ f x = x extract {
                   ()
               }
           }
+          combTypeParams should have size(1)
+          combTypeParams.keySet should be ===(Set(0))
+          combTypeParams.values.toSet should be ===(Set(0))
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(1)) {
         case Some(InferenceLambdaInfo(TypeTable(types), polyFunType, combTypeParams)) =>
@@ -1008,14 +1048,17 @@ f x = x extract {
                   ()
               }
           }
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(2)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
       inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("f")))).get(3)) {
         case Some(InferenceLambdaInfo(TypeTable(types), None, combTypeParams)) =>
           types should have size(0)
+          combTypeParams should have size(0)
       }
     }
     
@@ -2950,6 +2993,7 @@ f x = #iAdd x 1
                         case Simple(Var(loc11, LambdaInfo(lambdaInfo11, 1, typeTable11, None, combTypeParams11)), _) =>
                           some(loc11) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
                           typeTable11.types should be ('empty)
+                          combTypeParams11 should be ('empty)
                       }
                       inside(arg12) { case Simple(Literal(IntValue(1)), _) => () }
                   }
@@ -2973,6 +3017,7 @@ f x = #iAdd x 1
                       }
                   }
               }
+              combTypeParams should be ('empty)
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq())) =>
@@ -3030,7 +3075,7 @@ g = #fAdd 1.0f 2.0f
           treeInfo.typeTable.types.keySet should be ===(combLocs)
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
             case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), argKinds)) =>
-              // (t1 #-> t2) #-> t1 #-> t2
+              // \t1 t2 => (t1 #-> t2) #-> t1 #-> t2
               inside(argType1) {
                 case BuiltinType(TypeBuiltinFunction.Fun, Seq(argType11, retType11)) =>
                   inside(argType11) {
@@ -3110,6 +3155,8 @@ g x = \y z => tuple 2 (#zAnd x z) y
                       ()
                   }
               }
+              combTypeParams.keySet should be ===(Set(0, 1))
+              combTypeParams.values.toSet should be ===(Set(0, 1))
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
             case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, 0, typeTable, None, combTypeParams), _)) =>
@@ -3142,7 +3189,10 @@ g x = \y z => tuple 2 (#zAnd x z) y
                       // #Boolean
                       ()
                   }
+                  combTypeParams1 should be ('empty)
               }
+              combTypeParams.keySet should be ===(Set(0))
+              combTypeParams.values.toSet should be ===(Set(0))
           }
       }
     }
@@ -3214,6 +3264,7 @@ g x = x select {
                                   ()
                               }
                           }
+                          combTypeParams1 should be ('empty)
                       }
                   }
               }
@@ -3304,6 +3355,7 @@ g x = x select {
                                       ()
                                   }
                               }
+                              combTypeParams11 should be ('empty)
                           }
                           inside(case12) {
                             case Case(_, _, _, LambdaInfo(lambdaInfo12, 4, typeTable12, polyFunType12, combTypeParams12)) =>
@@ -3341,6 +3393,7 @@ g x = x select {
                                      ()
                                   }
                               }
+                              combTypeParams12 should be ('empty)
                           }
                           inside(case13) {
                             case Case(_, _, _, LambdaInfo(lambdaInfo13, 5, typeTable13, polyFunType13, combTypeParams13)) =>
@@ -3365,8 +3418,10 @@ g x = x select {
                                      ()
                                   }
                               }
+                              combTypeParams13 should be ('empty)
                           }
                       }
+                      combTypeParams1 should be ('empty)
                   }
               }
           }
@@ -3422,6 +3477,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                     case NonEmptyList(Simple(Var(loc111, LambdaInfo(lambdaInfo111, 2, typeTable111, None, combTypeParams111)), _)) =>
                                       some(loc111) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
                                       typeTable111.types should be ('empty)
+                                      combTypeParams111 should be ('empty)
                                   }
                                   inside(polyFunType11) {
                                     case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg111, ret111)), Seq())) =>
@@ -3429,11 +3485,13 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                       inside(arg111) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
                                       inside(ret111) { case BuiltinType(TypeBuiltinFunction.Float, Seq()) => () }
                                   }
+                                  combTypeParams11 should be ('empty)
                               }
                               inside(arg12) {
                                 case Simple(Var(loc12, LambdaInfo(lambdaInfo12, 3, typeTable12, None, combTypeParams12)), _) =>
                                   some(loc12) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("y")))
                                   typeTable12.types should be ('empty)
+                                  combTypeParams12 should be ('empty)
                               }
                           }
                       }
@@ -3450,6 +3508,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                         case Some(InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), Seq())) =>
                           // #Float
                       }
+                      combTypeParams should be ('empty)
                   }
                   inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(treeInfo2.typeTable.types.get)) {
                     case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(argType1, retType1)), Seq())) =>
@@ -3484,6 +3543,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                             loc1111 should be ===(tLoc)
                                           }
                                       }
+                                      combTypeParams11 should be ('empty)
                                   }
                                   inside(typ11) { 
                                     case Simple(TypeVar(typLoc11), _) =>
@@ -3507,6 +3567,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                               loc1211 should be ===(uLoc)
                                           }
                                       }
+                                      combTypeParams12 should be ('empty)
                                   }
                                   inside(typ12) {
                                     case Simple(TypeVar(typLoc12), _) =>
@@ -3515,6 +3576,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                               }
                           }
                       }
+                      combTypeParams should be ('empty)
                   }
                   inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(treeInfo2.typeTable.types.get)) {
                     case Some(InferredType(TupleType(Seq(type1, type2)), Seq())) =>
@@ -3551,11 +3613,13 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                         case Simple(Var(loc1111, LambdaInfo(lambdaInfo1111, 1, typeTable1111, None, combTypeParams1111)), _) =>
                           some(loc1111) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("x")))
                           typeTable1111.types should be ('empty)
+                          combTypeParams1111 should be ('empty)
                       }
                       inside(arg1112) { 
                         case Simple(Var(loc1112, LambdaInfo(lambdaInfo1112, 2, typeTable1112, None, combTypeParams1112)), _) =>
                           some(loc1112) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("y")))
                           typeTable1112.types should be ('empty)
+                          combTypeParams1112 should be ('empty)
                       }
                   }
               }
@@ -3571,6 +3635,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                 case Some(InferredType(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), Seq())) =>
                   // #Boolean
               }
+              combTypeParams11 should be ('empty)
           }
           inside(args1) { case NonEmptyList(Simple(Literal(BooleanValue(true)), _)) => () }
           inside(typ) {
@@ -3610,6 +3675,7 @@ f = construct 0: T
                             case Some(InferredType(GlobalTypeApp(loc111, Seq(), GlobalSymbol(NonEmptyList("T"))), Seq())) =>
                               loc111 should be ===(tLoc)
                           }
+                          combTypeParams11 should be ('empty)
                       }
                       inside(arg12) { case Simple(Literal(BooleanValue(true)), _) => () }
                   }
