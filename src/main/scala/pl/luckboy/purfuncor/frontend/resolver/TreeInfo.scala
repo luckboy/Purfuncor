@@ -12,7 +12,7 @@ case class TreeInfo[+T, +U](
 {
   override def toString =
     "//// typeTree\n" +
-    typeTree.toString + "\n\n" +
+    typeTree.toString + "\n" +
     "//// insts\n" +
     insts.flatMap { case (s, is) => is.map { (s, _) } }.groupBy { case (_, i) => i.file }.map {
       case (file, insts2) =>
@@ -24,5 +24,5 @@ case class TreeInfo[+T, +U](
       case (file, selectConstructInsts2) =>
         "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
         selectConstructInsts2.map { _ + "\n" }.mkString("\n")
-    }.mkString("\n") + "\n"
+    }.mkString("\n")
 }

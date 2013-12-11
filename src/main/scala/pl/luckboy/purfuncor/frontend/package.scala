@@ -76,6 +76,7 @@ package object frontend
     override def stringFrom(x: Tree[T, AbstractCombinator[U, V, W], X]) =
       x match {
         case Tree(combs, treeInfo) =>
+          "//// combs\n" + 
           combs.groupBy { case (_, comb) => comb.file }.map {
             case (file, combs2) =>
               "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
@@ -102,6 +103,7 @@ package object frontend
     override def stringFrom(x: Tree[T, AbstractTypeCombinator[U, V], W]) =
       x match {
         case Tree(combs, treeInfo) =>
+          "//// combs\n" +
           combs.groupBy { case (_, comb) => comb.file }.map {
             case (file, combs2) =>
               "// " + file.map { _.getPath() }.getOrElse("<no file>") + "\n\n" +
