@@ -1,4 +1,4 @@
-package pl.luckboy.purfuncor.frontend.typer
+package pl.luckboy.purfuncor.frontend.instant
 import scalaz._
 import scalaz.Scalaz._
 

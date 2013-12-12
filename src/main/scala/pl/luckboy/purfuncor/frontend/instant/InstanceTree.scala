@@ -1,10 +1,17 @@
-package pl.luckboy.purfuncor.frontend.typer
+package pl.luckboy.purfuncor.frontend.instant
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
-import TypeInferrer._
-import TypeValueTermUnifier._
+import pl.luckboy.purfuncor.frontend.typer.DefinedType
+import pl.luckboy.purfuncor.frontend.typer.Type
+import pl.luckboy.purfuncor.frontend.typer.NoType
+import pl.luckboy.purfuncor.frontend.typer.InferringType
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
+import pl.luckboy.purfuncor.frontend.typer.TypeInferenceEnvironmentState
+import pl.luckboy.purfuncor.frontend.typer.TypeMatching
+import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 
 case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 {

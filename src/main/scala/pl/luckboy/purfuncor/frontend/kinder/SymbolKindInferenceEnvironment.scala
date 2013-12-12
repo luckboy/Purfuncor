@@ -11,6 +11,7 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import KindTermUnifier._
+import pl.luckboy.purfuncor.frontend.TypeCombinatorNode
 
 case class SymbolKindInferenceEnvironment[T](
     currentTypeCombSym: Option[GlobalSymbol],
@@ -20,7 +21,7 @@ case class SymbolKindInferenceEnvironment[T](
     typeParamKinds: Map[Int, Kind],
     localKindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]],
     kindParamForest: ParamForest[KindTerm[StarKindTerm[Int]]],
-    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]],
+    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]],
     definedKindTerms: List[KindTerm[StarKindTerm[Int]]],
     irreplaceableKindParams: Map[Int, NonEmptyList[KindTerm[StarKindTerm[Int]]]],
     currentKindTermPair: Option[(KindTerm[StarKindTerm[Int]], KindTerm[StarKindTerm[Int]])],
@@ -87,9 +88,9 @@ case class SymbolKindInferenceEnvironment[T](
     
   def withKindParamForest(paramForest: ParamForest[KindTerm[StarKindTerm[Int]]]) = copy(kindParamForest = paramForest)
   
-  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
+  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]]) = copy(typeCombNodes = typeCombNodes)
   
-  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
+  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]) = copy(typeCombNodes = typeCombNodes + (sym -> node))
   
   def withoutTypeCombs(syms: Set[GlobalSymbol]) = copy(typeCombNodes = typeCombNodes -- syms)
   

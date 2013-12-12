@@ -27,7 +27,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]],
     typeParamForest: ParamForest[TypeValueTerm[GlobalSymbol]],
     typeRetKind: Kind,
-    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
+    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     definedTypes: List[DefinedType[GlobalSymbol]],
     irreplaceableTypeParams: Map[Int, NonEmptyList[DefinedType[GlobalSymbol]]],
     matchingGlobalTypeSymCounts: Map[GlobalSymbol, Int],
@@ -144,9 +144,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withTypeRetKind(kind: Kind) = copy(typeRetKind = kind)
   
-  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]]) = copy(combNodes = nodes)
+  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]]) = copy(combNodes = nodes)
   
-  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, T, TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
+  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
   
   def withoutCombs(syms: Set[GlobalSymbol]) = copy(combNodes = combNodes -- syms)
   

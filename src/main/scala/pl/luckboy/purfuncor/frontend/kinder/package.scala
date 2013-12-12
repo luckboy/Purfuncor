@@ -157,17 +157,17 @@ package object kinder
       (res._1, res._2.withPos(pos))
   }
   
-  implicit def symbolTypeCombinatorKindRecursiveInitializer[T](implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment[T], Int]): RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolKindInferenceEnvironment[T]] = new RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolKindInferenceEnvironment[T]] {
-    override def combinatorFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.comb
+  implicit def symbolTypeCombinatorKindRecursiveInitializer[T](implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], SymbolKindInferenceEnvironment[T], Int]): RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol], SymbolKindInferenceEnvironment[T]] = new RecursiveInitializer[NoKind, GlobalSymbol, AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol], SymbolKindInferenceEnvironment[T]] {
+    override def combinatorFromNode(node: TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]) = node.comb
     
-    override def recursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.recursiveCombSyms
+    override def recursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]) = node.recursiveCombSyms
     
-    override def markedRecursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.markedRecCombSyms
+    override def markedRecursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]) = node.markedRecCombSyms
     
     override def createNode(comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]], recursiveCombLocs: Set[GlobalSymbol], markedRecCombLocs: Set[GlobalSymbol]) =
       TypeCombinatorNode(comb, recursiveCombLocs, markedRecCombLocs)
     
-    override def addNodeS(loc: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) =
+    override def addNodeS(loc: GlobalSymbol, node: TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol])(env: SymbolKindInferenceEnvironment[T]) =
       (env.withTypeComb(loc, node), ())
       
     override def isRecursiveFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.isRecursive)
@@ -289,7 +289,7 @@ package object kinder
           } yield res3).run(env)
       }
     
-    override def checkInitializationS(res: Validation[NoKind, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(env: SymbolKindInferenceEnvironment[T]) = {
+    override def checkInitializationS(res: Validation[NoKind, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]])(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res2) = checkDefinedKindTermsS(env.definedKindTerms)(env)
       (res |@| res2) {
         (_, _) => instantiateKindsFromGlobalVarsS(oldNodes.keySet)(env2)
@@ -298,7 +298,7 @@ package object kinder
     
     override def nodesFromEnvironmentS(env: SymbolKindInferenceEnvironment[T]) = (env, env.typeCombNodes)
     
-    override def withRecursiveS[U](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]) = {
+    override def withRecursiveS[U](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], U))(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = f(env.withRecursive(true).withoutGlobalTypeVarKinds(combLocs))
       (env2.withRecursive(false).withTypeCombNodes(newNodes), res)
     }
