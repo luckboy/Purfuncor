@@ -6,6 +6,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
+import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.TypeInferenceEnvironmentState
@@ -15,10 +16,10 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 
 case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 {
-  def findInstsS[W, E](loc: T, typ: Type[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) =
+  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) =
     instTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
   
-  def addInstS[W, E](loc: T, typ: Type[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) = {
+  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, W, U]) = {
     val (env2, res) = instTables.getOrElse(loc, InstanceTable.empty).addInstS(typ, inst)(env)
     (env2, res.map { _.map { case (it, b) => (InstanceTree(instTables + (loc -> it)), b) } })
   }
@@ -31,37 +32,48 @@ object InstanceTree
   def empty[T, U, V] = InstanceTree[T, U, V](Map())
 }
 
-case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
+case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
 {
-  private def matchesInstTypesS[V, E](typ: Type[T], instType: Type[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
+  private def matchesInstTypesS[V, E](typ: InstanceType[T], instType: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
     envSt.withInstanceTypeClearingS {
       newEnv =>
-        val (newEnv2, newRes) = typ.uninstantiatedTypeValueTermS(newEnv)
-        newRes.map {
-          typeValueTerm =>
-            val inferringType = InferringType(typeValueTerm)
-            val (newEnv3, _) = envSt.addDefinedTypeS(DefinedType.fromInferringType(inferringType))(newEnv2)
-            val (newEnv4, _) = instType match {
-              case instInferringType: InferringType[T] =>
-                envSt.addDefinedTypeS(DefinedType.fromInferringType(instInferringType))(newEnv3)
-              case _                                   =>
-                (newEnv3, ())
-            }
-            val (newEnv5, unifiedType) = unifyTypesS(inferringType, instType)(newEnv4)
-            unifiedType match {
-              case noType: NoType[T] =>
-                (newEnv5, if(noType.errs.forall { _.isInstanceOf[Error] }) false.success else noType.failure)
-              case _                 =>
-                val (newEnv6, definedTypes) = envSt.definedTypesFromEnvironmentS(newEnv5)
-                val (newEnv7, newRes2) = checkDefinedTypesS(definedTypes)(newEnv6)
-                (newEnv7, newRes.map { _ => true.success }.valueOr {
+        val (newEnv5, newRes3) = (typ, instType) match {
+          case (_: LocalInstanceType[T], _: LocalInstanceType[T]) =>
+            val (newEnv2, newRes) = instType.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv)
+            val (newEnv3, newRes2) = instType.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv2)
+            (for(p <- newRes; ip <- newRes2) yield {
+              val ((tvt, ps), (itvt, ips)) = (p, ip)
+              ps.foldLeft((newEnv3, ().success[NoType[T]])) {
+                case ((newEnv4, Success(_)), (param, param2)) => 
+                  ips.get(param).map {
+                    unifier.unionParamsS(param2, _)(newEnv4).mapElements(identity, _.map { _ => () })
+                  }.getOrElse((newEnv4, ().success))
+                case ((newEnv4, Failure(noType)), _)          =>
+                  (newEnv4, noType.failure)
+              }.mapElements(identity, _.map { _ => (InferringType(tvt), InferringType(itvt)) })
+            }).valueOr { nt => (newEnv3, nt.failure) }
+          case (_, _)                                             =>
+            val (newEnv2, newRes) = typ.typ.uninstantiatedTypeValueTermS(newEnv)
+            val (newEnv3, newRes2) = instType.typ.uninstantiatedTypeValueTermS(newEnv2)
+            (newEnv3, for(tvt <- newRes; itvt <- newRes2) yield (InferringType(tvt), InferringType(itvt)))
+        }
+        newRes3.map {
+          case (inferringType, instInferringType) =>
+            val (newEnv6, _) = envSt.addDefinedTypeS(DefinedType.fromInferringType(inferringType))(newEnv5)
+            unifyTypesS(inferringType, instInferringType)(newEnv6) match {
+              case (newEnv7, noType: NoType[T]) =>
+                (newEnv7, noType.failure)
+              case (newEnv7, _)                 =>
+                val (newEnv7, definedTypes) = envSt.definedTypesFromEnvironmentS(newEnv6)
+                val (newEnv8, newRes4) = checkDefinedTypesS(definedTypes)(newEnv7)
+                (newEnv8, newRes4.map { _ => true.success }.valueOr {
                   nt => if(nt.errs.forall { _.isInstanceOf[Error] }) false.success else nt.failure
                 })
             }
-        }.valueOr { nt => (newEnv2, nt.failure) }
+        }.valueOr { nt => (newEnv5, nt.failure)}
     } (env)
   
-  private def findInstsWithIndexesS[V, E](typ: Type[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
+  private def findInstsWithIndexesS[V, E](typ: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
     pairs.zipWithIndex.foldLeft((env, Seq[(U, Int)]().success[NoType[T]])) {
       case ((newEnv, Success(newPairs)), ((instType, inst), i)) =>
         val (newEnv2, newRes) = matchesInstTypesS(typ, instType, typeMatching)(newEnv)
@@ -70,10 +82,10 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
         (newEnv, noType.failure)
     }
   
-  def findInstsS[V, E](typ: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
+  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
     findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env).mapElements(identity, _.map { _.map { _._1 } })
   
-  def addInstS[V, E](typ: Type[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) = {
+  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) = {
     val (env2, supertypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.TypeWithSupertype)(env)
     val (env3, subtypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env2)
     (for { ps1 <- supertypePairListRes; ps2 <- subtypePairListRes } yield (ps1, ps2)) match {
@@ -95,6 +107,8 @@ case class InstanceTable[T, U](pairs: Seq[(Type[T], U)])
     }
   }
   
+  def withoutFirstInsts(n: Int) = copy(pairs.drop(n))
+  
   def countInsts = pairs.size
 }
 
@@ -102,3 +116,11 @@ object InstanceTable
 {
   def empty[T, U] = InstanceTable[T, U](Seq())
 }
+
+sealed trait InstanceType[T]
+{
+  def typ: InferredType[T]
+}
+
+case class GlobalInstanceType[T](typ: InferredType[T]) extends InstanceType[T]
+case class LocalInstanceType[T](typ: InferredType[T]) extends InstanceType[T]

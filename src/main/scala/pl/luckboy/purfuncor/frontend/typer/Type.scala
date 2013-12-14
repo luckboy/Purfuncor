@@ -69,18 +69,21 @@ sealed trait Type[T]
   def instantiatedTypeForParamsS[U, E](params: Map[Int, Int])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Type[T]) =
     instantiatedTypeValueTermWithKindsAndTypeParamsForParamsS(params)(env).mapElements(identity, _.map { case (tvt, ks, _) => InferredType(tvt, ks) }.valueOr(identity))
     
-  def uninstantiatedTypeValueTermS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def uninstantiatedTypeValueTermWithTypeParamsS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     this match {
       case noType: NoType[T]                     =>
         (env, noType.failure)
       case InferredType(typeValueTerm, argKinds) =>
         val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, argKinds.zipWithIndex.map { _.swap }.toMap)(Map(), 0)(env)
-        (env2, res.map { _._4 })
+        (env2, res.map { f => (f._4, f._1) })
       case InferringType(typeValueTerm)          =>
-        (env, typeValueTerm.success)
+        (env, (typeValueTerm, Map[Int, Int]()).success)
       case UninferredType()                      =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }
+
+  def uninstantiatedTypeValueTermS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    uninstantiatedTypeValueTermWithTypeParamsS(env).mapElements(identity, _.map { _._1 })
   
   def uninstantiatedTypeS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     uninstantiatedTypeValueTermS(env).mapElements(identity, _.map { InferringType(_) }.valueOr(identity))
