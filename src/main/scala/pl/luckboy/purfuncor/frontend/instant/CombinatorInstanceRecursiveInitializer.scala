@@ -6,29 +6,29 @@ import pl.luckboy.purfuncor.frontend._
 
 object CombinatorInstanceRecursiveInitializer
 {
-  def preinstantiationLambdasInfoFromTerm[T, U, V, W, X, Y](term: Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], X]])(implicit locational: Locational[T, Y, V]): Map[Int, PreinstantiationLambdaInfo[Y, W]] =
+  def preinstantiationLambdaInfosFromTerm[T, U, V, W, X, Y](term: Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], X]])(implicit locational: Locational[T, Y, V]): Map[Int, PreinstantiationLambdaInfo[Y, W]] =
     term match {
-      case App(fun, args, _)                             =>
-        args.foldLeft(preinstantiationLambdasInfoFromTerm(fun)) { _ ++ preinstantiationLambdasInfoFromTerm(_) }
-      case Simple(Let(binds, body, lambdaInfo), _)       =>
-        binds.foldLeft(Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](lambdaInfo))) {
-          (lis, b) => lis ++ preinstantiationLambdasInfoFromTerm(b.body)
-        } ++ preinstantiationLambdasInfoFromTerm(body)
-      case Simple(Lambda(_, body, lambdaInfo), _)        =>
-        preinstantiationLambdasInfoFromTerm(body) + (lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo))
-      case Simple(Var(loc, lambdaInfo), _)               =>
-        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(polyFun = locational.getGlobalLocationFromLocation(loc).map { PolyFunction(_) }))
-      case Simple(Literal(_), _)                         =>
+      case App(fun, args, _)                               =>
+        args.foldLeft(preinstantiationLambdaInfosFromTerm(fun)) { _ ++ preinstantiationLambdaInfosFromTerm(_) }
+      case Simple(Let(binds, body, lambdaInfo), pos)       =>
+        binds.foldLeft(Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](lambdaInfo).copy(pos = pos))) {
+          (lis, b) => lis ++ preinstantiationLambdaInfosFromTerm(b.body)
+        } ++ preinstantiationLambdaInfosFromTerm(body)
+      case Simple(Lambda(_, body, lambdaInfo), pos)        =>
+        preinstantiationLambdaInfosFromTerm(body) + (lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(pos = pos))
+      case Simple(Var(loc, lambdaInfo), pos)               =>
+        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(polyFun = locational.getGlobalLocationFromLocation(loc).map { l => PolyFunction[Y](l) }, pos = pos))
+      case Simple(Literal(_), _)                           =>
         Map()
-      case Simple(TypedTerm(term, _), _)                 =>
-        preinstantiationLambdasInfoFromTerm(term)
-      case Simple(Construct(n, lambdaInfo), _)           =>
-        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(polyFun = some(ConstructFunction)))
-      case Simple(Select(term, cases, lambdaInfo), _)    =>
-        cases.foldLeft(Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy[Y, W](polyFun = some(ConstructFunction))) ++ preinstantiationLambdasInfoFromTerm(term)) {
-          (lis, c) => lis ++ preinstantiationLambdasInfoFromTerm(c.body)
+      case Simple(TypedTerm(term, _), _)                   =>
+        preinstantiationLambdaInfosFromTerm(term)
+      case Simple(Construct(n, lambdaInfo), pos)           =>
+        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(polyFun = some(ConstructFunction), pos = pos))
+      case Simple(Select(term, cases, lambdaInfo), pos)    =>
+        cases.foldLeft(Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy[Y, W](polyFun = some(ConstructFunction), pos = pos)) ++ preinstantiationLambdaInfosFromTerm(term)) {
+          (lis, c) => lis ++ preinstantiationLambdaInfosFromTerm(c.body)
         }
-      case Simple(Extract(term, _, body, lambdaInfo), _) =>
-        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](lambdaInfo)) ++ preinstantiationLambdasInfoFromTerm(term) ++ preinstantiationLambdasInfoFromTerm(body)
+      case Simple(Extract(term, _, body, lambdaInfo), pos) =>
+        Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](lambdaInfo).copy(pos = pos)) ++ preinstantiationLambdaInfosFromTerm(term) ++ preinstantiationLambdaInfosFromTerm(body)
     }
 }
