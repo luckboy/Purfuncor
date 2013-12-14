@@ -15,4 +15,15 @@ case class SymbolInstantiationEnvironment[T, U](
     typeInferenceEnv: SymbolTypeInferenceEnvironment[T, U],
     globalInstTree: InstanceTree[GlobalSymbol, AbstractPolyFunction[GlobalSymbol], GlobalInstance[GlobalSymbol]],
     lambdaInfos: Map[GlobalSymbol, Map[Int, InstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]],
-    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])
+    combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
+    errs: List[AbstractError],
+    isRecursive: Boolean) {
+  
+  def withCombNodes(nodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]]) = copy(combNodes = nodes)
+  
+  def withComb(sym: GlobalSymbol, node: CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]) = copy(combNodes = combNodes + (sym -> node))
+  
+  def withoutCombs(syms: Set[GlobalSymbol]) = copy(combNodes = combNodes -- syms)
+  
+  def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
+}
