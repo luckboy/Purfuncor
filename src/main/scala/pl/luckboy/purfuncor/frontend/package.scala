@@ -150,4 +150,18 @@ package object frontend
   implicit def resolverTreeInfoExtractorForKinderTypeTreeInfo[T, U]: TreeInfoExtractor[resolver.TreeInfo[T, kinder.TypeTreeInfo[U, resolver.GlobalSymbol]], Tree[resolver.GlobalSymbol, AbstractTypeCombinator[resolver.Symbol, T], kinder.TypeTreeInfo[U, resolver.GlobalSymbol]]] = new TreeInfoExtractor[resolver.TreeInfo[T, kinder.TypeTreeInfo[U, resolver.GlobalSymbol]], Tree[resolver.GlobalSymbol, AbstractTypeCombinator[resolver.Symbol, T], kinder.TypeTreeInfo[U, resolver.GlobalSymbol]]] {
     override def typeTreeFromTreeInfo(treeInfo: resolver.TreeInfo[T, kinder.TypeTreeInfo[U, resolver.GlobalSymbol]]) = treeInfo.typeTree
   }
+  
+  implicit val resolverLocational: Locational[resolver.Symbol, resolver.GlobalSymbol, resolver.LocalSymbol] = new Locational[resolver.Symbol, resolver.GlobalSymbol, resolver.LocalSymbol] {
+    override def getGlobalLocationFromLocation(loc: resolver.Symbol) =
+      loc match {
+        case globalLoc: resolver.GlobalSymbol => some(globalLoc)
+        case _                                => none
+      }
+  
+    override def getLocalLocationFromLocation(loc: resolver.Symbol) =
+      loc match {
+        case localLoc: resolver.LocalSymbol => some(localLoc)
+        case _                              => none
+      }
+  } 
 }
