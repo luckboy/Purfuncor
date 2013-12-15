@@ -4,7 +4,7 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
-object CombinatorInstanceRecursiveInitializer
+object TermUtils
 {
   def preinstantiationLambdaInfosFromTerm[T, U, V, W, X, Y](term: Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], X]])(implicit locational: Locational[T, Y, V]): Map[Int, PreinstantiationLambdaInfo[Y, W]] =
     term match {
