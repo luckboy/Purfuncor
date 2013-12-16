@@ -88,13 +88,7 @@ sealed trait Type[T]
   def uninstantiatedTypeS[U, E](env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     uninstantiatedTypeValueTermS(env).mapElements(identity, _.map { InferringType(_) }.valueOr(identity))
   
-  def withPos(pos: Position) =
-    this match {
-      case noType: NoType[T] =>
-        noType.copy[T](prevErrs = noType.prevErrs ++ noType.currentErrs.map { _.withPos(pos) }, currentErrs = Nil)
-      case _                 =>
-        this
-    }
+  def withPos(pos: Position) = this
   
   override def toString =
     this match {
@@ -128,6 +122,8 @@ case class NoType[T](prevErrs: List[AbstractError], currentErrs: List[AbstractEr
   def toNoKind = NoKind(prevErrs, currentErrs)
   
   def forFile(file: Option[java.io.File]) = copy[T](prevErrs = prevErrs.map { _.withFile(file) }, currentErrs = currentErrs.map { _.withFile(file) })
+
+  override def withPos(pos: Position) = copy[T](prevErrs = prevErrs ++ currentErrs.map { _.withPos(pos) }, currentErrs = Nil)
 }
 
 object NoType

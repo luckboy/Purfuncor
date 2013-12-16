@@ -13,12 +13,14 @@ import pl.luckboy.purfuncor.common.RecursiveInitializer._
 
 case class SymbolInstantiationEnvironment[T, U](
     typeInferenceEnv: SymbolTypeInferenceEnvironment[T, U],
-    globalInstTree: InstanceTree[GlobalSymbol, AbstractPolyFunction[GlobalSymbol], GlobalInstance[GlobalSymbol]],
+    globalInstTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]],
     lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]],
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     recursiveCombSyms: Set[GlobalSymbol],
     errs: List[AbstractError],
-    isRecursive: Boolean) {
+    isRecursive: Boolean)
+{
+  def withTypeInferenceEnv(env: SymbolTypeInferenceEnvironment[T, U]) = copy(typeInferenceEnv = env)
   
   def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   

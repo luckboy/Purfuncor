@@ -55,6 +55,9 @@ object TypeInferrer
         (env, noType)
     }
   
+  def unifyTypes[T, U, E](type1: Type[T], type2: Type[T])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    State(unifyTypesS[T, U, E](type1, type2))
+  
   def normalizeTypeS[T, U, E](typ: Type[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     typ match {
       case InferredType(typeApp: TypeApp[T], argKinds) =>
