@@ -10,7 +10,8 @@ case class PreinstantiationLambdaInfo[+T, U](
     polyFun: Option[AbstractPolyFunction[T]],
     polyFunType: Option[InferredType[U]],
     combTypeParams: Map[Int, Int],
-    pos: Position)
+    pos: Position,
+    file: Option[java.io.File])
    
 object PreinstantiationLambdaInfo
 {
@@ -18,5 +19,6 @@ object PreinstantiationLambdaInfo
       polyFun = none,
       polyFunType = lambdaInfo.polyFunType,
       combTypeParams = lambdaInfo.combTypeParams,
-      pos = NoPosition)
+      pos = NoPosition,
+      file = none)
 }

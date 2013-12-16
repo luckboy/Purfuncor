@@ -10,11 +10,13 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
+import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.RecursiveInitializer._
 import pl.luckboy.purfuncor.common.Result._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
+import pl.luckboy.purfuncor.frontend.typer.TypeResult._
 import pl.luckboy.purfuncor.frontend.instant.PolyFunInstantiator._
 import pl.luckboy.purfuncor.frontend.instant.TermUtils._
 
@@ -34,7 +36,7 @@ package object instant
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] {
     override def instantiatePolyFunctionS(lambdaInfo: PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol], instArgs: Seq[InstanceArg[GlobalSymbol, GlobalSymbol]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, LocalInstance[GlobalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) = {
       val (typeInferenceEnv, res) = PolyFunInstantiator.instantiatePolyFunctionS(lambdaInfo, instArgs, env.globalInstTree)(localInstTree)(env.typeInferenceEnv)
-      (env.withTypeInferenceEnv(typeInferenceEnv), res.swap.map { _.errs.toNel.getOrElse(NonEmptyList(FatalError("no error", none, NoPosition))) }.swap)
+      (env.withTypeInferenceEnv(typeInferenceEnv), resultFromTypeResult(res))
     }
     
     override def getLambdaInfosFromEnvironmentS(loc: Option[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
@@ -61,11 +63,44 @@ package object instant
     
     override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, !env.lambdaInfos.contains(some(loc)))
     
-    override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], ValidationNel[AbstractError, Unit]) =
-      throw new UnsupportedOperationException
+    override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) =
+      if(!env.isRecursive) {
+        val (env3, res) = comb match {
+          case Combinator(_, _, body, _, file) =>
+            val (env2, res) = instantiatePolyFunctionsS(Map(some(loc) -> preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) }))(some(InstanceTree.empty))(env)
+            res.map {
+              _.map { setInstanceArgFromInstanceTreeS(Set(some(loc)), _)(env2) }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
+            }.valueOr { es => (env2, es.failure) }
+          case PolyCombinator(_, _)         =>
+            env.typeInferenceEnv.varType(loc) match {
+              case typ: InferredType[GlobalSymbol] =>
+                val instArgs = Seq(InstanceArg(PolyFunction(loc), typ))
+                (env.withLambdaInfos(env.lambdaInfos + (some(loc) -> Map(0 -> InstantiationLambdaInfo(Seq(), instArgs)))), ().successNel)
+              case noType: NoType[GlobalSymbol]    =>
+                (env, resultFromTypeResult(noType.failure))
+              case _                               =>
+                (env, FatalError("uninferred type", none, NoPosition).failureNel)
+            }
+        }
+        (res.map { _ => env3 }.getOrElse(env), res)
+      } else
+        (env, ().successNel)
     
-    override def checkInitializationS(res: ValidationNel[AbstractError, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], ValidationNel[AbstractError, Unit]) =
-      throw new UnsupportedOperationException
+    override def checkInitializationS(res: ValidationNel[AbstractError, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) = {
+      val lambdaInfos = oldNodes.map {
+        case (loc, oldNode) =>
+          oldNode.comb match {
+            case Combinator(_, _, body, _, file) => (some(loc), preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) })
+            case PolyCombinator(_, _)            => (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
+          }
+      }
+      val (env2, res2) = instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(env)
+      val (env3, res3) = res2.map {
+        _.map { setInstanceArgFromInstanceTreeS(combLocs.map(some), _)(env2) }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
+      }.valueOr { es => (env2, es.failure) }
+      val (env4, res4) = (res |@| res3) { (_, _) => (env3, ().successNel) }.valueOr { es => (env3, es.failure) }
+      (res4.map { _ => env4 }.getOrElse(env), res4)
+    }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
     
