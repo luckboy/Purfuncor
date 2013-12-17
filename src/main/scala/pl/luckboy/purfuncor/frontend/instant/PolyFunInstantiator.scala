@@ -18,12 +18,36 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 trait PolyFunInstantiator[L, M, E] {
   def instantiatePolyFunctionS(lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E): (E, ValidationNel[AbstractError, (InstantiationLambdaInfo[L, M], Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])])
-
+  
   def getLambdaInfosFromEnvironmentS(loc: Option[L])(env: E): (E, Option[Map[Int, InstantiationLambdaInfo[L, M]]])
+  
+  def addLambdaInfosS(loc: Option[L], lambdaInfos: Map[Int, InstantiationLambdaInfo[L, M]])(env: E): (E, Unit)
 }
 
 object PolyFunInstantiator {
   def instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
+    val (env2, res) = instantiateOnlyPolyFunctionsS(lambdaInfoMaps)(localInstTree)(env)
+    res.map {
+      case (lambdaInfoMaps2, localInstTree) =>
+        localInstTree.map {
+          lambdaInfosWithInstanceArgsFromLocalInstanceTree(lambdaInfoMaps2, lambdaInfoMaps, _).map {
+            lambdaInfoMaps3 =>
+              lambdaInfoMaps3.foldLeft((env2, ().successNel[AbstractError])) {
+                case ((newEnv, Success(_)), (l, lis)) => polyFunInstantiator.addLambdaInfosS(l, lis)(newEnv).mapElements(identity, _.successNel)
+                case ((newEnv, Failure(es)), _)       => (newEnv, es.failure)
+              }
+            }.valueOr { es => (env2, es.failure) }
+        }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
+    }.valueOr { es => (env2, es.failure) }
+  }
+  
+  private def instantiatePolyFunctions2[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
+    State(instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps)(localInstTree))
+
+  def instantiatePolyFunctions[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
+    instantiatePolyFunctions2[L, M, E](lambdaInfoMaps)(localInstTree)
+  
+  private def instantiateOnlyPolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
     val (env2, (res, localInstTree2)) = lambdaInfoMaps.foldLeft((env, (Map[Option[L], Map[Int, InstantiationLambdaInfo[L, M]]]().successNel[AbstractError], localInstTree))) {
       case ((newEnv, (newRes, newLocalInstTree)), (polyFun, lambdaInfos)) =>
         val (newEnv6, (newRes4, newLocalInstTree3)) = lambdaInfos.foldLeft((newEnv, (Map[Int, InstantiationLambdaInfo[L, M]]().successNel[AbstractError], newLocalInstTree))) {
@@ -43,13 +67,7 @@ object PolyFunInstantiator {
     (env2, res.map { (_, localInstTree2).successNel }.valueOr { _.failure })
   }
 
-  private def instantiatePolyFunctions2[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
-    State(instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps)(localInstTree))
-
-  def instantiatePolyFunctions[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
-    instantiatePolyFunctions2[L, M, E](lambdaInfoMaps)(localInstTree)
-
-  def instanceArgsFromLocalInstanceTree[L, M](localInstTree: InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]) = {
+  private def instanceArgsFromLocalInstanceTree[L, M](localInstTree: InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]) = {
     val instArgs = localInstTree.instTables.flatMap {
       case (pf, it) => it.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) }
     }
@@ -58,7 +76,7 @@ object PolyFunInstantiator {
     }.toSuccess(NonEmptyList(FatalError("index of out bounds", none, NoPosition)))
   }
 
-  def normalizeInstanceArgs[L, M](instArgs: Seq[InstanceArg[L, M]], params: Map[Int, Int]) = 
+  private def normalizeInstanceArgs[L, M](instArgs: Seq[InstanceArg[L, M]], params: Map[Int, Int]) = 
     instArgs.foldLeft(Seq[InstanceArg[L, M]]().successNel[AbstractError]) {
       case (Success(newInstArgs), InstanceArg(polyFun, typ)) =>
         val typeValueTerm = normalizeTypeParamsForParams(typ.typeValueTerm, params.size)(params)
@@ -79,42 +97,28 @@ object PolyFunInstantiator {
     instanceArgsFromLocalInstanceTree(localInstTree).flatMap {
       instArgs =>
         lambdaInfoMaps.foldLeft(Map[Option[L], Map[Int, InstantiationLambdaInfo[L, M]]]().successNel[AbstractError]) {
-          case (Success(newLambdaInfoMaps), (loc, lambdaInfos)) =>
+          case (Success(newLambdaInfoMaps), (Some(loc), lambdaInfos)) =>
             lambdaInfos.get(0).map {
               lambdaInfo =>
-                oldLambdaInfoMaps.get(loc).map {
+                oldLambdaInfoMaps.get(some(loc)).map {
                   oldLambdaInfos =>
                     oldLambdaInfos.get(0).map {
                       oldLambdaInfo =>
                         normalizeInstanceArgs(instArgs, oldLambdaInfo.combTypeParams).map {
                           instArgs2 =>
-                            newLambdaInfoMaps + (loc -> (lambdaInfos + (0 -> lambdaInfo.copy(instArgs = instArgs2))))
+                            newLambdaInfoMaps + (some(loc) -> (lambdaInfos + (0 -> lambdaInfo.copy(instArgs = instArgs2))))
                         }
                     }.getOrElse(FatalError("no old lambda information", none, NoPosition).failureNel)
                 }.getOrElse(FatalError("no old lambda informations", none, NoPosition).failureNel)
             }.getOrElse(FatalError("no lambda information", none, NoPosition).failureNel)
+          case (Success(newLambdaInfoMaps), (None, _)) =>
+            newLambdaInfoMaps.successNel
           case (Failure(errs), _) =>
             errs.failure
         }
     }
-  
-  def instantiatePolyFunctionsForCombinatorsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
-    val (env2, res) = instantiatePolyFunctionsS(lambdaInfoMaps)(some(InstanceTree.empty))(env)
-    res.map {
-      case (lambdaInfoMaps2, localInstTree) =>
-        localInstTree.map {
-          lambdaInfosWithInstanceArgsFromLocalInstanceTree(lambdaInfoMaps2, lambdaInfoMaps, _).map {
-            lambdaInfoMaps3 =>
-              (env2, lambdaInfoMaps3.successNel)
-            }.valueOr { es => (env2, es.failure) }
-        }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
-    }.valueOr { es => (env2, es.failure) }
-  }
-  
-  def instantiatePolyFunctionsForCombinators[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
-    State(instantiatePolyFunctionsForCombinatorsS[L, M, E](lambdaInfoMaps))
-  
-  private def instanceArgsFromPreinstantiationLambdaInfoS[L, M, E](lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]) = {
+    
+  private def instanceArgsFromPreinstantiationLambdaInfoS[L, M, E](lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]) =
     lambdaInfo.polyFun.map {
       case PolyFunction(polyFunLoc) =>
         lambdaInfo.polyFunType.map {
@@ -184,8 +188,7 @@ object PolyFunInstantiator {
       case polyFun @ (ConstructFunction | SelectFunction) =>
         (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[M](FatalError("no poly function type", none, NoPosition)).failure))
     }.getOrElse((env, Seq().success))
-  }
-
+  
   def instantiatePolyFunctionS[L, M, E](lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]], globalInstTree: InstanceTree[AbstractPolyFunction[L], M, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]): (E, Validation[NoType[M], (InstantiationLambdaInfo[L, M], Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])]) = {
     envSt.withInstanceTypeClearingS {
       newEnv =>
