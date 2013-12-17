@@ -26,7 +26,7 @@ trait PolyFunInstantiator[L, M, E] {
 
 object PolyFunInstantiator {
   def instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
-    val (env2, res) = instantiateOnlyPolyFunctionsS(lambdaInfoMaps)(localInstTree)(env)
+    val (env2, res) = justInstantiatePolyFunctionsS(lambdaInfoMaps)(localInstTree)(env)
     res.map {
       case (lambdaInfoMaps2, localInstTree) =>
         localInstTree.map {
@@ -47,7 +47,7 @@ object PolyFunInstantiator {
   def instantiatePolyFunctions[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
     instantiatePolyFunctions2[L, M, E](lambdaInfoMaps)(localInstTree)
   
-  private def instantiateOnlyPolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
+  private def justInstantiatePolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
     val (env2, (res, localInstTree2)) = lambdaInfoMaps.foldLeft((env, (Map[Option[L], Map[Int, InstantiationLambdaInfo[L, M]]]().successNel[AbstractError], localInstTree))) {
       case ((newEnv, (newRes, newLocalInstTree)), (polyFun, lambdaInfos)) =>
         val (newEnv6, (newRes4, newLocalInstTree3)) = lambdaInfos.foldLeft((newEnv, (Map[Int, InstantiationLambdaInfo[L, M]]().successNel[AbstractError], newLocalInstTree))) {
