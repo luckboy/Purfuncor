@@ -390,20 +390,9 @@ package object typer
     
     override def instantiateTypeS(typ: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]) =
       typ.instantiatedTypeS(env)
-    
-    override def withInstanceTypeClearingS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) = {
-      val (_, res) = f(env.withInstTypeMatching(true))
-      (env, res)
-    }
       
     override def isInstanceTypeMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.isInstTypeMatching)
-    
-    override def definedTypesFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env, env.definedTypes)
-    
-    override def addDefinedTypeS(definedType: DefinedType[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withDefinedType(definedType), ())
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

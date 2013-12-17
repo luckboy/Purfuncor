@@ -8,6 +8,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
+import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
 import pl.luckboy.purfuncor.frontend.typer.InferredType
@@ -25,12 +26,23 @@ package object instant
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] {
     override def globalVarTypeFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.varType(loc))
-  
+    
     override def notFoundInstanceNoTypeS(instArg: InstanceArg[GlobalSymbol, GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, NoType.fromError[GlobalSymbol](Error("couldn't find instance for " + instArg.polyFun + " with type " + instArg.typ, none, NoPosition)))
   
     override def ambiguousInstanceNoTypeS(instArg: InstanceArg[GlobalSymbol, GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, NoType.fromError[GlobalSymbol](Error("ambiguous instance for " + instArg.polyFun + " with type " + instArg.typ, none, NoPosition)))
+    
+    override def withInstanceTypeClearingS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) = {
+      val (_, res) = f(env.withInstTypeMatching(true))
+      (env, res)
+    }
+    
+    override def definedTypesFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.definedTypes)
+    
+    override def addDefinedTypeS(definedType: DefinedType[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withDefinedType(definedType), ())
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] {

@@ -190,7 +190,7 @@ object PolyFunInstantiator {
     }.getOrElse((env, Seq().success))
   
   def instantiatePolyFunctionS[L, M, E](lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]], globalInstTree: InstanceTree[AbstractPolyFunction[L], M, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]): (E, Validation[NoType[M], (InstantiationLambdaInfo[L, M], Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])]) = {
-    envSt.withInstanceTypeClearingS {
+    envSt2.withInstanceTypeClearingS {
       newEnv =>
         val (newEnv2, newRes) = instanceArgsFromPreinstantiationLambdaInfoS(lambdaInfo, instArgs)(newEnv)
         val (newEnv7, newRes5) = newRes.map {

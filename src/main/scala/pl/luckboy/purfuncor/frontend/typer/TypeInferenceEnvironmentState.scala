@@ -63,13 +63,7 @@ trait TypeInferenceEnvironmentState[E, L, M]
   
   def instantiateTypeS(typ: Type[M])(env: E): (E, Type[M])
   
-  def withInstanceTypeClearingS[T](f: E => (E, T))(env: E): (E, T)
-  
   def isInstanceTypeMatchingS(env: E): (E, Boolean)
-  
-  def definedTypesFromEnvironmentS(env: E): (E, List[DefinedType[M]])
-  
-  def addDefinedTypeS(definedType: DefinedType[M])(env: E): (E, Unit)
 }
 
 object TypeInferenceEnvironmentState
