@@ -85,8 +85,10 @@ package object instant
       val lambdaInfos = oldNodes.map {
         case (loc, oldNode) =>
           oldNode.comb match {
-            case Combinator(_, _, body, _, file) => (some(loc), preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) })
-            case PolyCombinator(_, _)            => (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
+            case Combinator(_, _, body, lambdaInfo, file) =>
+              (some(loc), preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) } + (0 -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo)))
+            case PolyCombinator(_, _)            =>
+              (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
           }
       }
       val (env2, res2) = instantiatePolyFunctionsForCombinatorsS(lambdaInfos)(env)
