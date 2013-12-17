@@ -41,9 +41,6 @@ package object instant
     
     override def getLambdaInfosFromEnvironmentS(loc: Option[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
       (env, env.lambdaInfos.get(loc))
-    
-    override def addLambdaInfosS(loc: Option[GlobalSymbol], lambdaInfos: Map[Int, InstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
-      (env.withLambdaInfos(env.lambdaInfos + (loc -> lambdaInfos)), ())
   }
   
   implicit def symbolCombinatorInstanceRecursiveInitialzer[T, U]: RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] = new RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] {
@@ -64,13 +61,12 @@ package object instant
     override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, !env.lambdaInfos.contains(some(loc)))
     
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) =
-      if(!env.isRecursive) {
-        val (env3, res) = comb match {
-          case Combinator(_, _, body, _, file) =>
-            val (env2, res) = instantiatePolyFunctionsS(Map(some(loc) -> preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) }))(some(InstanceTree.empty))(env)
-            res.map {
-              _.map { setInstanceArgFromInstanceTreeS(Set(some(loc)), _)(env2) }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
-            }.valueOr { es => (env2, es.failure) }
+      if(!env.isRecursive)
+        comb match {
+          case Combinator(_, _, body, lambdaInfo, file) =>
+            val lambdaInfos = Map(some(loc) -> (preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) } + (0 -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo))))
+            val (env2, res) = instantiatePolyFunctionsForCombinatorsS(lambdaInfos)(env)
+            res.map { lis => (env2.withLambdaInfos(env2.lambdaInfos ++ lis), ().successNel) }.valueOr { es => (env2, es.failure) }
           case PolyCombinator(_, _)         =>
             env.typeInferenceEnv.varType(loc) match {
               case typ: InferredType[GlobalSymbol] =>
@@ -82,8 +78,7 @@ package object instant
                 (env, FatalError("uninferred type", none, NoPosition).failureNel)
             }
         }
-        (res.map { _ => env3 }.getOrElse(env), res)
-      } else
+      else
         (env, ().successNel)
     
     override def checkInitializationS(res: ValidationNel[AbstractError, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) = {
@@ -94,10 +89,8 @@ package object instant
             case PolyCombinator(_, _)            => (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
           }
       }
-      val (env2, res2) = instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(env)
-      val (env3, res3) = res2.map {
-        _.map { setInstanceArgFromInstanceTreeS(combLocs.map(some), _)(env2) }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
-      }.valueOr { es => (env2, es.failure) }
+      val (env2, res2) = instantiatePolyFunctionsForCombinatorsS(lambdaInfos)(env)
+      val (env3, res3) = res2.map { lis => (env2.withLambdaInfos(env2.lambdaInfos ++ lis), ().successNel) }.valueOr { es => (env2, es.failure) }
       val (env4, res4) = (res |@| res3) { (_, _) => (env3, ().successNel) }.valueOr { es => (env3, es.failure) }
       (res4.map { _ => env4 }.getOrElse(env), res4)
     }
