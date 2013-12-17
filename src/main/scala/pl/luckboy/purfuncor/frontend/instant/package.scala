@@ -67,7 +67,7 @@ package object instant
             val lambdaInfos = Map(some(loc) -> (preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) } + (0 -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo))))
             val (env2, res) = instantiatePolyFunctionsForCombinatorsS(lambdaInfos)(env)
             res.map { lis => (env2.withLambdaInfos(env2.lambdaInfos ++ lis), ().successNel) }.valueOr { es => (env2, es.failure) }
-          case PolyCombinator(_, _)         =>
+          case PolyCombinator(_, _)                     =>
             env.typeInferenceEnv.varType(loc) match {
               case typ: InferredType[GlobalSymbol] =>
                 val instArgs = Seq(InstanceArg(PolyFunction(loc), typ))
@@ -91,8 +91,7 @@ package object instant
       }
       val (env2, res2) = instantiatePolyFunctionsForCombinatorsS(lambdaInfos)(env)
       val (env3, res3) = res2.map { lis => (env2.withLambdaInfos(env2.lambdaInfos ++ lis), ().successNel) }.valueOr { es => (env2, es.failure) }
-      val (env4, res4) = (res |@| res3) { (_, _) => (env3, ().successNel) }.valueOr { es => (env3, es.failure) }
-      (res4.map { _ => env4 }.getOrElse(env), res4)
+      (res |@| res3) { (_, _) => (env3, ().successNel) }.valueOr { es => (env3, es.failure) }
     }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
