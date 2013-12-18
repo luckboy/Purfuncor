@@ -54,8 +54,14 @@ package object instant
     override def getLambdaInfosFromEnvironmentS(loc: Option[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
       (env, env.lambdaInfos.get(loc))
     
-    override def addLambdaInfosS(loc: Option[GlobalSymbol], lambdaInfos: Map[Int, InstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
+    override def addLambdaInfosS(loc: Option[GlobalSymbol], lambdaInfos: Map[Int, InstantiationLambdaInfo[GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
       (env.withLambdaInfos(env.lambdaInfos + (loc -> lambdaInfos)), ())
+    
+    override def getInstanceArgsFromEnvironmentS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], Option[Seq[InstanceArg[GlobalSymbol, GlobalSymbol]]]) =
+      (env, env.instArgs.get(loc))
+  
+    override def addInstanceArgsS(loc: GlobalSymbol, instArgs: Seq[InstanceArg[GlobalSymbol, GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], Unit) =
+      (env.withInstArgs(env.instArgs + (loc -> instArgs)), ())
   }
   
   implicit def symbolCombinatorInstanceRecursiveInitialzer[T, U]: RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] = new RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] {
@@ -73,7 +79,7 @@ package object instant
     
     override def isRecursiveFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.isRecursive)
     
-    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, !env.lambdaInfos.contains(some(loc)))
+    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, !env.instArgs.contains(loc))
     
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) =
       if(!env.isRecursive)
@@ -84,8 +90,7 @@ package object instant
           case PolyCombinator(_, _)                     =>
             env.typeInferenceEnv.varType(loc) match {
               case typ: InferredType[GlobalSymbol] =>
-                val instArgs = Seq(InstanceArg(PolyFunction(loc), typ))
-                (env.withLambdaInfos(env.lambdaInfos + (some(loc) -> Map(0 -> InstantiationLambdaInfo(Seq(), instArgs)))), ().successNel)
+                (env.withInstArgs(env.instArgs + (loc -> Seq(InstanceArg(PolyFunction(loc), typ)))), ().successNel)
               case noType: NoType[GlobalSymbol]    =>
                 (env, resultFromTypeResult(noType.failure))
               case _                               =>
@@ -112,7 +117,7 @@ package object instant
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
     
     override def withRecursiveS[V](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(f: SymbolInstantiationEnvironment[T, U] => (SymbolInstantiationEnvironment[T, U], V))(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], V) = {
-      val (env2, res) = f(env.withRecursive(true).withLambdaInfos(env.lambdaInfos -- combLocs.map(some)).withRecursiveCombSyms(combLocs))
+      val (env2, res) = f(env.withRecursive(true).withInstArgs(env.instArgs -- combLocs).withLambdaInfos(env.lambdaInfos -- combLocs.map(some)).withRecursiveCombSyms(combLocs))
       (env2.withRecursive(false).withCombNodes(newNodes).withRecursiveCombSyms(combLocs), res)
     }
     
