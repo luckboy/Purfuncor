@@ -203,6 +203,8 @@ object Typer
           lambdaInfo2 <- transformLambdaInfo(lambdaInfo)(env2)
         } yield Combinator(typ, args, body2, lambdaInfo2, file)
         (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
+      case (res, (loc, PolyCombinator(typ, file))) =>
+        res.map { _ + (loc -> PolyCombinator(typ, file)) }
     }.flatMap {
       combs =>
         transformTypeTable(enval.globalTypeTableFromEnvironment(env)).map {
