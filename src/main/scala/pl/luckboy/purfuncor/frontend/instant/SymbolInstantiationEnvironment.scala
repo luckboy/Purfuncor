@@ -13,7 +13,9 @@ import pl.luckboy.purfuncor.common.RecursiveInitializer._
 
 case class SymbolInstantiationEnvironment[T, U](
     typeInferenceEnv: SymbolTypeInferenceEnvironment[T, U],
+    currentCombSym: Option[GlobalSymbol],
     globalInstTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]],
+    firstGlobalInstCounts: Map[AbstractPolyFunction[GlobalSymbol], Int],
     instArgs: Map[GlobalSymbol, Seq[InstanceArg[GlobalSymbol, GlobalSymbol]]],
     lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol]]],
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
@@ -23,7 +25,11 @@ case class SymbolInstantiationEnvironment[T, U](
 {
   def withTypeInferenceEnv(env: SymbolTypeInferenceEnvironment[T, U]) = copy(typeInferenceEnv = env)
   
+  def withCurrentCombSym(sym: Option[GlobalSymbol]) = copy(currentCombSym = sym)
+  
   def withInstArgs(instArgs: Map[GlobalSymbol, Seq[InstanceArg[GlobalSymbol, GlobalSymbol]]]) = copy(instArgs = instArgs)
+  
+  def currentLambdaInfos = lambdaInfos.getOrElse(currentCombSym, Map())
   
   def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   

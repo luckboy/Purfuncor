@@ -28,7 +28,9 @@ case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 
 object InstanceTree
 {
-  def empty[T, U, V] = InstanceTree[T, U, V](Map())
+  def empty[T, U, V] = fromInstanceTables[T, U, V](Map())
+  
+  def fromInstanceTables[T, U, V](instTables: Map[T, InstanceTable[U, V]]) = InstanceTree[T, U, V](instTables)
 }
 
 case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])

@@ -150,4 +150,17 @@ package object instant
       res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
     }
   }
+  
+  implicit def symbolInstantiationEnvironmental[T, U]: InstantiationEnvironmental[SymbolInstantiationEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new InstantiationEnvironmental[SymbolInstantiationEnvironment[T, U], GlobalSymbol, GlobalSymbol] {
+    override def copyEnvironment(env: SymbolInstantiationEnvironment[T, U]) = env
+    
+    override def getLambdaInfoFromEnvironment(env: SymbolInstantiationEnvironment[T, U])(lambdaIdx: Int) = env.currentLambdaInfos.get(lambdaIdx)
+    
+    override def withCurrentCombinatorLocation(env: SymbolInstantiationEnvironment[T, U])(loc: Option[GlobalSymbol]) = env.withCurrentCombSym(loc)
+    
+    override def treeGlobalInstanceTreeFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) =
+      InstanceTree.fromInstanceTables(env.globalInstTree.instTables.map { case (pf, it) => (pf, env.firstGlobalInstCounts.get(pf).map { it.withoutFirstInsts(_) }.getOrElse(it)) })
+    
+    override def instanceArgTableFromFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) = InstanceArgTable(env.instArgs)
+  }
 }
