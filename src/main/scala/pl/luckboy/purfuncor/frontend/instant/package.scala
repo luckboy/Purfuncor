@@ -52,7 +52,7 @@ package object instant
       (env.withDefinedType(definedType), ())
   }
   
-  implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
+  implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
     override def instantiatePolyFunctionS(lambdaInfo: PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol], instArgs: Seq[InstanceArg[GlobalSymbol, GlobalSymbol]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, LocalInstance[GlobalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) = {
       val (typeInferenceEnv, res) = PolyFunInstantiator.instantiatePolyFunctionS(lambdaInfo, instArgs, env.globalInstTree)(localInstTree)(env.typeInferenceEnv)
       (env.withTypeInferenceEnv(typeInferenceEnv), resultFromTypeResult(res))
@@ -113,7 +113,7 @@ package object instant
     private def checkConstructTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) =
       State(checkConstructTypeTermS(typeTerm))
     
-    override def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[GlobalSymbol, TypeLambdaInfo[U, LocalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
+    override def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[Symbol, TypeLambdaInfo[U, LocalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
       selectConstructInst match {
         case SelectConstructInstance(supertype, types, file) =>
           val (typeInferenceEnv5, res11) = env.typeInferenceEnv.withClear {
@@ -187,6 +187,11 @@ package object instant
           }.valueOr { es => (env, es.failure) }
           (env4, resultForFile(res13, file))
       }
+    
+    override def withSaveS[V, W](f: SymbolInstantiationEnvironment[T, U] => (SymbolInstantiationEnvironment[T, U], Validation[V, W]))(env: SymbolInstantiationEnvironment[T, U]) =  {
+      val (env2, res) = f(env)
+      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
+    }
   }
   
   implicit def symbolCombinatorInstanceRecursiveInitialzer[T, U]: RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] = new RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] {

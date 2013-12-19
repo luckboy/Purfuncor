@@ -163,5 +163,11 @@ package object frontend
         case localLoc: resolver.LocalSymbol => some(localLoc)
         case _                              => none
       }
-  } 
+  }
+  
+  implicit def resolverInstantiationTreeInfoExtractor[T, U]: InstantiationTreeInfoExtractor[resolver.TreeInfo[T, U], resolver.GlobalSymbol, Instance[resolver.GlobalSymbol], SelectConstructInstance[resolver.Symbol, T]] = new InstantiationTreeInfoExtractor[resolver.TreeInfo[T, U], resolver.GlobalSymbol, Instance[resolver.GlobalSymbol], SelectConstructInstance[resolver.Symbol, T]] {
+    override def instancesFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.insts
+    
+    override def selectConstructInstancesFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.selectConstructInsts
+  }
 }

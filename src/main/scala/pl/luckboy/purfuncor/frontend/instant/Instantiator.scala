@@ -4,10 +4,14 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.typer.InferredType
+import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
+import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
+import pl.luckboy.purfuncor.common.Initializer._
 import pl.luckboy.purfuncor.common.Result._
 
 object Instantiator 
@@ -85,7 +89,7 @@ object Instantiator
         } yield Simple(Extract(term2, args, body2, lambdaInfo2), pos)
     }
   
-  def transformTree[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]])(instTree: InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], instArgTable: InstanceArgTable[T, X])(env: E)(implicit enval: InstantiationEnvironmental[E, T, X]) =
+  def transformTree[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]])(env: E)(implicit enval: InstantiationEnvironmental[E, T, X]) =
     tree.combs.foldLeft(Map[T, AbstractCombinator[U, LambdaInfo[V, W, X, T], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]]]().successNel[AbstractError]) {
       case (res, (loc, Combinator(typ, args, body, lambdaInfo, file))) =>
         val env2 = enval.withCurrentCombinatorLocation(env)(some(loc))
@@ -100,4 +104,41 @@ object Instantiator
       combs =>
         Tree(combs, TreeInfo(tree.treeInfo.treeInfo, tree.treeInfo.typeTable, enval.treeGlobalInstanceTreeFromEnvironment(env), InstanceArgTable(enval.instanceArgTableFromFromEnvironment(env).instArgs.filterKeys(combs.keySet.contains))))
     }
+  
+  def addInstancesFromTreeInfoS[T, U, V, W, X, Y, E](treeInfo: typer.TreeInfo[T, U, V])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[U, X, V, TypeLambdaInfo[W, Y], E], treeExtractor: InstantiationTreeInfoExtractor[T, U, frontend.Instance[U], SelectConstructInstance[X, TypeLambdaInfo[W, Y]]]) = {
+    val insts = treeExtractor.instancesFromTreeInfo(treeInfo.treeInfo)
+    val selectConstructInsts = treeExtractor.selectConstructInstancesFromTreeInfo(treeInfo.treeInfo)
+    polyFunInstantiator.withSaveS {
+      env2 =>
+        val (env3, res) = insts.foldLeft((env, ().successNel[AbstractError])) {
+          case ((newEnv, newRes), (loc, insts2)) =>
+            insts2.foldLeft((newEnv, newRes)) {
+              case ((newEnv2, newRes2), inst) =>
+                polyFunInstantiator.addInstanceS(loc, inst)(newEnv2).mapElements(identity, newRes2 |+| _)
+            }
+        }
+        selectConstructInsts.foldLeft((env3, res)) {
+          case ((newEnv, newRes), selectConstructInst) =>
+            polyFunInstantiator.addSelectConstructInstanceS(selectConstructInst)(newEnv).mapElements(identity, newRes |+| _)
+        }
+    } (env)
+  }
+  
+  def addInstancesFromTreeInfo[T, U, V, W, X, Y, E](treeInfo: typer.TreeInfo[T, U, V])(implicit polyFunInstantiator: PolyFunInstantiator[U, X, V, TypeLambdaInfo[W, Y], E], treeExtractor: InstantiationTreeInfoExtractor[T, U, frontend.Instance[U], SelectConstructInstance[X, TypeLambdaInfo[W, Y]]]) =
+    State(addInstancesFromTreeInfoS[T, U, V, W, X, Y, E](treeInfo))
+    
+  def instantiatePolyFunctionsFromTreeS[E, L, C, I, F](tree: Tree[L, C, I])(env: F)(implicit init: Initializer[E, L, C, F]) =
+    initializeS(tree)(env)
+  
+  def instantiatePolyFunctionsFromTree[E, L, C, I, F](tree: Tree[L, C, I])(implicit init: Initializer[E, L, C, F]) =
+    State(instantiatePolyFunctionsFromTreeS[E, L, C, I, F](tree))
+  
+  def transform[T, U, V, W, X, Y, Z, TT, TU, E](tree: Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]])(kindTable: InferredKindTable[X], typeTable: InferredTypeTable[T, X], instTree: InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], instArgTable: InstanceArgTable[T, X])(f: (InferredKindTable[X], InferredTypeTable[T, X], InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], InstanceArgTable[T, X]) => E)(implicit init: Initializer[NonEmptyList[AbstractError], T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], E], polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], enval: InstantiationEnvironmental[E, T, X], treeExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]]) = {
+    val (env, res) = addInstancesFromTreeInfoS(tree.treeInfo)(f(kindTable, typeTable, instTree, instArgTable))
+    res.flatMap {
+      _ =>
+        val (env2, res2) = instantiatePolyFunctionsFromTreeS(tree)(env)
+        res2.flatMap { _ => transformTree(tree)(env2) }
+    }
+  }
 }
