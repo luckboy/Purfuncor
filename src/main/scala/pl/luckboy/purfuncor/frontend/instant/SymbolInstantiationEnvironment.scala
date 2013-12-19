@@ -48,6 +48,8 @@ case class SymbolInstantiationEnvironment[T, U](
 
 object SymbolInstantiationEnvironment
 {
+  def empty[T, U] = fromInstanceTree[T, U](InstanceTree.empty)
+  
   def fromInstanceTree[T, U](instTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]) = SymbolInstantiationEnvironment[T, U](
       typeInferenceEnv = SymbolTypeInferenceEnvironment.empty,
       currentCombSym = none,
