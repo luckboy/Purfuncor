@@ -12,11 +12,17 @@ import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
 import pl.luckboy.purfuncor.frontend.typer.InferredType
+import pl.luckboy.purfuncor.frontend.typer.InferringType
+import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
+import pl.luckboy.purfuncor.frontend.typer.TupleType
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.typer.symbolSimpleTermTypeInferrer
+import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.RecursiveInitializer._
 import pl.luckboy.purfuncor.common.Result._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
 import pl.luckboy.purfuncor.frontend.instant.PolyFunInstantiator._
 import pl.luckboy.purfuncor.frontend.instant.TermUtils._
@@ -45,7 +51,7 @@ package object instant
       (env.withDefinedType(definedType), ())
   }
   
-  implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, GlobalSymbol, SymbolInstantiationEnvironment[T, U]] {
+  implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
     override def instantiatePolyFunctionS(lambdaInfo: PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol], instArgs: Seq[InstanceArg[GlobalSymbol, GlobalSymbol]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, LocalInstance[GlobalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) = {
       val (typeInferenceEnv, res) = PolyFunInstantiator.instantiatePolyFunctionS(lambdaInfo, instArgs, env.globalInstTree)(localInstTree)(env.typeInferenceEnv)
       (env.withTypeInferenceEnv(typeInferenceEnv), resultFromTypeResult(res))
@@ -62,6 +68,123 @@ package object instant
   
     override def addInstanceArgsS(loc: GlobalSymbol, instArgs: Seq[InstanceArg[GlobalSymbol, GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]): (SymbolInstantiationEnvironment[T, U], Unit) =
       (env.withInstArgs(env.instArgs + (loc -> instArgs)), ())
+    
+    private def addGlobalInstanceS(polyFun: AbstractPolyFunction[GlobalSymbol], typ: InferredType[GlobalSymbol], inst: GlobalInstance[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
+      env.globalInstTree.addInstS(polyFun, GlobalInstanceType(typ), inst)(env.typeInferenceEnv) match {
+        case (typeInferenceEnv, Success(Some((instTree, None)))) =>
+          (env.withTypeInferenceEnv(typeInferenceEnv).withGlobalInstTree(instTree), ().successNel)
+        case (typeInferenceEnv, Success(_))                      =>
+          (env.withTypeInferenceEnv(typeInferenceEnv), Error("already defined instance for " + polyFun + " with " + typ, none, NoPosition).failureNel)
+        case (typeInferenceEnv, Failure(noType))                 =>
+          (env.withTypeInferenceEnv(typeInferenceEnv), resultFromTypeResult(noType.failure))
+      }
+      
+    override def addInstanceS(loc: GlobalSymbol, inst: frontend.Instance[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
+      inst match {
+        case frontend.Instance(instCombLoc, file) =>
+          val (env2, res) = env.typeInferenceEnv.varType(instCombLoc) match {
+            case instCombType: InferredType[GlobalSymbol] =>
+              addGlobalInstanceS(PolyFunction(loc), instCombType, PolyFunInstance(instCombLoc))(env)
+            case noType: NoType[GlobalSymbol]             =>
+              (env, resultFromTypeResult(noType.failure))
+            case _                                        =>
+              (env, FatalError("uninferred type", none, NoPosition).failureNel)
+          }
+          (env2, resultForFile(res, file))
+      }
+    
+    private def checkConstructTypeTermS(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(typeInferenceEnv: SymbolTypeInferenceEnvironment[T, U]) = {
+      val (typeInferenceEnv2, res) = typeInferenceEnv.definedTypeFromTypeTerm(typeTerm)
+      res.map {
+        dt =>
+          checkConstructInferringTypeS(InferringType(dt.term))(typeInferenceEnv2) match {
+            case (typeInferenceEnv3, typ: InferringType[GlobalSymbol]) =>
+              (typeInferenceEnv3, (dt, typ).success)
+            case (typeInferenceEnv3, noType: NoType[GlobalSymbol])     =>
+              (typeInferenceEnv3, noType.failure)
+            case (typeInferenceEnv3, _)                                =>
+              (typeInferenceEnv3, NoType.fromError[GlobalSymbol](FatalError("uninferring type", none, NoPosition)).failure)
+          }
+      }.valueOr { nt => (typeInferenceEnv2, nt.failure) }
+    }
+
+    private def checkConstructTypeTerm(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) =
+      State(checkConstructTypeTermS(typeTerm))
+    
+    override def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[GlobalSymbol, TypeLambdaInfo[U, LocalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
+      selectConstructInst match {
+        case SelectConstructInstance(supertype, types, file) =>
+          val (typeInferenceEnv5, res11) = env.typeInferenceEnv.withClear {
+            typeInferenceEnv =>
+              (for {
+                res <- State((_: SymbolTypeInferenceEnvironment[T, U]).definedTypeFromTypeTerm(supertype))
+                res2 <- checkConstructTypeTerm(types.head)
+                res3 <- State({
+                  (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                    types.tail.foldLeft((typeInferenceEnv2, res2.map { NonEmptyList(_) })) {
+                      case ((newTypeInferenceEnv, newRes), typ) =>
+                        val (newTypeInferenceEnv2, newRes2) = checkConstructTypeTermS(typ)(newTypeInferenceEnv)
+                        (newTypeInferenceEnv2, (newRes |@| newRes2) { (ts, t) => t <:: ts })
+                    }.mapElements(identity, _.map { _.reverse })
+                })
+                res10 <- (res |@| res3) {
+                  (definedSupertype, pairs) =>
+                    val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ & _._1.term }
+                    val tmpType = InferringType(tmpTypeValueTerm)
+                    for {
+                      _ <- State({
+                        (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                          (pairs.foldLeft(typeInferenceEnv2) {
+                            case (newTypeInferenceEnv, (dt, _)) => newTypeInferenceEnv.withDefinedType(dt)
+                          }, ())
+                      })
+                      unifiedSupertype <- State(symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(definedSupertype.term), tmpType)(_: SymbolTypeInferenceEnvironment[T, U]))
+                      res9 <- unifiedSupertype match {
+                        case noType: NoType[GlobalSymbol] =>
+                          State((_: SymbolTypeInferenceEnvironment[T, U], noType.failure))
+                        case _                            =>
+                          for {
+                            res4 <- State((typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) => checkDefinedTypesS(typeInferenceEnv2.definedTypes)(typeInferenceEnv2))
+                            res8 <- res4.map {
+                              _ =>
+                                for {
+                                  res5 <- State(InferringType(definedSupertype.term).instantiatedTypeValueTermWithKindsS(_: SymbolTypeInferenceEnvironment[T, U]))
+                                  res7 <- res5.map {
+                                    case (supertypeValueTerm, supertypeArgKinds) =>
+                                      val selectInstPair = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size))
+                                      State({
+                                        (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Seq[(InferredType[GlobalSymbol], GlobalInstance[GlobalSymbol])]().success[NoType[GlobalSymbol]])) {
+                                            case ((newTypeInfernceEnv, Success(newConstructInstPairs)), ((definedType, _), i)) =>
+                                              val (newTypeInfernceEnv2, newRes) = InferringType(definedType.term).instantiatedTypeValueTermWithKindsS(newTypeInfernceEnv)
+                                              (newTypeInfernceEnv2, newRes.map { 
+                                                case (typeValueTerm, argKinds) =>
+                                                  newConstructInstPairs :+ (InferredType(typeValueTerm, argKinds) -> ConstructInstance[GlobalSymbol](i))
+                                              })
+                                          }
+                                          (typeInferenceEnv3, res6.map { (selectInstPair, _) })
+                                      })
+                                  }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
+                                } yield res7
+                            }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
+                          } yield res8
+                      }
+                    } yield res9
+                }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
+              } yield res10).run(typeInferenceEnv)
+          }
+          val env2 = env.withTypeInferenceEnv(typeInferenceEnv5)
+          val (env4, res13) = resultFromTypeResult(res11).map {
+            case ((selectInstType, selectInst), constructInstPairs) =>
+              val (env3, res12) = addGlobalInstanceS(SelectFunction, selectInstType, selectInst)(env2)
+              constructInstPairs.foldLeft((env3, res12)) {
+                case ((newEnv, newRes), (constructInstType, constructInst)) =>
+                  val (newEnv2, newRes2) = addGlobalInstanceS(ConstructFunction, constructInstType, constructInst)(env2)
+                  (newEnv2, newRes |+| newRes2)
+              }
+          }.valueOr { es => (env, es.failure) }
+          (env4, resultForFile(res13, file))
+      }
   }
   
   implicit def symbolCombinatorInstanceRecursiveInitialzer[T, U]: RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] = new RecursiveInitializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol], SymbolInstantiationEnvironment[T, U]] {

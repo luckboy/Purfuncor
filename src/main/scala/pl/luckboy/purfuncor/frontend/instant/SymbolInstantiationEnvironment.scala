@@ -27,6 +27,8 @@ case class SymbolInstantiationEnvironment[T, U](
   
   def withCurrentCombSym(sym: Option[GlobalSymbol]) = copy(currentCombSym = sym)
   
+  def withGlobalInstTree(instTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]) = copy(globalInstTree = instTree)
+  
   def withInstArgs(instArgs: Map[GlobalSymbol, Seq[InstanceArg[GlobalSymbol, GlobalSymbol]]]) = copy(instArgs = instArgs)
   
   def currentLambdaInfos = lambdaInfos.getOrElse(currentCombSym, Map())

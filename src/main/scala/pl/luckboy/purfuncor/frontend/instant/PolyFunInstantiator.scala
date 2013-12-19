@@ -6,17 +6,24 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
+import pl.luckboy.purfuncor.frontend.typer.TupleType
+import pl.luckboy.purfuncor.frontend.typer.GlobalTypeApp
+import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
+import pl.luckboy.purfuncor.frontend.typer.TypeDisjunction
 import pl.luckboy.purfuncor.frontend.typer.TypeMatching
+import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
-trait PolyFunInstantiator[L, M, E] {
+trait PolyFunInstantiator[L, M, I, E] {
   def instantiatePolyFunctionS(lambdaInfo: PreinstantiationLambdaInfo[L, M], instArgs: Seq[InstanceArg[L, M]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E): (E, ValidationNel[AbstractError, (InstantiationLambdaInfo[L], Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])])
   
   def getLambdaInfosFromEnvironmentS(loc: Option[L])(env: E): (E, Option[Map[Int, InstantiationLambdaInfo[L]]])
@@ -26,10 +33,14 @@ trait PolyFunInstantiator[L, M, E] {
   def getInstanceArgsFromEnvironmentS(loc: L)(env: E): (E, Option[Seq[InstanceArg[L, M]]])
   
   def addInstanceArgsS(loc: L, instArgs: Seq[InstanceArg[L, M]])(env: E): (E, Unit)
+  
+  def addInstanceS(loc: L, inst: frontend.Instance[L])(env: E): (E, ValidationNel[AbstractError, Unit])
+  
+  def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[L, I])(env: E): (E, ValidationNel[AbstractError, Unit])
 }
 
 object PolyFunInstantiator {
-  def instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
+  def instantiatePolyFunctionsS[L, M, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, I, E]) = {
     val (env2, res) = justInstantiatePolyFunctionsS(lambdaInfoMaps)(localInstTree)(env)
     res.map {
       case (lambdaInfoMaps2, localInstTree) =>
@@ -49,13 +60,13 @@ object PolyFunInstantiator {
     }.valueOr { es => (env2, es.failure) }
   }
   
-  private def instantiatePolyFunctions2[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
-    State(instantiatePolyFunctionsS[L, M, E](lambdaInfoMaps)(localInstTree))
+  private def instantiatePolyFunctions2[L, M, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, I, E]) =
+    State(instantiatePolyFunctionsS[L, M, I, E](lambdaInfoMaps)(localInstTree))
 
-  def instantiatePolyFunctions[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) =
-    instantiatePolyFunctions2[L, M, E](lambdaInfoMaps)(localInstTree)
+  def instantiatePolyFunctions[L, M, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, I, E]) =
+    instantiatePolyFunctions2[L, M, I, E](lambdaInfoMaps)(localInstTree)
   
-  private def justInstantiatePolyFunctionsS[L, M, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, E]) = {
+  private def justInstantiatePolyFunctionsS[L, M, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, M]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, I, E]) = {
     val (env2, (res, localInstTree2)) = lambdaInfoMaps.foldLeft((env, (Map[Option[L], Map[Int, InstantiationLambdaInfo[L]]]().successNel[AbstractError], localInstTree))) {
       case ((newEnv, (newRes, newLocalInstTree)), (polyFun, lambdaInfos)) =>
         val (newEnv6, (newRes5, newLocalInstTree3)) = lambdaInfos.foldLeft((newEnv, (Map[Int, InstantiationLambdaInfo[L]]().successNel[AbstractError], newLocalInstTree))) {
@@ -229,4 +240,84 @@ object PolyFunInstantiator {
         }.valueOr { nt => (newEnv2, nt.failure) }
         (newEnv7, newRes5.swap.map { _.withPos(lambdaInfo.pos).forFile(lambdaInfo.file) }.swap)
     } (env)
+    
+  private def illegalTypeNoType[T] = NoType.fromError[T](FatalError("illegal type", none, NoPosition))
+    
+  private def findTupleTypesS[L, M, E](term: TypeValueTerm[M])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M]): (E, Validation[NoType[M], Seq[TupleType[M]]]) =
+    term match {
+      case tupleType @ TupleType(_) =>
+        (env, Seq(tupleType).success)
+      case TypeConjunction(terms) =>
+        terms.foldLeft((env, Seq[TupleType[M]]().success[NoType[M]])) {
+          case ((newEnv, Success(Seq())), term2) => findTupleTypesS(term2)(newEnv)
+          case ((newEnv, Success(_)), _)         => (newEnv, illegalTypeNoType.failure)
+          case ((newEnv, newRes), _)             => (newEnv, newRes)
+        }
+      case TypeDisjunction(terms) =>
+        terms.foldLeft((env, Seq[TupleType[M]]().success[NoType[M]])) {
+          case ((newEnv, Success(newTerms)), term2) =>
+            findTupleTypesS(term2)(newEnv) match {
+              case (newEnv2, Success(Seq()))  => (newEnv2, illegalTypeNoType.failure)
+              case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
+              case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
+            }
+          case ((newEnv, Failure(noType)), _)             =>
+            (newEnv, noType.failure)
+        }
+      case GlobalTypeApp(loc, args, _) =>
+        envSt.withRecursionCheckingS(Set(loc)) {
+          env2 =>
+            appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
+              case (env3, Success(evaluatedTerm)) =>
+                findTupleTypesS(evaluatedTerm)(env3)
+              case (env3, Failure(noType))        =>
+                (env3, noType.failure)
+            }
+        } (env)
+      case _ =>
+        (env, Seq().success)
+    }
+  
+  def checkConstructInferringTypeS[L, M, E](typ: InferringType[M])(env: E)(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]) = {
+    val (env2, res) = findTupleTypesS(typ.typeValueTerm)(env)
+    res.map {
+      typeValueTerms =>
+        unifier.withSaveS {
+          env3 =>
+            typeValueTerms.headOption.map {
+              firstTypeValueTerm =>
+                (for {
+                  _ <- State(envSt2.addDefinedTypeS(DefinedType.fromInferringType(typ))(_: E))
+                  savedTypeMatching <- State(envSt.currentTypeMatchingFromEnvironmentS(_: E))
+                  _ <- State(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
+                  unifiedType <- State({
+                    (env4: E) =>
+                      typeValueTerms.tail.foldLeft((env4, InferringType(firstTypeValueTerm): Type[M])) {
+                        case ((newEnv, newType: InferredType[M]), typeValueTerm) =>
+                          unifyTypesS(newType, InferringType(typeValueTerm))(newEnv)
+                      }
+                  })
+                  _ <- State(envSt.setCurrentTypeMatchingS(savedTypeMatching)(_: E))
+                  res4 <- unifiedType match {
+                    case inferringType: InferringType[M] =>
+                      for {
+                        definedTypes <- State(envSt2.definedTypesFromEnvironmentS(_: E))
+                        res2 <- checkDefinedTypes(definedTypes)
+                        res3 <- res2.map {
+                          _ => State((_: E, inferringType.success))
+                        }.getOrElse(State((_: E, inferringType.success)))
+                      } yield res3
+                    case _: NoType[M]                    =>
+                      State((_: E, illegalTypeNoType[M].failure))
+                    case _                               =>
+                      State((_: E, NoType.fromError[M](FatalError("uninferring type", none, NoPosition)).failure))
+                  }
+                } yield res4).run(env3)
+            }.getOrElse((env3, illegalTypeNoType[M].failure))            
+        } (env2).mapElements(identity, _.valueOr(identity))
+    }.valueOr { (env2, _) }
+  }
+  
+  def checkConstructInferringType[L, M, E](typ: InferringType[M])(implicit unifier: Unifier[NoType[M], TypeValueTerm[M], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, M], envSt2: TypeInferenceEnvironmentState[E, L, M]) =
+    State(checkConstructInferringTypeS[L, M, E](typ))
 }
