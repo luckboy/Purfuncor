@@ -381,7 +381,7 @@ object Resolver
             val res2 = (transformGlobalSymbolForInstance(polyCombSym)(scope) |@| transformGlobalSymbolForInstance(polyCombSym)(scope)) { (s1, s2) => (s1, s2) }
             res2 match {
               case Success((s1, s2)) =>
-                ((tree2.copy(treeInfo = tree2.treeInfo.copy(insts = tree2.treeInfo.insts |+| Map(s1 -> List(Instance(s2, none))))), (res |@| res2) { (u, _) => u }), scope)
+                ((tree2.copy(treeInfo = tree2.treeInfo.copy(insts = tree2.treeInfo.insts |+| Map(s1 -> List(Instance(s2, polyCombSym.pos, none))))), (res |@| res2) { (u, _) => u }), scope)
               case Failure(_) =>
                 ((tree2, (res |@| res2) { (u, _) => u }), scope)
             }
