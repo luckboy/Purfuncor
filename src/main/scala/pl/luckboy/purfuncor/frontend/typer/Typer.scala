@@ -213,7 +213,7 @@ object Typer
     }
   
   def transformTermWithTypeInference[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit inferrer: Inferrer[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]], E, Type[Y]], envSt: TypeInferenceEnvironmentState[E, Z, Y], enval: TypeInferenceEnvironmental[E, Z, TT, Y]) = {
-    val (newEnv, typ) = inferTermTypeS(term)(env)
+    val (newEnv, typ) = inferTermTypeS(term)(enval.copyEnvironment(env))
     typ match {
       case noType: NoType[Y] => noType.errs.toNel.getOrElse(NonEmptyList(FatalError("no error", none, NoPosition))).failure
       case _                 => transformTerm(term)(newEnv).map { (_, typ) }
