@@ -45,3 +45,18 @@ case class SymbolInstantiationEnvironment[T, U](
   
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
 }
+
+object SymbolInstantiationEnvironment
+{
+  def fromInstanceTree[T, U](instTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]) = SymbolInstantiationEnvironment[T, U](
+      typeInferenceEnv = SymbolTypeInferenceEnvironment.empty,
+      currentCombSym = none,
+      globalInstTree = instTree,
+      firstGlobalInstCounts = instTree.instTables.mapValues { _.countInsts },
+      instArgs = Map(),
+      lambdaInfos = Map(),
+      combNodes = Map(),
+      recursiveCombSyms = Set(),
+      errs = Nil,
+      isRecursive = false) 
+}
