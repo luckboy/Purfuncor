@@ -52,7 +52,7 @@ object SymbolInstantiationEnvironment
       typeInferenceEnv = SymbolTypeInferenceEnvironment.empty,
       currentCombSym = none,
       globalInstTree = instTree,
-      firstGlobalInstCounts = instTree.instTables.mapValues { _.countInsts },
+      firstGlobalInstCounts = instTree.instTables.mapValues { _.instCount },
       instArgs = Map(),
       lambdaInfos = Map(),
       combNodes = Map(),

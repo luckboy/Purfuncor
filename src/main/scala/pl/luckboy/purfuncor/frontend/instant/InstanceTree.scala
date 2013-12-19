@@ -23,7 +23,7 @@ case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
     (env2, res.map { _.map { case (it, b) => (InstanceTree(instTables + (loc -> it)), b) } })
   }
   
-  def countInsts = instTables.values.foldLeft(0) { _ + _.countInsts }
+  def instCount = instTables.values.foldLeft(0) { _ + _.instCount }
 }
 
 object InstanceTree
@@ -111,7 +111,7 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
   
   def withoutFirstInsts(n: Int) = copy(pairs.drop(n))
   
-  def countInsts = pairs.size
+  def instCount = pairs.size
 }
 
 object InstanceTable

@@ -222,7 +222,7 @@ object PolyFunInstantiator {
                   case insts =>
                     localInstTree.map {
                       tmpInstTree =>
-                        val inst = LocalInstance[L](tmpInstTree.countInsts)
+                        val inst = LocalInstance[L](tmpInstTree.instCount)
                         val (newEnv5, newRes4) = tmpInstTree.addInstS(polyFun, LocalInstanceType(typ), inst)(newEnv4)
                         newRes4.map {
                           _.map {
