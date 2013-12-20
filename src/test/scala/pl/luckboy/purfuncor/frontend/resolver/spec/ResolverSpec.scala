@@ -13,6 +13,7 @@ import pl.luckboy.purfuncor.frontend.Bind
 class ResolverSpec extends FlatSpec with ShouldMatchers with Inside
 {
   //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
+  //TODO: add tests for the instances.
   
   "A Resolver" should "transform the string to a tree" in {
     val res = Resolver.transformString("f x = #iAdd x 1; g = #iMul (f 10) 5")(NameTree.empty) 
