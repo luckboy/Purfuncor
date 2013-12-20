@@ -80,11 +80,11 @@ object Typer
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
       State({
         (e: SymbolTypeEnvironment[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]) =>
-          val tree4 = (for {
+          val res = (for {
             tree2 <- lmbdindexer.LambdaIndexer.transform(tree)
             tree3 <- kinder.Kinder.transform(tree2)(kindTable) { (kt: InferredKindTable[GlobalSymbol]) => SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kt) }
           } yield (tree3))
-          (e, tree4)
+          (e, res)
       })
   }
   
