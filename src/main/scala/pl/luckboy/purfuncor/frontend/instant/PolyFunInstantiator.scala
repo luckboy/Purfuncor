@@ -58,9 +58,9 @@ object PolyFunInstantiator {
                   case ((newEnv, _), (l, lis)) => polyFunInstantiator.addLambdaInfosS(l, lis)(newEnv)
                 }
                 (env4, ().successNel)
-            }.valueOr { es => (env2, es.failure) }
+            }.valueOr { errs => (env2, errs.failure) }
         }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
-    }.valueOr { es => (env2, es.failure) }
+    }.valueOr { errs => (env2, errs.failure) }
   }
   
   private def instantiatePolyFunctions2[L, M, N, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E]) =
@@ -84,7 +84,7 @@ object PolyFunInstantiator {
             }.getOrElse((newEnv2, FatalError("no polynomial function", none, NoPosition).failureNel))
             val (newEnv4, newRes4) = newRes3.map {
               polyFunInstantiator.instantiatePolyFunctionS(lambdaInfo, _)(newLocalInstTree2)(newEnv3)
-            }.valueOr { es => (newEnv3, es.failure) }
+            }.valueOr { errs => (newEnv3, errs.failure) }
             (newEnv4, ((newRes2 |@| newRes4) { case (lis, (li, _)) => lis + (i -> li) }, newRes4.map { _._2 }.getOrElse(newLocalInstTree2)))
         }
         (newEnv6, ((newRes |@| newRes5) { (liMaps, lis) => liMaps + (polyFun -> lis) }, newLocalInstTree3))
