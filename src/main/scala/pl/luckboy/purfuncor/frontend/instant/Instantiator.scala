@@ -3,13 +3,16 @@ import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
-import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
+import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
+import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
 import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
@@ -171,7 +174,7 @@ object Instantiator
             tree2 => transform(tree2)(kindTable, typeTable, instTree, instArgTable)(g)
           }.getOrElse { State((_: TE, FatalError("result is failure", none, NoPosition).failureNel)) }
         } yield res2).run(typeEnv)
-    }.valueOr { es => (typeEnv, es.failure) }
+    }.valueOr { errs => (typeEnv, errs.failure) }
   
   def transformString[T, U, V, W, X, Y, Z, TT, TU, E, TE](s: String)(nameTree: resolver.NameTree, kindTable: InferredKindTable[X], typeTable: InferredTypeTable[T, X], instTree: InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], instArgTable: InstanceArgTable[T, X])(f: (Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], InferredKindTable[X], InferredTypeTable[T, X]) => State[TE, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]]]])(g: (InferredKindTable[X], InferredTypeTable[T, X], InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], InstanceArgTable[T, X]) => State[TE, E])(implicit init: Initializer[NonEmptyList[AbstractError], T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], E], polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], enval: InstantiationEnvironmental[E, T, X], treeExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]]) =
     State(transformStringS[T, U, V, W, X, Y, Z, TT, TU, E, TE](s)(nameTree, kindTable, typeTable, instTree, instArgTable)(f)(g))
@@ -182,4 +185,20 @@ object Instantiator
       term2 <- f(term)
       term3 <- transformTermWithInstantiation(term2)(env)
     } yield term3
+  
+  val statefullyTransformToSymbolTree3 = {
+    (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol]) =>
+      State({
+        (typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]) =>
+          (for {
+            tree2 <- lmbdindexer.LambdaIndexer.transform(tree)
+            tree3 <- kinder.Kinder.transform(tree2)(kindTable) { (kt: InferredKindTable[GlobalSymbol]) => SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kt) }
+          } yield typer.Typer.transform(tree3)(kindTable, typeTable)(typer.Typer.statefullyMakeSymbolTypeInferenceEnvironment3).run(typeEnv)).valueOr { errs => (typeEnv, errs.failure) }
+      })
+  }
+    
+  val statefullyMakeSymbolTypeInferenceEnvironment3 = {
+    (kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol], instTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]], instArgTable: InstanceArgTable[GlobalSymbol, GlobalSymbol]) =>
+      typer.Typer.statefullyMakeSymbolTypeInferenceEnvironment3(kindTable, typeTable).map(SymbolInstantiationEnvironment.fromInstanceTree[parser.LambdaInfo, parser.TypeLambdaInfo](instTree).withInstArgs(instArgTable.instArgs).withTypeInferenceEnv)
+  }
 }
