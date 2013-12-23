@@ -4026,7 +4026,7 @@ k _ = f
       }
     }
   
-    it should "transform the string with the polynomial combinator" is (pending)
+    it should "transform the string with the polymorphic combinator" is (pending)
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((kt1, kt2) => InferredKindTable(kt1.kinds ++ kt2.kinds))(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
