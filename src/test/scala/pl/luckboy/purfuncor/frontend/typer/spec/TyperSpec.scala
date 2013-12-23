@@ -3837,7 +3837,194 @@ i x = tuple 3 g h x
       }
     }
     
-    it should "set the instantiation fields of the lambda informations for the recursive type combinators" is (pending)
+    it should "set the instantiation fields of the lambda informations for the recursive type combinators" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+poly (f: \t1 t2 => tuple 2 t1 t2)
+poly (g: \t1 => tuple 2 t1 #Float)
+h x = #cond (\_ => j true) (\_ => k g) x
+i = h
+j x = #cond (\_ => f) (\_ => i true) x
+k _ = f
+""")(NameTree.empty)(f).run(emptyEnv)
+      res should be ===(().success.success)
+      // f
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("f")))) {
+        case InferredType(TupleType(_), Seq(_, _)) => ()
+      }
+      // g
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("g")))) {
+        case InferredType(TupleType(_), Seq(_)) => ()
+      }
+      // h
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("h")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg11, ret11)), argKinds1) =>
+          // \t1 t2 => #Boolean #-> (t1, t2)
+          inside(arg11) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+          inside(ret11) {
+            case TupleType(Seq(TypeParamApp(param111, Seq(), 0), TypeParamApp(param112, Seq(), 0))) =>
+              inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(0)) {
+                case Some(InferenceLambdaInfo(_, None, combTypeParams1)) =>
+                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(2)) {
+                    case Some(InferenceLambdaInfo(_, None, combTypeParams2)) =>
+                  }
+                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(4)) {
+                    case Some(InferenceLambdaInfo(_, polyFunType3, combTypeParams3)) =>
+                      inside(polyFunType3) {
+                        case Some(InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg31, ret31)), argKinds3)) =>
+                          inside(arg31) {
+                            case TupleType(Seq(TypeParamApp(param311, Seq(), 0), BuiltinType(TypeBuiltinFunction.Float, Seq()))) =>
+                              inside(ret31) {
+                                case TupleType(Seq(TypeParamApp(param312, Seq(), 0), TypeParamApp(param313, Seq(), 0))) =>
+                                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("h")))).get(5)) {
+                                    case Some(InferenceLambdaInfo(_, polyFunType4, combTypeParams4)) =>
+                                      inside(polyFunType4) {
+                                        case Some(InferredType(TupleType(Seq(TypeParamApp(param41, Seq(), 0), BuiltinType(TypeBuiltinFunction.Float, Seq()))), argKinds4)) =>
+                                          // i
+                                          inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("i")))) {
+                                            case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg51, ret51)), argKinds5) =>
+                                              // \t1 t2 => #Boolean #-> (t1, t2)
+                                              inside(arg51) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+                                              inside(ret51) {
+                                                case TupleType(Seq(TypeParamApp(param511, Seq(), 0), TypeParamApp(param512, Seq(), 0))) =>
+                                                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("i")))).get(0)) {
+                                                    case Some(InferenceLambdaInfo(_, None, combTypeParams5)) =>
+                                                      // j
+                                                      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("j")))) {
+                                                        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg61, ret61)), argKinds6) =>
+                                                          // \t1 t2 => #Boolean #-> (t1, t2)
+                                                          inside(arg61) { case BuiltinType(TypeBuiltinFunction.Boolean, Seq()) => () }
+                                                          inside(ret61) {
+                                                            case TupleType(Seq(TypeParamApp(param611, Seq(), 0), TypeParamApp(param612, Seq(), 0))) =>
+                                                              inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("j")))).get(0)) {
+                                                                case Some(InferenceLambdaInfo(_, None, combTypeParams6)) =>
+                                                                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("j")))).get(2)) {
+                                                                    case Some(InferenceLambdaInfo(_, polyFunType7, combTypeParams7)) =>
+                                                                      inside(polyFunType7) {
+                                                                        case Some(InferredType(TupleType(Seq(TypeParamApp(param71, Seq(), 0), TypeParamApp(param72, Seq(), 0))), argKinds7)) =>
+                                                                          List(param111, param112).toSet should have size(2)
+                                                                          List(param611, param612).toSet should have size(2)
+                                                                          List(param312, param71).toSet should have size(1)
+                                                                          List(param313, param72).toSet should have size(1)
+                                                                          List(param312, param313).toSet should have size(2)
+                                                                          combTypeParams1 should have size(3)
+                                                                          combTypeParams1.get(param312) should be ===(some(param111))
+                                                                          combTypeParams1.get(param313) should be ===(some(param112))
+                                                                          combTypeParams1.keySet should be ===((0 until 3).toSet)
+                                                                          combTypeParams1.keySet should be ===((0 until 3).toSet)
+                                                                          combTypeParams5 should have size(3)
+                                                                          combTypeParams5.get(param312) should be ===(some(param511))
+                                                                          combTypeParams5.get(param313) should be ===(some(param512))
+                                                                          combTypeParams5.keySet should be ===((0 until 3).toSet)
+                                                                          combTypeParams5.values.toSet should be ===((0 until 3).toSet)
+                                                                          combTypeParams6 should have size(3)
+                                                                          combTypeParams6.get(param312) should be ===(some(param611))
+                                                                          combTypeParams6.get(param313) should be ===(some(param612))
+                                                                          combTypeParams6.keySet should be ===((0 until 3).toSet)
+                                                                          combTypeParams6.values.toSet should be ===((0 until 3).toSet)
+                                                                          inside(argKinds7) {
+                                                                            case Seq(
+                                                                                InferredKind(Star(KindType, _)) /* * */,
+                                                                                InferredKind(Star(KindType, _)) /* * */,
+                                                                                InferredKind(Star(KindType, _)) /* * */) =>
+                                                                              ()
+                                                                          }
+                                                                      }
+                                                                      combTypeParams7 should have size(0)
+                                                                  }
+                                                                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("j")))).get(4)) {
+                                                                    case Some(InferenceLambdaInfo(_, None, combTypeParams8)) =>
+                                                                      combTypeParams8 should have size(0)
+                                                                  }
+                                                              }
+                                                          }
+                                                          inside(argKinds6) {
+                                                            case Seq(
+                                                                InferredKind(Star(KindType, _)) /* * */,
+                                                                InferredKind(Star(KindType, _)) /* * */) =>
+                                                              ()
+                                                          }
+                                                      }
+                                                  }
+                                              }
+                                              inside(argKinds5) {
+                                                case Seq(
+                                                    InferredKind(Star(KindType, _)) /* * */,
+                                                    InferredKind(Star(KindType, _)) /* * */) =>
+                                                  ()
+                                              }
+                                          }
+                                          inside(argKinds4) {
+                                            case Seq(
+                                                InferredKind(Star(KindType, _)) /* * */,
+                                                InferredKind(Star(KindType, _)) /* * */,
+                                                InferredKind(Star(KindType, _)) /* * */) =>
+                                              ()
+                                          }
+                                      }
+                                      combTypeParams4 should have size(0)
+                                  }
+                              }
+                          }
+                          inside(argKinds3) {
+                            case Seq(
+                                InferredKind(Star(KindType, _)) /* * */,
+                                InferredKind(Star(KindType, _)) /* * */,
+                                InferredKind(Star(KindType, _)) /* * */) =>
+                              ()
+                          }
+                      }
+                      combTypeParams3 should have size(0)
+                  }
+              }
+          }
+          inside(argKinds1) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+      // k
+      inside(enval.globalVarTypeFromEnvironment(env)(GlobalSymbol(NonEmptyList("k")))) {
+        case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg1, ret1)), argKinds) =>
+          // \t1 t2 t3 => #t1 #-> (t2, t3)
+          inside(arg1) { 
+            case TypeParamApp(param1, Seq(), 0) =>
+              inside(ret1) {
+                case TupleType(Seq(TypeParamApp(param11, Seq(), 0), TypeParamApp(param12, Seq(), 0))) =>
+                  inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("k")))).get(0)) {
+                    case Some(InferenceLambdaInfo(_, None, combTypeParams1)) =>
+                      inside(enval.lambdaInfosFromEnvironment(env)(Some(GlobalSymbol(NonEmptyList("k")))).get(1)) {
+                        case Some(InferenceLambdaInfo(_, polyFunType2, combTypeParams2)) =>
+                           inside(polyFunType2) {
+                             case Some(InferredType(TupleType(Seq(TypeParamApp(param21, Seq(), 0), TypeParamApp(param22, Seq(), 0))), argKinds2)) =>
+                               List(param1, param11, param12).toSet should have size(3)
+                               List(param21, param22).toSet should have size(2)
+                               combTypeParams1 should have size(3)
+                               combTypeParams1.get(param21) should be ===(some(param11))
+                               combTypeParams1.get(param22) should be ===(some(param12))
+                               combTypeParams1.keySet should be ===((0 until 3).toSet)
+                               combTypeParams1.values.toSet should be ===((0 until 3).toSet)
+                               inside(argKinds2) {
+                                 case Seq(
+                                     InferredKind(Star(KindType, _)) /* * */,
+                                     InferredKind(Star(KindType, _)) /* * */) =>
+                                  ()
+                               }
+                           }
+                      }
+                  }
+              }
+          }
+          inside(argKinds) {
+            case Seq(
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */,
+                InferredKind(Star(KindType, _)) /* * */) =>
+              ()
+          }
+      }
+    }
   
     it should "transform the string with the polynomial combinator" is (pending)
   }
