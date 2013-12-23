@@ -19,12 +19,11 @@ import pl.luckboy.purfuncor.common.Arrow
 
 class KinderSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[TT] => E)(h2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]]])(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
+  def kinder[T, U, V, W, X, Y[_, _], Z, TT, TU, TV, E, D](emptyEnv: E, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f2: D => Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, lmbdindexer.LambdaInfo[V], TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]], Y[lmbdindexer.TypeLambdaInfo[X], Z]]])(g: InferredKindTable[TT] => E)(h2: D => Term[TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]] => ValidationNel[AbstractError, Term[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]]]])(implicit init: Initializer[NoKind, TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], E], inferrer: Inferrer[TypeSimpleTerm[W, lmbdindexer.TypeLambdaInfo[X]], E, Kind], envSt: KindInferenceEnvironmentState[E, TT], enval: KindInferenceEnvironmental[E, TT, TU], treeInfoTransformer: TreeInfoTransformer[Y, W, TT, TU], treeInfoExtractor: TreeInfoExtractor[Y[lmbdindexer.TypeLambdaInfo[X], Z], Tree[TT, AbstractTypeCombinator[W, lmbdindexer.TypeLambdaInfo[X]], Z]], treeInfoExtractor2: TreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], Tree[TT, AbstractTypeCombinator[W, TypeLambdaInfo[X, TU]], TypeTreeInfo[Z, TT]]], instTreeInfoExtractor2: InstantiationTreeInfoExtractor[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T, Instance[T], SelectConstructInstance[W, TypeLambdaInfo[X, TU]]], globalSymTabular: GlobalSymbolTabular[Y[TypeLambdaInfo[X, TU], TypeTreeInfo[Z, TT]], T], typeGlobalSymTabular: GlobalSymbolTabular[Z, TT], localSymTabular: LocalSymbolTabular[V, TV], typeLocalSymTabular: LocalSymbolTabular[X, TU])
   {
     //TODO: add a test for the global type contains the lambda-expression with the reference to itself.
     //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
     //TODO: add a test for the type lambda-expression has the type arguments with the inferred kinds and returns a type with the inferred kind.
-    //TODO: add tests for the instances.
     val f = f2(initData)
     val h = h2(initData)
     
@@ -1016,6 +1015,355 @@ g (x: \t => tuple 2 t (t #Int)) = x
                       inside(arg2) { 
                         case Simple(TypeVar(loc2), _) =>
                           some(loc2) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                      }
+                  }
+              }
+          }
+      }
+    }
+    
+    it should "transform the string with the instances" in {
+      val res = Kinder.transformString("""
+poly (f: \t1 t2 => tuple 2 t1 t2)
+instance f => g
+g = tuple 2 1 2L
+unittype 0 T
+unittype 2 U
+unittype 1 V
+instance select \t1 t2 => ##| (##| (##& T tuple 0) (##& (U t1 t2) (tuple 2 t1 t2))) (##& (V t1) (tuple 1 t1)) construct {
+  ##& T tuple 0
+  \t1 t2 => ##& (U t1 t2) (tuple 2 t1 t2)
+  \t1 => ##& (V t1) (tuple 1 t1)
+}
+""")(NameTree.empty, InferredKindTable.empty)(f)(g)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor2.typeTreeFromTreeInfo(treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val insts = instTreeInfoExtractor2.instancesFromTreeInfo(treeInfo)
+          val selectConstructInsts = instTreeInfoExtractor2.selectConstructInstancesFromTreeInfo(treeInfo)
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo))
+          combLocs should have size(combSyms.size)
+          combs.keySet should be ===(combLocs)
+          val typeCombSyms = Set(
+              GlobalSymbol(NonEmptyList("T")),
+              GlobalSymbol(NonEmptyList("U")),
+              GlobalSymbol(NonEmptyList("V")))
+          val typeCombLocs = typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))
+          typeCombLocs should have size(typeCombSyms.size)
+          typeCombs.keySet should be ===(typeCombLocs)
+          typeTreeInfo.kindTable.kinds.keySet should be ===(typeCombLocs)
+          val instSyms = Set(GlobalSymbol(NonEmptyList("f")))
+          val instLocs = instSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo))
+          instLocs should have size(instSyms.size)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(PolyCombinator(Some(typ), _)) =>
+              inside(typ) {
+                case Simple(TypeLambda(typArgs, typBody, TypeLambdaInfo(lambdaInfo, 0, kindTable)), _) =>
+                  inside(typArgs) { case NonEmptyList(TypeArg(Some("t1"), None, _), TypeArg(Some("t2"), None, _)) => () }
+                  val typSyms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
+                  val typLocs = typSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                  typLocs should have size(typSyms.size)
+                  inside(typBody) {
+                    case App(typFun1, typArgs1, _) =>
+                      inside(typFun1) { case Simple(TypeLiteral(TupleTypeFunValue(2)), _) => () }
+                      inside(typArgs1) {
+                        case NonEmptyList(arg11, arg12) =>
+                          inside(arg11) { 
+                            case Simple(TypeVar(typLoc11), _) =>
+                              some(typLoc11) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")))
+                          }
+                          inside(arg12) {
+                            case Simple(TypeVar(typLoc12), _) =>
+                              some(typLoc12) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")))
+                          }
+                      }
+                  }
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")).flatMap(kindTable.kinds.get)) {
+                    case Some(InferredKind(Star(KindType, _))) =>
+                      // *
+                      ()
+                  }
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")).flatMap(kindTable.kinds.get)) {
+                    case Some(InferredKind(Star(KindType, _))) =>
+                      // *
+                      ()
+                  }
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
+            case Some(Combinator(None, Nil, body, lambdaInfo, _)) =>
+              inside(body) {
+                case App(fun1, args1, _) =>
+                  inside(fun1) { case Simple(Literal(TupleFunValue(2)), _) => () }
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12) =>
+                      inside(arg11) { case Simple(Literal(IntValue(1)), _) => () }
+                      inside(arg12) { case Simple(Literal(LongValue(2L)), _) => () }
+                  }
+              }
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeCombs.get)) {
+            case Some(UnittypeCombinator(0, None, _)) => ()
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeCombs.get)) {
+            case Some(UnittypeCombinator(2, None, _)) => ()
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V"))).flatMap(typeCombs.get)) {
+            case Some(UnittypeCombinator(1, None, _)) => ()
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Star(KindType, _))) => 
+              // *
+              ()
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Arrow(Star(KindType, _), ret1, _))) => 
+              // * -> * -> *
+              inside(ret1) {
+                case Arrow(Star(KindType, _), Star(KindType, _), _) =>
+                  ()
+              }
+          }
+          inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
+            case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) => 
+              // * -> *
+              ()
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(insts.get)) {
+            case Some(List(Instance(instCombLoc, _, _))) =>
+              some(instCombLoc) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+          }
+          inside(selectConstructInsts) {
+            case List(SelectConstructInstance(supertype, types, _)) =>
+              inside(supertype) {
+                case Simple(TypeLambda(supertypeArgs, supertypeBody, TypeLambdaInfo(lambdaInfo, 0, kindTable)), _) =>
+                  inside(supertypeArgs) { case NonEmptyList(TypeArg(Some("t1"), None, _), TypeArg(Some("t2"), None, _)) => () }
+                  val supertypeSyms = Set(LocalSymbol("t1"), LocalSymbol("t2"))
+                  val supertypeLocs = supertypeSyms.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo))
+                  supertypeLocs should have size(supertypeSyms.size)
+                  inside(supertypeBody) {
+                    case App(supertypeFun1, supertypeArgs1, _) =>
+                      inside(supertypeFun1) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Disj)), _) => () }
+                      inside(supertypeArgs1) {
+                        case NonEmptyList(supertypeArg11, supertypeArg12) =>
+                          inside(supertypeArg11) {
+                            case App(supertypeFun2, supertypeArgs2, _) =>
+                              inside(supertypeFun2) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Disj)), _) => () }
+                              inside(supertypeArgs2) {
+                                case NonEmptyList(supertypeArgs21, supertypeArgs22) =>
+                                  inside(supertypeArgs21) {
+                                    case App(supertypeFun3, supertypeArgs3, _) =>
+                                      inside(supertypeFun3) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                                      inside(supertypeArgs3) {
+                                        case NonEmptyList(supertypeArg31, supertypeArg32) =>
+                                          inside(supertypeArg31) {
+                                           case Simple(TypeVar(supertypeLoc31), _) =>
+                                             some(supertypeLoc31) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                                          }
+                                          inside(supertypeArg32) { case Simple(TypeLiteral(TupleTypeFunValue(0)), _) => () }
+                                      }
+                                  }
+                                  inside(supertypeArgs22) {
+                                    case App(supertypeFun4, supertypeArgs4, _) =>
+                                      inside(supertypeFun4) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                                      inside(supertypeArgs4) {
+                                        case NonEmptyList(supertypeArg41, supertypeArg42) =>
+                                          inside(supertypeArg41) {
+                                            case App(supertypeFun5, supertypeArgs5, _) =>
+                                              inside(supertypeFun5) {
+                                                case Simple(TypeVar(supertypeLoc5), _) =>
+                                                  some(supertypeLoc5) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                                              }
+                                              inside(supertypeArgs5) {
+                                                case NonEmptyList(supertypeArg51, supertypeArg52) =>
+                                                  inside(supertypeArg51) {
+                                                    case Simple(TypeVar(supertypeLoc51), _) =>
+                                                      some(supertypeLoc51) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")))
+                                                  }
+                                                  inside(supertypeArg52) {
+                                                    case Simple(TypeVar(supertypeLoc52), _) =>
+                                                      some(supertypeLoc52) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")))
+                                                  }
+                                              }
+                                          }
+                                          inside(supertypeArg42) {
+                                            case App(supertypeFun6, supertypeArgs6, _) =>
+                                              inside(supertypeFun6) { case Simple(TypeLiteral(TupleTypeFunValue(2)), _) => () }
+                                              inside(supertypeArgs6) {
+                                                case NonEmptyList(supertypeArg61, supertypeArg62) =>
+                                                  inside(supertypeArg61) {
+                                                    case Simple(TypeVar(supertypeLoc61), _) =>
+                                                      some(supertypeLoc61) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")))
+                                                  }
+                                                  inside(supertypeArg62) {
+                                                    case Simple(TypeVar(supertypeLoc62), _) =>
+                                                      some(supertypeLoc62) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")))
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                          inside(supertypeArg12) {
+                            case App(supertypeFun7, supertypeArgs7, _) =>
+                              inside(supertypeFun7) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                              inside(supertypeArgs7) {
+                                case NonEmptyList(supertypeArg71, supertypeArg72) =>
+                                  inside(supertypeArg71) {
+                                    case App(supertypeFun8, supertypeArgs8, _) =>
+                                      inside(supertypeFun8) {
+                                        case Simple(TypeVar(supertypeLoc8), _) =>
+                                          some(supertypeLoc8) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V"))))
+                                      }
+                                      inside(supertypeArgs8) {
+                                        case NonEmptyList(supertypeArg81) =>
+                                          inside(supertypeArg81) {
+                                            case Simple(TypeVar(supertypeLoc81), _) =>
+                                              some(supertypeLoc81) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")))
+                                          }
+                                      }
+                                  }
+                                  inside(supertypeArg72) {
+                                    case App(supertypeFun9, supertypeArgs9, _) =>
+                                      inside(supertypeFun9) { case Simple(TypeLiteral(TupleTypeFunValue(1)), _) => () }
+                                      inside(supertypeArgs9) {
+                                        case NonEmptyList(supertypeArg91) =>
+                                          inside(supertypeArg91) {
+                                            case Simple(TypeVar(supertypeLoc91), _) =>
+                                              some(supertypeLoc91) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")))
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t1")).flatMap(kindTable.kinds.get)) {
+                    case Some(InferredKind(Star(KindType, _))) =>
+                      // *
+                      ()
+                  }
+                  inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("t2")).flatMap(kindTable.kinds.get)) {
+                    case Some(InferredKind(Star(KindType, _))) =>
+                      // *
+                      ()
+                  }
+              }
+              inside(types) {
+                case NonEmptyList(typ1, typ2, typ3) =>
+                  inside(typ1) {
+                    case App(typFun11, typArgs11, _) =>
+                      inside(typFun11) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                      inside(typArgs11) {
+                        case NonEmptyList(typArg111, typArg112) =>
+                          inside(typArg111) {
+                            case Simple(TypeVar(typLoc1), _) =>
+                              some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                          }
+                          inside(typArg112) { case Simple(TypeLiteral(TupleTypeFunValue(0)), _) => () }
+                      }
+                  }
+                  inside(typ2) {
+                    case Simple(TypeLambda(typArgs2, typBody2, TypeLambdaInfo(lambdaInfo2, 1, kindTable2)), _) =>
+                      val typSyms2 = Set(LocalSymbol("t1"), LocalSymbol("t2"))
+                      val typLocs2 = typSyms2.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2))
+                      typLocs2 should have size(typSyms2.size)
+                      inside(typBody2) {
+                        case App(typFun21, typArgs21, _) =>
+                          inside(typFun21) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                          inside(typArgs21) {
+                            case NonEmptyList(typArg211, typArg212) =>
+                              inside(typArg211) {
+                                case App(typFun22, typArgs22, _) =>
+                                  inside(typFun22) {
+                                    case Simple(TypeVar(typLoc22), _) =>
+                                      some(typLoc22) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                                  }
+                                  inside(typArgs22) {
+                                    case NonEmptyList(typArg221, typArg222) =>
+                                      inside(typArg221) {
+                                        case Simple(TypeVar(typLoc221), _) =>
+                                          some(typLoc221) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t1")))
+                                      }
+                                      inside(typArg222) {
+                                        case Simple(TypeVar(typLoc222), _) =>
+                                          some(typLoc222) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t2")))
+                                      }
+                                  }
+                              }
+                              inside(typArg212) {
+                                case App(typFun23, typArgs23, _) =>
+                                  inside(typFun23) { case Simple(TypeLiteral(TupleTypeFunValue(2)), _) => () }
+                                  inside(typArgs23) {
+                                    case NonEmptyList(typArg231, typArg232) =>
+                                      inside(typArg231) {
+                                        case Simple(TypeVar(typLoc231), _) =>
+                                          some(typLoc231) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t1")))
+                                      }
+                                      inside(typArg232) {
+                                        case Simple(TypeVar(typLoc232), _) =>
+                                          some(typLoc232) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t2")))
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t1")).flatMap(kindTable2.kinds.get)) {
+                        case Some(InferredKind(Star(KindType, _))) =>
+                          // *
+                          ()
+                      }
+                      inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo2)(LocalSymbol("t2")).flatMap(kindTable2.kinds.get)) {
+                        case Some(InferredKind(Star(KindType, _))) =>
+                          // *
+                          ()
+                      }
+                  }
+                  inside(typ3) {
+                    case Simple(TypeLambda(typArgs3, typBody3, TypeLambdaInfo(lambdaInfo3, 2, kindTable3)), _) =>
+                      val typSyms3 = Set(LocalSymbol("t1"))
+                      val typLocs3 = typSyms3.flatMap(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo3))
+                      typLocs3 should have size(typSyms3.size)
+                      inside(typBody3) {
+                        case App(typFun31, typArgs31, _) =>
+                          inside(typFun31) { case Simple(TypeLiteral(TypeBuiltinFunValue(TypeBuiltinFunction.Conj)), _) => () }
+                          inside(typArgs31) {
+                            case NonEmptyList(typArg311, typArg312) =>
+                              inside(typArg311) {
+                                case App(typFun32, typArgs32, _) =>
+                                  inside(typFun32) {
+                                    case Simple(TypeVar(typLoc32), _) =>
+                                      some(typLoc32) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V"))))
+                                  }
+                                  inside(typArgs32) {
+                                    case NonEmptyList(typArg321) =>
+                                      inside(typArg321) {
+                                        case Simple(TypeVar(typLoc321), _) =>
+                                          some(typLoc321) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo3)(LocalSymbol("t1")))
+                                      }
+                                  }
+                              }
+                              inside(typArg312) {
+                                case App(typFun33, typArgs33, _) =>
+                                  inside(typFun33) { case Simple(TypeLiteral(TupleTypeFunValue(1)), _) => () }
+                                  inside(typArgs33) {
+                                    case NonEmptyList(typArg331) =>
+                                      inside(typArg331) {
+                                        case Simple(TypeVar(typLoc331), _) =>
+                                          some(typLoc331) should be ===(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo3)(LocalSymbol("t1")))
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(typeLocalSymTabular.getLocalLocationFromTable(lambdaInfo3)(LocalSymbol("t1")).flatMap(kindTable3.kinds.get)) {
+                        case Some(InferredKind(Star(KindType, _))) =>
+                          // *
+                          ()
                       }
                   }
               }

@@ -385,9 +385,9 @@ package object kinder
       env.withClear(f)
   }
   
-  implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] = new TreeInfoTransformer[resolver.TreeInfo, GlobalSymbol, LocalSymbol] {
-    override def transformTreeInfo[T, U, E](treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo[T], U])(env: E)(implicit enval: KindInferenceEnvironmental[E, GlobalSymbol, LocalSymbol]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[T, LocalSymbol], TypeTreeInfo[U, GlobalSymbol]]] =
-      (Kinder.transformTypeTree(treeInfo.typeTree)(env)(enval) |@| Kinder.transformSelectConstructInstances(treeInfo.selectConstructInsts)(env)(enval)) {
+  implicit val resolverTreeInfoTransformer: TreeInfoTransformer[resolver.TreeInfo, Symbol, GlobalSymbol, LocalSymbol] = new TreeInfoTransformer[resolver.TreeInfo, Symbol, GlobalSymbol, LocalSymbol] {
+    override def transformTreeInfo[T, U, E](treeInfo: resolver.TreeInfo[lmbdindexer.TypeLambdaInfo[T], U])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[Symbol, lmbdindexer.TypeLambdaInfo[T]], E, Kind], envSt: KindInferenceEnvironmentState[E, GlobalSymbol], enval: KindInferenceEnvironmental[E, GlobalSymbol, LocalSymbol]): ValidationNel[AbstractError, resolver.TreeInfo[TypeLambdaInfo[T, LocalSymbol], TypeTreeInfo[U, GlobalSymbol]]] =
+      (Kinder.transformTypeTree(treeInfo.typeTree)(env)(enval) |@| Kinder.transformSelectConstructInstances(treeInfo.selectConstructInsts)(env)(inferrer, envSt, enval)) {
         (tt, scis) => resolver.TreeInfo(tt, treeInfo.insts, scis)
       }
   }  

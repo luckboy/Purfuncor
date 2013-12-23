@@ -378,7 +378,7 @@ object Resolver
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)
             ((newTree2, res |+| res2), scope)
           case parser.InstanceDef(polyCombSym, instCombSym) =>
-            val res2 = (transformGlobalSymbolForInstance(polyCombSym)(scope) |@| transformGlobalSymbolForInstance(polyCombSym)(scope)) { (s1, s2) => (s1, s2) }
+            val res2 = (transformGlobalSymbolForInstance(polyCombSym)(scope) |@| transformGlobalSymbolForInstance(instCombSym)(scope)) { (s1, s2) => (s1, s2) }
             res2 match {
               case Success((s1, s2)) =>
                 ((tree2.copy(treeInfo = tree2.treeInfo.copy(insts = tree2.treeInfo.insts |+| Map(s1 -> List(Instance(s2, polyCombSym.pos, none))))), (res |@| res2) { (u, _) => u }), scope)
