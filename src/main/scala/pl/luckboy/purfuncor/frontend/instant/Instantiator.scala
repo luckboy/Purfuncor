@@ -207,5 +207,5 @@ object Instantiator
       typer.Typer.statefullyMakeSymbolTypeInferenceEnvironment3(kindTable, typeTable).map(SymbolInstantiationEnvironment.fromInstanceTree[parser.LambdaInfo, parser.TypeLambdaInfo](instTree).withInstArgs(instArgTable.instArgs).withTypeInferenceEnv)
   }
   
-  val emptySymbolInstantiateTree = InstanceTree.empty[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]
+  val emptySymbolInstanceTree = InstanceTree.empty[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]
 }
