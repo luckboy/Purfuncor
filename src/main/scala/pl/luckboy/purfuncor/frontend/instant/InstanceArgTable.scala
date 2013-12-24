@@ -6,3 +6,6 @@ import pl.luckboy.purfuncor.frontend.typer.InferredType
 case class InstanceArgTable[T, U](instArgs: Map[T, Seq[InstanceArg[T, U]]])
 
 case class InstanceArg[+T, U](polyFun: AbstractPolyFunction[T], typ: InferredType[U])
+{
+  override def toString = polyFun + ": " + typ
+}

@@ -8,3 +8,11 @@ case class LambdaInfo[+T, U, V, +W](
     idx: Int,
     typeTable: InferredTypeTable[U, V],
     insts: Seq[Instance[W]])
+{
+  override def toString = {
+    (if(!lambdaInfo.toString.isEmpty) List(lambdaInfo.toString) else Nil) ++
+    List("idx=" + idx) ++
+    (if(!typeTable.types.isEmpty) List("typeTable=" + typeTable.types.map { case (l, t) => l + ": " + t }.mkString(",")) else Nil) ++
+    (if(!insts.isEmpty) List("insts=" + insts.mkString(",")) else Nil)
+  }.mkString(";")
+}

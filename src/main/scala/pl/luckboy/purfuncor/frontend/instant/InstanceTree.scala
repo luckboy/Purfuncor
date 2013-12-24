@@ -122,6 +122,12 @@ object InstanceTable
 sealed trait InstanceType[T]
 {
   def typ: InferredType[T]
+  
+  override def toString =
+    this match {
+      case GlobalInstanceType(typ) => typ.toString + " /*global*/"
+      case LocalInstanceType(typ)  => typ.toString + " /*local*/"
+    }
 }
 
 case class GlobalInstanceType[T](typ: InferredType[T]) extends InstanceType[T]
