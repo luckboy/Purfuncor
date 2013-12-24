@@ -4026,7 +4026,62 @@ k _ = f
       }
     }
   
-    it should "transform the string with the polymorphic combinator" is (pending)
+    it should "transform the string with the polymorphic combinator" in {
+      val (typeEnv, res) = Typer.transformString("""
+f = g
+poly g
+""")(NameTree.empty, kindTableFromData(initData), InferredTypeTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")), GlobalSymbol(NonEmptyList("g")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(2)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          // f
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, Nil, body, LambdaInfo(lambdaInfo, 0, typeTable, None, combTypeParams), _)) =>
+              inside(body) {
+                case Simple(Var(loc1, LambdaInfo(lambdaInfo1, 1, typeTable1, polyFunType1, combTypeParams1)), _) =>
+                  some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+                  typeTable.types should be ('empty)
+                  inside(polyFunType1) {
+                    case Some(InferredType(TypeParamApp(_, Seq(), _), argKinds1)) =>
+                      // \t1 => t1
+                      inside(argKinds1) {
+                        case Seq(
+                            InferredKind(Star(KindType, _))) =>
+                          ()
+                      }
+                  }
+                  combTypeParams1 should be ('empty)
+              }
+              typeTable.types should be ('empty)
+              combTypeParams should have size(1)
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
+            case Some(InferredType(TypeParamApp(_, Seq(), _), argKinds)) =>
+              // \t1 => t1
+              inside(argKinds) {
+                case Seq(
+                    InferredKind(Star(KindType, _))) =>
+                  ()
+              }
+          }
+          // g
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
+            case Some(PolyCombinator(None, _)) => ()
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(treeInfo.typeTable.types.get)) {
+            case Some(InferredType(TypeParamApp(_, Seq(), _), argKinds)) =>
+              // \t1 => t1
+              inside(argKinds) {
+                case Seq(
+                    InferredKind(Star(KindType, _))) =>
+                  ()
+              }
+          }
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((kt1, kt2) => InferredKindTable(kt1.kinds ++ kt2.kinds))(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
