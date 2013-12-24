@@ -32,7 +32,11 @@ object PurfuncorBuild extends Build {
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.Typer;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment;",
-      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable"
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.instant.Instantiator;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.instant.SymbolInstantiationEnvironment;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.instant.InstanceTree;",
+      initialCommands in console += "import pl.luckboy.purfuncor.frontend.instant.InstanceArgTable"
     )
   )
 }

@@ -79,9 +79,10 @@ object PolyFunInstantiator {
                 polyFun match {
                   case PolyFunction(polyFunLoc) =>
                     polyFunInstantiator.getInstanceArgsFromEnvironmentS(polyFunLoc)(newEnv2).mapElements(identity, _.toSuccess(NonEmptyList(FatalError("undefined global variable", none, NoPosition))))
-                  case _                        => (newEnv2, Seq().successNel)
+                  case _                        =>
+                    (newEnv2, Seq().successNel)
                 }
-            }.getOrElse((newEnv2, FatalError("no polynomial function", none, NoPosition).failureNel))
+            }.getOrElse((newEnv2, Seq().successNel))
             val (newEnv4, newRes4) = newRes3.map {
               polyFunInstantiator.instantiatePolyFunctionS(lambdaInfo, _)(newLocalInstTree2)(newEnv3)
             }.valueOr { errs => (newEnv3, errs.failure) }
@@ -144,7 +145,7 @@ object PolyFunInstantiator {
             (for {
               typ <- State(envSt2.globalVarTypeFromEnvironmentS(polyFunLoc)(_: E))
               res <- State(typ.uninstantiatedTypeValueTermWithTypeParamsS(_: E))
-              res7 <- res.map {
+              res9 <- res.map {
                 case (inferringTypeValueTerm, typeParams) =>
                   for {
                     res2 <- State({
@@ -166,42 +167,64 @@ object PolyFunInstantiator {
                             (newEnv, noType.failure)
                         }
                     })
-                    res6 <- res2.map {
+                    res8 <- res2.map {
                       instInferringTypes =>
                         for {
                           res3 <- State(polyFunType.uninstantiatedTypeValueTermWithTypeParamsS(_: E))
-                          res5 <- res3.map {
+                          res7 <- res3.map {
                             case (polyFunTypeValueTerm, polyFunTypeParams) =>
                               for {
                                 _ <- State(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
                                 unifiedType <- unifyTypes(InferringType(inferringTypeValueTerm), InferringType(polyFunTypeValueTerm))
-                                res4 <- (unifiedType match {
+                                res6 <- (unifiedType match {
                                   case noType: NoType[N] =>
                                     State((_: E, NoType.fromError[N](FatalError("mismatched types", none, NoPosition)).failure))
                                   case _ =>
-                                    State({
-                                      (env2: E) =>
-                                        instArgs.zip(instInferringTypes).foldLeft((env2, Seq[InstanceArg[L, N]]().success[NoType[N]])) {
-                                          case ((newEnv, Success(newInstArgs)), (instArg, instInferringType)) =>
-                                            val (newEnv2, newInstType) = instInferringType.instantiatedTypeForParamsS(polyFunTypeParams.map { _.swap }.toMap)(newEnv)
-                                            newInstType match {
-                                              case newInstInferredType: InferredType[N] =>
-                                                (newEnv2, (newInstArgs :+ instArg.copy(typ = newInstInferredType)).success)
-                                              case noType: NoType[N] =>
-                                                (newEnv2, noType.failure)
-                                              case _ =>
-                                                (newEnv2, NoType.fromError[N](FatalError("uninferred type", none, NoPosition)).failure)
-                                            }
-                                        }
-                                    })
+                                    for {
+                                      res4 <- State({
+                                        (env2: E) =>
+                                          polyFunType match {
+                                            case InferredType(_, argKinds) =>
+                                              argKinds.zipWithIndex.foldLeft((env2, Map[Int, (Int, InferredKind)]().success[NoType[N]])) {
+                                                case ((newEnv, Success(newParamsWithKinds)), (kind, i)) =>
+                                                  if(polyFunTypeParams.contains(i))
+                                                    (newEnv, newParamsWithKinds.success)
+                                                  else
+                                                    unifier.allocateParamS(newEnv).mapElements(identity, _.map { p => newParamsWithKinds + (i -> ((p, kind))) } )
+                                                case ((newEnv, Failure(noType)), _)                     =>
+                                                  (newEnv, noType.failure)
+                                              }
+                                          }
+                                      })
+                                      res5 <- res4.map {
+                                        polyFunTypeParamsWithKinds =>
+                                          val polyFunTypeParams2 = polyFunTypeParams ++ polyFunTypeParamsWithKinds.mapValues { _._1 }
+                                          State({
+                                            (env2: E) =>
+                                              val (env3, _) = envSt.setTypeParamKindsS(polyFunTypeParamsWithKinds.map { _._2 }.toMap)(env2)
+                                              instArgs.zip(instInferringTypes).foldLeft((env3, Seq[InstanceArg[L, N]]().success[NoType[N]])) {
+                                                case ((newEnv, Success(newInstArgs)), (instArg, instInferringType)) =>
+                                                  val (newEnv2, newInstType) = instInferringType.instantiatedTypeForParamsS(polyFunTypeParams2.map { _.swap }.toMap)(newEnv)
+                                                  newInstType match {
+                                                    case newInstInferredType: InferredType[N] =>
+                                                      (newEnv2, (newInstArgs :+ instArg.copy(typ = newInstInferredType)).success)
+                                                    case noType: NoType[N] =>
+                                                      (newEnv2, noType.failure)
+                                                    case _ =>
+                                                      (newEnv2, NoType.fromError[N](FatalError("uninferred type", none, NoPosition)).failure)
+                                                 }
+                                              }
+                                         })
+                                      }.valueOr { nt => State((_: E, nt.failure)) }
+                                    } yield res5
                                 })
-                              } yield res4
+                              } yield res6
                           }.valueOr { nt => State((_: E, nt.failure)) }
-                        } yield res5
+                        } yield res7
                     }.valueOr { nt => State((_: E, nt.failure)) }
-                  } yield res6
+                  } yield res8
               }.valueOr { nt => State((_: E, nt.failure)) }
-            } yield res7).run(env)
+            } yield res9).run(env)
         }.getOrElse((env, NoType.fromError[N](FatalError("no poly function type", none, NoPosition)).failure))
       case polyFun @ (ConstructFunction | SelectFunction) =>
         (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no poly function type", none, NoPosition)).failure))
