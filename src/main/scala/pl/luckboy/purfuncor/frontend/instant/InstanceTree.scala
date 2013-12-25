@@ -40,7 +40,7 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
       newEnv =>
         val (newEnv5, newRes3) = (typ, instType) match {
           case (_: LocalInstanceType[T], _: LocalInstanceType[T]) =>
-            val (newEnv2, newRes) = instType.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv)
+            val (newEnv2, newRes) = typ.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv)
             val (newEnv3, newRes2) = instType.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv2)
             (for(p <- newRes; ip <- newRes2) yield {
               val ((tvt, ps), (itvt, ips)) = (p, ip)
@@ -64,7 +64,7 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
             val (newEnv7, _) = envSt.setCurrentTypeMatchingS(typeMatching)(newEnv6)
             unifyTypesS(inferringType, instInferringType)(newEnv7) match {
               case (newEnv8, noType: NoType[T]) =>
-                (newEnv8, noType.failure)
+                (newEnv8, if(noType.errs.forall { _.isInstanceOf[Error] }) false.success else noType.failure)
               case (newEnv8, _)                 =>
                 val (newEnv9, definedTypes) = envSt2.definedTypesFromEnvironmentS(newEnv8)
                 val (newEnv10, newRes4) = checkDefinedTypesS(definedTypes)(newEnv9)

@@ -227,7 +227,7 @@ object PolyFunInstantiator {
             } yield res9).run(env)
         }.getOrElse((env, NoType.fromError[N](FatalError("no poly function type", none, NoPosition)).failure))
       case polyFun @ (ConstructFunction | SelectFunction) =>
-        (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no poly function type", none, NoPosition)).failure))
+        (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no polymorphic function type", none, NoPosition)).failure))
     }.getOrElse((env, Seq().success))
   
   def instantiatePolyFunctionS[L, N, E](lambdaInfo: PreinstantiationLambdaInfo[L, N], instArgs: Seq[InstanceArg[L, N]], globalInstTree: InstanceTree[AbstractPolyFunction[L], N, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) =
@@ -242,7 +242,7 @@ object PolyFunInstantiator {
                 val (newEnv6, newRes3) = newRes2.map {
                   case Seq(inst) =>
                     (newEnv4, (Seq(inst), localInstTree).success)
-                  case insts if lambdaInfo.isCase =>
+                  case insts if lambdaInfo.isCase && insts.size > 1 =>
                     (newEnv4, (insts, localInstTree).success)
                   case insts =>
                     localInstTree.map {
@@ -251,7 +251,7 @@ object PolyFunInstantiator {
                         val (newEnv5, newRes4) = tmpInstTree.addInstS(polyFun, LocalInstanceType(typ), inst)(newEnv4)
                         newRes4.map {
                           _.map {
-                            case (it, _) => (newEnv5, (Seq(inst), some(it)).success)
+                            case (it, i) => (newEnv5, (i.map { Seq(_) }.getOrElse(Seq(inst)), some(it)).success)
                           }.getOrElse {
                             envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, _.failure)
                           }
