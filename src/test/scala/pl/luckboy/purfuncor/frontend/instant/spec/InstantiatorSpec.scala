@@ -49,16 +49,34 @@ h = tuple 2 f g
           val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
           combLocs should have size(3)
           treeInfo.typeTable.types.keySet should be ===(combLocs)
+          treeInfo.instArgTable.instArgs.keySet should be ===(combLocs)
           // f
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
             case Some(PolyCombinator(None, _)) => ()
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.typeTable.types.get)) {
             case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+              // \t1 => t1
               inside(argKinds) {
                 case Seq(
                     InferredKind(Star(KindType, _)) /* * */) =>
                   ()
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
+            case Some(Seq(instArg1)) =>
+              inside(instArg1) {
+                case InstanceArg(polyFun1, type1) =>
+                  some(polyFun1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).map { PolyFunction(_) })
+                  inside(type1) {
+                    case InferredType(TypeParamApp(_, Seq(), 0), argKinds1) =>
+                      // \t1 => t1
+                      inside(argKinds1) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
               }
           }
           // g
@@ -67,10 +85,27 @@ h = tuple 2 f g
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(treeInfo.typeTable.types.get)) {
             case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+              // \t1 => t1
               inside(argKinds) {
                 case Seq(
                     InferredKind(Star(KindType, _)) /* * */) =>
                   ()
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
+            case Some(Seq(instArg1)) =>
+              inside(instArg1) {
+                case InstanceArg(polyFun1, type1) =>
+                  some(polyFun1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).map { PolyFunction(_) })
+                  inside(type1) {
+                    case InferredType(TypeParamApp(_, Seq(), 0), argKinds1) =>
+                      // \t1 => t1
+                      inside(argKinds1) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
               }
           }
           // h
@@ -104,6 +139,7 @@ h = tuple 2 f g
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(treeInfo.typeTable.types.get)) {
             case Some(InferredType(TupleType(Seq(TypeParamApp(param1, Seq(), 0), TypeParamApp(param2, Seq(), 0))), argKinds)) =>
+              // \t1 t2 => (t1, t2)
               List(param1, param2).toSet should have size(2)
               inside(argKinds) {
                 case Seq(
@@ -112,9 +148,41 @@ h = tuple 2 f g
                   ()
               }
           }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
+            case Some(Seq(instArg1, instArg2)) =>
+              inside(instArg1) {
+                case InstanceArg(polyFun1, type1) =>
+                  some(polyFun1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).map { PolyFunction(_) })
+                  inside(type1) {
+                    case InferredType(TypeParamApp(param1, Seq(), 0), argKinds1) =>
+                      inside(argKinds1) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */,
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                      inside(instArg2) {
+                        case InstanceArg(polyFun2, type2) =>
+                          some(polyFun2) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).map { PolyFunction(_) })
+                          inside(type2) {
+                            case InferredType(TypeParamApp(param2, Seq(), 0), argKinds2) =>
+                              List(param1, param2).toSet should have size(2)
+                              inside(argKinds2) {
+                                case Seq(
+                                    InferredKind(Star(KindType, _)) /* * */,
+                                    InferredKind(Star(KindType, _)) /* * */) =>
+                                  ()
+                              }
+                          }
+                      }
+                  }
+              }
+              
+          }
           // instances
           insts should be ('empty)
           selectConstructInsts should be ('empty)
+          treeInfo.instTree should be ===(InstanceTree.empty)
       }
     }
   }
