@@ -21,6 +21,7 @@ import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
 import pl.luckboy.purfuncor.frontend.typer.TupleType
 import pl.luckboy.purfuncor.frontend.typer.TypeParamApp
+import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TreeInfo
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
 import pl.luckboy.purfuncor.frontend
@@ -186,7 +187,72 @@ h = tuple 2 f g
       }
     }
     
-    it should "transform the string with the construct-expression" is (pending)
+    it should "transform the string with the construct-expression" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+f x y = construct 2 x y
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val combSyms = Set(GlobalSymbol(NonEmptyList("f")))
+          val insts = instTreeInfoExtractor.instancesFromTreeInfo(treeInfo.treeInfo)
+          val selectConstructInsts = instTreeInfoExtractor.selectConstructInstancesFromTreeInfo(treeInfo.treeInfo)
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(1)
+          treeInfo.instArgTable.instArgs.keySet should be ===(combLocs)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, args, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
+              inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
+              inside(body) {
+                case App(fun1, args1, _) =>
+                  inside(fun1) {
+                    case Simple(Construct(2, LambdaInfo(lambdaInfo1, 1, typeTable1, insts1)), _) =>
+                      typeTable1.types should be ('empty)
+                      inside(insts1) { case Seq(LocalInstance(0)) => () }
+                  }
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12) =>
+                      inside(arg11) {
+                        case Simple(Var(loc11, LambdaInfo(lambdaInfo11, 2, typeTable11, Seq())), _) =>
+                          some(loc11) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")))
+                          typeTable11.types should be ('empty)
+                      }
+                      inside(arg12) {
+                        case Simple(Var(loc12, LambdaInfo(lambdaInfo12, 3, typeTable12, Seq())), _) =>
+                          some(loc12) should be ===(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("y")))
+                          typeTable12.types should be ('empty)
+                      }
+                  }
+              }
+          }
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
+            case Some(Seq(instArg1)) =>
+              inside(instArg1) {
+                case InstanceArg(ConstructFunction, type1) =>
+                  inside(type1) {
+                    case InferredType(TypeConjunction(types1), argKinds1) =>
+                      // \t1 t2 t3 => t1 #& (t2, t3)
+                      inside(for {
+                        x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
+                        x2 <- types1.collectFirst { case TupleType(Seq(TypeParamApp(param12, Seq(), 0), TypeParamApp(param13, Seq(), 0))) => (param12, param13) }
+                      } yield (x1, x2)) {
+                        case Some((param11, (param12, param13))) =>
+                          List(param11, param12, param13).toSet should have size(3)
+                      }
+                      inside(argKinds1) {
+                        case Seq(
+                            InferredKind(Star(KindType, _)) /* * */,
+                            InferredKind(Star(KindType, _)) /* * */,
+                            InferredKind(Star(KindType, _)) /* * */) =>
+                          ()
+                      }
+                  }
+              }
+              // instances
+              insts should be ('empty)
+              selectConstructInsts should be ('empty)
+          }
+      }
+    }
     
     it should "transform the string with the select-expression" is (pending)
     
