@@ -121,18 +121,13 @@ h = tuple 2 f g
                         case Simple(Var(loc11, LambdaInfo(lambdaInfo11, 1, typeTable11, insts11)), _) =>
                           some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
                           typeTable11.types should be ('empty)
-                          inside(insts11) {
-                            case Seq(LocalInstance(instArgIdx111)) =>
-                              inside(arg12) {
-                                case Simple(Var(loc12, LambdaInfo(lambdaInfo12, 2, typeTable12, insts12)), _) =>
-                                  some(loc12) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
-                                  typeTable12.types should be ('empty)
-                                  inside(insts12) {
-                                    case Seq(LocalInstance(instArgIdx121)) =>
-                                      List(instArgIdx111, instArgIdx121).toSet should have size(2)
-                                  }
-                              }
-                          }
+                          inside(insts11) { case Seq(LocalInstance(0)) => () }
+                      }
+                      inside(arg12) {
+                        case Simple(Var(loc12, LambdaInfo(lambdaInfo12, 2, typeTable12, insts12)), _) =>
+                          some(loc12) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+                          typeTable12.types should be ('empty)
+                          inside(insts12) { case Seq(LocalInstance(1)) => () }
                       }
                   }
               }
