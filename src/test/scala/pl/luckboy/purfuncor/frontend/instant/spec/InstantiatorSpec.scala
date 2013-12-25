@@ -185,6 +185,26 @@ h = tuple 2 f g
           treeInfo.instTree should be ===(InstanceTree.empty)
       }
     }
+    
+    it should "transform the string with the construct-expression" is (pending)
+    
+    it should "transform the string with the select-expression" is (pending)
+    
+    it should "transform the string with the instances" is (pending)
+    
+    it should "transform the string for the non-recursive combinators with the local instances" is (pending)
+    
+    it should "transform the string for the recursive combinators with the local instances" is (pending)
+    
+    it should "transform the string with the instances of the other tree" is (pending)
+    
+    it should "transform the string of the term with the instantiation" is (pending)
+    
+    it should "complain on the already defined instances" is (pending)
+    
+    it should "complain on the ambiguous instances" is (pending)
+    
+    it should "complain on the not found instances" is (pending)
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]])(_ => ().successNel)(Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)
