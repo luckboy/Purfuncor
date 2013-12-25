@@ -197,6 +197,10 @@ f x y = construct 2 x y
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
             case Some(Combinator(None, args, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
               inside(args) { case List(Arg(Some("x"), None, _), Arg(Some("y"), None, _)) => () }
+              val syms = Set(LocalSymbol("x"), LocalSymbol("y"))
+              val locs = syms.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo))
+              locs should have size(2)
+              typeTable.types.keySet should be ===(locs)
               inside(body) {
                 case App(fun1, args1, _) =>
                   inside(fun1) {
