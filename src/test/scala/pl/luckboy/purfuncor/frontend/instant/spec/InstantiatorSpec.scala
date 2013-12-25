@@ -317,8 +317,8 @@ f x = x select {
                               x2 <- types11.collectFirst { case GlobalTypeApp(loc112, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc112 }
                             } yield (x1, x2)) {
                               case Some(((loc111, arg111, arg112), loc112)) =>
-                                some(loc111) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTree.treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
-                                some(loc112) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTree.treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                                loc111 should be ===(tLoc)
+                                loc112 should be ===(uLoc)
                                 inside(arg111) {
                                   case TypeValueLambda(Seq(), TypeParamApp(param111, Seq(), 0)) =>
                                     inside(arg112) {
@@ -328,6 +328,7 @@ f x = x select {
                                             inside(type2) {
                                               case InferredType(GlobalTypeApp(loc21, args21, GlobalSymbol(NonEmptyList("T"))), argKinds2) =>
                                                 // \t1 t2 => T t1 t2
+                                                loc111 should be ===(tLoc)
                                                 inside(args21) {
                                                   case Seq(arg211, arg212) =>
                                                     inside(arg211) {
@@ -363,7 +364,7 @@ f x = x select {
                       case Some(InstanceArg(ConstructFunction, type3)) =>
                         inside(type3) {
                           case InferredType(GlobalTypeApp(loc31, Seq(), GlobalSymbol(NonEmptyList("U"))), argKinds3) =>
-                            some(loc31) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTree.treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                            loc31 should be ===(uLoc)
                             inside(argKinds3) {
                               case Seq(
                                   InferredKind(Star(KindType, _)) /* * */,
@@ -409,7 +410,7 @@ f x = x select {
                                         case App(typFun111, typArgs111, _) =>
                                           inside(typFun111) {
                                             case Simple(TypeVar(typLoc111), _) =>
-                                              some(typLoc111) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTree.treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                                              typLoc111 should be ===(tLoc)
                                           }
                                           inside(typArgs111) {
                                             case NonEmptyList(typArg1111, typArg1112) =>
@@ -437,7 +438,7 @@ f x = x select {
                                   inside(localSymTabular.getLocalLocationFromTable(lambdaInfo11)(LocalSymbol("y")).flatMap(typeTable11.types.get)) {
                                     case Some(InferredType(GlobalTypeApp(loc111, args111, GlobalSymbol(NonEmptyList("T"))), argKinds11)) =>
                                       // \t1 t2 => T t1 t2
-                                      some(loc111) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                                      loc111 should be ===(tLoc)
                                       inside(args111) {
                                         case Seq(arg1111, arg1112) =>
                                            inside(arg1111) {
@@ -465,11 +466,11 @@ f x = x select {
                                           typeTable12.types.keySet should be ===(locs12)
                                           inside(type12) {
                                             case Simple(TypeVar(typLoc12), _) =>
-                                              some(typLoc12) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTree.treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                                              typLoc12 should be ===(uLoc)
                                           }
                                           inside(localSymTabular.getLocalLocationFromTable(lambdaInfo12)(LocalSymbol("y")).flatMap(typeTable12.types.get)) {
                                             case Some(InferredType(GlobalTypeApp(loc121, Seq(), GlobalSymbol(NonEmptyList("U"))), Seq())) =>
-                                              some(loc121) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))))
+                                              loc121 should be ===(uLoc)
                                           }
                                           inside(insts12) { 
                                             case List(LocalInstance(localInstIdx121)) =>
