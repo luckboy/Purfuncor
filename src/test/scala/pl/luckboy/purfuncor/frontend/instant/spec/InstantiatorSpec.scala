@@ -257,9 +257,9 @@ f x y = construct 2 x y
     
     it should "transform the string with the instances" is (pending)
     
-    it should "transform the string for the non-recursive combinators with the local instances" is (pending)
+    it should "transform the string for the non-recursive dependent combinators with the local instances" is (pending)
     
-    it should "transform the string for the recursive combinators with the local instances" is (pending)
+    it should "transform the string for the recursive dependent combinators with the local instances" is (pending)
     
     it should "transform the string with the instances of the other tree" is (pending)
     
