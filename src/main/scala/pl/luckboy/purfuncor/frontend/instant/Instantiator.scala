@@ -37,7 +37,7 @@ object Instantiator
     terms.tail.foldLeft(transform(terms.head, env).map { NonEmptyList(_) }) {
       case (Success(ts), t)   => transform(t, env).map { _ <:: ts }
       case (Failure(errs), _) => errs.failure
-    }
+    }.map { _.reverse }
   
   def transformTermNel[T, U, V, W, X, Y, Z, TT, E](terms: NonEmptyList[Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]]])(env: E)(implicit enval: InstantiationEnvironmental[E, TT, W]) =
     transformTermNel1(terms)(env)(transformTerm(_)(_))
