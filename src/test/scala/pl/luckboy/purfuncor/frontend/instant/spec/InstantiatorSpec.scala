@@ -233,6 +233,22 @@ f x y = construct 2 x y
                       }
                   }
               }
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("x")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+                  inside(argKinds) {
+                    case Seq(
+                        InferredKind(Star(KindType, _)) /* * */) =>
+                      ()
+                  }
+              }
+              inside(localSymTabular.getLocalLocationFromTable(lambdaInfo)(LocalSymbol("y")).flatMap(typeTable.types.get)) {
+                case Some(InferredType(TypeParamApp(_, Seq(), 0), argKinds)) =>
+                  inside(argKinds) {
+                    case Seq(
+                        InferredKind(Star(KindType, _)) /* * */) =>
+                      ()
+                  }
+              }
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
             case Some(Seq(instArg1)) =>
