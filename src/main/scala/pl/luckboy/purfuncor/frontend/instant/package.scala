@@ -131,7 +131,7 @@ package object instant
                 })
                 res10 <- (res |@| res3) {
                   (definedSupertype, pairs) =>
-                    val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ & _._1.term }
+                    val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
                     val tmpType = InferringType(tmpTypeValueTerm)
                     for {
                       _ <- State({
@@ -181,7 +181,7 @@ package object instant
               val (env3, res12) = addGlobalInstanceS(SelectFunction, selectInstType, selectInst)(env2)
               constructInstTriples.foldLeft((env3, resultWithPos(res12, selectInstPos))) {
                 case ((newEnv, newRes), (constructInstType, constructInst, constructInstPos)) =>
-                  val (newEnv2, newRes2) = addGlobalInstanceS(ConstructFunction, constructInstType, constructInst)(env2)
+                  val (newEnv2, newRes2) = addGlobalInstanceS(ConstructFunction, constructInstType, constructInst)(newEnv)
                   (newEnv2, newRes |+| resultWithPos(newRes2, constructInstPos))
               }
           }.valueOr { es => (env, es.failure) }

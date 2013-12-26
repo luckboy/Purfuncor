@@ -67,6 +67,7 @@ package object typer
         case TypeLiteral(value)            =>
           TypeValue.fromTypeLiteralValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](value) match {
             case TypeBuiltinFunValue(_, f) if f.argCount === 0 => f.applyS(Nil)(env)
+            case TupleTypeFunValue(0)                          => (env, EvaluatedTypeValue(TupleType(Nil)))
             case value2                                        => (env, value2)
           }
         case KindedTypeTerm(term, _)       =>
