@@ -234,35 +234,35 @@ object PolyFunInstantiator {
         val (newEnv2, newRes) = instanceArgsFromPreinstantiationLambdaInfoS(lambdaInfo, instArgs)(newEnv)
         val (newEnv7, newRes5) = newRes.map {
           instArgs =>
-            instArgs.foldLeft((newEnv2, (Seq[Instance[L]](), localInstTree).success[NoType[N]])) {
-              case ((newEnv3, newRes), instArg @ InstanceArg(polyFun, typ)) =>
+            instArgs.foldLeft((newEnv2, (Seq[Instance[L]]().success[NoType[N]], localInstTree))) {
+              case ((newEnv3, (newRes, newLocalInstTree)), instArg @ InstanceArg(polyFun, typ)) =>
                 val (newEnv4, newRes2) = globalInstTree.findInstsS(polyFun, GlobalInstanceType(typ))(newEnv3)
-                val (newEnv6, newRes3) = newRes2.map {
+                val (newEnv6, (newRes3, newLocalInstTree2)) = newRes2.map {
                   case Seq(inst) =>
-                    (newEnv4, (Seq(inst), localInstTree).success)
+                    (newEnv4, (Seq(inst).success, newLocalInstTree))
                   case insts if lambdaInfo.isCase && insts.size > 1 =>
-                    (newEnv4, (insts, localInstTree).success)
+                    (newEnv4, (insts.success, newLocalInstTree))
                   case insts =>
-                    localInstTree.map {
+                    newLocalInstTree.map {
                       tmpInstTree =>
                         val inst = LocalInstance[L](tmpInstTree.instCount)
                         val (newEnv5, newRes4) = tmpInstTree.addInstS(polyFun, LocalInstanceType(typ), inst)(newEnv4)
                         newRes4.map {
                           _.map {
-                            case (it, i) => (newEnv5, (i.map { Seq(_) }.getOrElse(Seq(inst)), some(it)).success)
+                            case (it, i) => (newEnv5, (i.map { Seq(_) }.getOrElse(Seq(inst)).success, some(it)))
                           }.getOrElse {
-                            envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, _.failure)
+                            envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
                           }
-                        }.valueOr { nt => (newEnv5, nt.failure) }
+                        }.valueOr { nt => (newEnv5, (nt.failure, newLocalInstTree)) }
                     }.getOrElse {
                       if (insts.isEmpty)
-                        envSt2.notFoundInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, _.failure)
+                        envSt2.notFoundInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
                       else
-                        envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, _.failure)
+                        envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
                     }
-                }.valueOr { nt => (newEnv4, nt.failure) }
-                (newEnv6, (newRes |@| newRes3) { case ((is, _), (is2, it)) => (is ++ is2, it) })
-            }.mapElements(identity, _.map { case (is, it) => (InstantiationLambdaInfo(is), it) })
+                }.valueOr { nt => (newEnv4, (nt.failure, newLocalInstTree)) }
+                (newEnv6, ((newRes |@| newRes3) { case (is, is2) => is ++ is2 }, newLocalInstTree2))
+            }.mapElements(identity, p => p._1.map { is => (InstantiationLambdaInfo(is), p._2) })
         }.valueOr { nt => (newEnv2, nt.failure) }
         (newEnv7, newRes5.swap.map { _.withPos(lambdaInfo.pos).forFile(lambdaInfo.file) }.swap)
     } (env)

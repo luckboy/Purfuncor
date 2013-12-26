@@ -10,6 +10,7 @@ object TermUtils
       case Simple(Let(binds, body, _), _)       => binds.list.flatMap { b => usedGlobalVarsFromTerm(b.body) }.toSet | usedGlobalVarsFromTerm(body)
       case Simple(Lambda(_, body, _), _)        => usedGlobalVarsFromTerm(body)
       case Simple(Var(sym: GlobalSymbol, _), _) => Set(sym)
+      case Simple(TypedTerm(term2, _), _)       => usedGlobalVarsFromTerm(term2)
       case Simple(_, _)                         => Set()
     }
   
@@ -18,6 +19,7 @@ object TermUtils
       case App(fun, args, _)                     => usedGlobalTypeVarsFromTypeTerm(fun) | args.list.flatMap(usedGlobalTypeVarsFromTypeTerm).toSet
       case Simple(TypeLambda(_, body, _), _)     => usedGlobalTypeVarsFromTypeTerm(body)
       case Simple(TypeVar(sym: GlobalSymbol), _) => Set(sym)
+      case Simple(KindedTypeTerm(term2, _), _)   => usedGlobalTypeVarsFromTypeTerm(term2)
       case Simple(_, _)                          => Set()
     }
 }

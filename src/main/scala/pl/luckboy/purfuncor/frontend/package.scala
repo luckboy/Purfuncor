@@ -33,7 +33,7 @@ package object frontend
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
         case Var(loc, lambdaInfo)                  =>
-          loc.toString + (if(lambdaInfo.toString =/= "")  " /*" + lambdaInfo.toString + "*/ " else "")
+          loc.toString + (if(lambdaInfo.toString =/= "")  " /*" + lambdaInfo.toString + "*/" else "")
         case Literal(value)                        =>
           value.toString
         case TypedTerm(term, typ)                  =>
