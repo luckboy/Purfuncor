@@ -109,12 +109,10 @@ object PolyFunInstantiator {
         val argKindMap = params.foldLeft(Map[Int, InferredKind]()) {
           case (ks, (p, p2)) => typ.argKinds.lift(p).map { k => ks + (p2 -> k) }.getOrElse(ks)
         }
-        val optArgKinds = (0 until params.size).foldLeft(some(Seq[InferredKind]())) {
-          case (oks, i) => oks.flatMap { ks => argKindMap.get(i).map { k => ks :+ k } }
+        val argKinds = (0 until params.size).foldLeft(Seq[InferredKind]()) {
+          case (ks, i) => ks :+ argKindMap.getOrElse(i, InferredKind(Star(KindParam(0), NoPosition)))
         }
-        optArgKinds.map {
-          argKinds => (newInstArgs :+ InstanceArg(polyFun, InferredType(typeValueTerm, argKinds))).successNel
-        }.getOrElse(FatalError("index of out bounds", none, NoPosition).failureNel)
+        (newInstArgs :+ InstanceArg(polyFun, InferredType(typeValueTerm, argKinds))).successNel
       case (Failure(errs), _)                                =>
         errs.failure
     }
