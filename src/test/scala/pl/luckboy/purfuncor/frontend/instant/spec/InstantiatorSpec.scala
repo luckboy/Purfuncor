@@ -389,7 +389,188 @@ f x = x select {
       }
     }
     
-    it should "transform the instances to the instance tree" is (pending)
+    it should "transform the instances to the instance tree" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+f = tuple 2 true 'a'
+g = tuple 2 true 0.1
+h = 'c'
+instance i => f
+instance i => g
+instance j => h
+poly i
+poly j
+unittype 2 T
+unittype 0 U
+instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) construct {
+  \t1 t2 => ##& (T t1 t2) (tuple 2 t1 t2)
+  ##& U tuple 0
+}
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val combSyms = Set(
+              GlobalSymbol(NonEmptyList("f")),
+              GlobalSymbol(NonEmptyList("g")),
+              GlobalSymbol(NonEmptyList("h")),
+              GlobalSymbol(NonEmptyList("i")),
+              GlobalSymbol(NonEmptyList("j")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(5)
+          treeInfo.typeTable.types.keySet should be ===(combLocs)
+          val typeCombSyms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
+          inside(typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))) {
+            case List(tLoc, uLoc) =>
+              treeInfo.instTree.instCount should be ===(6)
+              // i 
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("i"))).flatMap { l => treeInfo.instTree.instTables.get(PolyFunction(l)) }) {
+                case Some(instTable) =>
+                  instTable.pairs should have size(2)
+                  inside(for {
+                    x1 <- instTable.pairs.collectFirst { 
+                      case (GlobalInstanceType(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), BuiltinType(TypeBuiltinFunction.Char, Seq()))), Seq())), inst1) => inst1
+                    }
+                    x2 <- instTable.pairs.collectFirst { 
+                      case (GlobalInstanceType(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()))), Seq())), inst2) => inst2
+                    }
+                  } yield (x1, x2)) {
+                    case Some((inst1, inst2)) =>
+                      inside(inst1) {
+                        case PolyFunInstance(loc1) =>
+                          some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
+                      }
+                      inside(inst2) {
+                        case PolyFunInstance(loc2) =>
+                          some(loc2) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+                      }
+                  }
+              }
+              // j
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("j"))).flatMap { l => treeInfo.instTree.instTables.get(PolyFunction(l)) }) {
+                case Some(instTable) =>
+                  instTable.pairs should have size(1)
+                  inside(for {
+                    x1 <- instTable.pairs.collectFirst { 
+                      case (GlobalInstanceType(InferredType(BuiltinType(TypeBuiltinFunction.Char, Seq()), Seq())), inst1) => inst1
+                    }
+                  } yield x1) {
+                    case Some(inst1) =>
+                      inside(inst1) {
+                        case PolyFunInstance(loc1) =>
+                          some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))))
+                      }
+                  }
+              }
+              // select
+              inside(treeInfo.instTree.instTables.get(SelectFunction)) {
+                case Some(instTable) =>
+                  instTable.pairs should have size(1)
+                  inside(for {
+                    x1 <- instTable.pairs.collectFirst { case (GlobalInstanceType(type1), inst1) => (type1, inst1) }
+                  } yield (x1)) {
+                    case Some((type1, inst1)) =>
+                      inside(type1) {
+                        case InferredType(TypeDisjunction(types11), argKinds1) =>
+                          // \t1 t2 => ((T t1 t2) #& (t1, t2)) #| (U #& ())
+                          types11 should have size(2)
+                          inside(for {
+                            x1 <- types11.collectFirst { 
+                              case type111 @ TypeConjunction(types111) if types111.size == 2 && types111.collectFirst { case TupleType(Seq(_, _)) => () }.size == 1 => type111
+                            }
+                            x2 <- types11.collectFirst { 
+                              case type112 @ TypeConjunction(types112) if types112.size == 2 && types112.collectFirst { case TupleType(Seq()) => () }.size == 1 => type112
+                            }
+                          } yield (x1, x2)) {
+                            case Some((type111, type112)) =>
+                              inside(type111) {
+                                case TypeConjunction(types111) =>
+                                  types111 should have size(2)
+                                  inside(for {
+                                    x1 <- types111.collectFirst { case GlobalTypeApp(loc1111, Seq(TypeValueLambda(Seq(), TypeParamApp(param1111, Seq(), 0)), TypeValueLambda(Seq(), TypeParamApp(param1112, Seq(), 0))), GlobalSymbol(NonEmptyList("T"))) => (loc1111, param1111, param1112)}
+                                    x2 <- types111.collectFirst { case TupleType(Seq(TypeParamApp(param1113, Seq(), 0), TypeParamApp(param1114, Seq(), 0))) => (param1113, param1114) }
+                                  } yield (x1, x2)) {
+                                    case Some(((loc1111, param1111, param1112), (param1113, param1114))) =>
+                                      loc1111 should be ===(tLoc)
+                                      List(param1111, param1113).toSet should have size(1)
+                                      List(param1112, param1114).toSet should have size(1)
+                                      List(param1111, param1112, param1113, param1114).toSet should have size(2)
+                                  }
+                              }
+                              inside(type112) {
+                                case TypeConjunction(types112) =>
+                                  types112 should have size(2)
+                                  inside(for {
+                                    x1 <- types112.collectFirst { case GlobalTypeApp(loc1121, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc1121 }
+                                    _ <- types112.collectFirst { case TupleType(Seq()) => () }
+                                  } yield x1) {
+                                    case Some(loc1121) =>
+                                      loc1121 should be ===(uLoc)
+                                  }
+                              }
+                          }
+                          inside(argKinds1) {
+                            case Seq(
+                                InferredKind(Star(KindType, _)) /* * */,
+                                InferredKind(Star(KindType, _)) /* * */) =>
+                              ()
+                          }
+                      }
+                      inside(inst1) { case SelectInstance(2) => () }
+                  }
+              }
+              // construct
+              inside(treeInfo.instTree.instTables.get(ConstructFunction)) {
+                case Some(instTable) =>
+                  instTable.pairs should have size(2)
+                  inside(for {
+                    x1 <- instTable.pairs.collectFirst { 
+                      case (GlobalInstanceType(type1 @ InferredType(TypeConjunction(types11), _)), inst1) if types11.size == 2 && types11.collectFirst { case TupleType(Seq(_, _)) => () }.size == 1 => (type1, inst1)
+                    }
+                    x2 <- instTable.pairs.collectFirst { 
+                      case (GlobalInstanceType(type2 @ InferredType(TypeConjunction(types21), _)), inst2) if types21.size == 2 && types21.collectFirst { case TupleType(Seq()) => () }.size == 1 => (type2, inst2)
+                    }
+                  } yield (x1, x2)) {
+                    case Some(((type1, inst1), (type2, inst2))) =>
+                      inside(type1) {
+                        case InferredType(TypeConjunction(types11), argKinds1) =>
+                          types11 should have size(2)
+                          inside(for {
+                            x1 <- types11.collectFirst { case GlobalTypeApp(loc111, Seq(TypeValueLambda(Seq(), TypeParamApp(param111, Seq(), 0)), TypeValueLambda(Seq(), TypeParamApp(param112, Seq(), 0))), GlobalSymbol(NonEmptyList("T"))) => (loc111, param111, param112) }
+                            x2 <- types11.collectFirst { case TupleType(Seq(TypeParamApp(param113, Seq(), 0), TypeParamApp(param114, Seq(), 0))) => (param113, param114) }
+                          } yield (x1, x2)) {
+                            case Some(((loc111, param111, param112), (param113, param114))) =>
+                              loc111 should be ===(tLoc)
+                              List(param111, param113).toSet should have size(1)
+                              List(param112, param114).toSet should have size(1)
+                              List(param111, param112, param113, param114).toSet should have size(2)
+                          }
+                          inside(argKinds1) {
+                            case Seq(
+                                InferredKind(Star(KindType, _)) /* * */,
+                                InferredKind(Star(KindType, _)) /* * */) =>
+                              ()
+                          }
+                      }
+                      inside(inst1) { case ConstructInstance(0) => () }
+                      inside(type2) {
+                        case InferredType(TypeConjunction(types21), Seq()) =>
+                          types21 should have size(2)
+                          inside(for {
+                            x1 <- types21.collectFirst { case GlobalTypeApp(loc211, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc211 }
+                            _ <- types21.collectFirst { case TupleType(Seq()) => () }
+                          } yield x1) {
+                            case Some(loc211) =>
+                              loc211 should be ===(uLoc)
+                          }
+                      }
+                      inside(inst2) { case ConstructInstance(1) => () }
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform the instantiation fields for the non-recursive dependent combinators with the local instances" is (pending)
     
