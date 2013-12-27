@@ -47,19 +47,19 @@ object PolyFunInstantiator {
     val (env2, res) = justInstantiatePolyFunctionsS(lambdaInfoMaps)(localInstTree)(env)
     res.map {
       case (lambdaInfoMaps2, localInstTree) =>
+        val (env3, _) = lambdaInfoMaps2.foldLeft((env2, ())) {
+          case ((newEnv, _), (l, lis)) => polyFunInstantiator.addLambdaInfosS(l, lis)(newEnv)
+        }
         localInstTree.map {
           tmpInstTree =>
             combinatorInstanceArgsS(lambdaInfoMaps)(tmpInstTree).map {
               instArgs =>
-                val (env3, _) = instArgs.foldLeft((env2, ())) {
+                val (env4, _) = instArgs.foldLeft((env3, ())) {
                   case ((newEnv, _), (l, ias)) => polyFunInstantiator.addInstanceArgsS(l, ias)(newEnv)
-                }
-                val (env4, _) = lambdaInfoMaps2.foldLeft((env3, ())) {
-                  case ((newEnv, _), (l, lis)) => polyFunInstantiator.addLambdaInfosS(l, lis)(newEnv)
                 }
                 (env4, ().successNel)
             }.valueOr { errs => (env2, errs.failure) }
-        }.getOrElse((env2, FatalError("no local instance tree", none, NoPosition).failureNel))
+        }.getOrElse((env3, ().successNel))
     }.valueOr { errs => (env2, errs.failure) }
   }
   
