@@ -235,7 +235,7 @@ package object kinder
             tmpTypeCombKind3 <- if(isRecursive)
               State({
                 (env2: SymbolKindInferenceEnvironment[T]) =>
-                  symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind2, env2.typeVarKind(loc))(env2).mapElements(identity, _.withPos(body.pos))
+                  symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind2, env2.typeVarKind(loc))(env2).mapElements(identity, _.withPos(kind.map { _.pos }.getOrElse(body.pos)))
               })
             else
               State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind2))

@@ -855,7 +855,7 @@ package object typer
             tmpCombType3 <- if(isRecursive)
               State({
                 (env2: SymbolTypeInferenceEnvironment[T, U]) =>
-                  symbolSimpleTermTypeInferrer.unifyInfosS(tmpCombType2, env2.varType(loc))(env2).mapElements(identity, _.withPos(body.pos))
+                  symbolSimpleTermTypeInferrer.unifyInfosS(tmpCombType2, env2.varType(loc))(env2).mapElements(identity, _.withPos(typ.map { _.pos }.getOrElse(body.pos)))
               })
             else
               State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType2))
