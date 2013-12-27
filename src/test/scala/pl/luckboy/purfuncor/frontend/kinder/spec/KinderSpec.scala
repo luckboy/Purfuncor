@@ -24,6 +24,7 @@ class KinderSpec extends FlatSpec with ShouldMatchers with Inside
     //TODO: add a test for the global type contains the lambda-expression with the reference to itself.
     //TODO: add tests for the construct-expression and the select-expression and the extract-expression.
     //TODO: add a test for the type lambda-expression has the type arguments with the inferred kinds and returns a type with the inferred kind.
+    //TODO: add a test for the mismatched kinds of the recursive dependent type combinators.
     val f = f2(initData)
     val h = h2(initData)
     
