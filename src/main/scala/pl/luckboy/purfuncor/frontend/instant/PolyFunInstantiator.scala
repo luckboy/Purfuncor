@@ -69,6 +69,38 @@ object PolyFunInstantiator {
   def instantiatePolyFunctions[L, M, N, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E]) =
     instantiatePolyFunctions2[L, M, N, I, E](lambdaInfoMaps)(localInstTree)
   
+  def instantiateRecursivePolyFunctionsS[L, M, N, I, E](locs: Set[L], lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E]) =
+    locs.foldLeft((env, ().successNel[AbstractError])) {
+      case ((newEnv, Success(_)), loc) =>
+        lambdaInfoMaps.get(some(loc)).map {
+          lambdaInfos =>
+            val lambdaIdxs = lambdaInfos.flatMap { 
+              case (lambdaIdx, lambdaInfo) =>
+                lambdaInfo.polyFun match {
+                  case Some(PolyFunction(polyFunLoc)) if locs.contains(polyFunLoc) => some(lambdaIdx)
+                  case _                                                           => none[Int]
+                }
+            }
+            val (newEnv2, optLambdaInfos2) = polyFunInstantiator.getLambdaInfosFromEnvironmentS(some(loc))(newEnv)
+            optLambdaInfos2.map {
+              lambdaInfos2 =>
+                val (newEnv3, optInstArgs) = polyFunInstantiator.getInstanceArgsFromEnvironmentS(loc)(newEnv2)
+                optInstArgs.map {
+                  instArgs =>
+                    val lambdaInfos3 = lambdaInfos2 ++ lambdaIdxs.map { 
+                      (_, InstantiationLambdaInfo((0 until instArgs.size).map { LocalInstance(_) }))
+                    }
+                    polyFunInstantiator.addLambdaInfosS(some(loc), lambdaInfos3)(newEnv3).mapElements(identity, _.successNel)
+                }.getOrElse((newEnv2, FatalError("no instance arguments", none, NoPosition).failureNel))
+            }.getOrElse((newEnv2, FatalError("no lambda inforamtions", none, NoPosition).failureNel))
+        }.getOrElse((newEnv, FatalError("no lambda inforamtions", none, NoPosition).failureNel))
+      case ((newEnv, Failure(errs)), _) =>
+        (newEnv, errs.failure)
+    }
+  
+  def instantiateRecursivePolyFunctions[L, M, N, I, E](locs: Set[L], lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E], locEqual: Equal[L]) =
+    State(instantiateRecursivePolyFunctionsS[L, M, N, I, E](locs, lambdaInfoMaps))
+  
   private def justInstantiatePolyFunctionsS[L, M, N, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E]) = {
     val (env2, (res, localInstTree2)) = lambdaInfoMaps.foldLeft((env, (Map[Option[L], Map[Int, InstantiationLambdaInfo[L]]]().successNel[AbstractError], localInstTree))) {
       case ((newEnv, (newRes, newLocalInstTree)), (polyFun, lambdaInfos)) =>
@@ -223,7 +255,7 @@ object PolyFunInstantiator {
                   } yield res8
               }.valueOr { nt => State((_: E, nt.failure)) }
             } yield res9).run(env)
-        }.getOrElse((env, NoType.fromError[N](FatalError("no poly function type", none, NoPosition)).failure))
+        }.getOrElse((env, Seq().success))
       case polyFun @ (ConstructFunction | SelectFunction) =>
         (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no polymorphic function type", none, NoPosition)).failure))
     }.getOrElse((env, Seq().success))
@@ -287,7 +319,7 @@ object PolyFunInstantiator {
               case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
               case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
             }
-          case ((newEnv, Failure(noType)), _)             =>
+          case ((newEnv, Failure(noType)), _)       =>
             (newEnv, noType.failure)
         }
       case GlobalTypeApp(loc, args, _) =>

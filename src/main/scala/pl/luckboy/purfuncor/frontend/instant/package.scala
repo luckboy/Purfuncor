@@ -209,11 +209,12 @@ package object instant
     
     override def isRecursiveFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.isRecursive)
     
-    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, !env.instArgs.contains(loc))
+    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = 
+      (env, !(env.instArgs.contains(loc) && !env.uninitializedCombSyms.contains(loc)))
     
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) =
-      if(!env.isRecursive)
-        comb match {
+      if(!env.isRecursive) {
+        val (env2, res) = comb match {
           case Combinator(_, _, body, lambdaInfo, file) =>
             val lambdaInfos = Map(some(loc) -> (preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) } + (0 -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo))))
             instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(env)
@@ -227,7 +228,8 @@ package object instant
                 (env, FatalError("uninferred type", none, NoPosition).failureNel)
             }
         }
-      else
+        (env2.withUninitializedCombSyms(env2.uninitializedCombSyms - loc), res)
+      } else
         (env, ().successNel)
     
     override def checkInitializationS(res: ValidationNel[AbstractError, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) = {
@@ -240,8 +242,13 @@ package object instant
               (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
           }
       }
-      val (env2, res2) = instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(env)
-      (res |@| res2) { (_, _) => (env2, ().successNel) }.valueOr { es => (env2, es.failure) }
+      val (env2, res4) = (for {
+        res2 <- State(instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(_: SymbolInstantiationEnvironment[T, U]))
+        res3 <- res2.map {
+          _ => State(instantiateRecursivePolyFunctionsS(oldNodes.keySet, lambdaInfos)(_: SymbolInstantiationEnvironment[T, U]))
+        }.valueOr { errs => State((_: SymbolInstantiationEnvironment[T, U], errs.failure)) }
+      } yield (res3)).run(env)
+      (res |@| res4) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
     }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
@@ -256,7 +263,7 @@ package object instant
   }
   
   implicit def symbolCombinatorInstanceInitializer[T, U]: Initializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolInstantiationEnvironment[T, U]] = new Initializer[NonEmptyList[AbstractError], GlobalSymbol, AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolInstantiationEnvironment[T, U]] {
-    override def globalVarsFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.lambdaInfos.keySet.flatten)
+    override def globalVarsFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.instArgs.keySet)
     
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]) =
       comb match {
@@ -264,7 +271,8 @@ package object instant
         case PolyCombinator(_, _)         => Set()
       }
     
-    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = (env, ())
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) =
+      (env.withInstArgs(env.instArgs + (loc -> Nil)).withUninitializedCombSyms(env.uninitializedCombSyms + loc), ())
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) = {
       val (env2, res) = recursivelyInitializeGlobalVarS(loc, comb)(resolver.TreeInfo(Tree(Map[GlobalSymbol, AbstractTypeCombinator[Symbol, TypeLambdaInfo[U, LocalSymbol]]](), resolver.TypeTreeInfo), Map(), Nil))(env)

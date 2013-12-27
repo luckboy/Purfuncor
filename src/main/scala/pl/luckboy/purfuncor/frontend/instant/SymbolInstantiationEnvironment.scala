@@ -20,6 +20,7 @@ case class SymbolInstantiationEnvironment[T, U](
     lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol]]],
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     recursiveCombSyms: Set[GlobalSymbol],
+    uninitializedCombSyms: Set[GlobalSymbol],
     errs: List[AbstractError],
     isRecursive: Boolean)
 {
@@ -41,7 +42,9 @@ case class SymbolInstantiationEnvironment[T, U](
   
   def withoutCombs(syms: Set[GlobalSymbol]) = copy(combNodes = combNodes -- syms)
   
-  def withRecursiveCombSyms(syms: Set[GlobalSymbol]) = copy(recursiveCombSyms = syms) 
+  def withRecursiveCombSyms(syms: Set[GlobalSymbol]) = copy(recursiveCombSyms = syms)
+  
+  def withUninitializedCombSyms(syms: Set[GlobalSymbol]) = copy(uninitializedCombSyms = syms)
   
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
 }
@@ -59,6 +62,7 @@ object SymbolInstantiationEnvironment
       lambdaInfos = Map(),
       combNodes = Map(),
       recursiveCombSyms = Set(),
+      uninitializedCombSyms = Set(),
       errs = Nil,
       isRecursive = false) 
 }

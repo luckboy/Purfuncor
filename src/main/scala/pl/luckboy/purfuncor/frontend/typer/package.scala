@@ -850,8 +850,16 @@ package object typer
                   }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt)) }
                 } yield (tmpType2.withPos(tt.pos))
             }.getOrElse(State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType)))
-            // Checks the defined types.
+            // Unifies the inferred type with the prepared type.
             isRecursive <- State(isRecursiveFromEnvironmentS)
+            tmpCombType3 <- if(isRecursive)
+              State({
+                (env2: SymbolTypeInferenceEnvironment[T, U]) =>
+                  symbolSimpleTermTypeInferrer.unifyInfosS(tmpCombType2, env2.varType(loc))(env2).mapElements(identity, _.withPos(body.pos))
+              })
+            else
+              State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType2))
+            // Checks the defined types.
             res2 <- if(!isRecursive)
               for {
                 definedTypes <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
@@ -862,12 +870,12 @@ package object typer
             // Instantiates the inferred types.
             res4 <- res2.map {
               _ =>
-                tmpCombType2 match {
+                tmpCombType3 match {
                   case noType: NoType[GlobalSymbol] =>
                     State(failInitializationS(noType, Set(loc)))
                   case _                            =>
                     for {
-                      _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType2), ()))
+                      _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType3), ()))
                       res3 <- if(!isRecursive)
                         State(instantiateTypesFromGlobalVarsS(Set(loc)))
                       else

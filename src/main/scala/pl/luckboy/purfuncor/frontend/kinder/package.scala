@@ -230,8 +230,16 @@ package object kinder
                   }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
                 } yield tmpKind2
             }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind)))
-            // Checks the defined kinds.
+            // Unifies the inferred kind with the prepared kind.
             isRecursive <- State(isRecursiveFromEnvironmentS)
+            tmpTypeCombKind3 <- if(isRecursive)
+              State({
+                (env2: SymbolKindInferenceEnvironment[T]) =>
+                  symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind2, env2.typeVarKind(loc))(env2).mapElements(identity, _.withPos(body.pos))
+              })
+            else
+              State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind2))
+            // Checks the defined kinds.
             res2 <- if(!isRecursive)
               for {
                 definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
@@ -242,12 +250,12 @@ package object kinder
             // Instantiates the inferred kinds.
             res4 <- res2.map {
               _ =>
-                tmpTypeCombKind2 match {
+                tmpTypeCombKind3 match {
                   case noKind: NoKind =>
                     State(failInitializationS(noKind, Set(loc)))
                   case _              =>
                     for {
-                      _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withGlobalTypeVarKind(loc, tmpTypeCombKind2), ()))
+                      _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withGlobalTypeVarKind(loc, tmpTypeCombKind3), ()))
                       res3 <- if(!isRecursive)
                         State(instantiateKindsFromGlobalVarsS(Set(loc)))
                       else
