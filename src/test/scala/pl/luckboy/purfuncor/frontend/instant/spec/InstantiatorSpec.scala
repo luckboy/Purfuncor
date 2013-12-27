@@ -115,7 +115,8 @@ h x = tuple 3 f g x
               }
           }
           // h
-          def testInstArgs(localInstIdx1: Int, localInstIdx2: Int) {
+          def testInstArgs(localInstIdx1: Int, localInstIdx2: Int)
+          {
             inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
               case Some(instArgs) =>
                 instArgs should have size(2)
@@ -283,7 +284,8 @@ f x = x select {
           val typeCombSyms = List(GlobalSymbol(NonEmptyList("T")), GlobalSymbol(NonEmptyList("U")))
           inside(typeCombSyms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo))) {
             case List(tLoc, uLoc) =>
-              def testInstArgs(localInstIdx1: Int, localInstIdx2: Int, localInstIdx3: Int) {
+              def testInstArgs(localInstIdx1: Int, localInstIdx2: Int, localInstIdx3: Int)
+              {
                 inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
                   case Some(instArgs) =>
                     instArgs should have size(3)
@@ -585,7 +587,7 @@ k = 0.1
 l x = tuple 2 ((f: \t1 => ##-> t1 t1) x) g
 (m: \t1 t2 => tuple 3 t1 t1 t2) = tuple 3 f f i
 n = tuple 3 (l 1.0f) (h: #Double) m
-""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)      
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
       inside(res) {
         case Success(Tree(combs, treeInfo)) =>
           val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
@@ -646,7 +648,8 @@ n = tuple 3 (l 1.0f) (h: #Double) m
               }
           }
           // m
-          def testMInstArgs(localInstIdx1: Int, localInstIdx2: Int) {
+          def testMInstArgs(localInstIdx1: Int, localInstIdx2: Int)
+          {
             inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("m"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
               case Some(instArgs) =>
                 instArgs should have size(2)
@@ -712,7 +715,8 @@ n = tuple 3 (l 1.0f) (h: #Double) m
               }
           }
           // n
-          def testNInstArgs(localInstIdx1: Int, localInstIdx2: Int, localInstIdx3: Int) {
+          def testNInstArgs(localInstIdx1: Int, localInstIdx2: Int, localInstIdx3: Int)
+          {
             inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("n"))).flatMap(treeInfo.instArgTable.instArgs.get)) {
               case Some(instArgs) =>
                 instArgs should have size(3)
@@ -803,7 +807,248 @@ n = tuple 3 (l 1.0f) (h: #Double) m
 	  }
     }
     
-    it should "transform the instantiation fields for the recursive dependent combinators with the local instances" is (pending)
+    it should "transform the instantiation fields for the recursive dependent combinators with the local instances" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+f = g true j
+g x y = #cond (\_ => h x) (\_ => i) x
+h x = #cond (\_ => f) (\_ => #fAdd k l) x
+i = #cond (\_ => g true (construct 1)) (\_ => j) true
+poly j
+poly k
+poly l
+instance j => m
+instance l => n
+m = 0.1f
+n = 0.2f
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(combs, treeInfo)) =>
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeCombs = typeTree.combs
+          val typeTreeInfo = typeTree.treeInfo
+          val combSyms = Set(
+              GlobalSymbol(NonEmptyList("f")),
+              GlobalSymbol(NonEmptyList("g")), 
+              GlobalSymbol(NonEmptyList("h")),
+              GlobalSymbol(NonEmptyList("i")),
+              GlobalSymbol(NonEmptyList("j")),
+              GlobalSymbol(NonEmptyList("k")),
+              GlobalSymbol(NonEmptyList("l")),
+              GlobalSymbol(NonEmptyList("n")),
+              GlobalSymbol(NonEmptyList("m")))
+          val combLocs = combSyms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))
+          combLocs should have size(9)
+          treeInfo.instArgTable.instArgs.keySet should be ===(combLocs)
+          def testInstArgs(sym: GlobalSymbol, optLocalInstIdx1: Option[Int], optLocalInstIdx2: Option[Int], optLocalInstIdx3: Option[Int])
+          {
+            inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(sym).flatMap(treeInfo.instArgTable.instArgs.get)) {
+              case Some(instArgs) =>
+                val syms = List(GlobalSymbol(NonEmptyList("j")), GlobalSymbol(NonEmptyList("k")))
+                inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo))) {
+                  case List(jLoc, kLoc) =>
+                    instArgs should have size(3)
+                    inside(for {
+                      x1 <- instArgs.zipWithIndex.collectFirst { case (InstanceArg(PolyFunction(loc1), type1), expectedLocalInstIdx1) if loc1 == jLoc => (type1, expectedLocalInstIdx1) }
+                      x2 <- instArgs.zipWithIndex.collectFirst { case (InstanceArg(PolyFunction(loc2), type2), expectedLocalInstIdx2) if loc2 == kLoc => (type2, expectedLocalInstIdx2) }
+                      x3 <- instArgs.zipWithIndex.collectFirst { case (InstanceArg(ConstructFunction, type3), expectedLocalInstIdx3) => (type3, expectedLocalInstIdx3) } 
+                    } yield (x1, x2, x3)) {
+                      case Some(((type1, expectedLocalInstIdx1), (type2, expectedLocalInstIdx2), (type3, expectedLocalInstIdx3))) =>
+                        inside(type1) {
+                          case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(arg11, ret11)), argKinds1) =>
+                            // \(t1: *) (t2: *) (t3: *) => t1 #-> (t2 #& (tuple 1 t1))
+                            inside(arg11) {
+                              case TypeParamApp(param11, Seq(), 0) =>
+                                inside(ret11) {
+                                  case TypeConjunction(types11)  =>
+                                    inside(for {
+                                      x1 <- types11.collectFirst { case TypeParamApp(param111, Seq(), 0) => param111 }
+                                      x2 <- types11.collectFirst { case TupleType(Seq(TypeParamApp(param112, Seq(), 0))) => param112 }
+                                    } yield (x1, x2)) {
+                                      case Some((param111, param112)) =>
+                                        inside(type3) {
+                                          case InferredType(TypeConjunction(types31), argKinds3) =>
+                                            // \(t1: *) (t2: *) => t2 #& (tuple 1 t1)
+                                            inside(for {
+                                              x1 <- types31.collectFirst { case TypeParamApp(param311, Seq(), 0) => param311 }
+                                              x2 <- types31.collectFirst { case TupleType(Seq(TypeParamApp(param312, Seq(), 0))) => param312 }
+                                            } yield (x1, x2)) {
+                                              case Some((param311, param312)) =>
+                                                List(param111, param311).toSet should have size(1)
+                                                List(param112, param312).toSet should have size(1)
+                                                List(param111, param112, param311, param312).toSet should have size(2)
+                                            }
+                                            inside(argKinds3) {
+                                              case Seq(
+                                                  InferredKind(Star(KindType, _)) /* * */,
+                                                  InferredKind(Star(KindType, _)) /* * */) =>
+                                                ()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            inside(argKinds1) {
+                              case Seq(
+                                  InferredKind(Star(KindType, _)) /* * */,
+                                  InferredKind(Star(KindType, _)) /* * */) =>
+                                ()
+                            }
+                        }
+                        inside(type2) {
+                          case InferredType(BuiltinType(TypeBuiltinFunction.Float, Seq()), argKinds2) =>
+                            // \(t1: *) (t2: *) => #Float
+                            inside(argKinds2) {
+                              case Seq(
+                                  InferredKind(Star(KindType, _)) /* * */,
+                                  InferredKind(Star(KindType, _)) /* * */) =>
+                                ()
+                            }
+                        }
+                        for(localInstIdx1 <- optLocalInstIdx1) {
+                          localInstIdx1 should be ===(expectedLocalInstIdx1)
+                        }
+                        for(localInstIdx2 <- optLocalInstIdx2) {
+                          localInstIdx2 should be ===(expectedLocalInstIdx2)
+                        }
+                        for(localInstIdx3 <- optLocalInstIdx3) {
+                          localInstIdx3 should be ===(expectedLocalInstIdx3)
+                        }
+                    }
+                }
+            }
+          }
+          // f 
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
+              inside(body) {
+                case App(fun1, args1, _) =>
+                  inside(fun1) {
+                    case Simple(Var(_, LambdaInfo(lambdaInfo1, 1, _, insts1)), _) =>
+                      inside(insts1) { case Seq(LocalInstance(0), LocalInstance(1), LocalInstance(2)) => () }
+                      inside(args1) {
+                        case NonEmptyList(_, arg11) =>
+                          inside(arg11) {
+                            case Simple(Var(_, LambdaInfo(lambdaInfo11, 2, _, insts11)), _) =>
+                              inside(insts11) {
+                                case Seq(LocalInstance(localInstIdx11)) =>
+                                  testInstArgs(GlobalSymbol(NonEmptyList("f")), some(localInstIdx11), none, none)
+                              }
+                          }
+                      }
+                  }
+              }
+              
+          }
+          // g
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
+              inside(body) {
+                case App(_, args1, _) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12, _) =>
+                      inside(arg11) {
+                        case Simple(Lambda(_, body11, _), _) =>
+                          inside(body11) {
+                            case App(fun111, _, _) =>
+                              inside(fun111) {
+                                case Simple(Var(_, LambdaInfo(lambdaInfo111, 2, _, insts111)), _) =>
+                                  inside(insts111) { case Seq(LocalInstance(0), LocalInstance(1), LocalInstance(2)) => () }
+                              }
+                          }
+                      }
+                      inside(arg12) {
+                        case Simple(Lambda(_, body12, _), _) =>
+                          inside(body12) {
+                            case Simple(Var(_, LambdaInfo(lambdaInfo121, 5, _, insts121)), _) =>
+                              inside(insts121) { case Seq(LocalInstance(0), LocalInstance(1), LocalInstance(2)) => () }
+                          }
+                      }
+                  }
+              }
+          }
+          testInstArgs(GlobalSymbol(NonEmptyList("g")), none, none, none)
+          // h
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
+              inside(body) {
+                case App(_, args1, _) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12, _) =>
+                      inside(arg11) {
+                        case Simple(Lambda(_, body11, _), _) =>
+                          inside(body11) {
+                            case Simple(Var(_, LambdaInfo(lambdaInfo111, 2, _, insts111)), _) =>
+                              inside(insts111) { case Seq(LocalInstance(0), LocalInstance(1), LocalInstance(2)) => () }
+                          }
+                      }
+                      inside(arg12) {
+                        case Simple(Lambda(_, body12, _), _) =>
+                          inside(body12) {
+                            case App(_, args121, _) =>
+                              inside(args121) {
+                                case NonEmptyList(arg1211, arg1212) =>
+                                  inside(arg1211) {
+                                    case Simple(Var(_, LambdaInfo(lambdaInfo1211, 4, _, insts1211)), _) =>
+                                      inside(insts1211) {
+                                        case Seq(LocalInstance(localInstIdx12111)) =>
+                                          testInstArgs(GlobalSymbol(NonEmptyList("h")), none, some(localInstIdx12111), none)
+                                      }
+                                      inside(arg1212) {
+                                        case Simple(Var(_, LambdaInfo(lambdaInfo1212, 5, _, insts1212)), _) =>
+                                          inside(insts1212) {
+                                            case Seq(PolyFunInstance(loc12111)) =>
+                                              some(loc12111) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("n"))))
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          // i
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("i"))).flatMap(combs.get)) {
+            case Some(Combinator(None, _, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
+              inside(body) {
+                case App(_, args1, _) =>
+                  inside(args1) {
+                    case NonEmptyList(arg11, arg12, _) =>
+                      inside(arg11) {
+                        case Simple(Lambda(_, body11, _), _) =>
+                          inside(body11) {
+                            case App(fun111, args111, _) =>
+                              inside(fun111) {
+                                case Simple(Var(_, LambdaInfo(lambdaInfo111, 2, _, insts111)), _) =>
+                                  inside(insts111) { case Seq(LocalInstance(0), LocalInstance(1), LocalInstance(2)) => () }
+                              }
+                              inside(args111) {
+                                case NonEmptyList(_, arg1111) =>
+                                  inside(arg1111) {
+                                    case Simple(Construct(1, LambdaInfo(lambdaInfo1111, 3, _, insts1111)), _) =>
+                                      inside(insts1111) {
+                                        case Seq(LocalInstance(localInstIdx11111)) =>
+                                          testInstArgs(GlobalSymbol(NonEmptyList("i")), none, none, some(localInstIdx11111))
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                      inside(arg12) {
+                        case Simple(Lambda(_, body12, _), _) =>
+                          inside(body12) {
+                            case Simple(Var(_, LambdaInfo(lambdaInfo121, 5, _, insts121)), _) =>
+                              inside(insts121) { 
+                                case Seq(PolyFunInstance(loc1211)) =>
+                                  some(loc1211) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("m"))))
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "transform the string with the instances of the other tree" is (pending)
     
