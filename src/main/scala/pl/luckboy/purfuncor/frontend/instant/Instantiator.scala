@@ -11,9 +11,11 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.TypeTreeInfo
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
+import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
 import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.frontend.Bind
@@ -184,12 +186,12 @@ object Instantiator
   def transformString[T, U, V, W, X, Y, Z, TT, TU, TV, E, TE](s: String)(nameTree: resolver.NameTree, kindTable: InferredKindTable[X], typeTable: InferredTypeTable[T, X], instTree: InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], instArgTable: InstanceArgTable[T, X])(f: (Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], InferredKindTable[X], InferredTypeTable[T, X]) => State[TE, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]]]])(g: (InferredKindTable[X], InferredTypeTable[T, X], InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], InstanceArgTable[T, X]) => State[TE, E])(implicit init: Initializer[NonEmptyList[AbstractError], T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], E], polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], enval: InstantiationEnvironmental[E, T, X], treeInfoExtractor: TreeInfoExtractor[TU, Tree[X, AbstractTypeCombinator[Y, TypeLambdaInfo[Z, TT]], TypeTreeInfo[TV, X]]], instTreeExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]]) =
     State(transformStringS[T, U, V, W, X, Y, Z, TT, TU, TV, E, TE](s)(nameTree, kindTable, typeTable, instTree, instArgTable)(f)(g))
 
-  def transformTermStringWithInstantiation[T, U, V, W, X, Y, Z, TT, E](s: String)(nameTree: resolver.NameTree, env: E)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]]])(implicit polyFunInstantiator: PolyFunInstantiator[TT, X, W, TypeLambdaInfo[Y, Z], E], enval: InstantiationEnvironmental[E, TT, W], locational: Locational[T, TT, V]) =
+  def transformTermStringWithInstantiation[T, U, V, W, X, Y, Z, TT, E](s: String)(nameTree: resolver.NameTree, env: E)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, (Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]], Type[W])])(implicit polyFunInstantiator: PolyFunInstantiator[TT, X, W, TypeLambdaInfo[Y, Z], E], enval: InstantiationEnvironmental[E, TT, W], locational: Locational[T, TT, V]) =
     for {
       term <- resolver.Resolver.transformTermString(s)(resolver.Scope.fromNameTree(nameTree))
-      term2 <- f(term)
-      term3 <- transformTermWithInstantiation(term2)(env)
-    } yield term3
+      pair <- f(term)
+      term2 <- transformTermWithInstantiation(pair._1)(env)
+    } yield (term2, pair._2)
   
   val statefullyTransformToSymbolTree3 = {
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol]) =>
@@ -205,6 +207,15 @@ object Instantiator
   val statefullyMakeSymbolTypeInferenceEnvironment3 = {
     (kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol], instTree: InstanceTree[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]], instArgTable: InstanceArgTable[GlobalSymbol, GlobalSymbol]) =>
       typer.Typer.statefullyMakeSymbolTypeInferenceEnvironment3(kindTable, typeTable).map(SymbolInstantiationEnvironment.fromInstanceTree[parser.LambdaInfo, parser.TypeLambdaInfo](instTree).withInstArgs(instArgTable.instArgs).withTypeInferenceEnv)
+  }
+  
+  def transformToSymbolTerm2(kindTable: InferredKindTable[GlobalSymbol], typeTable: InferredTypeTable[GlobalSymbol, GlobalSymbol], typeEnv: SymbolTypeEnvironment[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]) = {
+    (term: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]]) =>
+      for {
+        term2 <- lmbdindexer.LambdaIndexer.transformTerm(term)
+        term3 <- kinder.Kinder.transformTerm(term2)(SymbolKindInferenceEnvironment.fromInferredKindTable[parser.TypeLambdaInfo](kindTable))
+        pair <- typer.Typer.transformTermWithTypeInference(term3)(SymbolTypeInferenceEnvironment.fromInferredTypeTable[parser.LambdaInfo, parser.TypeLambdaInfo](typeTable).withTypeEnv(typeEnv).withKindInferenceEnv(kinder.SymbolKindInferenceEnvironment.fromInferredKindTable(kindTable)))
+      } yield pair
   }
   
   val emptySymbolInstanceTree = InstanceTree.empty[AbstractPolyFunction[GlobalSymbol], GlobalSymbol, GlobalInstance[GlobalSymbol]]

@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.TypeTreeInfo
+import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
 import pl.luckboy.purfuncor.frontend.typer.BuiltinType
@@ -34,7 +35,7 @@ import pl.luckboy.purfuncor.common.Tree
 
 class InstantiatorSpec extends FlatSpec with ShouldMatchers with Inside
 {
-  def instantiator[T, U, V, W, X, Y, Z, TT, TU, TV, E, TE, D](emptyEnv: E, emptyTypeEnv: TE, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f4: D => (Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], InferredKindTable[X], InferredTypeTable[T, X]) => State[TE, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]]]])(g3: (InferredKindTable[X], InferredTypeTable[T, X], InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], InstanceArgTable[T, X]) => State[TE, E])(implicit init: Initializer[NonEmptyList[AbstractError], T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], E], polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], enval: InstantiationEnvironmental[E, T, X], treeInfoExtractor: TreeInfoExtractor[TU, Tree[X, AbstractTypeCombinator[Y, TypeLambdaInfo[Z, TT]], TypeTreeInfo[TV, X]]], instTreeInfoExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[TU, T], typeGlobalSymTabular: GlobalSymbolTabular[TV, X], localSymTabular: LocalSymbolTabular[V, W], typeLocalSymTabular: LocalSymbolTabular[Z, TT])
+  def instantiator[T, U, V, W, X, Y, Z, TT, TU, TV, E, TE, D](emptyEnv: E, emptyTypeEnv: TE, initData: D)(makeData: String => ValidationNel[AbstractError, D])(f4: D => (Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]], InferredKindTable[X], InferredTypeTable[T, X]) => State[TE, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]]]])(g3: (InferredKindTable[X], InferredTypeTable[T, X], InstanceTree[AbstractPolyFunction[T], X, GlobalInstance[T]], InstanceArgTable[T, X]) => State[TE, E])(h3: D => (InferredKindTable[X], InferredTypeTable[T, X], TE) => Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, (Term[SimpleTerm[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]]], Type[X])])(implicit init: Initializer[NonEmptyList[AbstractError], T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], E], polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], enval: InstantiationEnvironmental[E, T, X], treeInfoExtractor: TreeInfoExtractor[TU, Tree[X, AbstractTypeCombinator[Y, TypeLambdaInfo[Z, TT]], TypeTreeInfo[TV, X]]], instTreeInfoExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]], globalSymTabular: GlobalSymbolTabular[TU, T], typeGlobalSymTabular: GlobalSymbolTabular[TV, X], localSymTabular: LocalSymbolTabular[V, W], typeLocalSymTabular: LocalSymbolTabular[Z, TT], locational: Locational[U, T, W])
   {
     val emptyInstTree = InstanceTree.empty[AbstractPolyFunction[T], X, GlobalInstance[T]]
     
@@ -1224,7 +1225,67 @@ j = 'a'
       }
     }
     
-    it should "transform the string of the term with the instantiation" is (pending)
+    it should "transform the string of the term with the instantiation" in {
+      val s = """
+type T = #Float
+instance f => g
+poly f
+g x y = #fAdd x y
+"""
+      val (typeEnv, res) = Instantiator.transformString(s)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(_, treeInfo)) =>
+          val nameTree = NameTree.fromGlobalSymbols(Set(
+              GlobalSymbol(NonEmptyList("f")),
+              GlobalSymbol(NonEmptyList("g")))) |+| NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T")))
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeTreeInfo = typeTree.treeInfo
+          val (typeEnv2, env) = g3(typeTreeInfo.kindTable, treeInfo.typeTable, treeInfo.instTree, treeInfo.instArgTable).run(typeEnv)
+          inside(makeData(s)) {
+            case Success(data) =>
+              val res2 = Instantiator.transformTermStringWithInstantiation("""
+(#fAdd 1.0f (f 2.0f 3.0f)): T
+""")(nameTree, env)(h3(data)(typeTreeInfo.kindTable, treeInfo.typeTable, typeEnv2))
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(tLoc) =>
+                  inside(res2) {
+                    case Success((Simple(TypedTerm(App(fun1, args1, _), type1), _), typ)) =>
+                      inside(fun1) { case Simple(Literal(BuiltinFunValue(BuiltinFunction.FAdd)), _) => () }
+                      inside(args1) {
+                        case NonEmptyList(arg11, arg12) =>
+                          inside(arg11) { case Simple(Literal(FloatValue(1.0f)), _) => () }
+                          inside(arg12) {
+                            case App(fun2, args2, _) =>
+                              inside(fun2) {
+                                case Simple(Var(loc2, LambdaInfo(lambdaInfo2, 0, typeTable2, insts2)), _) =>
+                                  some(loc2) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
+                                  typeTable2.types should be ('empty)
+                                  inside(insts2) {
+                                    case Seq(PolyFunInstance(loc21)) =>
+                                      some(loc21) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+                                  }
+                              }
+                              inside(args2) {
+                                case NonEmptyList(arg21, arg22) =>
+                                  inside(arg21) { case Simple(Literal(FloatValue(2.0f)), _) => () }
+                                  inside(arg22) { case Simple(Literal(FloatValue(3.0f)), _) => () }
+                              }
+                          }
+                      }
+                      inside(type1) {
+                        case Simple(TypeVar(typLoc1), _) =>
+                          some(typLoc1) should be ===(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))))
+                      }
+                      inside(typ) {
+                        case InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("T"))), Seq()) =>
+                          // T
+                          loc1 should be ===(tLoc)
+                      }
+                  }
+              }
+          }
+      }
+    }
     
     it should "complain on the already defined instances" is (pending)
     
@@ -1233,5 +1294,5 @@ j = 'a'
     it should "complain on the not found instances" is (pending)
   }
   
-  "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)
+  "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
 }
