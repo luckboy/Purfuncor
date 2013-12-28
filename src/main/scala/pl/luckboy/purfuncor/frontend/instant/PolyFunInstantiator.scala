@@ -39,6 +39,8 @@ trait PolyFunInstantiator[L, M, N, I, E]
   
   def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[M, I])(env: E): (E, ValidationNel[AbstractError, Unit])
 
+  def addPolyCombinatorsS(locs: Set[L])(env: E): (E, Unit)
+  
   def withSaveS[T, U](f: E => (E, Validation[T, U]))(env: E): (E, Validation[T, U])
 }
 

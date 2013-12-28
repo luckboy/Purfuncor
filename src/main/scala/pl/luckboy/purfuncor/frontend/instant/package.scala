@@ -83,15 +83,26 @@ package object instant
     override def addInstanceS(loc: GlobalSymbol, inst: frontend.Instance[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
       inst match {
         case frontend.Instance(instCombLoc, pos, file) =>
-          val (env2, res) = env.typeInferenceEnv.varType(instCombLoc) match {
-            case instCombType: InferredType[GlobalSymbol] =>
-              addGlobalInstanceS(PolyFunction(loc), instCombType, PolyFunInstance(instCombLoc))(env)
-            case noType: NoType[GlobalSymbol]             =>
-              (env, resultFromTypeResult(noType.failure))
-            case _                                        =>
-              (env, FatalError("uninferred type", none, NoPosition).failureNel)
-          }
-          (env2, resultForFile(resultWithPos(res, pos), file))
+          if(env.hasPolyComb(loc)) {
+            val (env3, res) = env.typeInferenceEnv.varType(instCombLoc) match {
+              case instCombType: InferredType[GlobalSymbol] =>
+                val polyCombType = env.typeInferenceEnv.varType(loc)
+                val (typeInferenceEnv, unifiedType) = symbolSimpleTermTypeInferrer.unifyArgInfosS(polyCombType, instCombType)(env.typeInferenceEnv)
+                val env2 = env.withTypeInferenceEnv(typeInferenceEnv)
+                unifiedType match {
+                  case noType: NoType[GlobalSymbol] =>
+                    (env2, resultFromTypeResult(noType.failure))
+                  case _                            =>
+                    addGlobalInstanceS(PolyFunction(loc), instCombType, PolyFunInstance(instCombLoc))(env2)
+                }
+              case noType: NoType[GlobalSymbol]             =>
+                (env, resultFromTypeResult(noType.failure))
+              case _                                        =>
+                (env, FatalError("uninferred type", none, NoPosition).failureNel)
+            }
+            (env3, resultForFile(resultWithPos(res, pos), file))
+          } else
+            (env, Error("combinator " + loc + " isn't ad-hoc polimorphic", file, pos).failureNel)
       }
     
     private def checkConstructTypeTermS(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(typeInferenceEnv: SymbolTypeInferenceEnvironment[T, U]) = {
@@ -187,6 +198,9 @@ package object instant
           }.valueOr { es => (env, es.failure) }
           (env4, resultForFile(res13, file))
       }
+    
+    override def addPolyCombinatorsS(locs: Set[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
+      (env.withPolyCombs(locs), ())
     
     override def withSaveS[V, W](f: SymbolInstantiationEnvironment[T, U] => (SymbolInstantiationEnvironment[T, U], Validation[V, W]))(env: SymbolInstantiationEnvironment[T, U]) =  {
       val (env2, res) = f(env)

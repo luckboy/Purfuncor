@@ -134,6 +134,15 @@ object Instantiator
     } (env)
   }
   
+  def addInstancesFromTreeS[T, U, V, W, X, Y, Z, TT, TU, TV, E, TE](tree: Tree[T, AbstractCombinator[U, typer.LambdaInfo[V, W, X], TypeSimpleTerm[Y, TypeLambdaInfo[Z, TT]]], typer.TreeInfo[TU, T, X]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[T, Y, X, TypeLambdaInfo[Z, TT], E], treeInfoExtractor: TreeInfoExtractor[TU, Tree[X, AbstractTypeCombinator[Y, TypeLambdaInfo[Z, TT]], TypeTreeInfo[TV, X]]], instTreeInfoExtractor: InstantiationTreeInfoExtractor[TU, T, frontend.Instance[T], SelectConstructInstance[Y, TypeLambdaInfo[Z, TT]]]) = {
+    val polyCombLocs = tree.combs.flatMap {
+      case (loc, PolyCombinator(_, _)) => some(loc)
+      case _                           => Set()
+    }.toSet
+    val (env2, _) = polyFunInstantiator.addPolyCombinatorsS(polyCombLocs)(env)
+    addInstancesFromTreeInfoS(tree.treeInfo)(env2)
+  }
+  
   def transformTermWithInstantiation[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[TT, X, W, TypeLambdaInfo[Y, Z], E], enval: InstantiationEnvironmental[E, TT, W], locational: Locational[T, TT, V]) = {
     val (newEnv, res) = instantiatePolyFunctionFromTermS(term)(enval.copyEnvironment(env))
     res.flatMap { _ => transformTerm(term)(newEnv) }
@@ -160,7 +169,7 @@ object Instantiator
     val typeTable2 = InferredTypeTable(tree.treeInfo.typeTable.types ++ typeTable.types)
     f(kindTable2, typeTable2, instTree, instArgTable).map {
       env =>
-        val (env2, res) = addInstancesFromTreeInfoS(tree.treeInfo)(env)
+        val (env2, res) = addInstancesFromTreeS(tree)(env)
         res.flatMap {
           _ =>
             val (env3, res2) = instantiatePolyFunctionsFromTreeS(tree)(env2)

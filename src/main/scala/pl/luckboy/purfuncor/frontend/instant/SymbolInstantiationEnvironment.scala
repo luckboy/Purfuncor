@@ -21,6 +21,7 @@ case class SymbolInstantiationEnvironment[T, U](
     combNodes: Map[GlobalSymbol, CombinatorNode[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]], GlobalSymbol]],
     recursiveCombSyms: Set[GlobalSymbol],
     uninitializedCombSyms: Set[GlobalSymbol],
+    polyCombSyms: Set[GlobalSymbol],
     errs: List[AbstractError],
     isRecursive: Boolean)
 {
@@ -45,8 +46,19 @@ case class SymbolInstantiationEnvironment[T, U](
   def withRecursiveCombSyms(syms: Set[GlobalSymbol]) = copy(recursiveCombSyms = syms)
   
   def withUninitializedCombSyms(syms: Set[GlobalSymbol]) = copy(uninitializedCombSyms = syms)
+
+  def withPolyCombSyms(syms: Set[GlobalSymbol]) = copy(polyCombSyms = syms)
+  
+  def withPolyCombs(syms: Set[GlobalSymbol]) = copy(polyCombSyms = polyCombSyms | syms)
   
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
+  
+  def hasPolyComb(sym: GlobalSymbol) =
+    instArgs.get(sym) match {
+      case Some(Seq(InstanceArg(PolyFunction(polyFunSym), _))) => polyFunSym === sym
+      case None                                                => polyCombSyms.contains(sym)
+      case _                                                   => false
+    }
 }
 
 object SymbolInstantiationEnvironment
@@ -63,6 +75,7 @@ object SymbolInstantiationEnvironment
       combNodes = Map(),
       recursiveCombSyms = Set(),
       uninitializedCombSyms = Set(),
+      polyCombSyms = Set(),
       errs = Nil,
       isRecursive = false) 
 }
