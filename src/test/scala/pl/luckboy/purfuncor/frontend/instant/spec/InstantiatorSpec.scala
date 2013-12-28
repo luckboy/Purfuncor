@@ -1319,10 +1319,12 @@ poly f
 g = 1
 h = 0
 i = f: #Int
+j = f: #Int
 """)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
       inside(res) {
         case Failure(errs) =>
           errs.map { _.msg } should be ===(NonEmptyList(
+              "ambiguous instance for #.f with type #Int",
               "ambiguous instance for #.f with type #Int"))
       }
     }
