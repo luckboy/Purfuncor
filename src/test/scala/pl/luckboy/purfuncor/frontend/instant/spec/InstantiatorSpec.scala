@@ -1327,7 +1327,7 @@ i = f: #Int
       }
     }
     
-    it should "complain on an non-existent instance" in {
+    it should "complain on a non-existent instance" in {
       val res = Instantiator.transformTermStringWithInstantiation("construct 2 true 'a'")(NameTree.empty, emptyEnv)(h)
       inside(res) {
         case Failure(errs) =>
@@ -1353,9 +1353,31 @@ instance select \t1 t2 t3 => ##| (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (##& (U t
       }
     }
     
-    it should "complain on the combinator that isn't ad-hoc polimorphic" is (pending)
+    it should "complain on the combinator that isn't ad-hoc polimorphic" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+f = 1
+g = 2
+instance f => g
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)      
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "combinator #.f isn't ad-hoc polimorphic"))
+      }
+    }
     
-    it should "complain on the types of the instance which were matched" is (pending)
+    it should "complain on the types of the instance which were matched" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+poly (f: #Double)
+g = 1.0f
+instance f => g
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)      
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "couldn't match type #Double with type #Float"))
+      }
+    }
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
