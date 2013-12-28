@@ -274,6 +274,8 @@ object PolyFunInstantiator {
                     (newEnv4, (Seq(inst).success, newLocalInstTree))
                   case insts if lambdaInfo.isCase && insts.size > 1 =>
                     (newEnv4, (insts.success, newLocalInstTree))
+                  case insts if insts.size > 1 =>
+                    envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
                   case insts =>
                     newLocalInstTree.map {
                       tmpInstTree =>
@@ -287,10 +289,7 @@ object PolyFunInstantiator {
                           }
                         }.valueOr { nt => (newEnv5, (nt.failure, newLocalInstTree)) }
                     }.getOrElse {
-                      if (insts.isEmpty)
-                        envSt2.notFoundInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
-                      else
-                        envSt2.ambiguousInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
+                      envSt2.notFoundInstanceNoTypeS(instArg)(newEnv4).mapElements(identity, nt => (nt.failure, newLocalInstTree))
                     }
                 }.valueOr { nt => (newEnv4, (nt.failure, newLocalInstTree)) }
                 (newEnv6, ((newRes |@| newRes3) { case (is, is2) => is ++ is2 }, newLocalInstTree2))
@@ -299,7 +298,7 @@ object PolyFunInstantiator {
         (newEnv7, newRes5.swap.map { _.withPos(lambdaInfo.pos).forFile(lambdaInfo.file) }.swap)
     } (env)
     
-  private def illegalTypeNoType[T] = NoType.fromError[T](FatalError("illegal type", none, NoPosition))
+  private def illegalConstructTypeNoType[T] = NoType.fromError[T](Error("illegal construct type", none, NoPosition))
     
   private def findTupleTypesS[L, N, E](term: TypeValueTerm[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Seq[TupleType[N]]]) =
     term match {
@@ -308,14 +307,14 @@ object PolyFunInstantiator {
       case TypeConjunction(terms) =>
         terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
           case ((newEnv, Success(Seq())), term2) => findTupleTypesS(term2)(newEnv)
-          case ((newEnv, Success(_)), _)         => (newEnv, illegalTypeNoType.failure)
+          case ((newEnv, Success(_)), _)         => (newEnv, illegalConstructTypeNoType.failure)
           case ((newEnv, newRes), _)             => (newEnv, newRes)
         }
       case TypeDisjunction(terms) =>
         terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
           case ((newEnv, Success(newTerms)), term2) =>
             findTupleTypesS(term2)(newEnv) match {
-              case (newEnv2, Success(Seq()))  => (newEnv2, illegalTypeNoType.failure)
+              case (newEnv2, Success(Seq()))  => (newEnv2, illegalConstructTypeNoType.failure)
               case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
               case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
             }
@@ -366,12 +365,12 @@ object PolyFunInstantiator {
                         }.getOrElse(State((_: E, inferringType.success)))
                       } yield res3
                     case _: NoType[N]                    =>
-                      State((_: E, illegalTypeNoType[N].failure))
+                      State((_: E, illegalConstructTypeNoType[N].failure))
                     case _                               =>
                       State((_: E, NoType.fromError[N](FatalError("uninferring type", none, NoPosition)).failure))
                   }
                 } yield res4).run(env3)
-            }.getOrElse((env3, illegalTypeNoType[N].failure))            
+            }.getOrElse((env3, illegalConstructTypeNoType[N].failure))            
         } (env2).mapElements(identity, _.valueOr(identity))
     }.valueOr { (env2, _) }
   }
