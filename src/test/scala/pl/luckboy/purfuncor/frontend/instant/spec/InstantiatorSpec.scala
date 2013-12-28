@@ -1296,6 +1296,8 @@ g x y = #fAdd x y
     it should "complain on the type that isn't the tuple type" is (pending)
     
     it should "complain on the combinator that isn't ad-hoc polimorphic" is (pending)
+    
+    it should "complain on the types of the instance which were matched" is (pending)
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
