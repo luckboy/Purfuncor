@@ -1287,11 +1287,17 @@ g x y = #fAdd x y
       }
     }
     
+    it should "transform the select-construct instance for the type synonyms" is (pending)
+    
     it should "complain on the already defined instances" is (pending)
     
     it should "complain on the ambiguous instances" is (pending)
     
     it should "complain on the not found instances" is (pending)
+    
+    it should "complain on the type that isn't the tuple type" is (pending)
+    
+    it should "complain on the combinator that isn't ad-hoc polimorphic" is (pending)
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
