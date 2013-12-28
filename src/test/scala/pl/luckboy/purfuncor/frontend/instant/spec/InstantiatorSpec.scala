@@ -1287,8 +1287,6 @@ g x y = #fAdd x y
       }
     }
     
-    it should "transform the select-construct instance for the type synonyms" is (pending)
-    
     it should "complain on the already defined instances" is (pending)
     
     it should "complain on the ambiguous instances" is (pending)
