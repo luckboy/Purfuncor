@@ -1287,11 +1287,11 @@ g x y = #fAdd x y
       }
     }
     
-    it should "complain on the already defined instances" is (pending)
+    it should "complain on the already defined instance" is (pending)
     
     it should "complain on the ambiguous instances" is (pending)
     
-    it should "complain on the not found instances" is (pending)
+    it should "complain on an non-existent instance" is (pending)
     
     it should "complain on the type that isn't the tuple type" is (pending)
     
