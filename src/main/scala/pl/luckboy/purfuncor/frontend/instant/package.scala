@@ -226,9 +226,9 @@ package object instant
     override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = 
       (env, !(env.instArgs.contains(loc) && !env.uninitializedCombSyms.contains(loc)))
     
-    private def failInitializationS(errs: NonEmptyList[AbstractError])(env: SymbolInstantiationEnvironment[T, U]) =
+    private def failInitializationS(errs: NonEmptyList[AbstractError], locs: Set[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
       if(errs.toList.forall { _.isInstanceOf[Error] })
-        (env.withErrs(errs), ().successNel)
+        (env.withErrs(errs).withUninitializedCombSyms(env.uninitializedCombSyms -- locs), ().successNel)
       else
         (env, errs.failure)
       
@@ -248,8 +248,9 @@ package object instant
                 (env, FatalError("uninferred type", none, NoPosition).failureNel)
             }
         }
-        val env3 = env2.withUninitializedCombSyms(env2.uninitializedCombSyms - loc)
-        res.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_)(env3) }
+        res.map { 
+          u => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms - loc), u.successNel)
+        }.valueOr { failInitializationS(_, Set(loc))(env2) }
       } else
         (env, ().successNel)
     
@@ -270,7 +271,7 @@ package object instant
         }.valueOr { errs => State((_: SymbolInstantiationEnvironment[T, U], errs.failure)) }
       } yield (res3)).run(env)
       val (env3, res5) = (res |@| res4) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
-      res5.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_)(env3) }
+      res5.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_, oldNodes.keySet)(env3) }
     }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
