@@ -226,6 +226,12 @@ package object instant
     override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolInstantiationEnvironment[T, U]) = 
       (env, !(env.instArgs.contains(loc) && !env.uninitializedCombSyms.contains(loc)))
     
+    private def failInitializationS(errs: NonEmptyList[AbstractError])(env: SymbolInstantiationEnvironment[T, U]) =
+      if(errs.toList.forall { _.isInstanceOf[Error] })
+        (env.withErrs(errs), ().successNel)
+      else
+        (env, errs.failure)
+      
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, typer.LambdaInfo[T, LocalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolInstantiationEnvironment[T, U]) =
       if(!env.isRecursive) {
         val (env2, res) = comb match {
@@ -242,7 +248,8 @@ package object instant
                 (env, FatalError("uninferred type", none, NoPosition).failureNel)
             }
         }
-        (env2.withUninitializedCombSyms(env2.uninitializedCombSyms - loc), res)
+        val env3 = env2.withUninitializedCombSyms(env2.uninitializedCombSyms - loc)
+        res.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_)(env3) }
       } else
         (env, ().successNel)
     
@@ -262,7 +269,8 @@ package object instant
           _ => State(instantiateRecursivePolyFunctionsS(oldNodes.keySet, lambdaInfos)(_: SymbolInstantiationEnvironment[T, U]))
         }.valueOr { errs => State((_: SymbolInstantiationEnvironment[T, U], errs.failure)) }
       } yield (res3)).run(env)
-      (res |@| res4) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
+      val (env3, res5) = (res |@| res4) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
+      res5.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_)(env3) }
     }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)

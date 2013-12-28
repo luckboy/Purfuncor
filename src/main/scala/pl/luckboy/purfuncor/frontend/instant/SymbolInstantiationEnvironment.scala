@@ -51,6 +51,8 @@ case class SymbolInstantiationEnvironment[T, U](
   
   def withPolyCombs(syms: Set[GlobalSymbol]) = copy(polyCombSyms = polyCombSyms | syms)
   
+  def withErrs(errs: NonEmptyList[AbstractError]) = copy(errs = this.errs ++ errs.toList)
+  
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
   
   def hasPolyComb(sym: GlobalSymbol) =
