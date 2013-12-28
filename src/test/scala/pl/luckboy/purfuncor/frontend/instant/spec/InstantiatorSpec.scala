@@ -40,6 +40,7 @@ class InstantiatorSpec extends FlatSpec with ShouldMatchers with Inside
     val emptyInstTree = InstanceTree.empty[AbstractPolyFunction[T], X, GlobalInstance[T]]
     
     def f3 = f4(initData)
+    def h = h3(initData)(InferredKindTable.empty, InferredTypeTable.empty, emptyTypeEnv)
     
     it should "transform the string" in {
       val (typeEnv, res) = Instantiator.transformString("""
@@ -1287,13 +1288,70 @@ g x y = #fAdd x y
       }
     }
     
-    it should "complain on the already defined instance" is (pending)
+    it should "complain on the already defined instances" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+instance f => g
+instance f => h
+instance f => i
+instance f => j
+instance f => k
+poly f
+g = 1.0
+h = 2.0
+i = 3.0
+j = 1: #Int
+k = 2
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "already defined instance for #.f with #Double",
+              "already defined instance for #.f with #Double",
+              "already defined instance for #.f with #NonZero #& #Int"))
+      }
+    }
     
-    it should "complain on the ambiguous instances" is (pending)
+    it should "complain on the ambiguous instances" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+instance f => g
+instance f => h
+poly f
+g = 1
+h = 0
+i = f: #Int
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "ambiguous instance for #.f with type #Int"))
+      }
+    }
     
-    it should "complain on an non-existent instance" is (pending)
+    it should "complain on an non-existent instance" in {
+      val res = Instantiator.transformTermStringWithInstantiation("construct 2 true 'a'")(NameTree.empty, emptyEnv)(h)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "couldn't find instance for construct with type \\(t1: *) => t1 #& (#Boolean, #Char)"))
+      }
+    }
     
-    it should "complain on the type that isn't the tuple type" is (pending)
+    it should "complain on the illegal construct types" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+unittype 3 T
+unittype 2 U
+instance select \t1 t2 t3 => ##| (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (##& (U t1 t2) (tuple 2 t1 t2)) construct {
+  \t1 t2 t3 => ##& (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (tuple 2 t1 t2)
+  \t1 t2 => U
+}
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "illegal construct type",
+              "illegal construct type"))
+      }
+    }
     
     it should "complain on the combinator that isn't ad-hoc polimorphic" is (pending)
     
