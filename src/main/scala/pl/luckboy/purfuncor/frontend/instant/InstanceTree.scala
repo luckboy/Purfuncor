@@ -23,6 +23,8 @@ case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
     (env2, res.map { _.map { case (it, b) => (InstanceTree(instTables + (loc -> it)), b) } })
   }
   
+  def insts = instTables.toSeq.flatMap { _._2.pairs.map { _._2 } }
+    
   def instCount = instTables.values.foldLeft(0) { _ + _.instCount }
 }
 

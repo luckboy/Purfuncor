@@ -93,7 +93,7 @@ package object instant
                   case noType: NoType[GlobalSymbol] =>
                     (env2, resultFromTypeResult(noType.failure))
                   case _                            =>
-                    addGlobalInstanceS(PolyFunction(loc), instCombType, PolyFunInstance(instCombLoc))(env2)
+                    addGlobalInstanceS(PolyFunction(loc), instCombType, PolyFunInstance(instCombLoc, pos, file))(env2)
                 }
               case noType: NoType[GlobalSymbol]             =>
                 (env, resultFromTypeResult(noType.failure))
@@ -164,18 +164,18 @@ package object instant
                                   res5 <- State(InferringType(definedSupertype.term).instantiatedTypeValueTermWithKindsS(_: SymbolTypeInferenceEnvironment[T, U]))
                                   res7 <- res5.map {
                                     case (supertypeValueTerm, supertypeArgKinds) =>
-                                      val selectInstTriple = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size), definedSupertype.pos)
+                                      val selectInstPair = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size, definedSupertype.pos, file))
                                       State({
                                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
-                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Seq[(InferredType[GlobalSymbol], GlobalInstance[GlobalSymbol], Position)]().success[NoType[GlobalSymbol]])) {
-                                            case ((newTypeInfernceEnv, Success(newConstructInstTriples)), ((definedType, _), i)) =>
+                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Seq[(InferredType[GlobalSymbol], ConstructInstance[GlobalSymbol])]().success[NoType[GlobalSymbol]])) {
+                                            case ((newTypeInfernceEnv, Success(newConstructInstPairs)), ((definedType, _), i)) =>
                                               val (newTypeInfernceEnv2, newRes) = InferringType(definedType.term).instantiatedTypeValueTermWithKindsS(newTypeInfernceEnv)
                                               (newTypeInfernceEnv2, newRes.map { 
                                                 case (typeValueTerm, argKinds) =>
-                                                  newConstructInstTriples :+ ((InferredType(typeValueTerm, argKinds), ConstructInstance[GlobalSymbol](i), definedType.pos))
+                                                  newConstructInstPairs :+ ((InferredType(typeValueTerm, argKinds), ConstructInstance[GlobalSymbol](i, definedType.pos, file)))
                                               })
                                           }
-                                          (typeInferenceEnv3, res6.map { (selectInstTriple, _) })
+                                          (typeInferenceEnv3, res6.map { (selectInstPair, _) })
                                       })
                                   }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
                                 } yield res7
@@ -188,12 +188,12 @@ package object instant
           }
           val env2 = env.withTypeInferenceEnv(typeInferenceEnv5)
           val (env4, res13) = resultFromTypeResult(res11.swap.map { _.withPos(NoPosition) }.swap).map {
-            case ((selectInstType, selectInst, selectInstPos), constructInstTriples) =>
+            case ((selectInstType, selectInst), constructInstTriples) =>
               val (env3, res12) = addGlobalInstanceS(SelectFunction, selectInstType, selectInst)(env2)
-              constructInstTriples.foldLeft((env3, resultWithPos(res12, selectInstPos))) {
-                case ((newEnv, newRes), (constructInstType, constructInst, constructInstPos)) =>
+              constructInstTriples.foldLeft((env3, resultWithPos(res12, selectInst.pos))) {
+                case ((newEnv, newRes), (constructInstType, constructInst)) =>
                   val (newEnv2, newRes2) = addGlobalInstanceS(ConstructFunction, constructInstType, constructInst)(newEnv)
-                  (newEnv2, newRes |+| resultWithPos(newRes2, constructInstPos))
+                  (newEnv2, newRes |+| resultWithPos(newRes2, constructInst.pos))
               }
           }.valueOr { es => (env, es.failure) }
           (env4, resultForFile(res13, file))
@@ -302,7 +302,17 @@ package object instant
       (env2, resultForFile(res, comb.file))
     }
     
-    override def checkEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.errs.toNel.toFailure(()))
+    override def checkEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = {
+      val errs = env.globalInstTree.insts.flatMap {
+        case PolyFunInstance(loc, pos, file) =>
+          env.instArgs.getOrElse(loc, Seq()).map {
+            ia => Error("combinator " + loc + " requires instance for " + ia.polyFun + " with type " +ia.typ, file, pos): AbstractError
+          }
+        case _                               =>
+          Nil
+      }
+      (env, (env.errs ++ errs).toNel.toFailure(()))
+    }
     
     override def undefinedGlobalVarError = NonEmptyList(FatalError("undefined global variable", none, NoPosition))
     

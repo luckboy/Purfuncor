@@ -444,11 +444,11 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                   } yield (x1, x2)) {
                     case Some((inst1, inst2)) =>
                       inside(inst1) {
-                        case PolyFunInstance(loc1) =>
+                        case PolyFunInstance(loc1, _, _) =>
                           some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
                       }
                       inside(inst2) {
-                        case PolyFunInstance(loc2) =>
+                        case PolyFunInstance(loc2, _, _) =>
                           some(loc2) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
                       }
                   }
@@ -464,7 +464,7 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                   } yield x1) {
                     case Some(inst1) =>
                       inside(inst1) {
-                        case PolyFunInstance(loc1) =>
+                        case PolyFunInstance(loc1, _, _) =>
                           some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))))
                       }
                   }
@@ -523,7 +523,7 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                               ()
                           }
                       }
-                      inside(inst1) { case SelectInstance(2) => () }
+                      inside(inst1) { case SelectInstance(2, _, _) => () }
                   }
               }
               // construct
@@ -559,7 +559,7 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                               ()
                           }
                       }
-                      inside(inst1) { case ConstructInstance(0) => () }
+                      inside(inst1) { case ConstructInstance(0, _, _) => () }
                       inside(type2) {
                         case InferredType(TypeConjunction(types21), Seq()) =>
                           types21 should have size(2)
@@ -571,7 +571,7 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                               loc211 should be ===(uLoc)
                           }
                       }
-                      inside(inst2) { case ConstructInstance(1) => () }
+                      inside(inst2) { case ConstructInstance(1, _, _) => () }
                   }
               }
           }
@@ -622,7 +622,7 @@ n = tuple 3 (l 1.0f) (h: #Double) m
                           inside(fun2) {
                             case Simple(TypedTerm(Simple(Var(_, LambdaInfo(lambdaInfo2, 1, _, insts2)), _), _), _) =>
                               inside(insts2) {
-                                case Seq(PolyFunInstance(loc211)) =>
+                                case Seq(PolyFunInstance(loc211, _, _)) =>
                                   some(loc211) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("j"))))
                               }
                           }
@@ -801,7 +801,7 @@ n = tuple 3 (l 1.0f) (h: #Double) m
                       inside(arg12) {
                         case Simple(TypedTerm(Simple(Var(_, LambdaInfo(lambdaInfo12, 2, _, insts12)), _), _), _) =>
                           inside(insts12) {
-                            case Seq(PolyFunInstance(loc121)) =>
+                            case Seq(PolyFunInstance(loc121, _, _)) =>
                               some(loc121) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("k"))))
                           }
                       }
@@ -1000,7 +1000,7 @@ n = 0.2f
                                       inside(arg1212) {
                                         case Simple(Var(_, LambdaInfo(lambdaInfo1212, 5, _, insts1212)), _) =>
                                           inside(insts1212) {
-                                            case Seq(PolyFunInstance(loc12111)) =>
+                                            case Seq(PolyFunInstance(loc12111, _, _)) =>
                                               some(loc12111) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("n"))))
                                           }
                                       }
@@ -1043,7 +1043,7 @@ n = 0.2f
                           inside(body12) {
                             case Simple(Var(_, LambdaInfo(lambdaInfo121, 5, _, insts121)), _) =>
                               inside(insts121) { 
-                                case Seq(PolyFunInstance(loc1211)) =>
+                                case Seq(PolyFunInstance(loc1211, _, _)) =>
                                   some(loc1211) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("m"))))
                               }
                           }
@@ -1112,7 +1112,7 @@ j = 'a'
                                   inside(arg11) {
                                     case Simple(TypedTerm(Simple(Construct(0, LambdaInfo(lambdaInfo11, 1, typeTable11, insts11)), _), type11), _) =>
                                       typeTable11.types should be ('empty)
-                                      inside(insts11) { case Seq(ConstructInstance(0)) => () }
+                                      inside(insts11) { case Seq(ConstructInstance(0, _, _)) => () }
                                       inside(type11) {
                                         case App(typFun111, typArgs111, _) =>
                                           inside(typFun111) { case Simple(TypeLiteral(TypeBuiltinFunValue(frontend.TypeBuiltinFunction.Conj)), _) => () }
@@ -1215,7 +1215,7 @@ j = 'a'
                                   ()
                               }
                               inside(inst1) {
-                                case PolyFunInstance(loc1) =>
+                                case PolyFunInstance(loc1, _, _) =>
                                   some(loc1) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo2.treeInfo)(GlobalSymbol(NonEmptyList("j"))))
                               }
                           }
@@ -1262,7 +1262,7 @@ g x y = #fAdd x y
                                   some(loc2) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("f"))))
                                   typeTable2.types should be ('empty)
                                   inside(insts2) {
-                                    case Seq(PolyFunInstance(loc21)) =>
+                                    case Seq(PolyFunInstance(loc21, _, _)) =>
                                       some(loc21) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
                                   }
                               }
@@ -1378,6 +1378,20 @@ instance f => g
         case Failure(errs) =>
           errs.map { _.msg } should be ===(NonEmptyList(
               "couldn't match type #Double with type #Float"))
+      }
+    }
+    
+    it should "complain on the instance combinator that requires an instance" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+poly f
+poly g
+h x = tuple 2 g x
+instance f => h
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "combinator #.h requires instance for #.g with type \\(t1: k1) (t2: *) => t2"))
       }
     }
   }
