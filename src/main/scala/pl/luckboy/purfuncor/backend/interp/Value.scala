@@ -4,7 +4,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend
-import pl.luckboy.purfuncor.frontend.AbstractCombinator
+import pl.luckboy.purfuncor.frontend.Combinator
 import pl.luckboy.purfuncor.frontend.SimpleTerm
 import pl.luckboy.purfuncor.frontend.Lambda
 import pl.luckboy.purfuncor.frontend.BuiltinFunction
@@ -76,6 +76,8 @@ sealed trait Value[+T, +U, +V, +W]
               case _                              => value.toString
             }
         }.mkString(" ")
+      case PolyFunValue                         => "<polymorphic functon value>"
+      case InstanceAppValue(_, _)               => "<instance application value>"
     }
 }
 
@@ -144,6 +146,15 @@ object BuiltinFunValue
 
 case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
 case class ArrayValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
-case class CombinatorValue[+T, +U, +V, +W](comb: AbstractCombinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
+case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
 case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file: Option[java.io.File]) extends Value[T, U, V, W]
 case class PartialAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], argValues: Seq[Value[T, U, V, W]]) extends Value[T, U, V, W]
+sealed trait PolyFunValue[+T, +U, +V, +W] extends Value[T, U, V, W]
+case object PolyFunValue extends PolyFunValue[Nothing, Nothing, Nothing, Nothing]
+case class InstanceAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], instArgValues: Seq[InstanceValue[T, U, V, W]]) extends Value[T, U, V, W]
+
+sealed trait InstanceValue[+T, +U, +V, +W]
+
+case class PolyFunInstanceValue[+T, +U, +V, +W](value: Value[T, U, V, W]) extends InstanceValue[T, U, V, W]
+case class ConstructInstanceValue[+T, +U, +V, +W](i: Int) extends InstanceValue[T, U, V, W]
+case class SelectInstanceValue[+T, +U, +V, +W](n: Int) extends InstanceValue[T, U, V, W]

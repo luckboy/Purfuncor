@@ -115,16 +115,16 @@ package object interp
       (env.withGlobalVar(loc, NoValue.fromString("initialization cycle")), ())
     
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, T, U])(env: SymbolEnvironment[T, U]) = {
-      val (env2, value: Value[Symbol, T, U, SymbolClosure[T, U]]) = if(comb.argCount === 0) {
-        comb match {
-          case Combinator(_, _, body, _, file) =>
+      val (env2, value: Value[Symbol, T, U, SymbolClosure[T, U]]) = comb match {
+        case comb2 @ Combinator(_, _, body, _, file) =>
+          if(comb2.argCount === 0) {
             val (newEnv, value) = evaluateS(body)(env.withCurrentFile(file))
             (newEnv, value.forFileAndCombSym(file, some(loc)))
-          case PolyCombinator(_, _)            =>
-            (env, CombinatorValue(comb, loc))
-        }
-      } else
-        (env, CombinatorValue(comb, loc))
+          } else
+            (env, CombinatorValue(comb2, loc))
+        case PolyCombinator(_, _)            =>
+          (env, PolyFunValue)
+      }
       value match {
         case noValue: NoValue[Symbol, T, U, SymbolClosure[T, U]] => (env2, noValue.failure)
         case _                                                   => (env2.withGlobalVar(loc, value), ().success)
