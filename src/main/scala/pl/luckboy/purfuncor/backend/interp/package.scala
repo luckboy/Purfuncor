@@ -144,7 +144,7 @@ package object interp
   }
 
   implicit def symbolEnvironmentState[T, U] = new EnvironmentState[SymbolEnvironment[T, U]] {
-    override def nameTreeFromEnvironment(env: SymbolEnvironment[T, U]) =
+    override def nameTreeFromEnvironmentS(env: SymbolEnvironment[T, U]) =
       (env, NameTree.fromGlobalSymbols(env.globalVarValues.keys) |+| NameTree.fromTypeGlobalSymbols(env.typeCombSyms))
   }
   

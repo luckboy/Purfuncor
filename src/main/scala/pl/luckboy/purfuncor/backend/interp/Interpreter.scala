@@ -29,7 +29,7 @@ object Interpreter
     State(interpretTermS[T, E, V](term))
   
   def interpretTreeStringS[T, U, V, W, X, C, E](s: String)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) = {
-    val (env2, nameTree) = envSt.nameTreeFromEnvironment(env)
+    val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     resolver.Resolver.transformString(s)(nameTree).map {
       tree =>
         (for {
@@ -47,7 +47,7 @@ object Interpreter
     State(interpretTreeStringS[T, U, V, W, X, C, E](s)(f))
 
   def interpretTreeFilesS[T, U, V, W, X, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) = {
-    val (env2, nameTree) = envSt.nameTreeFromEnvironment(env)
+    val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     resolver.Resolver.transformFiles(files)(nameTree).map {
       tree =>
         (for {
@@ -65,7 +65,7 @@ object Interpreter
     State(interpretTreeFilesS[T, U, V, W, X, C, E](files)(f))
     
   def interpretTermStringS[T, U, W, C, E](s: String)(f: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]] => ValidationNel[AbstractError, Term[SimpleTerm[T, U, W]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U, W], E, Value[T, U, W, C]], envSt: EnvironmentState[E]) = {
-    val (env2, nameTree) = envSt.nameTreeFromEnvironment(env)
+    val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     (for {
       term <- resolver.Resolver.transformTermString(s)(Scope.fromNameTree(nameTree))
       term2 <- f(term)
