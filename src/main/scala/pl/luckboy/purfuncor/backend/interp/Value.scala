@@ -20,6 +20,7 @@ sealed trait Value[+T, +U, +V, +W]
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
       case TupleFunValue(n)                     => n
       case TupleFieldFunValue(_, _)             => 1
+      case ConstructFunValue(n, _)              => n
       case BuiltinFunValue(bf, f)               => f.argCount
       case _                                    => 1
     }
@@ -63,8 +64,10 @@ sealed trait Value[+T, +U, +V, +W]
       case DoubleValue(x)                       => x.toString
       case TupleFunValue(n)                     => "tuple " + n
       case TupleFieldFunValue(n, i)             => "#" + n + " " + (i + 1)
+      case ConstructFunValue(n, _)              => "construct " + n
       case BuiltinFunValue(f, _)                => "#" + f
       case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
+      case ConstructValue(_, values)            => "construct " + values.size + " " + values.mkString(" ")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
       case CombinatorValue(_, sym)              => sym.toString
       case LambdaValue(_, _, _)                 => "<lambda value>"
@@ -131,9 +134,15 @@ case class TupleFieldFunValue[+T, +U, +V, W](n: Int, i: Int) extends Value[T, U,
 {
   def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
     argValues match {
-      case Seq(TupleValue(values)) => (env, values.lift(i).getOrElse(NoValue.fromString("no tuple field")))
-      case _                       => (env, NoValue.fromString("illegal application"))
+      case Seq(value: ProductValue[T2, U2, V2, W2]) => (env, value.values.lift(i).getOrElse(NoValue.fromString("no tuple field")))
+      case _                                        => (env, NoValue.fromString("illegal application"))
     }
+}
+
+case class ConstructFunValue[+T, +U, +V, +W](n: Int, i: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    throw new UnsupportedOperationException
 }
 
 case class BuiltinFunValue[+T, +U, +V, +W](bf: BuiltinFunction.Value, f: Function) extends Value[T, U, V, W]
@@ -144,7 +153,13 @@ object BuiltinFunValue
     BuiltinFunctions.builtinFunctions.get(bf).map { BuiltinFunValue(bf, _) }.getOrElse(NoValue.fromString("unsupported built-in function"))
 }
 
-case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
+sealed trait ProductValue[+T, +U, +V, +W] extends Value[T, U, V, W]
+{
+  def values: Vector[Value[T, U, V, W]]
+}
+case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends ProductValue[T, U, V, W]
+case class ConstructValue[+T, +U, +V, +W](i: Int, values: Vector[Value[T, U, V, W]]) extends ProductValue[T, U, V, W]
+
 case class ArrayValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
 case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
 case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file: Option[java.io.File]) extends Value[T, U, V, W]

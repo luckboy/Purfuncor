@@ -7,13 +7,15 @@ import scala.tools.jline.console.ConsoleReader
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend.parser
 import pl.luckboy.purfuncor.frontend.resolver
+import pl.luckboy.purfuncor.frontend.kinder
+import pl.luckboy.purfuncor.frontend.instant
 import pl.luckboy.purfuncor.backend.interp
 
 object Main
 {
-  type Environment = interp.SymbolEnvironment[parser.LambdaInfo, frontend.TypeSimpleTerm[resolver.Symbol, parser.TypeLambdaInfo]]
+  type Environment = interp.SymbolEnvironment[instant.LambdaInfo[parser.LambdaInfo, resolver.LocalSymbol, resolver.GlobalSymbol, resolver.GlobalSymbol], frontend.TypeSimpleTerm[resolver.Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, resolver.LocalSymbol]], kinder.TypeLambdaInfo[parser.TypeLambdaInfo, resolver.LocalSymbol]]
   
-  type NoValue = interp.NoValue[resolver.Symbol, parser.LambdaInfo, frontend.TypeSimpleTerm[resolver.Symbol, parser.TypeLambdaInfo], interp.SymbolClosure[parser.LambdaInfo, frontend.TypeSimpleTerm[resolver.Symbol, parser.TypeLambdaInfo]]]
+  type NoValue = interp.NoValue[resolver.Symbol, instant.LambdaInfo[parser.LambdaInfo, resolver.LocalSymbol, resolver.GlobalSymbol, resolver.GlobalSymbol], frontend.TypeSimpleTerm[resolver.Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, resolver.LocalSymbol]], interp.SymbolClosure[instant.LambdaInfo[parser.LambdaInfo, resolver.LocalSymbol, resolver.GlobalSymbol, resolver.GlobalSymbol], frontend.TypeSimpleTerm[resolver.Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, resolver.LocalSymbol]]]]
 
   object ExitFlag extends Enumeration
   {
@@ -59,11 +61,11 @@ object Main
     if(line =/= null) readStringLoop(s + line + "\n") else s
   }
 
-  def interpretTreeString(s: String) = interp.Interpreter.interpretTreeString(s)(t => State((e: Environment) => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel))) 
+  def interpretTreeString(s: String) = interp.Interpreter.interpretTreeString(s)(interp.Interpreter.statefullyTransformToSymbolTree)
   
-  def interpretTreeFiles(files: List[java.io.File]) = interp.Interpreter.interpretTreeFiles(files)(t => State((e: Environment) => (e.copy(typeCombSyms = t.treeInfo.typeTree.combs.keySet), t.successNel)))
+  def interpretTreeFiles(files: List[java.io.File]) = interp.Interpreter.interpretTreeFiles(files)(interp.Interpreter.statefullyTransformToSymbolTree)
 
-  def interpretTermString(s: String) = interp.Interpreter.interpretTermString(s)(_.successNel)
+  def interpretTermString(s: String) = interp.Interpreter.interpretTermString(s)(interp.Interpreter.transformToSymbolTerm3)
 
   lazy val consoleReader = new ConsoleReader
   
