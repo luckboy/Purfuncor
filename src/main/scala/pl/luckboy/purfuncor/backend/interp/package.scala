@@ -14,14 +14,85 @@ import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 package object interp
 {
   implicit def symbolInstantLambdaInfoExtendedEvaluator[T, U, V]: ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] = new ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] {
-    override def variableS(value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]): (SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]) =
-      throw new UnsupportedOperationException
+    private def instanceValuesFromInstances(insts: Seq[instant.Instance[GlobalSymbol]])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =
+      insts.foldLeft(Seq[InstanceValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]]().success[NoValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]]) {
+        case (Success(instValues), inst) =>
+          inst match {
+            case instant.PolyFunInstance(loc, _, _)  => (instValues :+ PolyFunInstanceValue(env.varValue(loc))).success
+            case instant.ConstructInstance(i, _, _)  => (instValues :+ ConstructInstanceValue(i)).success
+            case instant.SelectInstance(n, _, _)     => (instValues :+ SelectInstanceValue(n)).success
+            case instant.LocalInstance(localInstIdx) => env.currentClosure.localInstValues.lift(localInstIdx).map { instValues :+ _ }.toSuccess(NoValue.fromString("no instance value"))
+          }
+        case (Failure(noType), _)        =>
+          noType.failure
+      }
     
-    override def constructS(n: Int, lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]): (SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]) =
-      throw new UnsupportedOperationException
+    override def variableS(value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =
+      if(lambdaInfo.insts.isEmpty) {
+        (env, value)
+      } else {
+        (value, lambdaInfo.insts) match {
+          case (PolyFunValue, Seq(instant.PolyFunInstance(loc, _, _))) =>
+            (env, env.varValue(loc))
+          case (PolyFunValue, Seq(instant.LocalInstance(localInstIdx))) =>
+            (env, env.currentClosure.localInstValues.lift(localInstIdx).map {
+              case (PolyFunInstanceValue(value)) => value
+              case _                             => NoValue.fromString("incorrect instane value")
+            }.getOrElse(NoValue.fromString("no local instance value")))
+          case (_, insts) =>
+            val res = instanceValuesFromInstances(insts)(env)
+            res.map {
+              instValues =>
+                value match {
+                  case CombinatorValue(Combinator(_, Nil, body, _, file), sym) =>
+                    val (env2, value) = env.withClosure(SymbolClosure(Map(), instValues)) { evaluateS(body)(_) }
+                    (env2, value.forFileAndCombSym(file, some(sym)))
+                  case CombinatorValue(Combinator(_, _, _, _, _), _)           =>
+                    (env, InstanceAppValue(value, instValues))
+                  case _                                                       =>
+                    (env, NoValue.fromString("no combinator value"))
+                }
+            }.valueOr { (env, _) }
+          case _ =>
+            (env, NoValue.fromString("incorrect instance value"))
+        }
+      } 
     
-    override def selectS[W, X](value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], cases: Seq[Case[W, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], X]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]): (SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Validation[Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], Case[W, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], X]]) =
-      throw new UnsupportedOperationException
+    override def constructS(n: Int, lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) = {
+      val res = lambdaInfo.insts match {
+        case Seq(instant.ConstructInstance(i, _, _)) =>
+          i.success
+        case Seq(instant.LocalInstance(localInstIdx)) => 
+          env.currentClosure.localInstValues.lift(localInstIdx).map {
+            case ConstructInstanceValue(i) => i.success
+            case _                         => NoValue.fromString("incorrect instance value").failure
+          }.getOrElse(NoValue.fromString("no instance value").failure)
+        case _ =>
+          NoValue.fromString("incorrect instances").failure
+      }
+      (env, res.map { i => if(n === 0) ConstructValue(i, Vector()) else ConstructFunValue(i, n) }.valueOr(identity))
+    }
+    
+    override def selectS[W, X](value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], cases: Seq[Case[W, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], X]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =
+      value match {
+        case ConstructValue(i, _) =>
+          (env, cases.find {
+            case Case(_, _, _, caseLambdaInfo) =>
+              caseLambdaInfo.insts.exists { 
+                case instant.ConstructInstance(j, _, _) =>
+                  i === j
+                case instant.LocalInstance(localInstIdx) =>
+                  env.currentClosure.localInstValues.lift(localInstIdx).map {
+                    case ConstructInstanceValue(j) => i === j
+                    case _                         => false
+                  }.getOrElse(false)
+                case _ =>
+                  false
+              }
+          }.toSuccess(NoValue.fromString("not found case or incorrect case instances")))
+        case _ =>
+          (env, NoValue.fromString("no construct value").failure)
+      }
   }
   
   implicit def symbolSimpleTermEvaluator[T, U, V](implicit extendedEval: ExtendedEvaluator[T, SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]]): Evaluator[SimpleTerm[Symbol, T, U], SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]] = new Evaluator[SimpleTerm[Symbol, T, U], SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]] {
@@ -88,7 +159,7 @@ package object interp
               case (Arg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                     => Nil
             }.toMap
-            val (env2, retValue) = env.withClosure(SymbolClosure(Map())) {
+            val (env2, retValue) = env.withClosure(SymbolClosure(Map(), Seq())) {
               _.withLocalVars(localVarValues) { newEnv => evaluateS(comb.body)(newEnv.withCurrentFile(comb.file)) }
             }
             (env2, retValue.forFileAndCombSym(comb.file, some(sym)))

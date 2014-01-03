@@ -28,7 +28,7 @@ case class SymbolEnvironment[T, U, V](
 {
   def localVarValues = closureStack.headOption.map { _.localVarValues.mapValues { _.head } }.getOrElse(Map())
   
-  def currentClosure = closureStack.headOption.getOrElse(SymbolClosure(Map()))
+  def currentClosure = closureStack.headOption.getOrElse(SymbolClosure(Map(), Seq()))
   
   def varValue(sym: Symbol): Value[Symbol, T, U, SymbolClosure[T, U]] =
     sym match {
@@ -41,10 +41,10 @@ case class SymbolEnvironment[T, U, V](
     }
   
   def pushLocalVars(values: Map[LocalSymbol, Value[Symbol, T, U, SymbolClosure[T, U]]]): SymbolEnvironment[T, U, V] =
-    copy(closureStack = closureStack.headOption.map { closure => SymbolClosure(values.mapValues { NonEmptyList(_) } |+| closure.localVarValues) :: closureStack.tail }.getOrElse(Nil))
+    copy(closureStack = closureStack.headOption.map { closure => closure.copy(values.mapValues { NonEmptyList(_) } |+| closure.localVarValues) :: closureStack.tail }.getOrElse(Nil))
     
   def popLocalVars(syms: Set[LocalSymbol]): SymbolEnvironment[T, U, V] =
-    copy(closureStack = closureStack.headOption.map { closure => SymbolClosure(closure.localVarValues.flatMap { case (s, vs) => if(syms.contains(s)) vs.tail.toNel.map { (s, _) } else some(s, vs) }.toMap) :: closureStack.tail }.getOrElse(Nil))
+    copy(closureStack = closureStack.headOption.map { closure => closure.copy(closure.localVarValues.flatMap { case (s, vs) => if(syms.contains(s)) vs.tail.toNel.map { (s, _) } else some(s, vs) }.toMap) :: closureStack.tail }.getOrElse(Nil))
   
   def pushClosure(closure: SymbolClosure[T, U]): SymbolEnvironment[T, U, V] =
     copy(closureStack = closure :: closureStack)
@@ -71,7 +71,7 @@ object SymbolEnvironment
 {
   def empty[T, U, V] = SymbolEnvironment[T, U, V](
       globalVarValues = Map(),
-      closureStack = List(SymbolClosure(Map())),
+      closureStack = List(SymbolClosure(Map(), Seq())),
       currentFile = none,
       typeEnv = SymbolTypeEnvironment.empty,
       kindTable = InferredKindTable.empty,
@@ -81,4 +81,5 @@ object SymbolEnvironment
 }
 
 case class SymbolClosure[T, U](
-    localVarValues: Map[LocalSymbol, NonEmptyList[Value[Symbol, T, U, SymbolClosure[T, U]]]])
+    localVarValues: Map[LocalSymbol, NonEmptyList[Value[Symbol, T, U, SymbolClosure[T, U]]]],
+    localInstValues: Seq[InstanceValue[Symbol, T, U, SymbolClosure[T, U]]])
