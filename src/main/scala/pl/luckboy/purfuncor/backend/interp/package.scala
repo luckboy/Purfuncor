@@ -13,7 +13,7 @@ import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 
 package object interp
 {
-  implicit def instantSymbolSimpleTermExtendedEvaluator[T, U, V]: ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] = new ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] {
+  implicit def symbolInstantLambdaInfoExtendedEvaluator[T, U, V]: ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] = new ExtendedEvaluator[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]] {
     override def variableS(value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]): (SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V], Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]) =
       throw new UnsupportedOperationException
     
@@ -137,7 +137,7 @@ package object interp
       (res._1, res._2.withPos(pos))
   }
   
-  implicit def instantLambdaInfoSymbolSimpleTermEvaluator[T, U, V] = symbolSimpleTermEvaluator(instantSymbolSimpleTermExtendedEvaluator[T, U, V])
+  implicit def symbolInstantLambdaInfoSimpleTermEvaluator[T, U, V] = symbolSimpleTermEvaluator(symbolInstantLambdaInfoExtendedEvaluator[T, U, V])
   
   def symbolCombinatorInitializer[T, U, V](implicit extendedEval: ExtendedEvaluator[T, SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]]): Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] {
     override def globalVarsFromEnvironmentS(env: SymbolEnvironment[T, U, V]) = (env, env.globalVarValues.keySet)
@@ -180,7 +180,7 @@ package object interp
     }
   }
   
-  implicit def instantLambdaInfoSymbolCombinatorInitializer[T, U, V] = symbolCombinatorInitializer(instantSymbolSimpleTermExtendedEvaluator[T, U, V])
+  implicit def symbolInstantLambdaInfoCombinatorInitializer[T, U, V] = symbolCombinatorInitializer(symbolInstantLambdaInfoExtendedEvaluator[T, U, V])
 
   implicit def symbolEnvironmentState[T, U, V] = new EnvironmentState[SymbolEnvironment[T, U, V]] {
     override def nameTreeFromEnvironmentS(env: SymbolEnvironment[T, U, V]) =
