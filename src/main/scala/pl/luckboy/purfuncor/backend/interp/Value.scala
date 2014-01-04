@@ -4,6 +4,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend
+import pl.luckboy.purfuncor.frontend.instant
 import pl.luckboy.purfuncor.frontend.Combinator
 import pl.luckboy.purfuncor.frontend.SimpleTerm
 import pl.luckboy.purfuncor.frontend.Lambda
@@ -167,6 +168,27 @@ sealed trait PolyFunValue[+T, +U, +V, +W] extends Value[T, U, V, W]
 case object PolyFunValue extends PolyFunValue[Nothing, Nothing, Nothing, Nothing]
 
 sealed trait InstanceValue[+T, +U, +V, +W]
+
+object InstanceValue
+{
+  def fromInstanceS[T, U, V, W, X, E](inst: instant.Instance[X])(env: E)(implicit envSt: EnvironmentState[E, X, Value[T, U, V, W], InstanceValue[T, U, V, W]]) =
+    inst match {
+      case instant.PolyFunInstance(loc, _, _)  =>
+        envSt.globalVarValueFromEnvironmentS(loc)(env).mapElements(identity, v => PolyFunInstanceValue(v).success)
+      case instant.ConstructInstance(i, _, _)  =>
+        (env, ConstructInstanceValue(i).success)
+      case instant.SelectInstance(n, _, _)     =>
+        (env, SelectInstanceValue(n).success)
+      case instant.LocalInstance(localInstIdx) =>
+        val (env2, instValues) = envSt.currentLocalInstanceValuesFromEnvironmentS(env)
+        instValues.lift(localInstIdx).map {
+          instValue => (env2, instValue.success)
+        }.getOrElse((env2, NoValue.fromString("no instance values").failure))
+    }
+  
+  def fromInstance[T, U, V, W, X, E](inst: instant.Instance[X])(implicit envSt: EnvironmentState[E, X, Value[T, U, V, W], InstanceValue[T, U, V, W]]) =
+    State(fromInstanceS[T, U, V, W, X, E](inst))
+}
 
 case class PolyFunInstanceValue[+T, +U, +V, +W](value: Value[T, U, V, W]) extends InstanceValue[T, U, V, W]
 case class ConstructInstanceValue[+T, +U, +V, +W](i: Int) extends InstanceValue[T, U, V, W]

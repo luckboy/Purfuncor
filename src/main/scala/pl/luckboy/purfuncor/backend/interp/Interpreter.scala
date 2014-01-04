@@ -33,7 +33,7 @@ object Interpreter
   def interpretTerm[T, E, V](term: Term[T])(implicit eval: Evaluator[T, E, V]) =
     State(interpretTermS[T, E, V](term))
   
-  def interpretTreeStringS[T, U, V, W, X, C, E](s: String)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) = {
+  def interpretTreeStringS[T, U, V, W, X, C, E](s: String)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E, T, Value[U, V, W, C], InstanceValue[U, V, W, C]]) = {
     val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     resolver.Resolver.transformString(s)(nameTree).map {
       tree =>
@@ -48,10 +48,10 @@ object Interpreter
     }
   }
     
-  def interpretTreeString[T, U, V, W, X, C, E](s: String)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) =
+  def interpretTreeString[T, U, V, W, X, C, E](s: String)(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E, T, Value[U, V, W, C], InstanceValue[U, V, W, C]]) =
     State(interpretTreeStringS[T, U, V, W, X, C, E](s)(f))
 
-  def interpretTreeFilesS[T, U, V, W, X, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) = {
+  def interpretTreeFilesS[T, U, V, W, X, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(env: E)(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E, T, Value[U, V, W, C], InstanceValue[U, V, W, C]]) = {
     val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     resolver.Resolver.transformFiles(files)(nameTree).map {
       tree =>
@@ -66,10 +66,10 @@ object Interpreter
     }
   }
   
-  def interpretTreeFiles[T, U, V, W, X, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E]) =
+  def interpretTreeFiles[T, U, V, W, X, C, E](files: List[java.io.File])(f: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]] => State[E, ValidationNel[AbstractError, Tree[T, AbstractCombinator[U, V, W], X]]])(implicit init: Initializer[NoValue[U, V, W, C], T, AbstractCombinator[U, V, W], E], envSt: EnvironmentState[E, T, Value[U, V, W, C], InstanceValue[U, V, W, C]]) =
     State(interpretTreeFilesS[T, U, V, W, X, C, E](files)(f))
     
-  def interpretTermStringS[T, U, W, C, E](s: String)(f: (Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]], E) => ValidationNel[AbstractError, Term[SimpleTerm[T, U, W]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U, W], E, Value[T, U, W, C]], envSt: EnvironmentState[E]) = {
+  def interpretTermStringS[T, U, V, W, C, E](s: String)(f: (Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]], E) => ValidationNel[AbstractError, Term[SimpleTerm[T, U, V]]])(env: E)(implicit eval: Evaluator[SimpleTerm[T, U, V], E, Value[T, U, V, C]], envSt: EnvironmentState[E, W, Value[T, U, V, C], InstanceValue[T, U, V, C]]) = {
     val (env2, nameTree) = envSt.nameTreeFromEnvironmentS(env)
     (for {
       term <- resolver.Resolver.transformTermString(s)(Scope.fromNameTree(nameTree))
@@ -82,8 +82,8 @@ object Interpreter
     }
   }
   
-  def interpretTermString[T, U, W, C, E](s: String)(f: (Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]], E) => ValidationNel[AbstractError, Term[SimpleTerm[T, U, W]]])(implicit eval: Evaluator[SimpleTerm[T, U, W], E, Value[T, U, W, C]], envSt: EnvironmentState[E]) =
-    State(interpretTermStringS[T, U, W, C, E](s)(f))
+  def interpretTermString[T, U, V, W, C, E](s: String)(f: (Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]], E) => ValidationNel[AbstractError, Term[SimpleTerm[T, U, V]]])(implicit eval: Evaluator[SimpleTerm[T, U, V], E, Value[T, U, V, C]], envSt: EnvironmentState[E, W, Value[T, U, V, C], InstanceValue[T, U, V, C]]) =
+    State(interpretTermStringS[T, U, V, W, C, E](s)(f))
     
   val statefullyTransformToSymbolTree = {
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
