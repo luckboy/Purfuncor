@@ -170,4 +170,8 @@ package object frontend
     
     override def selectConstructInstancesFromTreeInfo(treeInfo: resolver.TreeInfo[T, U]) = treeInfo.selectConstructInsts
   }
+  
+  implicit def instantLambdaInfoExtractor[T, U, V, W]: LambdaInfoExtractor[instant.LambdaInfo[T, U, V, W], instant.Instance[W]] = new LambdaInfoExtractor[instant.LambdaInfo[T, U, V, W], instant.Instance[W]] {
+    override def instancesFromLambdaInfo(lambdaInfo: instant.LambdaInfo[T, U, V, W]) = lambdaInfo.insts
+  }
 }

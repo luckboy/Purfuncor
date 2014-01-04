@@ -9,7 +9,9 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.NameTree
 import pl.luckboy.purfuncor.common.Evaluator._
+import pl.luckboy.purfuncor.frontend.TermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
+import pl.luckboy.purfuncor.frontend.instant.LambdaInfoUtils._
 
 package object interp
 {
@@ -44,12 +46,12 @@ package object interp
             res.map {
               instValues =>
                 value match {
-                  case CombinatorValue(Combinator(_, Nil, body, _, file), sym) =>
+                  case CombinatorValue(Combinator(_, Nil, body, _, file), instArgValues, sym)   =>
                     val (env2, value) = env.withClosure(SymbolClosure(Map(), instValues)) { evaluateS(body)(_) }
                     (env2, value.forFileAndCombSym(file, some(sym)))
-                  case CombinatorValue(Combinator(_, _, _, _, _), _)           =>
-                    (env, InstanceAppValue(value, instValues))
-                  case _                                                       =>
+                  case combValue @ CombinatorValue(Combinator(_, _, _, _, _), instArgValues, _) =>
+                    (env, combValue.copy(instArgValues = instArgValues ++ instValues))
+                  case _                                                                        =>
                     (env, NoValue.fromString("no combinator value"))
                 }
             }.valueOr { (env, _) }
@@ -153,13 +155,13 @@ package object interp
     
     override def fullyAppS(funValue: Value[Symbol, T, U, SymbolClosure[T, U]], argValues: Seq[Value[Symbol, T, U, SymbolClosure[T, U]]])(env: SymbolEnvironment[T, U, V]): (SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]) =
       funValue match {
-        case CombinatorValue(comb: Combinator[Symbol, T, U], sym) =>
+        case CombinatorValue(comb: Combinator[Symbol, T, U], instArgValues, sym) if comb.argCount =/= 0 =>
           if(comb.args.size === argValues.size) {
             val localVarValues = comb.args.zip(argValues).flatMap { 
               case (Arg(Some(name), _, _), v) => List((LocalSymbol(name), v))
               case (_, _)                     => Nil
             }.toMap
-            val (env2, retValue) = env.withClosure(SymbolClosure(Map(), Seq())) {
+            val (env2, retValue) = env.withClosure(SymbolClosure(Map(), instArgValues)) {
               _.withLocalVars(localVarValues) { newEnv => evaluateS(comb.body)(newEnv.withCurrentFile(comb.file)) }
             }
             (env2, retValue.forFileAndCombSym(comb.file, some(sym)))
@@ -210,12 +212,12 @@ package object interp
   
   implicit def symbolInstantLambdaInfoSimpleTermEvaluator[T, U, V] = symbolSimpleTermEvaluator(symbolInstantLambdaInfoExtendedEvaluator[T, U, V])
   
-  def symbolCombinatorInitializer[T, U, V](implicit extendedEval: ExtendedEvaluator[T, SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]]): Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] {
+  def symbolCombinatorInitializer[T, U, V](implicit extendedEval: ExtendedEvaluator[T, SymbolEnvironment[T, U, V], Value[Symbol, T, U, SymbolClosure[T, U]]], lambdaInfoExtractor: LambdaInfoExtractor[T, instant.Instance[GlobalSymbol]]): Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] = new Initializer[NoValue[Symbol, T, U, SymbolClosure[T, U]], GlobalSymbol, AbstractCombinator[Symbol, T, U], SymbolEnvironment[T, U, V]] {
     override def globalVarsFromEnvironmentS(env: SymbolEnvironment[T, U, V]) = (env, env.globalVarValues.keySet)
-        
+    
     override def usedGlobalVarsFromCombinator(comb: AbstractCombinator[Symbol, T, U]) =
       comb match {
-        case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body)
+        case Combinator(_, _, body, _, _) => usedGlobalVarsFromTerm(body) | lambdaInfosFromTerm(body).flatMap { usedGlobalVarsFromLambdaInfo(_) }
         case PolyCombinator(_, _)         => Set()
       }
       
@@ -225,11 +227,14 @@ package object interp
     override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractCombinator[Symbol, T, U])(env: SymbolEnvironment[T, U, V]) = {
       val (env2, value: Value[Symbol, T, U, SymbolClosure[T, U]]) = comb match {
         case comb2 @ Combinator(_, _, body, _, file) =>
-          if(comb2.argCount === 0) {
-            val (newEnv, value) = evaluateS(body)(env.withCurrentFile(file))
-            (newEnv, value.forFileAndCombSym(file, some(loc)))
-          } else
-            (env, CombinatorValue(comb2, loc))
+          env.instArgTable.instArgs.get(loc).map {
+            instArgs =>
+              if(comb2.argCount === 0 && instArgs.isEmpty) {
+                val (newEnv, value) = evaluateS(body)(env.withCurrentFile(file))
+                (newEnv, value.forFileAndCombSym(file, some(loc)))
+              } else
+                (env, CombinatorValue(comb2, Nil, loc))
+          }.getOrElse(env, NoValue.fromString("no instance arguments").forFileAndCombSym(file, some(loc)))
         case PolyCombinator(_, _)            =>
           (env, PolyFunValue)
       }
@@ -251,7 +256,7 @@ package object interp
     }
   }
   
-  implicit def symbolInstantLambdaInfoCombinatorInitializer[T, U, V] = symbolCombinatorInitializer(symbolInstantLambdaInfoExtendedEvaluator[T, U, V])
+  implicit def symbolInstantLambdaInfoCombinatorInitializer[T, U, V] = symbolCombinatorInitializer(symbolInstantLambdaInfoExtendedEvaluator[T, U, V], instantLambdaInfoExtractor[T, LocalSymbol, GlobalSymbol, GlobalSymbol])
 
   implicit def symbolEnvironmentState[T, U, V] = new EnvironmentState[SymbolEnvironment[T, U, V]] {
     override def nameTreeFromEnvironmentS(env: SymbolEnvironment[T, U, V]) =

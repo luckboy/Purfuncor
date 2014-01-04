@@ -15,7 +15,7 @@ sealed trait Value[+T, +U, +V, +W]
 {
   def argCount: Int =
     this match {
-      case CombinatorValue(comb, _)             => comb.argCount
+      case CombinatorValue(comb, _, _)          => if(comb.argCount =/= 0) comb.argCount else 1
       case LambdaValue(lambda, _, _)            => lambda.args.size
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
       case TupleFunValue(n)                     => n
@@ -69,7 +69,7 @@ sealed trait Value[+T, +U, +V, +W]
       case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
       case ConstructValue(_, values)            => "construct " + values.size + " " + values.mkString(" ")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
-      case CombinatorValue(_, sym)              => sym.toString
+      case CombinatorValue(_, _, sym)           => sym.toString
       case LambdaValue(_, _, _)                 => "<lambda value>"
       case PartialAppValue(funValue, argValues) =>
         (List(funValue) ++ argValues).map {
@@ -80,7 +80,6 @@ sealed trait Value[+T, +U, +V, +W]
             }
         }.mkString(" ")
       case PolyFunValue                         => "<polymorphic functon value>"
-      case InstanceAppValue(_, _)               => "<instance application value>"
     }
 }
 
@@ -161,12 +160,11 @@ case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends
 case class ConstructValue[+T, +U, +V, +W](i: Int, values: Vector[Value[T, U, V, W]]) extends ProductValue[T, U, V, W]
 
 case class ArrayValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
-case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], sym: GlobalSymbol) extends Value[T, U, V, W]
+case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], instArgValues: Seq[InstanceValue[T, U, V, W]], sym: GlobalSymbol) extends Value[T, U, V, W]
 case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file: Option[java.io.File]) extends Value[T, U, V, W]
 case class PartialAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], argValues: Seq[Value[T, U, V, W]]) extends Value[T, U, V, W]
 sealed trait PolyFunValue[+T, +U, +V, +W] extends Value[T, U, V, W]
 case object PolyFunValue extends PolyFunValue[Nothing, Nothing, Nothing, Nothing]
-case class InstanceAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], instArgValues: Seq[InstanceValue[T, U, V, W]]) extends Value[T, U, V, W]
 
 sealed trait InstanceValue[+T, +U, +V, +W]
 
