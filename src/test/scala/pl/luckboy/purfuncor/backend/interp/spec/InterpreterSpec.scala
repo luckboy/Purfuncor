@@ -237,7 +237,27 @@ tuple 2 (construct 2 'a' 'b': ##& (T #Char #Char) (tuple 2 #Char #Char)) (constr
           ConstructValue(1, Vector()))).success)
     }
     
-    it should "interpret the string with the select-expression" is (pending)
+    it should "interpret the string with the select-expression" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+unittype 2 T
+unittype 0 U
+unittype 0 V
+instance select \t1 t2 => ##| (##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0)) (##& V tuple 0) construct {
+  \t1 t2 => ##& (T t1 t2) (tuple 2 t1 t2)
+  ##& U tuple 0
+  ##& V tuple 0
+}
+U = (construct 0: ##& U tuple 0): \t1 t2 => ##| (##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0)) (##& V tuple 0)
+""")(f).run(emptyEnv)
+      val (env2, res2) = Interpreter.interpretTermString("""
+U select {
+  (x: \t1 t2 => ##& (T t1 t2) (tuple 2 t1 t2)) => 1
+  (x: ##& U tuple 0)                           => 2
+  (x: ##& V tuple 0)                           => 3
+}
+""")(g3).run(env)
+      res2 should be ===(IntValue(2).success)
+    }
     
     it should "interpret the string with the applications of the ad-hoc polymorphic combinators" is (pending)
     
