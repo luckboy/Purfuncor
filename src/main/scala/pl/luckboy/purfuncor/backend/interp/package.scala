@@ -75,7 +75,7 @@ package object interp
         case _ =>
           NoValue.fromString("incorrect instances").failure
       }
-      (env, res.map { i => if(n === 0) ConstructValue(i, Vector()) else ConstructFunValue(i, n) }.valueOr(identity))
+      (env, res.map { i => if(n === 0) ConstructValue(i, Vector()) else ConstructFunValue(n, i) }.valueOr(identity))
     }
     
     override def selectS[W, X](value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], cases: Seq[Case[W, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], X]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =
@@ -191,6 +191,8 @@ package object interp
           tupleFunValue.fullyApplyS(argValues)(env)
         case tupleFieldFunValue @ TupleFieldFunValue(_, _) =>
           tupleFieldFunValue.fullyApplyS(argValues)(env)
+        case constructFunValue @ ConstructFunValue(_, _) =>
+          constructFunValue.fullyApplyS(argValues)(env)
         case BuiltinFunValue(_, f) =>
           if(f.argCount === argValues.size)
             f.applyS(argValues)(env)

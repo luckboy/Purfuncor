@@ -14,10 +14,14 @@ import pl.luckboy.purfuncor.frontend.resolver.Scope
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.instant.InstanceArgTable
 import pl.luckboy.purfuncor.frontend.instant.SymbolInstantiationEnvironment
+import pl.luckboy.purfuncor.frontend.instant.instanceTreeSemigroup
 import Initializer._
 import Evaluator._
 
@@ -98,7 +102,12 @@ object Interpreter
             }.valueOr { errs => State((_: SymbolTypeEnvironment[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], errs.failure)) }
         } yield res2).run(env.typeEnv)
         res3.map {
-          t => (env.copy(typeEnv = typeEnv, kindTable = t.treeInfo.treeInfo.typeTree.treeInfo.kindTable, typeTable = t.treeInfo.typeTable, instArgTable = t.treeInfo.instArgTable), t.successNel)
+          tree =>
+            val kindTable = InferredKindTable(env.kindTable.kinds ++ tree.treeInfo.treeInfo.typeTree.treeInfo.kindTable.kinds)
+            val typeTable = InferredTypeTable(env.typeTable.types ++ tree.treeInfo.typeTable.types)
+            val instTree = env.instTree |+| tree.treeInfo.instTree
+            val instArgTable = InstanceArgTable(env.instArgTable.instArgs ++ tree.treeInfo.instArgTable.instArgs)
+            (env.copy(typeEnv = typeEnv, kindTable = kindTable, typeTable = typeTable, instTree = instTree, instArgTable = instArgTable), tree.successNel)
         }.valueOr { errs => (env, errs.failure) }
       })
   }

@@ -334,4 +334,14 @@ package object instant
     
     override def instanceArgTableFromFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) = InstanceArgTable(env.instArgs)
   }
+
+  implicit def instanceTableSemigroup[T, U]: Semigroup[InstanceTable[T, U]] = new Semigroup[InstanceTable[T, U]] {
+    override def append(f1: InstanceTable[T, U], f2: => InstanceTable[T, U]) =
+      InstanceTable[T, U](f1.pairs ++ f2.pairs)
+  }
+  
+  implicit def instanceTreeSemigroup[T, U, V]: Semigroup[InstanceTree[T, U, V]] = new Semigroup[InstanceTree[T, U, V]] {
+    override def append(f1: InstanceTree[T, U, V], f2: => InstanceTree[T, U, V]) =
+      InstanceTree.fromInstanceTables(f1.instTables |+| f2.instTables)
+  }
 }

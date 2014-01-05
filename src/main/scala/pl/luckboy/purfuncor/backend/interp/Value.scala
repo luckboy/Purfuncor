@@ -142,7 +142,10 @@ case class TupleFieldFunValue[+T, +U, +V, W](n: Int, i: Int) extends Value[T, U,
 case class ConstructFunValue[+T, +U, +V, +W](n: Int, i: Int) extends Value[T, U, V, W]
 {
   def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
-    throw new UnsupportedOperationException
+    if(argValues.size === n)
+      (env, ConstructValue(i, argValues.toVector))
+    else
+      (env, NoValue.fromString("illegal application"))
 }
 
 case class BuiltinFunValue[+T, +U, +V, +W](bf: BuiltinFunction.Value, f: Function) extends Value[T, U, V, W]
