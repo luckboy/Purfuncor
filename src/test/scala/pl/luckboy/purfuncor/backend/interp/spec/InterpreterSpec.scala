@@ -219,6 +219,14 @@ g x = f x 0
       val (env, res) = Interpreter.interpretTermString("#iAdd 2 ((#iMul 3 4): ##& (##| #Zero #NonZero) #Int)")(g3).run(emptyEnv)
       res should be ===(IntValue(14).success)      
     }
+    
+    it should "interpret the string with the construct-expression" is (pending)
+    
+    it should "interpret the string with the select-expression" is (pending)
+    
+    it should "interpret the string with the applications of the ad-hoc polymorphic combinators" is (pending)
+    
+    it should "interpret the string with the applications of the combinators with the instance arguments" is (pending)
   }
   
   "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[instant.LambdaInfo[parser.LambdaInfo, LocalSymbol, GlobalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Interpreter.statefullyTransformToSymbolTree)(_ => Interpreter.transformToSymbolTerm3)
