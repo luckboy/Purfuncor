@@ -220,7 +220,22 @@ g x = f x 0
       res should be ===(IntValue(14).success)      
     }
     
-    it should "interpret the string with the construct-expression" is (pending)
+    it should "interpret the string with the construct-expressions" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+unittype 2 T
+unittype 0 U
+instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) construct {
+  \t1 t2 => ##& (T t1 t2) (tuple 2 t1 t2)
+  ##& U tuple 0
+}
+""")(f).run(emptyEnv)
+      val (env2, res2) = Interpreter.interpretTermString("""
+tuple 2 (construct 2 'a' 'b': ##& (T #Char #Char) (tuple 2 #Char #Char)) (construct 0: ##& U tuple 0)
+""")(g3).run(env)
+      res2 should be ===(TupleValue(Vector(
+          ConstructValue(0, Vector(CharValue('a'), CharValue('b'))),
+          ConstructValue(1, Vector()))).success)
+    }
     
     it should "interpret the string with the select-expression" is (pending)
     
