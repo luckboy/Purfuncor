@@ -14,7 +14,9 @@ import pl.luckboy.purfuncor.frontend.resolver.Scope
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
+import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
+import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.instant.SymbolInstantiationEnvironment
 import Initializer._
 import Evaluator._
@@ -105,7 +107,7 @@ object Interpreter
     (term: Term[SimpleTerm[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]]], env: SymbolEnvironment[instant.LambdaInfo[parser.LambdaInfo, LocalSymbol, GlobalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]]) =>
       for {
         pair <- instant.Instantiator.transformToSymbolTerm2(env.kindTable, env.typeTable, env.typeEnv)(term)
-        term <- instant.Instantiator.transformTermWithInstantiation(pair._1)(SymbolInstantiationEnvironment.fromInstanceTree[parser.LambdaInfo, parser.TypeLambdaInfo](env.instTree).withInstArgs(env.instArgTable.instArgs))
+        term <- instant.Instantiator.transformTermWithInstantiation(pair._1)(SymbolInstantiationEnvironment.fromInstanceTree[parser.LambdaInfo, parser.TypeLambdaInfo](env.instTree).withTypeInferenceEnv(SymbolTypeInferenceEnvironment.fromInferredTypeTable(env.typeTable).withTypeEnv(env.typeEnv).withKindInferenceEnv(SymbolKindInferenceEnvironment.fromInferredKindTable(env.kindTable))).withInstArgs(env.instArgTable.instArgs))
       } yield term
   }
 }
