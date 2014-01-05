@@ -259,7 +259,27 @@ U select {
       res2 should be ===(IntValue(2).success)
     }
     
-    it should "interpret the string with the applications of the ad-hoc polymorphic combinators" is (pending)
+    it should "interpret the string with the applications of the ad-hoc polymorphic combinators" in {
+      val (env, res) = Interpreter.interpretTreeString("""
+poly f
+poly g
+instance f => h
+instance f => i
+instance g => j
+h = #iAdd
+i = #lSub
+j = 'a'
+(k: ##& (##| #Zero #NonZero) #Int) = 1
+(l: ##& (##| #Zero #NonZero) #Int) = 2
+(m: ##& (##| #Zero #NonZero) #Long) = 4L
+(n: ##& (##| #Zero #NonZero) #Long) = 3L
+""")(f).run(emptyEnv)
+      println(res)
+      val (env2, res2) = Interpreter.interpretTermString("""
+tuple 3 ((f k l): ##& (##| #Zero #NonZero) #Int) ((f m n): ##& (##| #Zero #NonZero) #Long) (g: #Char)
+""")(g3).run(env)
+      res2 should be ===(TupleValue(Vector(IntValue(3), LongValue(1L), CharValue('a'))).success)
+    }
     
     it should "interpret the string with the applications of the combinators with the instance arguments" is (pending)
   }
