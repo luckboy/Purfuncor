@@ -274,7 +274,6 @@ j = 'a'
 (m: ##& (##| #Zero #NonZero) #Long) = 4L
 (n: ##& (##| #Zero #NonZero) #Long) = 3L
 """)(f).run(emptyEnv)
-      println(res)
       val (env2, res2) = Interpreter.interpretTermString("""
 tuple 3 ((f k l): ##& (##| #Zero #NonZero) #Int) ((f m n): ##& (##| #Zero #NonZero) #Long) (g: #Char)
 """)(g3).run(env)
