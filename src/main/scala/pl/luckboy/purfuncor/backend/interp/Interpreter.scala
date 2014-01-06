@@ -100,15 +100,15 @@ object Interpreter
             res2 <- res.map {
               instant.Instantiator.transform(_)(env.kindTable, env.typeTable, env.instTree, env.instArgTable)(instant.Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)
             }.valueOr { errs => State((_: SymbolTypeEnvironment[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], errs.failure)) }
-        } yield res2).run(env.typeEnv)
-        res3.map {
-          tree =>
-            val kindTable = InferredKindTable(env.kindTable.kinds ++ tree.treeInfo.treeInfo.typeTree.treeInfo.kindTable.kinds)
-            val typeTable = InferredTypeTable(env.typeTable.types ++ tree.treeInfo.typeTable.types)
-            val instTree = env.instTree |+| tree.treeInfo.instTree
-            val instArgTable = InstanceArgTable(env.instArgTable.instArgs ++ tree.treeInfo.instArgTable.instArgs)
-            (env.copy(typeEnv = typeEnv, kindTable = kindTable, typeTable = typeTable, instTree = instTree, instArgTable = instArgTable), tree.successNel)
-        }.valueOr { errs => (env, errs.failure) }
+          } yield res2).run(env.typeEnv)
+          res3.map {
+            tree =>
+              val kindTable = InferredKindTable(env.kindTable.kinds ++ tree.treeInfo.treeInfo.typeTree.treeInfo.kindTable.kinds)
+              val typeTable = InferredTypeTable(env.typeTable.types ++ tree.treeInfo.typeTable.types)
+              val instTree = env.instTree |+| tree.treeInfo.instTree
+              val instArgTable = InstanceArgTable(env.instArgTable.instArgs ++ tree.treeInfo.instArgTable.instArgs)
+              (env.copy(typeEnv = typeEnv, kindTable = kindTable, typeTable = typeTable, instTree = instTree, instArgTable = instArgTable), tree.successNel)
+          }.valueOr { errs => (env, errs.failure) }
       })
   }
   

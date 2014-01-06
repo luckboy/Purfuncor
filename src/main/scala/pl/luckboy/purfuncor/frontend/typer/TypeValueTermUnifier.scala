@@ -197,8 +197,15 @@ object TypeValueTermUnifier
     res.map { x => (env, x.success) }.valueOr {
       nt => 
         envSt.returnKindFromEnvironmentS(env) match {
-          case (env2, noKind: NoKind) => (env2, NoType.fromNoKind[T](noKind).failure)
-          case (env2, _)              => envSt.addDelayedErrorsS(paramAppIdxs.map { (_, nt) }.toMap)(env2).mapElements(identity, _ => z.success)
+          case (env2, noKind: NoKind) =>
+            (env2, NoType.fromNoKind[T](noKind).failure)
+          case (env2, _)              => 
+            val (env3, res2) = envSt.inferringKindFromKindS(InferredKind(Star(KindParam(0), NoPosition)))(env2)
+            res2.map {
+              inferringKind =>
+                val (env4, _) = envSt.setReturnKindS(inferringKind)(env3)
+                envSt.addDelayedErrorsS(paramAppIdxs.map { (_, nt) }.toMap)(env4).mapElements(identity, _ => z.success)
+            }.valueOr { nt => (env3, nt.failure) }
         }
     }
     
