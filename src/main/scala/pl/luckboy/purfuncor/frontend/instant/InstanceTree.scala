@@ -118,7 +118,9 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
 
 object InstanceTable
 {
-  def empty[T, U] = InstanceTable[T, U](Seq())  
+  def empty[T, U] = InstanceTable[T, U](Seq())
+  
+  def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = InstanceTable(pairs)
 }
 
 sealed trait InstanceType[T]

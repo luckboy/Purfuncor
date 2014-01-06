@@ -114,10 +114,21 @@ object NoValue
 
 case class BooleanValue[+T, +U, +V, +W](x: Boolean) extends Value[T, U, V, W]
 case class CharValue[+T, +U, +V, +W](x: Char) extends Value[T, U, V, W]
-case class ByteValue[+T, +U, +V, +W](x: Byte) extends Value[T, U, V, W]
-case class ShortValue[+T, +U, +V, +W](x: Short) extends Value[T, U, V, W]
-case class IntValue[+T, +U, +V, +W](x: Int) extends Value[T, U, V, W]
-case class LongValue[+T, +U, +V, +W](x: Long) extends Value[T, U, V, W]
+sealed trait IntegerValue[+T, +U, +V, +W] extends Value[T, U, V, W]
+{
+  def isZero =
+    this match {
+      case ByteValue(0)  => true
+      case ShortValue(0) => true
+      case IntValue(0)   => true
+      case LongValue(0L) => true
+      case _             => false
+    }
+}
+case class ByteValue[+T, +U, +V, +W](x: Byte) extends IntegerValue[T, U, V, W]
+case class ShortValue[+T, +U, +V, +W](x: Short) extends IntegerValue[T, U, V, W]
+case class IntValue[+T, +U, +V, +W](x: Int) extends IntegerValue[T, U, V, W]
+case class LongValue[+T, +U, +V, +W](x: Long) extends IntegerValue[T, U, V, W]
 case class FloatValue[+T, +U, +V, +W](x: Float) extends Value[T, U, V, W]
 case class DoubleValue[+T, +U, +V, +W](x: Double) extends Value[T, U, V, W]
 
@@ -164,6 +175,9 @@ case class TupleValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends
 case class ConstructValue[+T, +U, +V, +W](i: Int, values: Vector[Value[T, U, V, W]]) extends ProductValue[T, U, V, W]
 
 case class ArrayValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
+{
+  def isEmpty = values.isEmpty
+}
 case class CombinatorValue[+T, +U, +V, +W](comb: Combinator[T, U, V], instArgValues: Seq[InstanceValue[T, U, V, W]], sym: GlobalSymbol) extends Value[T, U, V, W]
 case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file: Option[java.io.File]) extends Value[T, U, V, W]
 case class PartialAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], argValues: Seq[Value[T, U, V, W]]) extends Value[T, U, V, W]
@@ -176,13 +190,25 @@ object InstanceValue
 {
   def fromInstanceS[T, U, V, W, X, E](inst: instant.Instance[X])(env: E)(implicit envSt: EnvironmentState[E, X, Value[T, U, V, W], InstanceValue[T, U, V, W]]) =
     inst match {
-      case instant.PolyFunInstance(loc, _, _)  =>
+      case instant.PolyFunInstance(loc, _, _)           =>
         envSt.globalVarValueFromEnvironmentS(loc)(env).mapElements(identity, v => PolyFunInstanceValue(v).success)
-      case instant.ConstructInstance(i, _, _)  =>
+      case instant.ConstructInstance(i, _, _)           =>
         (env, ConstructInstanceValue(i).success)
-      case instant.SelectInstance(n, _, _)     =>
+      case instant.SelectInstance(n, _, _)              =>
         (env, SelectInstanceValue(n).success)
-      case instant.LocalInstance(localInstIdx) =>
+      case instant.ZeroIntegerConstructInstance(itf)    =>
+        (env, ZeroIntegerConstructInstaneValue(itf).success)
+      case instant.NonZeroIntegerConstructInstance(itf) =>
+        (env, NonZeroIntegerConstructInstaneValue(itf).success)
+      case instant.IntegerSelectInstance(itf)           =>
+        (env, IntegerSelectInstanceValue(itf).success)
+      case instant.EmptyArrayConstructInstance          =>
+        (env, EmptyArrayConstructInstanceValue.success)
+      case instant.NonEmptyArrayConstructInstance       =>
+        (env, NonEmptyArrayConstructInstanceValue.success)
+      case instant.ArraySelectInstance                  =>
+        (env, ArraySelectInstanceValue.success)
+      case instant.LocalInstance(localInstIdx)          =>
         val (env2, instValues) = envSt.currentLocalInstanceValuesFromEnvironmentS(env)
         instValues.lift(localInstIdx).map {
           instValue => (env2, instValue.success)
@@ -196,3 +222,12 @@ object InstanceValue
 case class PolyFunInstanceValue[+T, +U, +V, +W](value: Value[T, U, V, W]) extends InstanceValue[T, U, V, W]
 case class ConstructInstanceValue[+T, +U, +V, +W](i: Int) extends InstanceValue[T, U, V, W]
 case class SelectInstanceValue[+T, +U, +V, +W](n: Int) extends InstanceValue[T, U, V, W]
+case class ZeroIntegerConstructInstaneValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
+case class NonZeroIntegerConstructInstaneValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
+case class IntegerSelectInstanceValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
+sealed trait EmptyArrayConstructInstanceValue[+T, +U, +V, +W] extends InstanceValue[T, U, V, W]
+case object EmptyArrayConstructInstanceValue extends EmptyArrayConstructInstanceValue[Nothing, Nothing, Nothing, Nothing]
+sealed trait NonEmptyArrayConstructInstanceValue[+T, +U, +V, +W] extends InstanceValue[T, U, V, W]
+case object NonEmptyArrayConstructInstanceValue extends NonEmptyArrayConstructInstanceValue[Nothing, Nothing, Nothing, Nothing]
+sealed trait ArraySelectInstanceValue[+T, +U, +V, +W] extends InstanceValue[T, U, V, W]
+case object ArraySelectInstanceValue extends ArraySelectInstanceValue[Nothing, Nothing, Nothing, Nothing]
