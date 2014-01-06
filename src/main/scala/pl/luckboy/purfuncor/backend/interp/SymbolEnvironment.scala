@@ -11,6 +11,7 @@ import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
 import pl.luckboy.purfuncor.frontend.typer.InferredTypeTable
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
+import pl.luckboy.purfuncor.frontend.instant.BuiltinInstanceTree
 import pl.luckboy.purfuncor.frontend.instant.AbstractPolyFunction
 import pl.luckboy.purfuncor.frontend.instant.GlobalInstance
 import pl.luckboy.purfuncor.frontend.instant.InstanceTree
@@ -76,7 +77,7 @@ object SymbolEnvironment
       typeEnv = SymbolTypeEnvironment.empty,
       kindTable = InferredKindTable.empty,
       typeTable = InferredTypeTable.empty,
-      instTree = InstanceTree.empty,
+      instTree = BuiltinInstanceTree.builtinInstanceTree,
       instArgTable = InstanceArgTable.empty)
 }
 
