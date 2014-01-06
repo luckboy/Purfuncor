@@ -80,6 +80,42 @@ package object interp
     
     override def selectS[W, X](value: Value[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]], cases: Seq[Case[W, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], X]], lambdaInfo: instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol])(env: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =
       value match {
+        case integerValue: IntegerValue[Any, Any, Any, Any] =>
+          (env, cases.find {
+            case Case(_, _, _, caseLambdaInfo) =>
+              caseLambdaInfo.insts.exists {
+                case instant.ZeroIntegerConstructInstance(_) =>
+                  integerValue.isZero
+                case instant.NonZeroIntegerConstructInstance(_) =>
+                  !integerValue.isZero
+                case instant.LocalInstance(localInstIdx) =>
+                  env.currentClosure.localInstValues.lift(localInstIdx).map {
+                    case ZeroIntegerConstructInstanceValue(_)    => integerValue.isZero
+                    case NonZeroIntegerConstructInstanceValue(_) => !integerValue.isZero
+                    case _                                       => false
+                  }.getOrElse(false)
+                case _ =>
+                  false
+              }
+          }.toSuccess(NoValue.fromString("not found case or incorrect case instances")))
+        case arrayValue @ ArrayValue(_) =>
+          (env, cases.find {
+            case Case(_, _, _, caseLambdaInfo) =>
+              caseLambdaInfo.insts.exists {
+                case instant.EmptyArrayConstructInstance =>
+                  arrayValue.isEmpty
+                case instant.NonEmptyArrayConstructInstance =>
+                  !arrayValue.isEmpty
+                case instant.LocalInstance(localInstIdx) =>
+                  env.currentClosure.localInstValues.lift(localInstIdx).map {
+                    case EmptyArrayConstructInstanceValue    => arrayValue.isEmpty
+                    case NonEmptyArrayConstructInstanceValue => !arrayValue.isEmpty
+                    case _                                   => false
+                  }.getOrElse(false)
+                case _ =>
+                  false
+              }
+          }.toSuccess(NoValue.fromString("not found case or incorrect case instances")))
         case ConstructValue(i, _) =>
           (env, cases.find {
             case Case(_, _, _, caseLambdaInfo) =>

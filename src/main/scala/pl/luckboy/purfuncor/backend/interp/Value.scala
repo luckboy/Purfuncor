@@ -197,9 +197,9 @@ object InstanceValue
       case instant.SelectInstance(n, _, _)              =>
         (env, SelectInstanceValue(n).success)
       case instant.ZeroIntegerConstructInstance(itf)    =>
-        (env, ZeroIntegerConstructInstaneValue(itf).success)
+        (env, ZeroIntegerConstructInstanceValue(itf).success)
       case instant.NonZeroIntegerConstructInstance(itf) =>
-        (env, NonZeroIntegerConstructInstaneValue(itf).success)
+        (env, NonZeroIntegerConstructInstanceValue(itf).success)
       case instant.IntegerSelectInstance(itf)           =>
         (env, IntegerSelectInstanceValue(itf).success)
       case instant.EmptyArrayConstructInstance          =>
@@ -222,8 +222,8 @@ object InstanceValue
 case class PolyFunInstanceValue[+T, +U, +V, +W](value: Value[T, U, V, W]) extends InstanceValue[T, U, V, W]
 case class ConstructInstanceValue[+T, +U, +V, +W](i: Int) extends InstanceValue[T, U, V, W]
 case class SelectInstanceValue[+T, +U, +V, +W](n: Int) extends InstanceValue[T, U, V, W]
-case class ZeroIntegerConstructInstaneValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
-case class NonZeroIntegerConstructInstaneValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
+case class ZeroIntegerConstructInstanceValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
+case class NonZeroIntegerConstructInstanceValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
 case class IntegerSelectInstanceValue[+T, +U, +V, +W](itf: instant.IntegerTypeFunction.Value) extends InstanceValue[T, U, V, W]
 sealed trait EmptyArrayConstructInstanceValue[+T, +U, +V, +W] extends InstanceValue[T, U, V, W]
 case object EmptyArrayConstructInstanceValue extends EmptyArrayConstructInstanceValue[Nothing, Nothing, Nothing, Nothing]
