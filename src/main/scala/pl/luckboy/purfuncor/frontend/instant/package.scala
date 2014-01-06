@@ -344,6 +344,4 @@ package object instant
     override def append(f1: InstanceTree[T, U, V], f2: => InstanceTree[T, U, V]) =
       InstanceTree.fromInstanceTables(f1.instTables |+| f2.instTables)
   }
-  
-  implicit val symbolBuiltinInstanceTree = new BuiltinInstanceTree[GlobalSymbol, GlobalSymbol]
 }

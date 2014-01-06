@@ -8,11 +8,6 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerms._
 
-class BuiltinInstanceTree[T, U]
-{
-  val builtinInstanceTree = BuiltinInstanceTree.builtinInstanceTree[T, U]
-}
-
 object BuiltinInstanceTree
 {
   def builtinInstanceTree[T, U] = InstanceTree.fromInstanceTables[AbstractPolyFunction[T], U, GlobalInstance[T]](Map(
