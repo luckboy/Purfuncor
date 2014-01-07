@@ -1338,7 +1338,7 @@ j = f: #Int
       }
     }
     
-    it should "complain on the illegal construct types" in {
+    it should "complain on the incorrect construct types" in {
       val (typeEnv, res) = Instantiator.transformString("""
 unittype 3 T
 unittype 2 U
@@ -1350,8 +1350,8 @@ instance select \t1 t2 t3 => ##| (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (##& (U t
       inside(res) {
         case Failure(errs) =>
           errs.map { _.msg } should be ===(NonEmptyList(
-              "illegal construct type",
-              "illegal construct type"))
+              "incorrect construct type",
+              "incorrect construct type"))
       }
     }
     
