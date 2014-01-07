@@ -242,8 +242,8 @@ object Kinder
     for {
       term <- resolver.Resolver.transformTypeTermString(s)(resolver.Scope.fromNameTree(nameTree))
       term2 <- f(term)
-      term3 <- transformTypeTermWithKindInference(term2)(env)
-    } yield term3
+      pair <- transformTypeTermWithKindInference(term2)(env)
+    } yield pair
     
   val transformToSymbolTree = {
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>

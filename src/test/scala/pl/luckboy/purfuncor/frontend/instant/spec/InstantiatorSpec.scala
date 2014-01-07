@@ -1396,5 +1396,5 @@ instance f => h
     }
   }
   
-  "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
+  "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolInstantiationEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
 }

@@ -98,7 +98,7 @@ object Interpreter
           val (typeEnv, res3) = (for {
             res <- instant.Instantiator.statefullyTransformToSymbolTree3(tree, env.kindTable, env.typeTable)
             res2 <- res.map {
-              instant.Instantiator.transform(_)(env.kindTable, env.typeTable, env.instTree, env.instArgTable)(instant.Instantiator.statefullyMakeSymbolTypeInferenceEnvironment3)
+              instant.Instantiator.transform(_)(env.kindTable, env.typeTable, env.instTree, env.instArgTable)(instant.Instantiator.statefullyMakeSymbolInstantiationEnvironment3)
             }.valueOr { errs => State((_: SymbolTypeEnvironment[kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], errs.failure)) }
           } yield res2).run(env.typeEnv)
           res3.map {

@@ -290,8 +290,8 @@ object Typer
     for {
       term <- resolver.Resolver.transformTermString(s)(resolver.Scope.fromNameTree(nameTree))
       term2 <- f(term)
-      term3 <- transformTermWithTypeInference(term2)(env)
-    } yield term3
+      pair <- transformTermWithTypeInference(term2)(env)
+    } yield pair
 
   def transformToSymbolTree2(kindTable: kinder.InferredKindTable[GlobalSymbol]) = {
     (tree: Tree[GlobalSymbol, AbstractCombinator[Symbol, parser.LambdaInfo, TypeSimpleTerm[Symbol, parser.TypeLambdaInfo]], resolver.TreeInfo[parser.TypeLambdaInfo, resolver.TypeTreeInfo]]) =>
