@@ -28,26 +28,41 @@ object Main
   }
   
   val commands = Map[String, String => State[Environment, ExitFlag.Value]](
+      "evaltype" -> {
+        arg => State({ env =>
+          val (env2, res) = interpretTypeTerm(arg)(env)
+          res match {
+            case Success(typeValue) => consoleReader.println(typeValue.toString)
+            case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
+          }
+          (env2, ExitFlag.NoExit)
+        })
+      },
       "help" -> {
         _ => State({ env =>
           consoleReader.println("Commands:")
           consoleReader.println()
+          consoleReader.println(":evaltype <type expr>   evaluate the type expression")
           consoleReader.println(":help                   display this text")
           consoleReader.println(":kind <type expr>       display the kind of the type expression")
           consoleReader.println(":load <path> ...        load files")
           consoleReader.println(":paste                  enable the paste mode (exit from this mode is ctrl-D)")
           consoleReader.println(":quit                   exit this interpreter")
           consoleReader.println(":type <expr>            display the type of the expression")
-          consoleReader.println(":typeeval <type expr>   evaluate the type expression")
           consoleReader.println()
           (env, ExitFlag.NoExit)
         })
       },
       "load" -> {
         arg => State({ env =>
-          val (env2, res) = interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env)
-          printResult(res)
-          (env2, ExitFlag.NoExit)
+          if(!arg.isEmpty) {
+            val (env2, res) = interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env)
+            printResult(res)
+            (env2, ExitFlag.NoExit)
+          } else {
+            consoleReader.println("no file")
+            (env, ExitFlag.NoExit)
+          }
         })
       },
       "kind" -> {
@@ -78,16 +93,6 @@ object Main
           res match {
             case Success((_, typ)) => consoleReader.println(typ.toString)
             case Failure(errs)     => consoleReader.println(errs.list.mkString("\n"))
-          }
-          (env2, ExitFlag.NoExit)
-        })
-      },
-      "typeeval" -> {
-        arg => State({ env =>
-          val (env2, res) = interpretTypeTerm(arg)(env)
-          res match {
-            case Success(typeValue) => consoleReader.println(typeValue.toString)
-            case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
           }
           (env2, ExitFlag.NoExit)
         })
