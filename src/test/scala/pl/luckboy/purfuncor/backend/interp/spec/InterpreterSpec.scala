@@ -311,6 +311,34 @@ tuple 2 (f (\g => #iAdd (g (3: ##& (##| #Zero #NonZero) #Int))) 2 (U 'a' 'b')) (
 """)(g3).run(env)
       res2 should be ===(TupleValue(Vector(IntValue(8), BooleanValue(false))).success)
     }
+    
+    it should "interpret the string with the select-expressions for integers" in {
+      val (env, res) = Interpreter.interpretTermString("""
+(#iAdd 1 2) select {
+  (x: ##& #Zero #Int)    => 1
+  (x: ##& #NonZero #Int) => 
+    (#iSub (#iDiv 9 x) 3) select {
+      (y: ##& #Zero #Int)    => 2
+      (y: ##& #NonZero #Int) => 3
+    }
+}
+""")(g3).run(emptyEnv)
+      res should be ===(IntValue(2).success)
+    }
+    
+    it should "interpret the string with the select-expressions for arrays" in {
+      val (env, res) = Interpreter.interpretTermString("""
+(#array 0L 'a') select {
+  (x: ##& #Empty (#Array #Char))    =>
+    (#array 2L 'b') select {
+      (y: ##& #Empty (#Array #Char))    => 1
+      (y: ##& #NonEmpty (#Array #Char)) => 2
+    }
+  (x: ##& #NonEmpty (#Array #Char)) => 3
+}
+""")(g3).run(emptyEnv)
+      res should be ===(IntValue(2).success)
+    }
   }
   
   "An Interpreter" should behave like interpreter(SymbolEnvironment.empty[instant.LambdaInfo[parser.LambdaInfo, LocalSymbol, GlobalSymbol, GlobalSymbol], TypeSimpleTerm[Symbol, kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], kinder.TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Interpreter.statefullyTransformToSymbolTree)(_ => Interpreter.transformToSymbolTerm3)
