@@ -47,6 +47,14 @@ sealed trait Value[+T, +U, +V, +W]
         this
     }
   
+  def toArgString: String =
+    this match {
+      case TupleValue(values) if !values.isEmpty        => "(" + this + ")"
+      case ConstructValue(_, values) if !values.isEmpty => "(" + this + ")"
+      case PartialAppValue(_, _)                        => "(" + this + ")"
+      case _                                            => toString
+    }
+  
   override def toString =
     this match {
       case noValue @ NoValue(msg, _, _, _)      =>
@@ -67,19 +75,12 @@ sealed trait Value[+T, +U, +V, +W]
       case TupleFieldFunValue(n, i)             => "#" + n + " " + (i + 1)
       case ConstructFunValue(n, _)              => "construct " + n
       case BuiltinFunValue(f, _)                => "#" + f
-      case TupleValue(values)                   => "tuple " + values.size + " " + values.mkString(" ")
-      case ConstructValue(_, values)            => "construct " + values.size + " " + values.mkString(" ")
+      case TupleValue(values)                   => "tuple " + values.size + " " + values.map { _.toArgString }.mkString(" ")
+      case ConstructValue(_, values)            => "construct " + values.size + " " + values.map { _.toArgString }.mkString(" ")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
       case CombinatorValue(_, _, sym)           => sym.toString
       case LambdaValue(_, _, _)                 => "<lambda value>"
-      case PartialAppValue(funValue, argValues) =>
-        (List(funValue) ++ argValues).map {
-          value =>
-            value match {
-              case _: PartialAppValue[T, U, V, W] => "(" + value + ")"
-              case _                              => value.toString
-            }
-        }.mkString(" ")
+      case PartialAppValue(funValue, argValues) => (List(funValue) ++ argValues).map { _.toArgString }.mkString(" ")
       case PolyFunValue                         => "<polymorphic functon value>"
     }
 }
