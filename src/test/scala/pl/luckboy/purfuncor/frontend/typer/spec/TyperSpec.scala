@@ -4095,6 +4095,17 @@ poly g
           }
       }
     }
+    
+    it should "complain on the instantiation of the parameters of the defined types for the integer value" in {
+      val (env, res) = Typer.inferTypesFromTreeString("""
+f = 1: \t1 => t1
+""")(NameTree.empty)(f).run(emptyEnv)
+     inside(res) {
+        case Success(Failure(noType)) =>
+          noType.errs.map { _.msg } should be ===(List(
+              "couldn't instantiate parameter at defined type \\t1 => t1"))
+      }
+    }
   }
   
   "A Typer" should behave like typer(SymbolTypeInferenceEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], InferredKindTable.empty[GlobalSymbol])(makeInferredKindTable)(identity)((kt1, kt2) => InferredKindTable(kt1.kinds ++ kt2.kinds))(Typer.transformToSymbolTree2)(Typer.statefullyMakeSymbolTypeInferenceEnvironment3)(Typer.transformToSymbolTerm2)
