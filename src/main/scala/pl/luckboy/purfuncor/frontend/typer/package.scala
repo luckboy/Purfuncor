@@ -321,7 +321,7 @@ package object typer
       val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
       ((res |@| res2) { (_, _) => () }) match {
         case Success(_)      =>
-          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
+          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env2, (res, false))
         case Failure(noType) =>
           (env, (noType.failure, false))
       }
@@ -460,7 +460,7 @@ package object typer
                     rp =>
                       val newIrreplaceableTypeParams = if(param1 =/= param2) {
                         val definedTypes = env2.irreplaceableTypeParams.get(param1).map { _.list }.getOrElse(Nil) ++ env2.irreplaceableTypeParams.get(param2).map { _.list }.getOrElse(Nil)
-                        IntMap() ++ (env2.irreplaceableTypeParams ++ definedTypes.toNel.map { rp -> _})
+                        IntMap() ++ (env2.irreplaceableTypeParams ++ definedTypes.toNel.map { rp -> _ })
                       } else
                         env2.irreplaceableTypeParams
                       (env2.withTypeParamForest(tpf).copy(irreplaceableTypeParams = newIrreplaceableTypeParams).withTypeRetKind(retKind), isChanged.success)
