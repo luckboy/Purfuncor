@@ -2597,9 +2597,10 @@ h = g f
       val s = """
 unittype 0 T
 unittype 0 U
-f = construct 0: \t1 t2 t3 => ##& (##& (##& (##& t1 t2) (t3 #Char)) T) U
-g (x: \t1 t2 => ##& (##& t1 (t2 #Char)) T) = x
-h = g f
+f = construct 0: \t1 => t1
+g = f: \t1 t2 t3 => ##& (##& (##& (##& t1 t2) (t3 #Char)) T) U
+h (x: \t1 t2 => ##& (##& t1 (t2 #Char)) T) = x
+i = h g
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
         case Success(tree) =>
@@ -2614,14 +2615,18 @@ h = g f
               inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
                 case Some(tLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(TypeParamApp(_, Seq(), 0), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
                     case InferredType(TypeConjunction(types1), Seq(_, _, _)) =>
                       types1 should have size(5)
                   }
-                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_, _)) =>
                       ()
                   }
-                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("i")))) {
                     case InferredType(TypeConjunction(types1), argKinds) =>
                       // \t1 t2 => t #& (t2 #Char) #& T
                       types1 should have size(3)
