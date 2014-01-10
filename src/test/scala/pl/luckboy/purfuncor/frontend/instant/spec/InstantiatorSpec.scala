@@ -1401,6 +1401,40 @@ instance f => h
               "combinator #.h requires instance for #.g with type \\(t1: k1) (t2: *) => t2"))
       }
     }
+    
+    it should "transform the instantiation fields for the instance with the type parameters and application without the type parameters" in {
+      val s = """
+poly f
+instance f => g
+g x y = tuple 2 x y
+"""
+      val (typeEnv, res) = Instantiator.transformString(s)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Success(Tree(_, treeInfo)) =>
+          val nameTree = NameTree.fromGlobalSymbols(Set(
+              GlobalSymbol(NonEmptyList("f")),
+              GlobalSymbol(NonEmptyList("g")))) |+| NameTree.fromTypeGlobalSymbol(GlobalSymbol(NonEmptyList("T")))
+          val typeTree = treeInfoExtractor.typeTreeFromTreeInfo(treeInfo.treeInfo)
+          val typeTreeInfo = typeTree.treeInfo
+          val (typeEnv2, env) = g3(typeTreeInfo.kindTable, treeInfo.typeTable, treeInfo.instTree, treeInfo.instArgTable).run(typeEnv)
+          inside(makeData(s)) {
+            case Success(data) =>
+              val res2 = Instantiator.transformTermStringWithInstantiation("""
+(f 1.0 2.0): tuple 2 #Double #Double
+""")(nameTree, env)(h3(data)(typeTreeInfo.kindTable, treeInfo.typeTable, typeEnv2))
+              inside(res2) {
+                case Success((Simple(TypedTerm(App(fun1, _, _), _), _), _)) =>
+                  inside(fun1) {
+                    case Simple(Var(_, LambdaInfo(lambdaInfo1, 0, typeTable1, insts1)), _) =>
+                      inside(insts1) {
+                        case Seq(PolyFunInstance(loc11, _, _)) =>
+                          some(loc11) should be ===(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))))
+                      }
+                  }
+              }
+          }
+      }
+    }
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolInstantiationEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
