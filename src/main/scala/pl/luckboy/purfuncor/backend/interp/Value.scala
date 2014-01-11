@@ -82,8 +82,8 @@ sealed trait Value[+T, +U, +V, +W]
       case TupleFieldFunValue(n, i)             => "#" + n + " " + (i + 1)
       case ConstructFunValue(n, _)              => "construct " + n
       case BuiltinFunValue(f, _)                => "#" + f
-      case TupleValue(values)                   => "tuple " + values.size + " " + values.map { _.toArgString }.mkString(" ")
-      case ConstructValue(_, values)            => "construct " + values.size + " " + values.map { _.toArgString }.mkString(" ")
+      case TupleValue(values)                   => "tuple " + values.size + values.map { " " + _.toArgString }.mkString("")
+      case ConstructValue(_, values)            => "construct " + values.size + values.map { " " + _.toArgString }.mkString("")
       case ArrayValue(values)                   => "#[" + values.mkString(", ") + "]"
       case CombinatorValue(_, _, sym)           => sym.toString
       case LambdaValue(_, _, _)                 => "<lambda value>"

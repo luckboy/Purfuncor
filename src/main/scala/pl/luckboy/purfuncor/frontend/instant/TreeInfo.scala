@@ -22,7 +22,7 @@ case class TreeInfo[+T, U, V](
     typeTable.types.map { case (l, t) => "// " + l + ": " + t + "\n" }.mkString("\n") + "\n" +
     "//// instTree\n" +
     instTree.instTables.flatMap {
-      case (pf, it) => it.pairs.map { case (t, i) => "// instance " + pf + " => " + i + "// " + t + "\n" }
+      case (pf, it) => it.pairs.map { case (t, i) => "// instance " + pf + " => " + i + " // " + t + "\n" }
     }.mkString("\n") + "\n" +
     "//// instArgTable\n" +
     instArgTable.instArgs.map { case (l, ias) => "// " + l + " // instArgs=" + ias.mkString(",") + "\n" }.mkString("\n")
