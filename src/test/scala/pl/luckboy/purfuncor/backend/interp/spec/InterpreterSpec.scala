@@ -293,8 +293,8 @@ f g x y = g (\z => i z x) (j y)
 h g x = g (k x) (l g x)
 poly i
 j x = x select {
-    (y: ##& T tuple 0)                               => 1: ##& (##| #Zero #NonZero) #Int
-    (y: \t1 t2 t3 => ##& (t1 t2 t3) (tuple 2 t2 t3)) => 2: ##& (##| #Zero #NonZero) #Int
+    (y: ##& T tuple 0)                              => 1: ##& (##| #Zero #NonZero) #Int
+    (y: \t1 t2 t3 => ##& (U t2 t3) (tuple 2 t2 t3)) => 2: ##& (##| #Zero #NonZero) #Int
   }
 poly k
 l g x = g x m
@@ -314,7 +314,7 @@ instance select ##| (##& T tuple 0) (##& (U #Char #Char) (tuple 2 #Char #Char)) 
 U x y = (construct 2 x y: ##& (U #Char #Char) (tuple 2 #Char #Char)): ##| (##& T tuple 0) (##& (U #Char #Char) (tuple 2 #Char #Char))
 """)(f).run(emptyEnv)
       val (env2, res2) = Interpreter.interpretTermString("""
-tuple 2 (f (\g => #iAdd (g (3: ##& (##| #Zero #NonZero) #Int))) 2 (U 'a' 'b')) (h #zXor true)
+tuple 2 (f (\g => #iAdd (g (3: ##& (##| #Zero #NonZero) #Int))) (2: ##& (##| #Zero #NonZero) #Int) (U 'a' 'b')) (h #zXor true)
 """)(g3).run(env)
       res2 should be ===(TupleValue(Vector(IntValue(8), BooleanValue(false))).success)
     }
