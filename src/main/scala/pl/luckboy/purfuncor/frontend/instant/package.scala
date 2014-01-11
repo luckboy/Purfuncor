@@ -57,6 +57,9 @@ package object instant
     
     override def addDefinedTypeS(definedType: DefinedType[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env.withDefinedType(definedType), ())
+    
+    override def reverseTypeParamMapS(paramMap: Map[Int, Int])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeParamForest.reverseParamMap(paramMap).toSuccess(NoType.fromError[GlobalSymbol](FatalError("can't reverse type parameter map", none, NoPosition))))
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {

@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend
+import scala.collection.immutable.BitSet
 import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.annotation.tailrec
@@ -45,6 +46,33 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
   }
   
   def allocatedParams = nodes.keySet
+  
+  def reverseParamMap(paramMap: Map[Int, Int]) = {
+    nodes.keySet.foldLeft(some((paramMap.map { _.swap }.toMap, BitSet()))) {
+      case (Some((reversedParamMap, markedParams)), param) =>        
+        findParams(param)(BitSet(), markedParams).map {
+          params =>
+            val tmpReversedParamMap = reversedParamMap.find { p => params.contains(p._1) }.toList.flatMap { p => params.map { (_, p._2) } }.toMap
+            (reversedParamMap ++ tmpReversedParamMap, markedParams | params)
+        }
+      case (None, _)                                       =>
+        none
+    }.map { _._1 }
+  }
+  
+  @tailrec
+  private def findParams(param: Int)(params: BitSet, markedParams: BitSet): Option[BitSet] =
+    nodes.get(param) match {
+      case Some(ParamNode(Some(prev))) => 
+        if(!markedParams.contains(param))
+          findParams(prev)(params + param, markedParams)
+        else
+          some(params + param)
+      case Some(ParamNode(None))       =>
+        some(params + param)
+      case None                        =>
+        none
+    }
 }
 
 object ParamForest
