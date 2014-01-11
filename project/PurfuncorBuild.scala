@@ -9,7 +9,7 @@ object PurfuncorBuild extends Build {
     settings = Project.defaultSettings ++ Seq(
       name := "Purfuncor",
       organization := "pl.luckboy.purfuncor",
-      version := "0.1.0",
+      version := "0.1.1",
       scalaVersion := "2.10.1",
       // add other settings here
       libraryDependencies += "org.scalaz" % "scalaz-core_2.10" % "7.0.0",
