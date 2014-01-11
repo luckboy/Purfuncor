@@ -321,7 +321,7 @@ package object typer
       val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
       ((res |@| res2) { (_, _) => () }) match {
         case Success(_)      =>
-          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env2, (res, false))
+          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
         case Failure(noType) =>
           (env, (noType.failure, false))
       }
@@ -577,7 +577,7 @@ package object typer
                 case (newEnv2, noType: NoType[GlobalSymbol]) =>
                   (newEnv2, newRes.flatMap { _ => noType.failure }.valueOr { nt => (nt |+| noType).failure })
                 case (newEnv2, caseInfo)                     =>
-                  (newEnv2, newRes.map { caseInfo <:: _})
+                  (newEnv2, newRes.map { caseInfo <:: _ })
               }
           }.mapElements(identity, _.map { _.reverse })
           res2 match {
@@ -607,7 +607,7 @@ package object typer
                           if(!termType2.isNoType && !bodyType.isNoType)
                             (newEnv7.withCurrentPolyFunType(some(termType)), bodyType)
                           else
-                            (newEnv7, concatErrors(termType, bodyType))
+                            (newEnv7, concatErrors(termType2, bodyType))
                         case Failure(noType) =>
                           (newEnv4, concatErrors(termType, concatErrors(bodyType, noType)))
                       }

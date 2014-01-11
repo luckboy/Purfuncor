@@ -466,11 +466,19 @@ object TypeValueTermUnifier
               case ((newEnv4, (Failure(_), _) | (Success(_), false)), i) =>
                 val (term2, optParam2) = pairs2(i)
                 val (tmpTerm1, tmpTerm2) = if(areSwappedTerms) (term2, instantiatedTerm1) else (instantiatedTerm1, term2)
-                val (newEnv5, (newRes2, areRestoredDelayedErrs)) = envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) { 
+                
+                val (newEnv5, (newRes2, areRestoredDelayedErrs)) = if(i < pairs2.size - 1) {
+                  envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) { 
+                    envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optParam2) {
+                      matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) 
+                    }
+                  } (newEnv4)
+                } else {
+                  // last pair
                   envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optParam2) {
-                    matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) 
-                  }
-                } (newEnv4)
+                      matchesTypeValueTermsForTypeValueTermSubsetS(tmpTerm1, tmpTerm2)(x)(f)(_: E) 
+                  } (newEnv4).mapElements(identity, (_, true))
+                }
                 (newEnv5, (newRes2.map { (_, i) }, areRestoredDelayedErrs))
               case ((newEnv4, (newRes2, areRestoredDelayedErrs)), _)      =>
                 (newEnv4, (newRes2, areRestoredDelayedErrs))
