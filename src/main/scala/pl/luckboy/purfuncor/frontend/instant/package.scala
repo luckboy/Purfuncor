@@ -60,6 +60,9 @@ package object instant
     
     override def reverseTypeParamMapS(paramMap: Map[Int, Int])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeParamForest.reverseParamMap(paramMap).toSuccess(NoType.fromError[GlobalSymbol](FatalError("can't reverse type parameter map", none, NoPosition))))
+  
+    override def incorrectConstructTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
+      (env, NoType.fromError[GlobalSymbol](Error("incorrect construct type " + env.currentDefinedType.map { _.toString }.getOrElse("<unknown type>"), none, NoPosition)))
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
@@ -119,7 +122,7 @@ package object instant
       val (typeInferenceEnv2, res) = typeInferenceEnv.definedTypeFromTypeTerm(typeTerm)
       res.map {
         dt =>
-          val (typeInferenceEnv4, res2) = checkConstructInferringTypeS(InferringType(dt.term))(typeInferenceEnv2) match {
+          val (typeInferenceEnv4, res2) = checkConstructInferringTypeS(InferringType(dt.term))(typeInferenceEnv2.withCurrentDefinedType(some(dt))) match {
             case (typeInferenceEnv3, typ: InferringType[GlobalSymbol]) =>
               (typeInferenceEnv3, (dt, typ).success)
             case (typeInferenceEnv3, noType: NoType[GlobalSymbol])     =>

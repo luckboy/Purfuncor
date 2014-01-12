@@ -13,13 +13,17 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbolTabular
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
+import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
 import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
+import pl.luckboy.purfuncor.frontend.typer.BuiltinType
 import pl.luckboy.purfuncor.frontend.typer.TupleType
+import pl.luckboy.purfuncor.frontend.typer.Unittype
+import pl.luckboy.purfuncor.frontend.typer.TypeParamApp
 import pl.luckboy.purfuncor.frontend.typer.GlobalTypeApp
 import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TypeDisjunction
@@ -313,23 +317,25 @@ object PolyFunInstantiator {
         (newEnv7, newRes5.swap.map { _.withPos(lambdaInfo.pos).forFile(lambdaInfo.file) }.swap)
     } (env)
     
-  private def incorrectConstructTypeNoType[T] = NoType.fromError[T](Error("incorrect construct type", none, NoPosition))
-    
-  private def findTupleTypesS[L, N, E](term: TypeValueTerm[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Seq[TupleType[N]]]) =
+  private def findTupleTypesS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Seq[TupleType[N]]]) =
     term match {
       case tupleType @ TupleType(_) =>
         (env, Seq(tupleType).success)
       case TypeConjunction(terms) =>
         terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
-          case ((newEnv, Success(Seq())), term2) => findTupleTypesS(term2)(newEnv)
-          case ((newEnv, Success(_)), _)         => (newEnv, incorrectConstructTypeNoType.failure)
-          case ((newEnv, newRes), _)             => (newEnv, newRes)
+          case ((newEnv, Success(newTerms)), term2) => 
+            findTupleTypesS(term2)(err)(newEnv) match {
+              case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
+              case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
+            }
+          case ((newEnv, newRes), _)             =>
+            (newEnv, newRes)
         }
       case TypeDisjunction(terms) =>
         terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
           case ((newEnv, Success(newTerms)), term2) =>
-            findTupleTypesS(term2)(newEnv) match {
-              case (newEnv2, Success(Seq()))  => (newEnv2, incorrectConstructTypeNoType.failure)
+            findTupleTypesS(term2)(err)(newEnv) match {
+              case (newEnv2, Success(Seq()))  => err(newEnv).mapElements(identity, _.failure)
               case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
               case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
             }
@@ -341,7 +347,7 @@ object PolyFunInstantiator {
           env2 =>
             appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
               case (env3, Success(evaluatedTerm)) =>
-                findTupleTypesS(evaluatedTerm)(env3)
+                findTupleTypesS(evaluatedTerm)(err)(env3)
               case (env3, Failure(noType))        =>
                 (env3, noType.failure)
             }
@@ -349,45 +355,106 @@ object PolyFunInstantiator {
       case _ =>
         (env, Seq().success)
     }
-  
+
+  private val correctTypeBuiltinFunctions = Set(
+      TypeBuiltinFunction.Zero,
+      TypeBuiltinFunction.NonZero,
+      TypeBuiltinFunction.Empty,
+      TypeBuiltinFunction.NonEmpty)
+    
+  private def containsUnittypeS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Boolean]) = {
+    term match {
+      case BuiltinType(bf, _) if correctTypeBuiltinFunctions.contains(bf) =>
+        (env, false.success)
+      case Unittype(_, _, _) =>
+        (env, true.success)
+      case TupleType(_) =>
+        (env, false.success)
+      case TypeParamApp(_, _, _) =>
+        err(env).mapElements(identity, _.failure)
+      case TypeConjunction(terms) =>
+        terms.foldLeft((env, false.success[NoType[N]])) {
+          case ((newEnv, Success(b)), term2)  =>
+            term2 match {
+              case BuiltinType(TypeBuiltinFunction.Any, Seq()) =>
+                (newEnv, b.success)
+              case _                                           =>
+                containsUnittypeS(term2)(err)(newEnv).mapElements(identity, _.map { _ | b })
+            }
+          case ((newEnv, Failure(noType)), _) =>
+            (newEnv, noType.failure)
+        }
+      case TypeDisjunction(terms) =>
+        terms.foldLeft((env, true.success[NoType[N]])) {
+          case ((newEnv, Success(b)), term2)  => 
+            containsUnittypeS(term2)(err)(newEnv) match {
+              case (newEnv2, Success(true))  => (newEnv2, true.success)
+              case (newEnv2, Success(false)) => err(newEnv2).mapElements(identity, _.failure)
+              case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
+            }
+          case ((newEnv, Failure(noType)), _) => (newEnv, noType.failure)
+        }
+      case GlobalTypeApp(loc, args, _) =>
+        envSt.withRecursionCheckingS(Set(loc)) {
+          env2 =>
+            appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
+              case (env3, Success(evaluatedTerm)) =>
+                containsUnittypeS(evaluatedTerm)(err)(env3)
+              case (env3, Failure(noType))        =>
+                (env3, noType.failure)
+            }
+        } (env)
+      case _ =>
+        err(env).mapElements(identity, _.failure)
+    }
+  }
+    
   def checkConstructInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) = {
-    val (env2, res) = findTupleTypesS(typ.typeValueTerm)(env)
-    res.map {
-      typeValueTerms =>
+    val (env2, res) = findTupleTypesS(typ.typeValueTerm)(envSt2.incorrectConstructTypeNoTypeS)(env)
+    val (env3, res2) = containsUnittypeS(typ.typeValueTerm)(envSt2.incorrectConstructTypeNoTypeS)(env2)
+    (for(t <- res; b <- res2) yield (t, b)).map {
+      case (typeValueTerms, hasUnittype) =>
         unifier.withSaveS {
-          env3 =>
-            typeValueTerms.headOption.map {
-              firstTypeValueTerm =>
-                (for {
-                  _ <- State(envSt2.addDefinedTypeS(DefinedType.fromInferringType(typ))(_: E))
-                  savedTypeMatching <- State(envSt.currentTypeMatchingFromEnvironmentS(_: E))
-                  _ <- State(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
-                  unifiedType <- State({
-                    (env4: E) =>
-                      typeValueTerms.tail.foldLeft((env4, InferringType(firstTypeValueTerm): Type[N])) {
-                        case ((newEnv, newType: InferredType[N]), typeValueTerm) =>
-                          unifyTypesS(newType, InferringType(typeValueTerm))(newEnv)
-                      }
-                  })
-                  _ <- State(envSt.setCurrentTypeMatchingS(savedTypeMatching)(_: E))
-                  res4 <- unifiedType match {
-                    case inferringType: InferringType[N] =>
-                      for {
-                        definedTypes <- State(envSt2.definedTypesFromEnvironmentS(_: E))
-                        res2 <- checkDefinedTypes(definedTypes)
-                        res3 <- res2.map {
-                          _ => State((_: E, inferringType.success))
-                        }.getOrElse(State((_: E, inferringType.success)))
-                      } yield res3
-                    case _: NoType[N]                    =>
-                      State((_: E, incorrectConstructTypeNoType[N].failure))
-                    case _                               =>
-                      State((_: E, NoType.fromError[N](FatalError("uninferring type", none, NoPosition)).failure))
-                  }
-                } yield res4).run(env3)
-            }.getOrElse((env3, incorrectConstructTypeNoType[N].failure))            
-        } (env2).mapElements(identity, _.valueOr(identity))
-    }.valueOr { (env2, _) }
+          env4 =>
+            if(hasUnittype) {
+              typeValueTerms.headOption.map {
+                firstTypeValueTerm =>
+                  (for {
+                    _ <- State(envSt2.addDefinedTypeS(DefinedType.fromInferringType(typ))(_: E))
+                    savedTypeMatching <- State(envSt.currentTypeMatchingFromEnvironmentS(_: E))
+                    _ <- State(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
+                    unifiedType <- State({
+                      (env5: E) =>
+                        typeValueTerms.tail.foldLeft((env5, InferringType(firstTypeValueTerm): Type[N])) {
+                          case ((newEnv, newType: InferredType[N]), typeValueTerm) =>
+                            unifyTypesS(newType, InferringType(typeValueTerm))(newEnv)
+                          case ((newEnv, noType: NoType[N]), _)                    =>
+                            (newEnv, noType)
+                          case ((newEnv, _), _)                                    =>
+                            (newEnv, NoType.fromError[N](FatalError("uninferred type", none, NoPosition)))
+                        }
+                    })
+                    _ <- State(envSt.setCurrentTypeMatchingS(savedTypeMatching)(_: E))
+                    res4 <- unifiedType match {
+                      case inferringType: InferringType[N] =>
+                        for {
+                          definedTypes <- State(envSt2.definedTypesFromEnvironmentS(_: E))
+                          res2 <- checkDefinedTypes(definedTypes)
+                          res3 <- res2.map {
+                            _ => State((_: E, inferringType.success))
+                          }.getOrElse(State((_: E, inferringType.success)))
+                        } yield res3
+                      case _: NoType[N]                    =>
+                        State(envSt2.incorrectConstructTypeNoTypeS(_: E).mapElements(identity, _.failure))
+                      case _                               =>
+                        State((_: E, NoType.fromError[N](FatalError("uninferring type", none, NoPosition)).failure))
+                    }
+                  } yield res4).run(env4)
+              }.getOrElse(envSt2.incorrectConstructTypeNoTypeS(env4).mapElements(identity, _.failure))
+            } else
+              envSt2.incorrectConstructTypeNoTypeS(env4).mapElements(identity, _.failure)
+        } (env3).mapElements(identity, _.valueOr(identity))
+    }.valueOr { (env3, _) }
   }
   
   def checkConstructInferringType[L, N, E](typ: InferringType[N])(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) =

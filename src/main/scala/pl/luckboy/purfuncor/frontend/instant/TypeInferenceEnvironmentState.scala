@@ -29,4 +29,6 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def addDefinedTypeS(definedType: DefinedType[M])(env: E): (E, Unit)
   
   def reverseTypeParamMapS(paramMap: Map[Int, Int])(env: E): (E, Validation[NoType[M], Map[Int, Int]])
+  
+  def incorrectConstructTypeNoTypeS(env: E): (E, NoType[M])
 }

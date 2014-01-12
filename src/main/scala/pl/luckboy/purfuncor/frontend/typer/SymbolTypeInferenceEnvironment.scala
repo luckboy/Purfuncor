@@ -247,6 +247,10 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def withInstTypeMatching(isInstTypeMatching: Boolean) = copy(extra = extra.copy(isInstTypeMatching = isInstTypeMatching))
   
+  def currentDefinedType = extra.currentDefinedType
+  
+  def withCurrentDefinedType(definedType: Option[DefinedType[GlobalSymbol]]) = copy(extra = extra.copy(currentDefinedType = definedType))
+  
   def withGlobalVarType(sym: GlobalSymbol, typ: Type[GlobalSymbol]) = copy(globalVarTypes = globalVarTypes + (sym -> typ))
   
   def withGlobalVarTypes(types: Map[GlobalSymbol, Type[GlobalSymbol]]) = copy(globalVarTypes = globalVarTypes ++ types)
@@ -281,7 +285,8 @@ case class SymbolTypeInferenceEnvironmentExtra[T, U](
     recursiveCombSyms: Set[GlobalSymbol],
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean,
-    isInstTypeMatching: Boolean)
+    isInstTypeMatching: Boolean,
+    currentDefinedType: Option[DefinedType[GlobalSymbol]])
 
 object SymbolTypeInferenceEnvironment
 {
@@ -313,5 +318,6 @@ object SymbolTypeInferenceEnvironment
         recursiveCombSyms = Set(),
         errNoType = none,
         isRecursive = false,
-        isInstTypeMatching = false))
+        isInstTypeMatching = false,
+        currentDefinedType = none))
 }

@@ -1345,20 +1345,20 @@ j = f: #Int
       }
     }
     
-    it should "complain on the incorrect construct types" in {
+    it should "complain on the incorrect construct types for the type term of the tuple" in {
       val (typeEnv, res) = Instantiator.transformString("""
 unittype 3 T
 unittype 2 U
 instance select \t1 t2 t3 => ##| (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (##& (U t1 t2) (tuple 2 t1 t2)) construct {
   \t1 t2 t3 => ##& (##& (T t1 t2 t3) (tuple 3 t1 t2 t3)) (tuple 2 t1 t2)
-  \t1 t2 => U
+  U
 }
 """)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
       inside(res) {
         case Failure(errs) =>
           errs.map { _.msg } should be ===(NonEmptyList(
-              "incorrect construct type",
-              "incorrect construct type"))
+              "incorrect construct type \\t1 t2 t3 => (#.T t1 t2 t3) #& (t1, t2, t3) #& (t1, t2)",
+              "incorrect construct type \\t1 t2 => #.U t1 t2"))
       }
     }
     
@@ -1433,6 +1433,23 @@ g x y = tuple 2 x y
                   }
               }
           }
+      }
+    }
+    
+    it should "complain on the incorrect construct types for the type term of the unittype" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+instance select \t1 t2 => ##| (##| (tuple 2 t1 t2) (##& #Int (tuple 2 t1 t2))) (##& #Empty (tuple 2 t1 t2)) construct {
+  \t1 t2 => tuple 2 t1 t2
+  \t1 t2 => ##& #Int (tuple 2 t1 t2)
+  \t1 t2 => ##& #Empty (tuple 2 t1 t2)
+}
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "incorrect construct type \\t1 t2 => (t1, t2)",
+              "incorrect construct type \\t1 t2 => #Int #& (t1, t2)",
+              "incorrect construct type \\t1 t2 => #Empty #& (t1, t2)"))
       }
     }
   }
