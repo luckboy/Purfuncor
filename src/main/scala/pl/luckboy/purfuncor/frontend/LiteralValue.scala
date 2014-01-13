@@ -23,6 +23,11 @@ sealed trait LiteralValue
       case DoubleValue(x)           => x.toString
       case TupleFunValue(n)         => "tuple " + n
       case TupleFieldFunValue(n, i) => "#" + n + " " + (i + 1)
+      case MakearrayFunValue(n)     => "makearray " + n
+      case MakelistFunValue(n)      => "makelist " + n
+      case FieldFunValue(i)         => "## " + (i + 1)
+      case FieldsetFunValue(n)      => "fieldset " + n
+      case FieldSetAppFunValue(n)   => "### " + n
       case BuiltinFunValue(f)       => "#" + f.toString
     }
 }
@@ -36,4 +41,9 @@ case class FloatValue(x: Float) extends LiteralValue
 case class DoubleValue(x: Double) extends LiteralValue
 case class TupleFunValue(n: Int) extends LiteralValue
 case class TupleFieldFunValue(n: Int, i: Int) extends LiteralValue
+case class MakearrayFunValue(n: Int) extends LiteralValue
+case class MakelistFunValue(n: Int) extends LiteralValue
+case class FieldFunValue(i: Int) extends LiteralValue
+case class FieldsetFunValue(n: Int) extends LiteralValue
+case class FieldSetAppFunValue(n: Int) extends LiteralValue
 case class BuiltinFunValue(bf: BuiltinFunction.Value) extends LiteralValue

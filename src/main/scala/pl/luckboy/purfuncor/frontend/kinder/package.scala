@@ -120,6 +120,8 @@ package object kinder
         case TypeLiteral(value) =>
           value match {
             case TupleTypeFunValue(n)    => (env, InferredKind.tupleTypeFunKind(n))
+            case FieldTypeFunValue(_)    => (env, InferredKind.fieldTypeFunKind)
+            case FieldsetTypeFunValue(_) => (env, InferredKind.fieldsetTypeFunKind)
             case TypeBuiltinFunValue(bf) => (env, InferredKind.fromTypeBuiltinFunction(bf))
           }
         case KindedTypeTerm(term, kind) =>

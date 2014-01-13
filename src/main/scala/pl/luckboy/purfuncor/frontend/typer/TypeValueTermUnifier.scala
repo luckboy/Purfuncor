@@ -685,6 +685,10 @@ object TypeValueTermUnifier
                 (instantiatedTerm1, instantiatedTerm2) match {
                   case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>
                     matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
+                  case (FieldType(i1, term3), FieldType(i2, term4)) if i1 === i2 =>
+                    matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
+                  case (FieldSetType(n1, term3), FieldSetType(n2, term4)) if n1 === n2 =>
+                    matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
                   case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
                     matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
                   case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 &&  args1.size === args2.size =>

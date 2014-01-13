@@ -125,6 +125,10 @@ package object typer
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case tupleTypeFunValue @ TupleTypeFunValue(_) =>
           tupleTypeFunValue.fullyApplyS(argValues)(env)
+        case fieldTypeFunValue @ FieldTypeFunValue(_) =>
+          fieldTypeFunValue.fullyApplyS(argValues)(env)
+        case fieldsetTypeFunValue @ FieldsetTypeFunValue(_) =>
+          fieldsetTypeFunValue.fullyApplyS(argValues)(env)
         case TypeBuiltinFunValue(_, f) =>
           if(f.argCount === argValues.size)
             f.applyS(argValues)(env)
@@ -693,6 +697,11 @@ package object typer
             case DoubleValue(_)           => (env, InferredType.doubleType)
             case TupleFunValue(n)         => (env, InferredType.tupleFunType(n))
             case TupleFieldFunValue(n, i) => (env, InferredType.tupleFieldFunType(n, i))
+            case MakearrayFunValue(n)     => (env, InferredType.makearrayFunType(n))
+            case MakelistFunValue(n)      => (env, InferredType.makelistFunType(n))
+            case FieldFunValue(i)         => (env, InferredType.fieldFunType(i))
+            case FieldsetFunValue(n)      => (env, InferredType.fieldsetFunType(n))
+            case FieldSetAppFunValue(n)   => (env, InferredType.fieldSetAppFunType(n))
             case BuiltinFunValue(bf)      => (env, InferredType.fromBuiltinFunction(bf))
           }
         case TypedTerm(term, typ) =>

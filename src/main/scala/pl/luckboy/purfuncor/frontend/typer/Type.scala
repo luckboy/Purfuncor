@@ -190,7 +190,66 @@ object InferredType
     val typeValueTerm = BuiltinType[T](
         TypeBuiltinFunction.Fun,
         Seq(TupleType((0 until n).map { TypeParamApp[T](_, Nil, 0) }), TypeParamApp(i, Nil, 0)))
-    InferredType[T](typeValueTerm, Seq.fill(i + 1)(InferredKind(Star(KindType, NoPosition))))
+    InferredType[T](typeValueTerm, Seq.fill(n)(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def makearrayFunType[T](n: Int) = {
+    // \t1 => t1 #-> ... #-> t1 #-> (#Array t1)
+    val typeValueTerm = (0 until n).foldRight(BuiltinType(TypeBuiltinFunction.Array, Seq(TypeParamApp[T](0, Nil, 0)))) {
+      (_, tvt) => BuiltinType[T](TypeBuiltinFunction.Fun, Seq(TypeParamApp(0, Nil, 0), tvt))
+    }
+    InferredType[T](typeValueTerm, Seq(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def makelistFunType[T](n: Int) = {
+    // \t1 t2 => (t1 #-> t2 #-> t2) #-> t1 #-> ... #-> t1 #-> t2 #-> t2
+    val tmpTypeValueTerm1 = BuiltinType(TypeBuiltinFunction.Fun, Seq(
+        TypeParamApp[T](0, Nil, 0), 
+        BuiltinType(TypeBuiltinFunction.Fun, Seq(TypeParamApp[T](1, Nil, 0), TypeParamApp[T](1, Nil, 0)))))
+    val tmpTypeValueTerm2 = (0 until n).foldRight(BuiltinType(TypeBuiltinFunction.Fun, Seq(TypeParamApp[T](0, Nil, 0), TypeParamApp[T](1, Nil, 0)))) {
+      (_, tvt) => BuiltinType[T](TypeBuiltinFunction.Fun, Seq(TypeParamApp(0, Nil, 0), tvt))
+    }
+    val typeValueTerm = BuiltinType(TypeBuiltinFunction.Fun, Seq(tmpTypeValueTerm1, tmpTypeValueTerm2))
+    InferredType[T](typeValueTerm, Seq.fill(2)(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def fieldFunType[T](i: Int) = {
+    // \t1 => t1 #-> ## i t1
+    val typeValueTerm = BuiltinType(TypeBuiltinFunction.Fun, Seq(
+        TypeParamApp[T](0, Nil, 0),
+        FieldType(i, TypeParamApp[T](0, Nil, 0))))
+    InferredType[T](typeValueTerm, Seq(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def fieldsetFunType[T](n: Int) = {
+    // \t1 ... tN => t1 #-> ... #-> tN #-> (fieldset N (t1 #& ... #& tN))
+    val tmpTypeValueTerm = if(n > 0)
+      FieldSetType(n, (1 until n).foldLeft(TypeParamApp(0, Nil, 0): TypeValueTerm[T]) { (tvt, p) => tvt & TypeParamApp(p, Nil, 0) })
+    else
+      FieldSetType(n, BuiltinType[T](TypeBuiltinFunction.Nothing, Nil))
+    val typeValueTerm = (0 until n).foldRight(tmpTypeValueTerm: TypeValueTerm[T]) {
+      (p, tvt) => BuiltinType(TypeBuiltinFunction.Fun, Seq(TypeParamApp(p, Nil, 0), tvt))
+    }
+    InferredType[T](typeValueTerm, Seq.fill(n)(InferredKind(Star(KindType, NoPosition))))
+  }
+  
+  def fieldSetAppFunType[T](n: Int) = {
+    // \t1 ... tN u => (t1 #-> ... #-> tN #-> u) #-> (fieldset N ((## 1 t1) #& ... #& (## N tN))) #-> u
+    val tmpTypeValueTerm1 = (0 until n).foldRight(TypeParamApp(n, Nil, 0): TypeValueTerm[T]) {
+      (p, tvt) => BuiltinType(TypeBuiltinFunction.Fun, Seq(TypeParamApp[T](p, Nil, 0), tvt))
+    }
+    val tmpTypeValueTerm2 = if(n > 0)
+      FieldSetType(n, (1 until n).foldLeft(FieldType(0, TypeParamApp(0, Nil, 0)): TypeValueTerm[T]) {
+        (tvt, p) => tvt & FieldType(p, TypeParamApp(p, Nil, 0))
+      })
+    else
+      FieldSetType(n, BuiltinType[T](TypeBuiltinFunction.Nothing, Nil))
+    val typeValueTerm = BuiltinType(TypeBuiltinFunction.Fun, Seq(
+        tmpTypeValueTerm1,
+        BuiltinType(TypeBuiltinFunction.Fun, Seq(
+            tmpTypeValueTerm2,
+            TypeParamApp[T](n, Nil, 0)))))
+    InferredType(typeValueTerm, Seq.fill(n + 1)(InferredKind(Star(KindType, NoPosition))))
   }
 }
 
