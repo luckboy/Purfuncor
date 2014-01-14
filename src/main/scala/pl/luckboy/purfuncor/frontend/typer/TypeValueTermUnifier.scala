@@ -749,6 +749,10 @@ object TypeValueTermUnifier
     term match {
       case TupleType(args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { TupleType(_) })
+      case FieldType(i, term2) =>
+        replaceTypeValueTermParamsS(term2)(f)(env).mapElements(identity, _.map { FieldType(i, _) })
+      case FieldSetType(n, term2) =>
+        replaceTypeValueTermParamsS(term2)(f)(env).mapElements(identity, _.map { FieldSetType(n, _) })
       case BuiltinType(bf, args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { BuiltinType(bf, _) })
       case Unittype(loc, args, sym) =>
@@ -859,6 +863,12 @@ object TypeValueTermUnifier
       case TupleType(args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, TupleType(_)) })
+      case FieldType(i, term2) =>
+        val (env2, res) = unsafeAllocateTypeValueTermParamsS(term2)(allocatedParams, unallocatedParamAppIdx)(env)
+        (env2, res.map { _.mapElements(identity, identity, identity, FieldType(i, _)) })
+      case FieldSetType(n, term2) =>
+        val (env2, res) = unsafeAllocateTypeValueTermParamsS(term2)(allocatedParams, unallocatedParamAppIdx)(env)
+        (env2, res.map { _.mapElements(identity, identity, identity, FieldSetType(n, _)) })
       case BuiltinType(bf, args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, BuiltinType(bf, _)) })

@@ -82,7 +82,7 @@ sealed trait TypeValue[T, +U, +V, +W]
           (env2, NoTypeValue.fromError(FatalError("conflict of type arguments", none, NoPosition)).failure)
       case TupleTypeFunValue(0) =>
         (env2, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
-      case funValue @ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _) | TypeBuiltinFunValue(_, _) | TupleTypeFunValue(_) | FieldTypeFunValue(_) | FieldsetTypeFunValue(_)) =>
+      case funValue /*@ (TypeCombinatorValue(_, _, _) | TypeLambdaValue(_, _, _, _) | TypePartialAppValue(_, _, _) | TypeBuiltinFunValue(_, _) | TupleTypeFunValue(_) | FieldTypeFunValue(_) | FieldsetTypeFunValue(_))*/ =>
         envSt.withTypeParamsS(funValue.argCount) {
           (newParam1, newParamN, newEnv) =>
             val (newEnv2, paramAppIdx) = envSt.currentTypeParamAppIdxFromEnvironmentS(newEnv)
@@ -90,8 +90,8 @@ sealed trait TypeValue[T, +U, +V, +W]
             val (newEnv3, retValue) = appS(funValue, paramValues)(newEnv2)
             retValue.typeValueLambdaWithParamsS(param1, newParamN)(newEnv3)
         } (env2)
-      case _ =>
-        (env2, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
+      //case _ =>
+      //  (env2, NoTypeValue.fromError(FatalError("no applicable", none, NoPosition)).failure)
     }
   }
 
@@ -135,6 +135,8 @@ object TypeValue
   def fromTypeLiteralValue[T, U, V, W](value: frontend.TypeLiteralValue): TypeValue[T, U, V, W] =
     value match {
       case frontend.TupleTypeFunValue(n)    => TupleTypeFunValue[T, U, V, W](n)
+      case frontend.FieldTypeFunValue(i)    => FieldTypeFunValue[T, U, V, W](i)
+      case frontend.FieldsetTypeFunValue(n) => FieldsetTypeFunValue[T, U, V, W](n)
       case frontend.TypeBuiltinFunValue(bf) => TypeBuiltinFunValue.fromTypeBuiltinFunction[T, U, V, W](bf)
     }
   
@@ -285,7 +287,7 @@ sealed trait TypeValueTerm[T]
     this match {
       case TupleType(Seq(arg))          => "tuple 1 " + arg.toArgString
       case TupleType(args)              => "(" + args.mkString(", ") + ")"
-      case FieldType(i, term)           => "## " + (i + 1) + " " + term.toArgString 
+      case FieldType(i, term)           => "##" + (i + 1) + " " + term.toArgString 
       case FieldSetType(n, term)        => "fieldset " + n + " " + term.toArgString
       case BuiltinType(bf, args)        => 
         bf match {

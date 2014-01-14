@@ -161,6 +161,9 @@ package object interp
         case Literal(value)               =>
           Value.fromLiteralValue(value) match {
             case BuiltinFunValue(_, f) if f.argCount === 0 => f.applyS(Vector())(env)
+            case TupleFunValue(0)                          => (env, TupleValue(Vector()))
+            case MakearrayFunValue(0)                      => (env, ArrayValue(Vector()))
+            case FieldsetFunValue(0)                       => (env, FieldSetValue(Vector()))
             case value2                                    => (env, value2)
           }
         case TypedTerm(term, _)              =>
@@ -234,6 +237,16 @@ package object interp
           tupleFunValue.fullyApplyS(argValues)(env)
         case tupleFieldFunValue @ TupleFieldFunValue(_, _) =>
           tupleFieldFunValue.fullyApplyS(argValues)(env)
+        case makearrayFunValue @ MakearrayFunValue(_) =>
+          makearrayFunValue.fullyApplyS(argValues)(env)
+        case makelistFunValue @ MakelistFunValue(_) =>
+          makelistFunValue.fullyApplyS(argValues)(env)
+        case fieldFunValue @ FieldFunValue(_) =>
+          fieldFunValue.fullyApplyS(argValues)(env)
+        case fieldsetFunValue @ FieldsetFunValue(_) =>
+          fieldsetFunValue.fullyApplyS(argValues)(env)
+        case fieldSetAppFunValue @ FieldSetAppFunValue(_) =>
+          fieldSetAppFunValue.fullyApplyS(argValues)(env)
         case constructFunValue @ ConstructFunValue(_, _) =>
           constructFunValue.fullyApplyS(argValues)(env)
         case BuiltinFunValue(_, f) =>

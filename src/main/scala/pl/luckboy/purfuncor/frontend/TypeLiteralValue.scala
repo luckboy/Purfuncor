@@ -14,7 +14,7 @@ sealed trait TypeLiteralValue
   override def toString =
     this match {
       case TupleTypeFunValue(n)    => "tuple " + n
-      case FieldTypeFunValue(i)    => "## " + (i + 1)
+      case FieldTypeFunValue(i)    => "##" + (i + 1)
       case FieldsetTypeFunValue(n) => "fieldset " + n
       case TypeBuiltinFunValue(bf) =>
         if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf

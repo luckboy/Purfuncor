@@ -15,7 +15,7 @@ object PurfuncorBuild extends Build {
       libraryDependencies += "org.scalaz" % "scalaz-core_2.10" % "7.0.0",
       libraryDependencies += "org.scalatest" % "scalatest_2.10" % "1.9.1" % "test",
       libraryDependencies += "org.scala-lang" % "jline" % "2.10.1",
-      scalacOptions ++= Seq("-feature", "-language:postfixOps", "-language:higherKinds", "-language:implicitConversions"),
+      scalacOptions ++= Seq("-feature", "-language:postfixOps", "-language:higherKinds", "-language:implicitConversions", "-unchecked"),
       initialCommands in console := "import scalaz._, Scalaz._;",
       initialCommands in console += "import pl.luckboy.purfuncor._;",
       initialCommands in console += "import pl.luckboy.purfuncor.frontend.parser.Parser;",

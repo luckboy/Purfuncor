@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.backend.interp
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scalaz._
 import scalaz.Scalaz._
@@ -28,6 +29,11 @@ sealed trait Value[+T, +U, +V, +W]
       case PartialAppValue(funValue, argValues) => funValue.argCount - argValues.size
       case TupleFunValue(n)                     => n
       case TupleFieldFunValue(_, _)             => 1
+      case MakearrayFunValue(n)                 => n
+      case MakelistFunValue(n)                  => n + 2
+      case FieldFunValue(_)                     => 1
+      case FieldsetFunValue(n)                  => n
+      case FieldSetAppFunValue(n)               => 2
       case ConstructFunValue(n, _)              => n
       case BuiltinFunValue(bf, f)               => f.argCount
       case _                                    => 1
@@ -59,6 +65,8 @@ sealed trait Value[+T, +U, +V, +W]
       case TupleValue(values) if !values.isEmpty        => "(" + this + ")"
       case ConstructValue(_, values) if !values.isEmpty => "(" + this + ")"
       case PartialAppValue(_, _)                        => "(" + this + ")"
+      case FieldValue(_, _)                             => "(" + this + ")"
+      case FieldSetValue(_)                             => "(" + this + ")"
       case _                                            => toString
     }
   
@@ -80,6 +88,11 @@ sealed trait Value[+T, +U, +V, +W]
       case DoubleValue(x)                       => x.toString
       case TupleFunValue(n)                     => "tuple " + n
       case TupleFieldFunValue(n, i)             => "#" + n + " " + (i + 1)
+      case MakearrayFunValue(n)                 => "makearray " + n
+      case MakelistFunValue(n)                  => "makelist " + n
+      case FieldFunValue(i)                     => "##" + (i + 1)
+      case FieldsetFunValue(n)                  => "fieldset " + n
+      case FieldSetAppFunValue(n)               => "###" + n
       case ConstructFunValue(n, _)              => "construct " + n
       case BuiltinFunValue(f, _)                => "#" + f
       case TupleValue(values)                   => "tuple " + values.size + values.map { " " + _.toArgString }.mkString("")
@@ -89,6 +102,8 @@ sealed trait Value[+T, +U, +V, +W]
       case LambdaValue(_, _, _)                 => "<lambda value>"
       case PartialAppValue(funValue, argValues) => (List(funValue) ++ argValues).map { _.toArgString }.mkString(" ")
       case PolyFunValue                         => "<polymorphic functon value>"
+      case FieldValue(i, value)                 => "##" + (i + 1) + " " + value
+      case FieldSetValue(values)                => "fieldset " + values.size + values.map { " " + _.toArgString }.mkString("")
     }
 }
 
@@ -106,6 +121,11 @@ object Value
       case frontend.DoubleValue(x)           => DoubleValue(x)
       case frontend.TupleFunValue(n)         => TupleFunValue(n)
       case frontend.TupleFieldFunValue(n, i) => TupleFieldFunValue(n, i)
+      case frontend.MakearrayFunValue(n)     => MakearrayFunValue(n)
+      case frontend.MakelistFunValue(n)      => MakelistFunValue(n)
+      case frontend.FieldFunValue(i)         => FieldFunValue(i)
+      case frontend.FieldsetFunValue(n)      => FieldsetFunValue(n)
+      case frontend.FieldSetAppFunValue(n)   => FieldSetAppFunValue(n)
       case frontend.BuiltinFunValue(bf)      => BuiltinFunValue.fromBuiltinFunction(bf)
     }
 }
@@ -158,6 +178,75 @@ case class TupleFieldFunValue[+T, +U, +V, W](n: Int, i: Int) extends Value[T, U,
     }
 }
 
+case class MakearrayFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    if(argValues.size === n)
+      (env, ArrayValue(argValues.toVector))
+    else
+      (env, NoValue.fromString("illegal application"))
+}
+
+case class MakelistFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    if(argValues.size === n + 2) {
+      (argValues.headOption |@| argValues.lastOption) {
+        (funValue, nilValue) =>
+          argValues.drop(1).take(n).foldRight((env, nilValue)) {
+            case (elemValue, (newEnv, listValue)) => appS(funValue, Vector(elemValue, listValue))(newEnv)
+          }
+      }.getOrElse((env, NoValue.fromString("illegal application")))
+    } else
+      (env, NoValue.fromString("illegal application"))
+}
+
+case class FieldFunValue[+T, +U, +V, +W](i: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    argValues match {
+      case Seq(argValue) => (env, FieldValue(i, argValue))
+      case _             => (env, NoValue.fromString("illegal application"))
+    }
+}
+
+case class FieldsetFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    if(argValues.size === n)
+      (env, FieldSetValue(argValues.toVector))
+    else
+      (env, NoValue.fromString("illegal application"))
+}
+
+case class FieldSetAppFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+    argValues match {
+      case Seq(funValue, FieldSetValue(fieldValues)) =>
+        if(fieldValues.size === n) {
+          if(n > 0) {
+            val optFieldArgValueMap = fieldValues.foldLeft(some(IntMap[Value[T2, U2, V2, W2]]())) {
+              case (Some(fieldArgValueMap), FieldValue(i, value)) => some(fieldArgValueMap + (i -> value))
+              case (Some(_), _)                                 => none
+              case (None, _)                                    => none
+            }
+            optFieldArgValueMap.map {
+              fieldArgValueMap =>
+                (0 until fieldArgValueMap.size).foldLeft(some(Vector[Value[T2, U2, V2, W2]]())) {
+                  case (Some(fieldArgValues), i) => fieldArgValueMap.get(i).map { fieldArgValues :+ _ }
+                  case (None, _)                 => none
+                }.map { appS(funValue, _)(env) }.getOrElse((env, NoValue.fromString("index out of bound")))
+            }.getOrElse((env, NoValue.fromString("illegal value")))
+          } else
+            (env, funValue)
+        } else
+          (env, NoValue.fromString("illegal number of fields"))
+      case _                                         =>
+        (env, NoValue.fromString("illegal application"))
+    }
+}
+
 case class ConstructFunValue[+T, +U, +V, +W](n: Int, i: Int) extends Value[T, U, V, W]
 {
   def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
@@ -191,6 +280,8 @@ case class LambdaValue[+T, +U, +V, +W](lambda: Lambda[T, U, V], closure: W, file
 case class PartialAppValue[+T, +U, +V, +W](funValue: Value[T, U, V, W], argValues: Seq[Value[T, U, V, W]]) extends Value[T, U, V, W]
 sealed trait PolyFunValue[+T, +U, +V, +W] extends Value[T, U, V, W]
 case object PolyFunValue extends PolyFunValue[Nothing, Nothing, Nothing, Nothing]
+case class FieldValue[+T, +U, +V, +W](i: Int, value: Value[T, U, V, W]) extends Value[T, U, V, W]
+case class FieldSetValue[+T, +U, +V, +W](values: Vector[Value[T, U, V, W]]) extends Value[T, U, V, W]
 
 sealed trait InstanceValue[+T, +U, +V, +W]
 

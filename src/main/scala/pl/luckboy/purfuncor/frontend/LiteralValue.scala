@@ -25,9 +25,9 @@ sealed trait LiteralValue
       case TupleFieldFunValue(n, i) => "#" + n + " " + (i + 1)
       case MakearrayFunValue(n)     => "makearray " + n
       case MakelistFunValue(n)      => "makelist " + n
-      case FieldFunValue(i)         => "## " + (i + 1)
+      case FieldFunValue(i)         => "##" + (i + 1)
       case FieldsetFunValue(n)      => "fieldset " + n
-      case FieldSetAppFunValue(n)   => "### " + n
+      case FieldSetAppFunValue(n)   => "###" + n
       case BuiltinFunValue(f)       => "#" + f.toString
     }
 }

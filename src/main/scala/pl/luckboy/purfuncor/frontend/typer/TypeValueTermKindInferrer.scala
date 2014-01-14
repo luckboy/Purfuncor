@@ -24,6 +24,12 @@ object TypeValueTermKindInferrer
       case TupleType(args) =>
         val (env2, res) = inferTypeValueTermKindsS(args)(env)
         res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
+      case FieldType(_, term2) =>
+        val (env2, kind) = inferTypeValueTermKindS(term2)(env)
+        appStarKindS(Seq(kind))(env2)
+      case FieldSetType(_, term2) =>
+        val (env2, kind) = inferTypeValueTermKindS(term2)(env)
+        appStarKindS(Seq(kind))(env2)
       case BuiltinType(bf, args) =>
         val (env2, res) = inferTypeValueTermKindsS(args)(env)
         res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
