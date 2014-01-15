@@ -674,6 +674,37 @@ object TypeValueTermUnifier
       _ <- State(envSt.setReturnKindS(unifiedRetKindRes.valueOr { _.toNoKind }))
     } yield (unifiedRetKindRes.map { _ => z })).run(env)
   
+  @tailrec
+  private def matchesFunctionTypesWithoutTypeMatchingS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+    (term1, term2) match {
+      case (BuiltinType(TypeBuiltinFunction.Fun, Seq(argTerm1, retTerm1)), BuiltinType(TypeBuiltinFunction.Fun, Seq(argTerm2, retTerm2))) =>
+        matchesTypeValueTermsS(argTerm1, argTerm2)(z)(f)(env) match {
+          case (env2, Success(x))      =>
+            val (env3, argKind) = envSt.returnKindFromEnvironmentS(env2)
+            envSt.appStarKindS(Seq(argKind))(env3) match {
+              case (env4, Success(_))      => matchesFunctionTypesWithoutTypeMatchingS(retTerm1, retTerm2)(x)(f)(env4)
+              case (env4, Failure(noType)) => (env4, noType.failure)
+            }
+          case (env2, Failure(noType)) =>
+            (env2, noType.failure)
+        }
+      case (_, _) =>
+        val (env2, res) = matchesTypeValueTermsS(term1, term2)(z)(f)(env)
+        res.flatMap {
+          x =>
+            val (env3, kind) = envSt.returnKindFromEnvironmentS(env2)
+            val (env4, res2) = envSt.appStarKindS(Seq(kind))(env3)
+            res2.map { envSt.setReturnKindS(_)(env4).mapElements(identity, _ => x.success) }
+        }.valueOr { nt => (env2, nt.failure) }
+    }
+
+  private def matchesFunctionTypesS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
+    val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+    val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
+    val (env4, res) = matchesFunctionTypesWithoutTypeMatchingS(term1, term2)(z)(f)(env3)
+    envSt.setCurrentTypeMatchingS(savedTypeMatching)(env4).mapElements(identity, _ => res)
+  }
+  
   def matchesTypeValueTermsS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env7, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env2) match {
@@ -689,6 +720,8 @@ object TypeValueTermUnifier
                     matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
                   case (FieldSetType(n1, term3), FieldSetType(n2, term4)) if n1 === n2 =>
                     matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
+                  case (BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _))) =>
+                    matchesFunctionTypesS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
                   case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
                     matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
                   case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 &&  args1.size === args2.size =>
