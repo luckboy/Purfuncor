@@ -35,8 +35,20 @@ object LambdaIndexer
     cas match {
       case Case(name, typ, body, lambdaInfo) =>
         val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
-        (idx2, Case(name, transformTypeTermFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx)))
+        (idx2, Case(name, transformCaseTypeOptionFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx)))
     }
+  
+  def transformCaseTypeFromIndexS[T, U](caseType: CaseType[TypeSimpleTerm[T, U]])(idx: Int) =
+    caseType match {
+      case DefinedCaseType(term)  => transformTypeTermFromIndexS(term)(idx).mapElements(identity, DefinedCaseType(_))
+      case MatchingCaseType(term) => transformTypeTermFromIndexS(term)(idx).mapElements(identity, MatchingCaseType(_))
+    }
+  
+  def transformCaseTypeOptionFromIndexS[T, U](caseType: Option[CaseType[TypeSimpleTerm[T, U]]])(idx: Int) =
+    caseType.map { transformCaseTypeFromIndexS(_)(idx).mapElements(identity, some) }.getOrElse((idx, none))
+    
+  def transformCaseTypeOptionFromIndex[T, U](caseType: Option[CaseType[TypeSimpleTerm[T, U]]]) =
+    State(transformCaseTypeOptionFromIndexS[T, U](caseType))
   
   def transformCaseNelFromIndexS[T, U, V, W](cases: NonEmptyList[Case[T, U, TypeSimpleTerm[V, W]]])(idx: Int) =
     transformTermNelFromIndexS1(cases)(idx)(transformCaseFromIndexS(_)(_))

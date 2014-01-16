@@ -76,9 +76,20 @@ object Resolver
     }.getOrElse(Arg(arg.name, none, arg.pos).successNel)
 
   def transformCase[T, U](cas: Case[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
-    (transformTypeTerm(cas.typ)(scope.copy(localVarNames = Set())) |@| transformTerm(cas.body)(scope.withLocalVars(cas.name.toSet))) {
+    (transformCaseTypeOption(cas.typ)(scope) |@| transformTerm(cas.body)(scope.withLocalVars(cas.name.toSet))) {
       Case(cas.name, _, _, cas.lambdaInfo)
     }
+    
+  def transformCaseType[T, U](caseType: CaseType[TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
+    caseType match {
+      case DefinedCaseType(term)  =>
+        transformTypeTerm(term)(scope.copy(localVarNames = Set())).map { DefinedCaseType(_) }
+      case MatchingCaseType(term) =>
+        transformTypeTerm(term)(scope.copy(localVarNames = Set())).map { MatchingCaseType(_) }
+    }
+  
+  def transformCaseTypeOption[T, U](caseType: Option[CaseType[TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope) =
+    caseType.map { transformCaseType(_)(scope).map(some) }.getOrElse(none.success)
     
   def transformCaseNel[T, U](cases: NonEmptyList[Case[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]]])(scope: Scope) =
     transformTermNel1(cases)(transformCase(_)(scope))

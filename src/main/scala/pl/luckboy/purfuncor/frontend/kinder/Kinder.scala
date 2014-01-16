@@ -67,10 +67,19 @@ object Kinder
   def transformCase[T, U, V, W, X, Y, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]) =
     cas match {
       case Case(name, typ, body, lambdaInfo) =>
-        transformTypeTermWithKindInference(typ)(env).flatMap { 
-          case (tt, _) => transformTerm(body)(env).map { Case(name, tt, _, lambdaInfo) }
+        transformCaseTypeOption(typ)(env).flatMap { 
+          tt => transformTerm(body)(env).map { Case(name, tt, _, lambdaInfo) }
         }
     }
+  
+  def transformCaseType[T, U, V, W, E](caseType: CaseType[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) =
+    caseType match {
+      case DefinedCaseType(term)  => transformTypeTermWithKindInference(term)(env).map { p => DefinedCaseType(p._1) }
+      case MatchingCaseType(term) => transformTypeTermWithKindInference(term)(env).map { p => MatchingCaseType(p._1) }
+    }
+  
+  def transformCaseTypeOption[T, U, V, W, E](caseType: Option[CaseType[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[T, lmbdindexer.TypeLambdaInfo[U]], E, Kind], envSt: KindInferenceEnvironmentState[E, V], enval: KindInferenceEnvironmental[E, V, W]) =
+    caseType.map { transformCaseType(_)(env).map(some) }.getOrElse(none.success)
     
   def transformCaseNel[T, U, V, W, X, Y, E](cases: NonEmptyList[Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]): ValidationNel[AbstractError, NonEmptyList[Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, Y]]]]] =
     transformTermNel1(cases)(env)(transformCase(_)(_))

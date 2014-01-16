@@ -13,7 +13,8 @@ import scalaz.Scalaz._
 
 case class Lexer() extends StdLexical
 {
-  delimiters ++= List("(", ")", "{", "}", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "&", "|", "->", "*", "###")
+  delimiters ++= List("(", ")", "{", "}", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "&", "|", "->", "*",
+      "###", "!")
   reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import", "type", "unittype", "construct", 
       "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset")
   

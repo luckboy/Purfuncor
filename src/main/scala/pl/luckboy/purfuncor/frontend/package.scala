@@ -51,7 +51,7 @@ package object frontend
           termIndenting(showing).indentedStringFrom(term)(n) + " select {\n" +
           cases.map {
             case Case(name, typ, body, lambdaInfo) =>
-              (" " * (n + 2)) + "(" + name.getOrElse("_") + ": " + showing.stringFrom(typ) + ") " +
+              (" " * (n + 2)) + typ.map { ct => "(" + name.getOrElse("_") + caseTypeShowing(showing).stringFrom(ct) + ")" }.getOrElse(name.getOrElse("_")) + " " +
               (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
               "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)
           }.list.mkString("\n") + "\n" +
@@ -62,6 +62,14 @@ package object frontend
           (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
           "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2) + "\n" +
           (" " * n) + "}"
+      }
+  }
+  
+  implicit def caseTypeShowing[T](implicit showing: Showing[Term[T]]): Showing[CaseType[T]] = new Showing[CaseType[T]] {
+    override def stringFrom(x: CaseType[T]) =
+      x match {
+        case DefinedCaseType(term) => ": " + showing.stringFrom(term)
+        case MatchingCaseType(term) => "! " + showing.stringFrom(term)
       }
   }
 

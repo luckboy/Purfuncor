@@ -124,27 +124,30 @@ case class SymbolTypeInferenceEnvironment[T, U](
     }.valueOr { nt => (env, NoType.fromNoTypeValue(nt).failure) }
   }
   
-  def withLocalVarTypes(typeTerms: Map[LocalSymbol, Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
-    val (env, res) = typeTerms.foldLeft((this, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
-      case ((newEnv, Success(newTypes)), (sym, typeTerm)) =>
-        val (newEnv2, newRes2) = typeTerm.map {
-          newEnv.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => (some(dt), InferringType(dt.term)) })
-        }.getOrElse {
-          val (newEnv2, newRes) = allocateTypeValueTermParamsS(TypeParamApp(0, Nil, 0))(Map(), 0)(newEnv)
-          (newEnv2, newRes.map { f => (none, InferringType(f._4)) })
-        }
-        newRes2.map {
-          case (dt, t) => (dt.map(newEnv2.withDefinedType).getOrElse(newEnv2), (newTypes + (sym -> t)).success)
-        }.valueOr { nt => (newEnv2, nt.failure) }
-      case ((newEnv, Failure(noType)), _ )                =>
-        (newEnv, noType.failure)
-    }
-    res.map { env.withLocalVarTypesForLet(_)(f) }.valueOr { (env, _) }
-  }
+  def withLocalVarTypes(typeTerms: Map[LocalSymbol, Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) =
+    withLocalVarTypesForCase(typeTerms.mapValues { _.map { DefinedCaseType(_) } }, none)(f)
   
   def withLocalVarTypesForLet(types: Map[LocalSymbol, Type[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
     val (env, typ) = f(pushLocalVarTypes(types).withCurrentLocalTypeTable(TypeTable(currentLocalTypeTable.types ++ types)))
     (env.popLocalVarTypes(types.keySet), typ)
+  }
+
+  def withLocalVarTypesForCase(caseTypes: Map[LocalSymbol, Option[CaseType[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]], defaultType: Option[Type[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
+    val (env, res) = caseTypes.foldLeft((this, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+      case ((newEnv, Success(newTypes)), (sym, caseType)) =>
+        val (newEnv3, newRes2) = caseType.map {
+          ct => newEnv.definedTypeFromTypeTerm(ct.term).mapElements(identity, _.map { dt => (if(ct.isDefinedCaseType) some(dt) else none, InferringType(dt.term)) })
+        }.orElse(defaultType.map { t => (newEnv, (none, t).success) }).getOrElse {
+          val (newEnv2, newRes) = allocateTypeValueTermParamsS(TypeParamApp(0, Nil, 0))(Map(), 0)(newEnv)
+          (newEnv2, newRes.map { f => (none, InferringType(f._4)) })
+        }
+        newRes2.map {
+          case (dt, t) => (dt.map(newEnv3.withDefinedType).getOrElse(newEnv3), (newTypes + (sym -> t)).success)
+        }.valueOr { nt => (newEnv3, nt.failure) }
+      case ((newEnv, Failure(noType)), _ )                =>
+        (newEnv, noType.failure)
+    }
+    res.map { env.withLocalVarTypesForLet(_)(f) }.valueOr { (env, _) }
   }
   
   def withTypeParamForest(paramForest: ParamForest[TypeValueTerm[GlobalSymbol]]) = copy(typeParamForest = paramForest)

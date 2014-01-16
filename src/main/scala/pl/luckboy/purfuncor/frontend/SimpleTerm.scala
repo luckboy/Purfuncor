@@ -25,4 +25,14 @@ case class Bind[+T, +U, +V](name: String, body: Term[SimpleTerm[T, U, V]], pos: 
 
 case class Arg[+V](name: Option[String], typ: Option[Term[V]], pos: Position)
 
-case class Case[+T, +U, +V](name: Option[String], typ: Term[V], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U)
+case class Case[+T, +U, +V](name: Option[String], typ: Option[CaseType[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U)
+
+sealed trait CaseType[+V]
+{
+  def term: Term[V]
+  
+  def isDefinedCaseType = isInstanceOf[DefinedCaseType[V]]
+}
+
+case class DefinedCaseType[+V](term: Term[V]) extends CaseType[V]
+case class MatchingCaseType[+V](term: Term[V]) extends CaseType[V]

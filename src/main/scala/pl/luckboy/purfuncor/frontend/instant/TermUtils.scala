@@ -33,7 +33,7 @@ object TermUtils
         Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy(polyFun = some(ConstructFunction), pos = pos))
       case Simple(Select(term, cases, lambdaInfo), pos)    =>
         cases.foldLeft(Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo).copy[Y, W](polyFun = some(SelectFunction), pos = pos)) ++ preinstantiationLambdaInfosFromTerm(term)) {
-          (lis, c) => lis ++ preinstantiationLambdaInfosFromTerm(c.body) + (c.lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](c.lambdaInfo).copy(polyFun = some(ConstructFunction), isCase = true, pos = c.typ.pos))
+          (lis, c) => lis ++ preinstantiationLambdaInfosFromTerm(c.body) + (c.lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](c.lambdaInfo).copy(polyFun = some(ConstructFunction), isCase = true, pos = c.typ.map { _.term.pos }.getOrElse(pos)))
         }
       case Simple(Extract(term, _, body, lambdaInfo), pos) =>
         Map(lambdaInfo.idx -> PreinstantiationLambdaInfo.fromLambdaInfo[U, V, W, Y](lambdaInfo).copy(pos = pos)) ++ preinstantiationLambdaInfosFromTerm(term) ++ preinstantiationLambdaInfosFromTerm(body)

@@ -517,15 +517,19 @@ package object typer
   }
   
   implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {
-    private def inferCaseTypeS(cas: Case[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+    private def inferCaseTypeS(cas: Case[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], defaultType: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       cas match {
         case Case(name, typ, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           env.withLambdaIdx(lambdaIdx) {
-            _.withLocalVarTypes(name.map { s => Map(LocalSymbol(s) -> some(typ)) }.getOrElse(Map())) {
+            _.withLocalVarTypesForCase(name.map { s => Map(LocalSymbol(s) -> typ) }.getOrElse(Map()), some(defaultType)) {
               newEnv =>
                 val (newEnv2, bodyInfo) = inferS(body)(newEnv)
                 val (newEnv3, argInfo) = name.map { s => (newEnv2, newEnv.varType(LocalSymbol(s))) }.getOrElse {
-                  newEnv.definedTypeFromTypeTerm(typ).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+                  typ.map {
+                    ct => newEnv.definedTypeFromTypeTerm(ct.term).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
+                  }.getOrElse {
+                    (newEnv2, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
+                  }
                 }
                 if(!bodyInfo.isNoType && !argInfo.isNoType)
                   (newEnv3.withCurrentPolyFunType(some(argInfo)), bodyInfo)
@@ -570,14 +574,14 @@ package object typer
       select match {
         case Select(term, cases, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
           val (env2, termType) = inferS(term)(env)
-          val (env3, firstCaseType) = inferCaseTypeS(cases.head)(env2)
+          val (env3, firstCaseType) = inferCaseTypeS(cases.head, termType)(env2)
           val res = firstCaseType match {
             case noType: NoType[GlobalSymbol] => noType.failure
             case caseType                     => NonEmptyList(caseType).success
           }
           val (env4, res2) = cases.tail.foldLeft((env3, res)) {
             case ((newEnv, newRes), cas) =>
-              inferCaseTypeS(cas)(newEnv) match {
+              inferCaseTypeS(cas, termType)(newEnv) match {
                 case (newEnv2, noType: NoType[GlobalSymbol]) =>
                   (newEnv2, newRes.flatMap { _ => noType.failure }.valueOr { nt => (nt |+| noType).failure })
                 case (newEnv2, caseInfo)                     =>
