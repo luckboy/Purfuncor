@@ -50,7 +50,7 @@ package object frontend
         case Select(term, cases, lambdaInfo)       =>
           termIndenting(showing).indentedStringFrom(term)(n) + " select {\n" +
           cases.map {
-            case Case(name, typ, body, lambdaInfo) =>
+            case Case(name, typ, body, lambdaInfo, _) =>
               (" " * (n + 2)) + typ.map { ct => "(" + name.getOrElse("_") + caseTypeShowing(showing).stringFrom(ct) + ")" }.getOrElse(name.getOrElse("_")) + " " +
               (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
               "=> " + termIndenting(showing).indentedStringFrom(body)(n + 2)

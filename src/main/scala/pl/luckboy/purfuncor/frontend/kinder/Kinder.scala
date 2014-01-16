@@ -66,9 +66,9 @@ object Kinder
   
   def transformCase[T, U, V, W, X, Y, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]]])(env: E)(implicit inferrer: Inferrer[TypeSimpleTerm[V, lmbdindexer.TypeLambdaInfo[W]], E, Kind], envSt: KindInferenceEnvironmentState[E, X], enval: KindInferenceEnvironmental[E, X, Y]) =
     cas match {
-      case Case(name, typ, body, lambdaInfo) =>
+      case Case(name, typ, body, lambdaInfo, pos) =>
         transformCaseTypeOption(typ)(env).flatMap { 
-          tt => transformTerm(body)(env).map { Case(name, tt, _, lambdaInfo) }
+          tt => transformTerm(body)(env).map { Case(name, tt, _, lambdaInfo, pos) }
         }
     }
   

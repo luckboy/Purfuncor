@@ -89,7 +89,7 @@ package object interp
       value match {
         case integerValue: IntegerValue[Any, Any, Any, Any] =>
           (env, cases.find {
-            case Case(_, _, _, caseLambdaInfo) =>
+            case Case(_, _, _, caseLambdaInfo, _) =>
               caseLambdaInfo.insts.exists {
                 case instant.ZeroIntegerConstructInstance(_) =>
                   integerValue.isZero
@@ -107,7 +107,7 @@ package object interp
           }.toSuccess(NoValue.fromString("not found case or incorrect case instances")))
         case arrayValue @ ArrayValue(_) =>
           (env, cases.find {
-            case Case(_, _, _, caseLambdaInfo) =>
+            case Case(_, _, _, caseLambdaInfo, _) =>
               caseLambdaInfo.insts.exists {
                 case instant.EmptyArrayConstructInstance =>
                   arrayValue.isEmpty
@@ -125,7 +125,7 @@ package object interp
           }.toSuccess(NoValue.fromString("not found case or incorrect case instances")))
         case ConstructValue(i, _) =>
           (env, cases.find {
-            case Case(_, _, _, caseLambdaInfo) =>
+            case Case(_, _, _, caseLambdaInfo, _) =>
               caseLambdaInfo.insts.exists { 
                 case instant.ConstructInstance(j, _, _) =>
                   i === j
@@ -174,7 +174,7 @@ package object interp
           val (env2, value) = evaluateS(term)(env)
           val (env3, res) = extendedEval.selectS(value, cases.list, lambdaInfo)(env2)
           res match {
-            case Success(Case(name, _, body, _)) =>
+            case Success(Case(name, _, body, _, _)) =>
               env3.withLocalVars(name.map { s => Map(LocalSymbol(s) -> value) }.getOrElse(Map())) { evaluateS(body)(_) }
             case Failure(noValue)                =>
               (env3, noValue)

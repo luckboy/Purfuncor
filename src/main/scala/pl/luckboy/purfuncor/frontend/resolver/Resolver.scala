@@ -77,7 +77,7 @@ object Resolver
 
   def transformCase[T, U](cas: Case[parser.Symbol, T, TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =
     (transformCaseTypeOption(cas.typ)(scope) |@| transformTerm(cas.body)(scope.withLocalVars(cas.name.toSet))) {
-      Case(cas.name, _, _, cas.lambdaInfo)
+      Case(cas.name, _, _, cas.lambdaInfo, cas.pos)
     }
     
   def transformCaseType[T, U](caseType: CaseType[TypeSimpleTerm[parser.Symbol, U]])(scope: Scope) =

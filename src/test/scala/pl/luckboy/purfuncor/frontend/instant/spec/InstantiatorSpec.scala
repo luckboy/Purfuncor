@@ -382,11 +382,11 @@ f x = x select {
                           inside(cases1) {
                             case NonEmptyList(case11, case12) =>
                               inside(case11) {
-                                case Case(_, _, _, LambdaInfo(lambdaInfo11, 3, _, insts11)) =>
+                                case Case(_, _, _, LambdaInfo(lambdaInfo11, 3, _, insts11), _) =>
                                   inside(insts11) { 
                                     case List(LocalInstance(localInstIdx111)) =>
                                       inside(case12) {
-                                        case Case(_, _, _, LambdaInfo(lambdaInfo12, 4, _, insts12)) =>
+                                        case Case(_, _, _, LambdaInfo(lambdaInfo12, 4, _, insts12), _) =>
                                           inside(insts12) { 
                                             case List(LocalInstance(localInstIdx121)) =>
                                               testInstArgs(localInstIdx11, localInstIdx111, localInstIdx121)

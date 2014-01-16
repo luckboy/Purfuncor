@@ -93,6 +93,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class ArgWrapper(arg: Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class TypeArgWrapper(typeArg: TypeArg) extends Positional
   case class KindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) extends Positional
+  case class CaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
     wrapper.term match {
@@ -132,6 +133,8 @@ object Parser extends StandardTokenParsers with PackratParsers
       case kindTerm @ Star(_, _)     => kindTerm.copy(pos = wrapper.pos)
     }
   implicit def kindTermWrapperOptionToKindTermOption(wrapper: Option[KindTermWrapper]) = wrapper.map(kindTermWrapperToKindTerm)
+  implicit def caseWrapperToCase(wrapper: CaseWrapper) = wrapper.cas.copy(pos = wrapper.pos)
+  implicit def caseWrapperNelToCaseNel(wrappers: NonEmptyList[CaseWrapper]) = wrappers.map { caseWrapperToCase(_) }
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
   implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
@@ -141,6 +144,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def argToArgWrapper(arg: Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = ArgWrapper(arg)
   implicit def typeArgToTypeArgWrapper(typeArg: TypeArg) = TypeArgWrapper(typeArg)
   implicit def kindTermToKindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) = KindTermWrapper(kindTerm)
+  implicit def caseToWrapperCase(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
 
@@ -246,11 +250,11 @@ object Parser extends StandardTokenParsers with PackratParsers
     })
     lazy val cas = namedCase | wildcardCase
     lazy val namedCase = namedCase1 | namedCase2
-    lazy val namedCase1 = ident ~- ("=>" ~-> expr) ^^ { case s ~ t => Case(some(s), none, t, LambdaInfo) }
-    lazy val namedCase2 = (("(" ~-> ident ~~ (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case (s ~ ct) ~ t => Case(some(s), ct, t, LambdaInfo) }
+    lazy val namedCase1 = p(ident ~- ("=>" ~-> expr) ^^ { case s ~ t => Case(some(s), none, t, LambdaInfo, NoPosition) })
+    lazy val namedCase2 = p((("(" ~-> ident ~~ (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case (s ~ ct) ~ t => Case(some(s), ct, t, LambdaInfo, NoPosition) })
     lazy val wildcardCase = wildcardCase2
-    lazy val wildcardCase1 = "_" ~~ "=>" ~-> expr ^^ { case t => Case(none, none, t, LambdaInfo) }
-    lazy val wildcardCase2 = (("(" ~-> "_" ~~> (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case ct ~ t => Case(none, ct, t, LambdaInfo) }
+    lazy val wildcardCase1 = p("_" ~~ "=>" ~-> expr ^^ { case t => Case(none, none, t, LambdaInfo, NoPosition) })
+    lazy val wildcardCase2 = p((("(" ~-> "_" ~~> (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case ct ~ t => Case(none, ct, t, LambdaInfo, NoPosition) })
     lazy val extract = p(exprN ~ (("extract" ~- "{") ~-> (arg :+) ~- ("=>" ~-> expr) <~- "}") ^^ {
       case t1 ~ (as ~ t2) => Simple(Extract(t1, as, t2, LambdaInfo), NoPosition)
     })

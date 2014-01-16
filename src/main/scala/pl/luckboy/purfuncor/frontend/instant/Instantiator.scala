@@ -62,11 +62,11 @@ object Instantiator
   
   def transformCase[T, U, V, W, X, Y, Z, TT, E](cas: Case[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]])(env: E)(implicit enval: InstantiationEnvironmental[E, TT, W]) =
     cas match {
-      case Case(name, typ, body, lambdaInfo) =>
+      case Case(name, typ, body, lambdaInfo, pos) =>
         for {
           body2 <- transformTerm(body)(env)
           lambdaInfo2 <- transformLambdaInfo(lambdaInfo)(env)
-        } yield Case(name, typ, body2, lambdaInfo2)
+        } yield Case(name, typ, body2, lambdaInfo2, pos)
     }
   
   def transformTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, typer.LambdaInfo[U, V, W], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]])(env: E)(implicit enval: InstantiationEnvironmental[E, TT, W]): ValidationNel[AbstractError, Term[SimpleTerm[T, LambdaInfo[U, V, W, TT], TypeSimpleTerm[X, TypeLambdaInfo[Y, Z]]]]] =

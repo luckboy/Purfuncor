@@ -156,11 +156,11 @@ object Typer
   
   def transformCase[T, U, V, W, X, Y, Z, TT, E](cas: Case[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Case[T, LambdaInfo[U, Z, TT], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]] =
     cas match {
-      case Case(name, typ, body, lambdaInfo) =>
+      case Case(name, typ, body, lambdaInfo, pos) =>
         for {
           body2 <- transformTerm(body)(env)
           lambdaInfo2 <- transformLambdaInfo(lambdaInfo)(env)
-        } yield Case(name, typ, body2, lambdaInfo2)
+        } yield Case(name, typ, body2, lambdaInfo2, pos)
     }
   
   def transformTerm[T, U, V, W, X, Y, Z, TT, E](term: Term[SimpleTerm[T, lmbdindexer.LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]])(env: E)(implicit enval: TypeInferenceEnvironmental[E, Y, Z, TT]): ValidationNel[AbstractError, Term[SimpleTerm[T, LambdaInfo[U, Z, TT], TypeSimpleTerm[V, TypeLambdaInfo[W, X]]]]] = {

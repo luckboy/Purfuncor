@@ -519,7 +519,7 @@ package object typer
   implicit def symbolSimpleTermTypeInferrer[T, U]: Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] = new Inferrer[SimpleTerm[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol]] {
     private def inferCaseTypeS(cas: Case[Symbol, lmbdindexer.LambdaInfo[T], TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]], defaultType: Type[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       cas match {
-        case Case(name, typ, body, lmbdindexer.LambdaInfo(_, lambdaIdx)) =>
+        case Case(name, typ, body, lmbdindexer.LambdaInfo(_, lambdaIdx), _) =>
           env.withLambdaIdx(lambdaIdx) {
             _.withLocalVarTypesForCase(name.map { s => Map(LocalSymbol(s) -> typ) }.getOrElse(Map()), some(defaultType)) {
               newEnv =>

@@ -33,9 +33,9 @@ object LambdaIndexer
   
   def transformCaseFromIndexS[T, U, V, W](cas: Case[T, U, TypeSimpleTerm[V, W]])(idx: Int): (Int, Case[T, LambdaInfo[U], TypeSimpleTerm[V, TypeLambdaInfo[W]]]) =
     cas match {
-      case Case(name, typ, body, lambdaInfo) =>
+      case Case(name, typ, body, lambdaInfo, pos) =>
         val (idx2, body2) = transformTermFromIndexS(body)(idx + 1)
-        (idx2, Case(name, transformCaseTypeOptionFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx)))
+        (idx2, Case(name, transformCaseTypeOptionFromIndex(typ).run(0)._2, body2, LambdaInfo(lambdaInfo, idx), pos))
     }
   
   def transformCaseTypeFromIndexS[T, U](caseType: CaseType[TypeSimpleTerm[T, U]])(idx: Int) =

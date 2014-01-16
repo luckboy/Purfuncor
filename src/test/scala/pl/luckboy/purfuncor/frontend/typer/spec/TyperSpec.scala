@@ -3320,7 +3320,7 @@ g x = x select {
                       inside(cases1) {
                         case NonEmptyList(case11, case12, case13) =>
                           inside(case11) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo11, 3, typeTable11, polyFunType11, combTypeParams11)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo11, 3, typeTable11, polyFunType11, combTypeParams11), _) =>
                               val syms11 = Set(LocalSymbol("y"))
                               val locs11 = syms11.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo11))
                               locs11 should have size(1)
@@ -3371,7 +3371,7 @@ g x = x select {
                               combTypeParams11 should be ('empty)
                           }
                           inside(case12) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo12, 4, typeTable12, polyFunType12, combTypeParams12)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo12, 4, typeTable12, polyFunType12, combTypeParams12), _) =>
                               val syms12 = Set(LocalSymbol("y"))
                               val locs12 = syms12.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo12))
                               locs12 should have size(1)
@@ -3409,7 +3409,7 @@ g x = x select {
                               combTypeParams12 should be ('empty)
                           }
                           inside(case13) {
-                            case Case(_, _, _, LambdaInfo(lambdaInfo13, 5, typeTable13, polyFunType13, combTypeParams13)) =>
+                            case Case(_, _, _, LambdaInfo(lambdaInfo13, 5, typeTable13, polyFunType13, combTypeParams13), _) =>
                               val syms13 = Set(LocalSymbol("y"))
                               val locs13 = syms13.flatMap(localSymTabular.getLocalLocationFromTable(lambdaInfo13))
                               locs13 should have size(1)
