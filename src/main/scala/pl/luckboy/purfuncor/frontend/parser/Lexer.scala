@@ -50,7 +50,7 @@ case class Lexer() extends StdLexical
 
   def constrIdentChar = elem("upper", _.isUpper)  
   def varIdentChar = elem("lower", _.isLower) | elem('_')
-  def opIdentChar = elem("other punctuation", c => c.getType === Character.OTHER_PUNCTUATION && !";.\"'".contains(c))
+  def opIdentChar = elem("op ident char", c => c.getType === Character.OTHER_PUNCTUATION && !";.\"'".contains(c))
   
   def esc = (
       elem('\\') ~ 'b'												^^^ '\b'
