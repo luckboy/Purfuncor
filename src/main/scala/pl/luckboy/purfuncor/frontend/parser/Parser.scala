@@ -158,6 +158,11 @@ object Parser extends StandardTokenParsers with PackratParsers
     else
       f(s, 10)
 
+  override lazy val ident = varIdent | constrIdent
+  
+  lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
+  lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
+  
   lazy val literalValue = (
       booleanValue
       | charValue

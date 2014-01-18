@@ -13,8 +13,8 @@ import scalaz.Scalaz._
 
 case class Lexer() extends StdLexical
 {
-  delimiters ++= List("(", ")", "{", "}", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "&", "|", "->", "*",
-      "###", "!")
+  delimiters ++= List("(", ")", "{", "}", "[", "]", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "&", "|", "->", 
+      "*", "###", "!")
   reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import", "type", "unittype", "construct", 
       "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset")
   
@@ -25,19 +25,32 @@ case class Lexer() extends StdLexical
   case class LongLit(chars: String) extends Token
   case class FloatLit(chars: String) extends Token
   case class DoubleLit(chars: String) extends Token
+  case class ConstrIdentifier(chars: String) extends Token
+  case class VarIdentifier(chars: String) extends Token
+  case class OpIdentifier(chars: String) extends Token
   
   override def token = (
       floatLit
       | doubleLit
-      | keywordOrIdent
+      | keywordOrVarIdent
+      | constrIdent
+      | varIdent
       | charLit
       | byteLit
       | shortLit
       | longLit
       | intLit
-      | delim)
-  
+      | stringLit
+      | delim
+      | opIdent)
+
+  override def identChar = constrIdentChar | varIdentChar
+      
   override def whitespaceChar = elem("space char",  c => c <= ' ' && c =/= '\n' && c =/= EofCh)
+
+  def constrIdentChar = elem("upper", _.isUpper)  
+  def varIdentChar = elem("lower", _.isLower) | elem('_')
+  def opIdentChar = elem("other punctuation", c => c.getType === Character.OTHER_PUNCTUATION && !";.\"'".contains(c))
   
   def esc = (
       elem('\\') ~ 'b'												^^^ '\b'
@@ -53,14 +66,18 @@ case class Lexer() extends StdLexical
       | elem('\\') ~> octDigit										^^ { c => Integer.parseInt(c.toString, 8).toChar }
       | elem('\\') ~ 'u' ~> repN(4, hexDigit)						^^ { cs => Integer.parseInt(cs.mkString(""), 16).toChar }
       )
-
-  def keywordOrIdent = identChar ~ ((identChar | digit) *)			^^ { 
+  
+  def keywordOrVarIdent = varIdentChar ~ ((identChar | digit) *)	^^ { 
     case c ~ cs => 
       val s = (c :: cs).mkString("")
-      if(reserved.contains(s)) Keyword(s) else Identifier(s)
-  }
-      
-  def charLit = elem('\'') ~> (chrExcept('\'', '\n', EofCh) | esc) <~ elem('\'') ^^ { c => CharLit(c.toString) }
+      if(reserved.contains(s)) Keyword(s) else VarIdentifier(s)
+  }  
+
+  def constrIdent = constrIdentChar ~ ((identChar | digit) *)		^^ { case c ~ cs => ConstrIdentifier((c :: cs).mkString("")) }  
+  def varIdent = elem('`') ~> (chrExcept('`', EofCh) +) <~ elem('`') ^^ { cs => VarIdentifier(cs.mkString("")) }
+  def opIdent = (opIdentChar +)										^^ { cs => OpIdentifier(cs.mkString("")) }
+  
+  def charLit = elem('\'') ~> (esc | chrExcept('\'', '\n', EofCh)) <~ elem('\'') ^^ { c => CharLit(c.toString) }
      
   def hexDigit = elem("hex digit", c => (c >= '0' && c <= '9') || (c.toUpper >= 'A' && c.toUpper <= 'F'))
   def octDigit = elem("oct digit", c => c >= '0' && c <= '7')
@@ -73,15 +90,19 @@ case class Lexer() extends StdLexical
   def integer = hexInteger | octInteger | decInteger
   def hexInteger = '0' ~ (elem('X') | elem('x')) ~ (hexDigit +)		^^ { case c1 ~ c2 ~ cs => (List(c1, c2) ++ cs).mkString("") }
   def octInteger = '0' ~ (octDigit *)								^^ { case c ~ cs => (c :: cs).mkString("") }
-  def decInteger = (digit +)										^^ { case cs => cs.mkString("") }
+  def decInteger = (digit +)										^^ { _.mkString("") }
 
-  def floatLit = float <~ 'f'										^^ FloatLit
+  def floatLit = (float | decInteger) <~ 'f'						^^ FloatLit
   def doubleLit = float												^^ DoubleLit
   
-  def float = (digit +) ~ '.' ~ (digit *) ~ (exp ?)					^^ { 
-    case cs1 ~ c ~ cs2 ~ optS => ((cs1 :+ c) ++ cs2).mkString + optS.getOrElse("")
+  def float = float1 | float2
+  def float1 = (digit +) ~ '.' ~ (digit *) ~ (exp ?)				^^ { 
+    case cs1 ~ c ~ cs2 ~ optS => ((cs1 :+ c) ++ cs2).mkString("") + optS.getOrElse("")
   }
+  def float2 = (digit +) ~ exp										^^ { case cs ~ s => cs.mkString ++ s }
   def exp = (elem('e') | elem('E')) ~ ((elem('+') | elem('-')) ?) ~ (digit +) ^^ {
     case c1 ~ optC2 ~ cs => (List(c1) ++ optC2 ++ cs).mkString("")
   }
+  
+  def stringLit = elem('"') ~> ((esc | chrExcept('"', '\n', EofCh)) *) <~ elem('"') ^^ { cs => StringLit(cs.mkString("")) }
 }
