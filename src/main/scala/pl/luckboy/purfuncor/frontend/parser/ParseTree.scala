@@ -46,6 +46,12 @@ sealed trait Symbol
 {
   def pos: Position
   
+  def withPrefix(s: String) =
+    this match {
+      case GlobalSymbol(names, pos) => GlobalSymbol(names.list.init <::: NonEmptyList(s + names.head), pos)
+      case NormalSymbol(names, pos) => NormalSymbol(names.list.init <::: NonEmptyList(s + names.head), pos)
+    }
+  
   override def toString =
     this match {
       case GlobalSymbol(names, _) => "#." + names.list.mkString(".")

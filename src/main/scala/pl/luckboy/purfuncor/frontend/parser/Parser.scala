@@ -109,12 +109,12 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def typeWrapperOptionToTypeTermOption(wrapper: Option[TypeTermWrapper]) = wrapper.map(typeTermWrapperToTypeTerm)
   implicit def typeTermWrapperNelToTypeTermNel(wrappers: NonEmptyList[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
   implicit def typeTermWrappersToTypeTerms(wrappers: List[TypeTermWrapper]) = wrappers.map { typeTermWrapperToTypeTerm(_) }
-  implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper) = 
+  implicit def symbolWrapperToSymbol(wrapper: SymbolWrapper): Symbol = 
     wrapper.sym match {
       case sym @ GlobalSymbol(_, _) => sym.copy(pos = wrapper.pos)
       case sym @ NormalSymbol(_, _) => sym.copy(pos = wrapper.pos)
     }
-  implicit def moduleSymbolWrapperToModuleSymbol(wrapper: ModuleSymbolWrapper) = 
+  implicit def moduleSymbolWrapperToModuleSymbol(wrapper: ModuleSymbolWrapper): ModuleSymbol = 
     wrapper.sym match {
       case sym @ GlobalModuleSymbol(_, _) => sym.copy(pos = wrapper.pos)
       case sym @ NormalModuleSymbol(_, _) => sym.copy(pos = wrapper.pos)
@@ -158,10 +158,22 @@ object Parser extends StandardTokenParsers with PackratParsers
     else
       f(s, 10)
 
-  override lazy val ident = varIdent | constrIdent
+  override lazy val ident = constrIdent | varIdent
   
   lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
   lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
+  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars }
+  
+  lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent2 = elem("operator identifier 2", t => t.isInstanceOf[lexical.OpIdentifier] && "^".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent3 = elem("operator identifier 3", t => t.isInstanceOf[lexical.OpIdentifier] && "&".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent4 = elem("operator identifier 4", t => t.isInstanceOf[lexical.OpIdentifier] && "=!".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent5 = elem("operator identifier 5", t => t.isInstanceOf[lexical.OpIdentifier] && "<>".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent6 = elem("operator identifier 6", t => t.isInstanceOf[lexical.OpIdentifier] && ":".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent7 = elem("operator identifier 7", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last === '>') ^^ { _.chars }
+  lazy val opIdent8 = elem("operator identifier 8", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last =/= '>') ^^ { _.chars }
+  lazy val opIdent9 = elem("operator identifier 9", t => t.isInstanceOf[lexical.OpIdentifier] && "*/%".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent10 = elem("operator identifier 10", t => t.isInstanceOf[lexical.OpIdentifier] && !"*/%+-:<>=!&^|".contains(t.chars.head)) ^^ { _.chars }
   
   lazy val literalValue = (
       booleanValue
@@ -211,7 +223,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val typeBuiltinFunValue1 = "#" ~-> ident							^? ({
     case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName(s))
   }, "unknown built-in type function " + _)
-  lazy val typeBuiltinFunValue2 = "##" ~> ("&" | "|" | "->")			^? ({
+  lazy val typeBuiltinFunValue2 = "##" ~-> opIdent						^? ({
     case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName(s))
   }, "unknown built-in type function " + _)
   
@@ -236,10 +248,19 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
-    lazy val symbol = globalSymbol | normalSymbol
-    lazy val normalSymbol = p(ident ~~ (("." ~-> ident) ~*)				^^ { case s ~ ss => NormalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
-    lazy val globalSymbol = p("#" ~~ "." ~-> ident ~~ (("." ~-> ident) ~*) ^^ { case s ~ ss => GlobalSymbol(NonEmptyList.nel(s, ss), NoPosition) })
+    lazy val symbol = constrSymbol | varSymbol
     
+    lazy val constrSymbol = constrGlobalSymbol | constrNormalSymbol
+    lazy val constrNormalSymbol = p(normalSymbolPart ~- constrIdent		^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    lazy val constrGlobalSymbol = p(globalSymbolPart ~- constrIdent		^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+
+    lazy val varSymbol = varGlobalSymbol | varNormalSymbol
+    lazy val varNormalSymbol = p(normalSymbolPart ~- varIdent			^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    lazy val varGlobalSymbol = p(globalSymbolPart ~- varIdent			^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    
+    lazy val normalSymbolPart = ((ident <~~ ".") -*)
+    lazy val globalSymbolPart = "#" ~~ "." ~-> ((ident <~~ ".") -*)
+        
     lazy val moduleSymbol = globalModuleSymbol | normalModuleSymbol
     lazy val normalModuleSymbol = p(ident ~~ (("." ~-> ident) ~*)		^^ { case s ~ ss => NormalModuleSymbol(NonEmptyList.nel(s, ss), NoPosition) })
     lazy val globalModuleSymbol = p("#" ~~> (("." ~-> ident) ~*)		^^ { case ss => GlobalModuleSymbol(ss, NoPosition) })
@@ -249,7 +270,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val expr1 = typedExpr | expr2
     lazy val typedExpr = p(expr2 ~~ (":" ~-> typeExpr)					^^ { case t ~ tt => Simple(TypedTerm(t, tt), NoPosition) })    
 
-    lazy val expr2 = select | extract | exprN
+    lazy val expr2 = select | extract | expr3
     lazy val select = p(exprN ~ (("select" ~- "{") ~-> (cas ~ ((semi ~> cas) *)) <~- "}") ^^ {
       case t ~ (c ~ cs) => Simple(Select(t, NonEmptyList.nel(c, cs), LambdaInfo), NoPosition)
     })
@@ -263,11 +284,13 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val extract = p(exprN ~ (("extract" ~- "{") ~-> (arg :+) ~- ("=>" ~-> expr) <~- "}") ^^ {
       case t1 ~ (as ~ t2) => Simple(Extract(t1, as, t2, LambdaInfo), NoPosition)
     })
-
+    
     lazy val caseType = definedCaseType | matchingCaseType
     lazy val definedCaseType = ":" ~-> typeExpr							^^ { DefinedCaseType(_) }
     lazy val matchingCaseType = "!" ~-> typeExpr						^^ { MatchingCaseType(_) }
-    
+
+    lazy val expr3 = opExprParsers.opExpr
+
     lazy val exprN = app | let | lambda | simpleExpr
     lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | construct | "(" ~-> expr <~- ")"
     
@@ -280,8 +303,11 @@ object Parser extends StandardTokenParsers with PackratParsers
     
     lazy val typeExpr: PackratParser[TypeTermWrapper] = typeExpr1
     
-    lazy val typeExpr1 = kindedTypeExpr | typeExprN
-    lazy val kindedTypeExpr = p(typeExprN ~~ (":" ~-> kindExpr)			^^ { case t ~ kt => Simple(KindedTypeTerm(t, kt), NoPosition) })
+    lazy val typeExpr1 = kindedTypeExpr | typeExpr2
+    lazy val kindedTypeExpr = p(typeExpr2 ~~ (":" ~-> kindExpr)			^^ { case t ~ kt => Simple(KindedTypeTerm(t, kt), NoPosition) })
+
+    lazy val typeExpr2 = typeOpExprParsers.opExpr
+    
     lazy val typeExprN = typeApp | typeLambda | simpleTypeExpr
     lazy val simpleTypeExpr = typeVariable | typeLiteral | "(" ~-> typeExpr <~- ")"
     
@@ -297,7 +323,87 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val kindExprN = kindParam | star | "(" ~-> kindExpr <~- ")"
 
     lazy val kindParam = p(ident										^^ { case s => Star(KindParam(s), NoPosition) })
-    lazy val star = p("*"												^^^ Star(KindType, NoPosition))
+    lazy val star = p("*"												^^^ Star(KindType, NoPosition))    
+
+    //
+    // A syntax sugar.
+    //
+    
+    def opSymbolI(parser: PackratParser[String]) = opGlobalSymbolI(parser) | opNormalSymbolI(parser)
+    def opNormalSymbolI(parser: PackratParser[String]) = p(normalSymbolPart ~- parser ^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    def opGlobalSymbolI(parser: PackratParser[String]) = p(globalSymbolPart ~- parser ^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+        
+    abstract class OpExprParsers[T, U <: Positional, V]()(implicit termWrapperToTerm: U => Term[T], termToTermWrapper: Term[T] => U)
+    {
+      implicit def termWrapperOptionToTermOption(wrapper: Option[U]) = wrapper.map(termWrapperToTerm)
+      
+      def builtinFunctionI(parser: PackratParser[String]): PackratParser[V]
+      
+      lazy val op1 = p(opSymbolI(opIdent1) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent1) ^^ makeBuiltinOp)
+      lazy val op2 = p(opSymbolI(opIdent2) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent2) ^^ makeBuiltinOp)
+      lazy val op3 = p(opSymbolI(opIdent3) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent3) ^^ makeBuiltinOp)
+      lazy val op4 = p(opSymbolI(opIdent4) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent4) ^^ makeBuiltinOp)
+      lazy val op5 = p(opSymbolI(opIdent5) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent5) ^^ makeBuiltinOp)
+      lazy val op6 = p(opSymbolI(opIdent6) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent6) ^^ makeBuiltinOp)
+      lazy val op7 = p(opSymbolI(opIdent7) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent7) ^^ makeBuiltinOp)
+      lazy val op8 = p(opSymbolI(opIdent8) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent8) ^^ makeBuiltinOp)
+      lazy val op9 = p(opSymbolI(opIdent9) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent9) ^^ makeBuiltinOp)
+      lazy val op10 = p(opSymbolI(opIdent10) ^^ { makeSymbolOp(_) }) | p("#" ~-> builtinFunctionI(opIdent10) ^^ makeBuiltinOp)
+      lazy val op11 = symbolOp11 | builtinOp11
+      lazy val symbolOp11 = p(opSymbolI(opIdent) 						^^ { 
+        s => makeSymbolOp(symbolWrapperToSymbol(s).withPrefix("unary_")) 
+      })
+      lazy val builtinOp11 = p("#" ~-> builtinFunctionI(opIdent ^^ { "unary_" + _ }) ^^ makeBuiltinOp)
+      
+      lazy val opExpr = opExpr1
+      lazy val opExpr1: PackratParser[U] = p[Term[T], U]((opExpr1 | opExpr2) ~~ op1 ~- (opExpr2 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr2: PackratParser[U] = p[Term[T], U]((opExpr2 | opExpr3) ~~ op2 ~- (opExpr3 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr3: PackratParser[U] = p[Term[T], U]((opExpr3 | opExpr4) ~~ op3 ~- (opExpr4 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr4: PackratParser[U] = p[Term[T], U]((opExpr4 | opExpr5) ~~ op4 ~- (opExpr5 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr5: PackratParser[U] = p[Term[T], U]((opExpr5 | opExpr6) ~~ op5 ~- (opExpr6 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr6: PackratParser[U] = p[Term[T], U](opExpr7 ~~ op6 ~- ((opExpr6 | opExpr7) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr7: PackratParser[U] = p[Term[T], U](opExpr8 ~~ op7 ~- ((opExpr7 | opExpr8) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr8: PackratParser[U] = p[Term[T], U]((opExpr8 | opExpr9) ~~ op8 ~- (opExpr9 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr9: PackratParser[U] = p[Term[T], U]((opExpr9 | opExpr10) ~~ op9 ~- (opExpr10 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr10: PackratParser[U] = p[Term[T], U]((opExpr10 | opExpr11) ~~ op10 ~- (opExpr11 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
+      lazy val opExpr11 = p(op11 ~~ opExprN								^^ { case o ~ t => makeUnaryOpExpr(o, t) })
+      
+      def opExprN: PackratParser[U]
+            
+      def makeBinaryOpExpr(term1: Term[T], op: Term[T], optTerm2: Option[Term[T]]) =
+        App(op, NonEmptyList(term1) :::> optTerm2.toList, NoPosition)
+      
+      def makeUnaryOpExpr(op: Term[T], term: Term[T]) =
+        App(op, NonEmptyList(term), NoPosition)
+        
+      def makeSymbolOp(sym: Symbol): Term[T]
+      
+      def makeBuiltinOp(bf: V): Term[T]
+    }
+    
+    val opExprParsers = new OpExprParsers[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]], TermWrapper, BuiltinFunction.Value] {
+      override def builtinFunctionI(parser: PackratParser[String]) = parser ^? ({
+        case s if BuiltinFunction.values.exists { _.toString === s } => BuiltinFunction.withName(s)
+      }, "unknown built-in function " + _)
+      
+      override def opExprN = exprN
+      
+      override def makeSymbolOp(sym: Symbol) = Simple(Var(sym, LambdaInfo), NoPosition)
+      
+      override def makeBuiltinOp(bf: BuiltinFunction.Value) = Simple(Literal(BuiltinFunValue(bf)), NoPosition)
+    }
+    
+    val typeOpExprParsers = new OpExprParsers[TypeSimpleTerm[Symbol, TypeLambdaInfo], TypeTermWrapper, TypeBuiltinFunction.Value] {
+      override def builtinFunctionI(parser: PackratParser[String]) = parser ^? ({
+        case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunction.withName(s)
+      }, "unknown built-in type function " + _)
+      
+      override def opExprN = typeExprN
+      
+      override def makeSymbolOp(sym: Symbol) = Simple(TypeVar(sym), NoPosition)
+      
+      override def makeBuiltinOp(bf: TypeBuiltinFunction.Value) = Simple(TypeLiteral(TypeBuiltinFunValue(bf)), NoPosition)
+    }
   }
   
   val nlParsers = Parsers()(NlMode.Nl)
