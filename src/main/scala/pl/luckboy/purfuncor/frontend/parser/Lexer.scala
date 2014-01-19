@@ -13,9 +13,9 @@ import scalaz.Scalaz._
 
 case class Lexer() extends StdLexical
 {
-  delimiters ++= List("(", ")", "{", "}", "[", "]", "#", "##", ".", "=", "\\", "=>", ";", "\n", ":", "*", "###", "!")
+  delimiters ++= List("(", ")", "{", "}", "[", "]", "#", "##", ".", "\\", ";", "\n", "###")
   reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import", "type", "unittype", "construct", 
-      "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset")
+      "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset", "=", "=>", ":", "*", "!")
   
   case class CharLit(chars: String) extends Token
   case class ByteLit(chars: String) extends Token
@@ -41,7 +41,7 @@ case class Lexer() extends StdLexical
       | intLit
       | stringLit
       | delim
-      | opIdent)
+      | keywordOrOpIdent)
 
   override def identChar = constrIdentChar | varIdentChar
       
@@ -49,7 +49,7 @@ case class Lexer() extends StdLexical
 
   def constrIdentChar = elem("upper", _.isUpper)  
   def varIdentChar = elem("lower", _.isLower) | elem('_')
-  def opIdentChar = elem("op ident char", c => c.getType === Character.OTHER_PUNCTUATION && !";.\"'".contains(c))
+  def opIdentChar = elem("op ident char", c => c.getType === Character.OTHER_PUNCTUATION && !"#;.\"'".contains(c))
   
   def esc = (
       elem('\\') ~ 'b'												^^^ '\b'
@@ -74,7 +74,11 @@ case class Lexer() extends StdLexical
 
   def constrIdent = constrIdentChar ~ ((identChar | digit) *)		^^ { case c ~ cs => ConstrIdentifier((c :: cs).mkString("")) }  
   def varIdent = elem('`') ~> (chrExcept('`', EofCh) +) <~ elem('`') ^^ { cs => VarIdentifier(cs.mkString("")) }
-  def opIdent = (opIdentChar +)										^^ { cs => OpIdentifier(cs.mkString("")) }
+  def keywordOrOpIdent = (opIdentChar +)							^^ { 
+    cs =>
+      val s = cs.mkString("")
+      if(reserved.contains(s)) Keyword(s) else OpIdentifier(s)
+  }
   
   def charLit = elem('\'') ~> (esc | chrExcept('\'', '\n', EofCh)) <~ elem('\'') ^^ { c => CharLit(c.toString) }
      

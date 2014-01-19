@@ -162,17 +162,17 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
   lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
-  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars }
+  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!"
   
   lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent2 = elem("operator identifier 2", t => t.isInstanceOf[lexical.OpIdentifier] && "^".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent3 = elem("operator identifier 3", t => t.isInstanceOf[lexical.OpIdentifier] && "&".contains(t.chars.head)) ^^ { _.chars }
-  lazy val opIdent4 = elem("operator identifier 4", t => t.isInstanceOf[lexical.OpIdentifier] && "=!".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent4 = elem("operator identifier 4", t => t.isInstanceOf[lexical.OpIdentifier] && "=!".contains(t.chars.head)) ^^ { _.chars } | "!"
   lazy val opIdent5 = elem("operator identifier 5", t => t.isInstanceOf[lexical.OpIdentifier] && "<>".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent6 = elem("operator identifier 6", t => t.isInstanceOf[lexical.OpIdentifier] && ":".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent7 = elem("operator identifier 7", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last === '>') ^^ { _.chars }
   lazy val opIdent8 = elem("operator identifier 8", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last =/= '>') ^^ { _.chars }
-  lazy val opIdent9 = elem("operator identifier 9", t => t.isInstanceOf[lexical.OpIdentifier] && "*/%".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent9 = elem("operator identifier 9", t => t.isInstanceOf[lexical.OpIdentifier] && "*/%".contains(t.chars.head)) ^^ { _.chars } | "*"
   lazy val opIdent10 = elem("operator identifier 10", t => t.isInstanceOf[lexical.OpIdentifier] && !"*/%+-:<>=!&^|".contains(t.chars.head)) ^^ { _.chars }
   
   lazy val literalValue = (
