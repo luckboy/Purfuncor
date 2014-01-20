@@ -271,17 +271,17 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val typedExpr = p(expr2 ~~ (":" ~-> typeExpr)					^^ { case t ~ tt => Simple(TypedTerm(t, tt), NoPosition) })    
 
     lazy val expr2 = select | extract | expr3
-    lazy val select = p(exprN ~ (("select" ~- "{") ~-> (cas ~ ((semi ~> cas) *)) <~- "}") ^^ {
+    lazy val select = p(expr3 ~ (("select" ~- "{") ~-> (cas ~ ((semi ~> cas) *)) <~- "}") ^^ {
       case t ~ (c ~ cs) => Simple(Select(t, NonEmptyList.nel(c, cs), LambdaInfo), NoPosition)
     })
     lazy val cas = namedCase | wildcardCase
     lazy val namedCase = namedCase1 | namedCase2
     lazy val namedCase1 = p(ident ~- ("=>" ~-> expr) ^^ { case s ~ t => Case(some(s), none, t, LambdaInfo, NoPosition) })
-    lazy val namedCase2 = p((("(" ~-> ident ~~ (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case (s ~ ct) ~ t => Case(some(s), ct, t, LambdaInfo, NoPosition) })
+    lazy val namedCase2 = p((("(" ~-> ident ~~ (caseType ?)) <~- ")") ~- ("=>" ~-> noNlParsers.expr) ^^ { case (s ~ ct) ~ t => Case(some(s), ct, t, LambdaInfo, NoPosition) })
     lazy val wildcardCase = wildcardCase2
     lazy val wildcardCase1 = p("_" ~~ "=>" ~-> expr ^^ { case t => Case(none, none, t, LambdaInfo, NoPosition) })
-    lazy val wildcardCase2 = p((("(" ~-> "_" ~~> (caseType ?)) <~- ")") ~- ("=>" ~-> expr) ^^ { case ct ~ t => Case(none, ct, t, LambdaInfo, NoPosition) })
-    lazy val extract = p(exprN ~ (("extract" ~- "{") ~-> (arg :+) ~- ("=>" ~-> expr) <~- "}") ^^ {
+    lazy val wildcardCase2 = p((("(" ~-> "_" ~~> (caseType ?)) <~- ")") ~- ("=>" ~-> noNlParsers.expr) ^^ { case ct ~ t => Case(none, ct, t, LambdaInfo, NoPosition) })
+    lazy val extract = p(expr3 ~ (("extract" ~- "{") ~-> (arg :+) ~- ("=>" ~-> noNlParsers.expr) <~- "}") ^^ {
       case t1 ~ (as ~ t2) => Simple(Extract(t1, as, t2, LambdaInfo), NoPosition)
     })
     
