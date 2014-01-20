@@ -162,7 +162,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
   lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
-  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!"
+  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!" | "->"
   
   lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent2 = elem("operator identifier 2", t => t.isInstanceOf[lexical.OpIdentifier] && "^".contains(t.chars.head)) ^^ { _.chars }
@@ -170,7 +170,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val opIdent4 = elem("operator identifier 4", t => t.isInstanceOf[lexical.OpIdentifier] && "=!".contains(t.chars.head)) ^^ { _.chars } | "!"
   lazy val opIdent5 = elem("operator identifier 5", t => t.isInstanceOf[lexical.OpIdentifier] && "<>".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent6 = elem("operator identifier 6", t => t.isInstanceOf[lexical.OpIdentifier] && ":".contains(t.chars.head)) ^^ { _.chars }
-  lazy val opIdent7 = elem("operator identifier 7", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last === '>') ^^ { _.chars }
+  lazy val opIdent7 = elem("operator identifier 7", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last === '>') ^^ { _.chars } | "->"
   lazy val opIdent8 = elem("operator identifier 8", t => t.isInstanceOf[lexical.OpIdentifier] && "+-".contains(t.chars.head) && t.chars.last =/= '>') ^^ { _.chars }
   lazy val opIdent9 = elem("operator identifier 9", t => t.isInstanceOf[lexical.OpIdentifier] && "*/%".contains(t.chars.head)) ^^ { _.chars } | "*"
   lazy val opIdent10 = elem("operator identifier 10", t => t.isInstanceOf[lexical.OpIdentifier] && !"*/%+-:<>=!&^|".contains(t.chars.head)) ^^ { _.chars }
@@ -251,14 +251,14 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val symbol = constrSymbol | varSymbol
     
     lazy val constrSymbol = constrGlobalSymbol | constrNormalSymbol
-    lazy val constrNormalSymbol = p(normalSymbolPart ~- constrIdent		^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    lazy val constrNormalSymbol = p(((normalSymbolPart <~ rep("\n")) ?) ~ constrIdent ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
     lazy val constrGlobalSymbol = p(globalSymbolPart ~- constrIdent		^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
 
     lazy val varSymbol = varGlobalSymbol | varNormalSymbol
-    lazy val varNormalSymbol = p(normalSymbolPart ~- varIdent			^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    lazy val varNormalSymbol = p(((normalSymbolPart <~ rep("\n")) ?) ~ varIdent ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
     lazy val varGlobalSymbol = p(globalSymbolPart ~- varIdent			^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
     
-    lazy val normalSymbolPart = ((ident <~~ ".") -*)
+    lazy val normalSymbolPart = ((ident <~~ ".") -+)
     lazy val globalSymbolPart = "#" ~~ "." ~-> ((ident <~~ ".") -*)
         
     lazy val moduleSymbol = globalModuleSymbol | normalModuleSymbol
@@ -289,7 +289,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val definedCaseType = ":" ~-> typeExpr							^^ { DefinedCaseType(_) }
     lazy val matchingCaseType = "!" ~-> typeExpr						^^ { MatchingCaseType(_) }
 
-    lazy val expr3 = opExprParsers.opExpr
+    lazy val expr3 = sugarExpr3
 
     lazy val exprN = app | let | lambda | simpleExpr
     lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | construct | "(" ~-> expr <~- ")"
@@ -306,7 +306,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val typeExpr1 = kindedTypeExpr | typeExpr2
     lazy val kindedTypeExpr = p(typeExpr2 ~~ (":" ~-> kindExpr)			^^ { case t ~ kt => Simple(KindedTypeTerm(t, kt), NoPosition) })
 
-    lazy val typeExpr2 = typeOpExprParsers.opExpr
+    lazy val typeExpr2 = sugarTypeExpr2
     
     lazy val typeExprN = typeApp | typeLambda | simpleTypeExpr
     lazy val simpleTypeExpr = typeVariable | typeLiteral | "(" ~-> typeExpr <~- ")"
@@ -329,10 +329,14 @@ object Parser extends StandardTokenParsers with PackratParsers
     // A syntax sugar.
     //
     
+    lazy val sugarExpr3 = opExprParsers.opExpr
+    
+    lazy val sugarTypeExpr2 = typeOpExprParsers.opExpr
+    
     def opSymbolI(parser: PackratParser[String]) = opGlobalSymbolI(parser) | opNormalSymbolI(parser)
-    def opNormalSymbolI(parser: PackratParser[String]) = p(normalSymbolPart ~- parser ^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    def opNormalSymbolI(parser: PackratParser[String]) = p(((normalSymbolPart <~ rep("\n")) ?) ~ parser ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
     def opGlobalSymbolI(parser: PackratParser[String]) = p(globalSymbolPart ~- parser ^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
-        
+    
     abstract class OpExprParsers[T, U <: Positional, V]()(implicit termWrapperToTerm: U => Term[T], termToTermWrapper: Term[T] => U)
     {
       implicit def termWrapperOptionToTermOption(wrapper: Option[U]) = wrapper.map(termWrapperToTerm)
@@ -356,20 +360,20 @@ object Parser extends StandardTokenParsers with PackratParsers
       lazy val builtinOp11 = p("#" ~-> builtinFunctionI(opIdent ^^ { "unary_" + _ }) ^^ makeBuiltinOp)
       
       lazy val opExpr = opExpr1
-      lazy val opExpr1: PackratParser[U] = p[Term[T], U]((opExpr1 | opExpr2) ~~ op1 ~- (opExpr2 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr2: PackratParser[U] = p[Term[T], U]((opExpr2 | opExpr3) ~~ op2 ~- (opExpr3 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr3: PackratParser[U] = p[Term[T], U]((opExpr3 | opExpr4) ~~ op3 ~- (opExpr4 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr4: PackratParser[U] = p[Term[T], U]((opExpr4 | opExpr5) ~~ op4 ~- (opExpr5 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr5: PackratParser[U] = p[Term[T], U]((opExpr5 | opExpr6) ~~ op5 ~- (opExpr6 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr6: PackratParser[U] = p[Term[T], U](opExpr7 ~~ op6 ~- ((opExpr6 | opExpr7) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr7: PackratParser[U] = p[Term[T], U](opExpr8 ~~ op7 ~- ((opExpr7 | opExpr8) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr8: PackratParser[U] = p[Term[T], U]((opExpr8 | opExpr9) ~~ op8 ~- (opExpr9 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr9: PackratParser[U] = p[Term[T], U]((opExpr9 | opExpr10) ~~ op9 ~- (opExpr10 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr10: PackratParser[U] = p[Term[T], U]((opExpr10 | opExpr11) ~~ op10 ~- (opExpr11 ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) })
-      lazy val opExpr11 = p(op11 ~~ opExprN								^^ { case o ~ t => makeUnaryOpExpr(o, t) })
+      lazy val opExpr1: PackratParser[U] = p[Term[T], U]((opExpr1 | opExpr2) ~~ op1 ~ ((rep("\n") ~> opExpr2) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr2
+      lazy val opExpr2: PackratParser[U] = p[Term[T], U]((opExpr2 | opExpr3) ~~ op2 ~ ((rep("\n") ~> opExpr3) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr3
+      lazy val opExpr3: PackratParser[U] = p[Term[T], U]((opExpr3 | opExpr4) ~~ op3 ~ ((rep("\n") ~> opExpr4) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr4
+      lazy val opExpr4: PackratParser[U] = p[Term[T], U]((opExpr4 | opExpr5) ~~ op4 ~ ((rep("\n") ~> opExpr5) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr5
+      lazy val opExpr5: PackratParser[U] = p[Term[T], U]((opExpr5 | opExpr6) ~~ op5 ~ ((rep("\n") ~> opExpr6) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr6
+      lazy val opExpr6: PackratParser[U] = p[Term[T], U](opExpr7 ~~ op6 ~ ((rep("\n") ~> (opExpr6 | opExpr7)) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr7
+      lazy val opExpr7: PackratParser[U] = p[Term[T], U](opExpr8 ~~ op7 ~ ((rep("\n") ~> (opExpr7 | opExpr8)) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr8
+      lazy val opExpr8: PackratParser[U] = p[Term[T], U]((opExpr8 | opExpr9) ~~ op8 ~ ((rep("\n") ~> opExpr9) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr9
+      lazy val opExpr9: PackratParser[U] = p[Term[T], U]((opExpr9 | opExpr10) ~~ op9 ~ ((rep("\n") ~> opExpr10) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr10
+      lazy val opExpr10: PackratParser[U] = p[Term[T], U]((opExpr10 | opExpr11) ~~ op10 ~ ((rep("\n") ~> opExpr11) ?) ^^ { case t1 ~ o ~ optT2 => makeBinaryOpExpr(t1, o, optT2) }) | opExpr11
+      lazy val opExpr11 = p(op11 ~~ opExprN								^^ { case o ~ t => makeUnaryOpExpr(o, t) }) | opExprN
       
       def opExprN: PackratParser[U]
-            
+      
       def makeBinaryOpExpr(term1: Term[T], op: Term[T], optTerm2: Option[Term[T]]) =
         App(op, NonEmptyList(term1) :::> optTerm2.toList, NoPosition)
       
