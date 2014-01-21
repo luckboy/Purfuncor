@@ -31,11 +31,11 @@ object SyntaxSugar
   
   def makeList(terms: List[Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]]) = {
     (pos: Position) =>
-      val conSym = GlobalSymbol(NonEmptyList("predef", "::"), pos)
+      val consSym = GlobalSymbol(NonEmptyList("predef", "::"), pos)
       val nilSym = GlobalSymbol(NonEmptyList("predef", "Nil"), pos)
-      val conTerm = Simple(Var(conSym, LambdaInfo), pos)
+      val consTerm = Simple(Var(consSym, LambdaInfo), pos)
       val nilTerm = Simple(Var(nilSym, LambdaInfo), pos)
-      App(Simple(Literal(MakelistFunValue(terms.size)), pos), conTerm :: terms <::: NonEmptyList(nilTerm), pos)
+      App(Simple(Literal(MakelistFunValue(terms.size)), pos), consTerm :: terms <::: NonEmptyList(nilTerm), pos)
   }
     
   def makeIfElse(condTerm: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]], firstTerm: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]], secondTerm: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = {
