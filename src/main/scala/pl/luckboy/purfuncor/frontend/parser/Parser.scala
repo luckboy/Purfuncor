@@ -9,6 +9,7 @@ package pl.luckboy.purfuncor.frontend.parser
 import scala.io.Source
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.combinator.PackratParsers
+import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scala.util.parsing.input.Positional
 import scalaz._
@@ -18,6 +19,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.frontend.Bind
+import SyntaxSugar._
 
 object Parser extends StandardTokenParsers with PackratParsers
 {
@@ -94,6 +96,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class TypeArgWrapper(typeArg: TypeArg) extends Positional
   case class KindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) extends Positional
   case class CaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
+  case class FunctionWrapper[T](f: Position => T) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
     wrapper.term match {
@@ -101,6 +104,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       case term @ Simple(_, _) => term.copy(pos = wrapper.pos)
     }
   implicit def termWrapperNelToTermNel(wrappers: NonEmptyList[TermWrapper]) = wrappers.map { termWrapperToTerm(_) }
+  implicit def termWrappersToTerms(wrappers: List[TermWrapper]) = wrappers.map { termWrapperToTerm(_) }
   implicit def typeTermWrapperToTypeTerm(wrapper: TypeTermWrapper) =
     wrapper.typeTerm match {
       case term @ App(_, _, _) => term.copy(pos = wrapper.pos)
@@ -147,6 +151,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def caseToWrapperCase(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
+  
+  def pp[T, U <: Positional](parser: Parser[Position => T])(implicit f: T => U) = p(parser ^^ { FunctionWrapper(_) }) ^^ { case w @ FunctionWrapper(g) => f(g(w.pos)) }
 
   lazy val semi = rep1("\n") | (rep("\n") ~ ";" ~ rep("\n"))
 
@@ -291,8 +297,8 @@ object Parser extends StandardTokenParsers with PackratParsers
 
     lazy val expr3 = sugarExpr3
 
-    lazy val exprN = app | let | lambda | simpleExpr
-    lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | construct | "(" ~-> expr <~- ")"
+    lazy val exprN = app | let | lambda | sugarExprN | simpleExpr
+    lazy val simpleExpr: PackratParser[TermWrapper] = variable | literal | construct | sugarSimpleExpr | "(" ~-> nlParsers.expr <~- ")"
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~:+)						^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)					^^ { case bs ~ t => Simple(Let(bs, t, LambdaInfo), NoPosition) })
@@ -309,7 +315,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val typeExpr2 = sugarTypeExpr2
     
     lazy val typeExprN = typeApp | typeLambda | simpleTypeExpr
-    lazy val simpleTypeExpr = typeVariable | typeLiteral | "(" ~-> typeExpr <~- ")"
+    lazy val simpleTypeExpr = typeVariable | typeLiteral | sugarSimpleTypeExpr | "(" ~-> nlParsers.typeExpr <~- ")"
     
     lazy val typeApp = p(simpleTypeExpr ~~ (simpleTypeExpr ~:+)			^^ { case t ~ ts => App(t, ts, NoPosition) })
     lazy val typeLambda = p("\\" ~> (typeArg :+) ~- ("=>" ~-> typeExpr)	 ^^ { case as ~ t => Simple(TypeLambda(as, t, TypeLambdaInfo), NoPosition) })
@@ -320,7 +326,7 @@ object Parser extends StandardTokenParsers with PackratParsers
 
     lazy val kindExpr1: PackratParser[KindTermWrapper] = arrow | kindExprN
     lazy val arrow = p(kindExprN ~~ ("->" ~-> kindExpr1)				^^ { case t1 ~ t2 => Arrow(t1, t2, NoPosition) })
-    lazy val kindExprN = kindParam | star | "(" ~-> kindExpr <~- ")"
+    lazy val kindExprN = kindParam | star | "(" ~-> nlParsers.kindExpr <~- ")"
 
     lazy val kindParam = p(ident										^^ { case s => Star(KindParam(s), NoPosition) })
     lazy val star = p("*"												^^^ Star(KindType, NoPosition))    
@@ -331,7 +337,22 @@ object Parser extends StandardTokenParsers with PackratParsers
     
     lazy val sugarExpr3 = opExprParsers.opExpr
     
+    lazy val sugarExprN = ifElse
+    lazy val sugarSimpleExpr = string | unit | tuple | array | list
+    
+    lazy val ifElse = pp("if" ~-> simpleExpr ~- expr ~- ("else" ~-> expr) ^^ { case t1 ~ t2 ~ t3 => makeIfElse(t1, t2, t3) })
+    lazy val string = pp(stringLit										^^ makeString)
+    lazy val unit = pp("(" ~- ")" 										^^^ makeTuple(Nil))
+    lazy val tuple = pp("(" ~-> nlParsers.expr ~- (("," ~-> nlParsers.expr) -+) <~- ")" ^^ { case t ~ ts => makeTuple(termWrappersToTerms(t :: ts)) })
+    lazy val array = pp("#" ~- "[" ~-> ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ { xs => makeArray(xs.toList.flatMap { case t ~ ts => t :: ts }) })
+    lazy val list = pp("[" ~-> ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ { xs => makeList(xs.toList.flatMap { case t ~ ts => t :: ts }) })
+    
     lazy val sugarTypeExpr2 = typeOpExprParsers.opExpr
+    
+    lazy val sugarSimpleTypeExpr = typeUnit | typeTuple
+    
+    lazy val typeUnit = pp("(" ~- ")"									^^^ makeTypeTuple(Nil))
+    lazy val typeTuple = pp("(" ~-> nlParsers.typeExpr ~- (("," ~-> nlParsers.typeExpr) -+) <~- ")" ^^ { case t ~ ts => makeTypeTuple(typeTermWrappersToTypeTerms(t :: ts)) })
     
     def opSymbolI(parser: PackratParser[String]) = opGlobalSymbolI(parser) | opNormalSymbolI(parser)
     def opNormalSymbolI(parser: PackratParser[String]) = p(((normalSymbolPart <~ rep("\n")) ?) ~ parser ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
