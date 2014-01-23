@@ -315,6 +315,12 @@ sealed trait TypeValueTerm[T]
 
 object TypeValueTerm
 {
+  def normalizedTypeConjunction[T](terms: Set[TypeValueTerm[T]]) =
+    terms.headOption.map { t => if(terms.size === 1) t else TypeConjunction(terms) }.getOrElse(TypeConjunction(terms))
+  
+  def normalizedTypeDisjunction[T](terms: Set[TypeValueTerm[T]]) =
+    terms.headOption.map { t => if(terms.size === 1) t else TypeDisjunction(terms) }.getOrElse(TypeDisjunction(terms))
+  
   def typeValueTermsFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     values.foldLeft((env, Seq[TypeValueTerm[T]]().success[NoTypeValue[T, U, V, W]])) {
       case ((newEnv, Success(ts)), v)      => v.typeValueTermS(newEnv).mapElements(identity, _.map { ts :+ _ })

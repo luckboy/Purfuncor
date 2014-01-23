@@ -85,9 +85,9 @@ object TypeValueTermUtils
           case _                            => none
         }
       case TypeConjunction(terms)        =>
-        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeConjunction(ts.toSet) }
+        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeValueTerm.normalizedTypeConjunction(ts.toSet) }
       case TypeDisjunction(terms)        =>
-        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeDisjunction(ts.toSet) }
+        substituteTypeValueLambdasInTypeValueTerms(terms.toSeq, paramLambdas).map { ts => TypeValueTerm.normalizedTypeDisjunction(ts.toSet) }
     }
   
   def substituteTypeValueLambdas[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) = {
@@ -165,10 +165,10 @@ object TypeValueTermUtils
         (termParams3, TypeParamApp(param2, args2, 0))
       case TypeConjunction(terms)                 =>
         val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
-        (termParams2, TypeConjunction(terms2.toSet))
+        (termParams2, TypeValueTerm.normalizedTypeConjunction(terms2.toSet))
       case TypeDisjunction(terms)                 =>
         val (termParams2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(termParams)
-        (termParams2, TypeDisjunction(terms2.toSet))
+        (termParams2, TypeValueTerm.normalizedTypeDisjunction(terms2.toSet))
     }
   
   def normalizeTypeParams[T](term: TypeValueTerm[T], nextArgParam: Int) =
