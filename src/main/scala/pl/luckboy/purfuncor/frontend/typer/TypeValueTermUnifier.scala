@@ -718,8 +718,6 @@ object TypeValueTermUnifier
                     matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
                   case (FieldType(i1, term3), FieldType(i2, term4)) if i1 === i2 =>
                     matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
-                  case (FieldSetType(n1, term3), FieldSetType(n2, term4)) if n1 === n2 =>
-                    matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
                   case (BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _))) =>
                     matchesFunctionTypesS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
                   case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
@@ -784,8 +782,6 @@ object TypeValueTermUnifier
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { TupleType(_) })
       case FieldType(i, term2) =>
         replaceTypeValueTermParamsS(term2)(f)(env).mapElements(identity, _.map { FieldType(i, _) })
-      case FieldSetType(n, term2) =>
-        replaceTypeValueTermParamsS(term2)(f)(env).mapElements(identity, _.map { FieldSetType(n, _) })
       case BuiltinType(bf, args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { BuiltinType(bf, _) })
       case Unittype(loc, args, sym) =>
@@ -899,9 +895,6 @@ object TypeValueTermUnifier
       case FieldType(i, term2) =>
         val (env2, res) = unsafeAllocateTypeValueTermParamsS(term2)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, FieldType(i, _)) })
-      case FieldSetType(n, term2) =>
-        val (env2, res) = unsafeAllocateTypeValueTermParamsS(term2)(allocatedParams, unallocatedParamAppIdx)(env)
-        (env2, res.map { _.mapElements(identity, identity, identity, FieldSetType(n, _)) })
       case BuiltinType(bf, args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, BuiltinType(bf, _)) })

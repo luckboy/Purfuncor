@@ -171,5 +171,35 @@ object TypeBuiltinFunctions
             case _     =>
               (env, illegalAppNoTypeValue)
           }
+      },
+      frontend.TypeBuiltinFunction.FieldSet1 -> new TypeFunction(1) {
+        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
+          argValues match {
+            case Seq(value1, value2) =>
+              val (env2, res1) = value1.typeValueTermS(env)
+              val (env3, res2) = value1.typeValueTermS(env2)
+              val retValue = (for {
+                t1 <- res1
+                t2 <- res2
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet1, Seq(t1, t2)))).valueOr(identity)
+              (env3, retValue)
+            case _                  =>
+              (env, illegalAppNoTypeValue)
+          }
+      },
+      frontend.TypeBuiltinFunction.FieldSet2 -> new TypeFunction(1) {
+        override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
+          argValues match {
+            case Seq(value1, value2) =>
+              val (env2, res1) = value1.typeValueTermS(env)
+              val (env3, res2) = value1.typeValueTermS(env2)
+              val retValue = (for {
+                t1 <- res1
+                t2 <- res2
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet2, Seq(t1, t2)))).valueOr(identity)
+              (env3, retValue)
+            case _                  =>
+              (env, illegalAppNoTypeValue)
+          }
       })
 }

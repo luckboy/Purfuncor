@@ -33,5 +33,7 @@ object TypeBuiltinFunKindTerms
       TypeBuiltinFunction.Array -> Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition),
       TypeBuiltinFunction.Fun -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition),
       TypeBuiltinFunction.Conj -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition),
-      TypeBuiltinFunction.Disj -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition))
+      TypeBuiltinFunction.Disj -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition),
+      TypeBuiltinFunction.FieldSet1 -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition),
+      TypeBuiltinFunction.FieldSet2 -> Arrow(Star(KindType, NoPosition), Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition), NoPosition))
 }

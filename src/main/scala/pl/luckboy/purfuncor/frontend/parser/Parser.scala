@@ -197,6 +197,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       | fieldFunValue
       | fieldsetFunValue
       | fieldSetAppFunValue
+      | fieldswithFunValue
       | builtinFunValue)
   lazy val booleanValue = falseValue | trueValue
   lazy val falseValue = "false"											^^^ BooleanValue(false)
@@ -210,21 +211,24 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val doubleValue = elem("double", _.isInstanceOf[lexical.DoubleLit]) ^^ { t => DoubleValue(java.lang.Double.parseDouble(t.chars)) }
   lazy val tupleFunValue = "tuple" ~-> integer 							^^ TupleFunValue
   lazy val tupleFieldFunValue = "#" ~-> integer	 ~- integer				^? ({ 
-    case n ~ i if n >= i && n > 0 => TupleFieldFunValue(n, i - 1) 
+    case n ~ i if 0 < i && n >= i && n > 0 => TupleFieldFunValue(n, i - 1) 
   }, _ => "incorrect number of fields")
   lazy val makearrayFunValue = "makearray" ~-> integer					^^ MakearrayFunValue
   lazy val makelistFunValue = "makelist" ~-> integer					^^ MakelistFunValue
   lazy val fieldFunValue = "##" ~-> integer								^^ { i => FieldFunValue(i - 1) }
   lazy val fieldsetFunValue = "fieldset" ~-> integer					^^ FieldsetFunValue
   lazy val fieldSetAppFunValue = "###" ~-> integer						^^ FieldSetAppFunValue
+  lazy val fieldswithFunValue = "fieldswith" ~-> integer ~- (integer -*) ^? ({
+    case n ~ is if is.forall(0 <) && is.forall(n >=) && is.toSet.size === is.size && n >= is.size && n > 0 =>
+      FieldswithFunValue(n, is.map { _ - 1 })
+  }, _ => "incoorect number of fields")
   lazy val builtinFunValue = "#" ~-> ident								^? ({
     case s if BuiltinFunction.values.exists { _.toString === s } => BuiltinFunValue(BuiltinFunction.withName(s))
   }, "unknown built-in function " + _)
   
-  lazy val typeLiteralValue = tupleTypeFunValue | fieldTypeFunValue | fieldsetTypeFunValue | typeBuiltinFunValue
+  lazy val typeLiteralValue = tupleTypeFunValue | fieldTypeFunValue | typeBuiltinFunValue
   lazy val tupleTypeFunValue = "tuple" ~-> integer						^^ TupleTypeFunValue
   lazy val fieldTypeFunValue = "##" ~-> integer							^^ { i => FieldTypeFunValue(i - 1) }
-  lazy val fieldsetTypeFunValue = "fieldset" ~-> integer				^^ FieldsetTypeFunValue
   lazy val typeBuiltinFunValue = typeBuiltinFunValue1 | typeBuiltinFunValue2
   lazy val typeBuiltinFunValue1 = "#" ~-> ident							^? ({
     case s if TypeBuiltinFunction.values.exists { _.toString === s } => TypeBuiltinFunValue(TypeBuiltinFunction.withName(s))

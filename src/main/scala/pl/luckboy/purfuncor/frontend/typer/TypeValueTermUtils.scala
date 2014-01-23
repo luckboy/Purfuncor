@@ -18,7 +18,6 @@ object TypeValueTermUtils
     term match {
       case TupleType(args)              => args.flatMap(typeParamsFromTypeValueTerm).toSet
       case FieldType(_, term2)          => typeParamsFromTypeValueTerm(term2)
-      case FieldSetType(_, term2)       => typeParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
       case Unittype(_, args, _)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
@@ -31,7 +30,6 @@ object TypeValueTermUtils
     term match {
       case TupleType(args)              => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
       case FieldType(_, term2)          => typeArgParamsFromTypeValueTerm(term2)
-      case FieldSetType(_, term2)       => typeArgParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
       case Unittype(_, args, _)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { _.argParams }.toSet
@@ -75,8 +73,6 @@ object TypeValueTermUtils
         substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { TupleType(_) }
       case FieldType(i, term2)           =>
         substituteTypeValueLambdasInTypeValueTerm(term2, paramLambdas).map { FieldType(i, _) }
-      case FieldSetType(n, term2)        =>
-        substituteTypeValueLambdasInTypeValueTerm(term2, paramLambdas).map { FieldSetType(n, _) }
       case BuiltinType(bf, args)         =>
         substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
       case Unittype(loc, args, sym)      =>
@@ -150,9 +146,6 @@ object TypeValueTermUtils
       case FieldType(i, term2)                    =>
         val (termParams2, term3) = normalizeTypeParamsInTypeValyeTermForParamsS(term2, nextArgParam)(lambdaParams)(termParams)
         (termParams2, FieldType(i, term3))
-      case FieldSetType(n, term2)                    =>
-        val (termParams2, term3) = normalizeTypeParamsInTypeValyeTermForParamsS(term2, nextArgParam)(lambdaParams)(termParams)
-        (termParams2, FieldSetType(n, term3))
       case BuiltinType(bf, args)                  =>
         val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
         (termParams2, BuiltinType(bf, args2))

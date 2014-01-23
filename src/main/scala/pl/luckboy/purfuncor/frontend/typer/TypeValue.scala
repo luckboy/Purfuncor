@@ -29,7 +29,6 @@ sealed trait TypeValue[T, +U, +V, +W]
       case EvaluatedTypeLambdaValue(lambda)            => lambda.argParams.size
       case TupleTypeFunValue(n)                        => n
       case FieldTypeFunValue(_)                        => 1
-      case FieldsetTypeFunValue(_)                     => 1
       case TypeBuiltinFunValue(_, f)                   => f.argCount
       case TypeCombinatorValue(comb, _, _)             => comb.argCount
       case TypeLambdaValue(lambda, _, _, _)            => lambda.args.size
@@ -114,7 +113,6 @@ sealed trait TypeValue[T, +U, +V, +W]
       case EvaluatedTypeLambdaValue(lambda)            => lambda.toString
       case TupleTypeFunValue(n)                        => "tuple " + n
       case FieldTypeFunValue(i)                        => "## " + (i + 1)
-      case FieldsetTypeFunValue(n)                     => "fieldset " + n
       case TypeBuiltinFunValue(f, _)                   => "#" + f 
       case TypeCombinatorValue(_, _, sym)              => sym.toString
       case TypeLambdaValue(_, _, _, _)                 => "<type lambda value>"
@@ -136,7 +134,6 @@ object TypeValue
     value match {
       case frontend.TupleTypeFunValue(n)    => TupleTypeFunValue[T, U, V, W](n)
       case frontend.FieldTypeFunValue(i)    => FieldTypeFunValue[T, U, V, W](i)
-      case frontend.FieldsetTypeFunValue(n) => FieldsetTypeFunValue[T, U, V, W](n)
       case frontend.TypeBuiltinFunValue(bf) => TypeBuiltinFunValue.fromTypeBuiltinFunction[T, U, V, W](bf)
     }
   
@@ -175,18 +172,6 @@ case class FieldTypeFunValue[T, +U, +V, +W](i: Int) extends TypeValue[T, U, V, W
       case Seq(argValue) => 
         val (env2, res) = argValue.typeValueTermS(env)
         (env2, res.map { t => EvaluatedTypeValue(FieldType(i, t)) }.valueOr(identity))
-      case _             =>
-        (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
-    }
-}
-
-case class FieldsetTypeFunValue[T, +U, +V, +W](n: Int) extends TypeValue[T, U, V, W]
-{
-  def fullyApplyS[U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[TypeValue[T, U2, V2, W2]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]]): (E, TypeValue[T, U2, V2, W2]) =
-    argValues match {
-      case Seq(argValue) =>
-        val (env2, res) = argValue.typeValueTermS(env)
-        (env2, res.map { t => EvaluatedTypeValue(FieldSetType(n, t)) }.valueOr(identity))
       case _             =>
         (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
     }
@@ -273,7 +258,6 @@ sealed trait TypeValueTerm[T]
     this match {
       case TupleType(args) if args.size === 1         => "(" + this + ")"
       case FieldType(_, _)                            => "(" + this + ")"
-      case FieldSetType(_, _)                         => "(" + this + ")"
       case BuiltinType(_, args) if !args.isEmpty      => "(" + this + ")"
       case Unittype(_, args, _) if !args.isEmpty      => "(" + this + ")"
       case GlobalTypeApp(_, args, _) if !args.isEmpty => "(" + this + ")"
@@ -288,7 +272,6 @@ sealed trait TypeValueTerm[T]
       case TupleType(Seq(arg))          => "tuple 1 " + arg.toArgString
       case TupleType(args)              => "(" + args.mkString(", ") + ")"
       case FieldType(i, term)           => "##" + (i + 1) + " " + term.toArgString 
-      case FieldSetType(n, term)        => "fieldset " + n + " " + term.toArgString
       case BuiltinType(bf, args)        => 
         bf match {
           case TypeBuiltinFunction.Fun => 
@@ -360,7 +343,6 @@ object TypeValueTerm
 
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class FieldType[T](i: Int, term: TypeValueTerm[T]) extends TypeValueTerm[T]
-case class FieldSetType[T](n: Int, term: TypeValueTerm[T]) extends TypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
 sealed trait TypeApp[T] extends TypeValueTerm[T]

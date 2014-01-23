@@ -27,4 +27,6 @@ object TypeBuiltinFunction extends Enumeration
   val Fun = Value("->")
   val Conj = Value("&")
   val Disj = Value("|")
+  val FieldSet1 = Value("FieldSet1")
+  val FieldSet2 = Value("FieldSet2")
 }

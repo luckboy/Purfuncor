@@ -25,4 +25,6 @@ object TypeBuiltinFunction extends Enumeration
   val NonEmpty = Value("NonEmpty")
   val Array = Value("Array")
   val Fun = Value("->")
+  val FieldSet1 = Value("FieldSet1")
+  val FieldSet2 = Value("FieldSet2")
 }

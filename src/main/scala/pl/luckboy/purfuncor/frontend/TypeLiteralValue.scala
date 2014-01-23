@@ -15,12 +15,10 @@ sealed trait TypeLiteralValue
     this match {
       case TupleTypeFunValue(n)    => "tuple " + n
       case FieldTypeFunValue(i)    => "##" + (i + 1)
-      case FieldsetTypeFunValue(n) => "fieldset " + n
       case TypeBuiltinFunValue(bf) =>
         if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf
     }
 }
 case class TupleTypeFunValue(n: Int) extends TypeLiteralValue
 case class FieldTypeFunValue(i: Int) extends TypeLiteralValue
-case class FieldsetTypeFunValue(n: Int) extends TypeLiteralValue
 case class TypeBuiltinFunValue(bf: TypeBuiltinFunction.Value) extends TypeLiteralValue

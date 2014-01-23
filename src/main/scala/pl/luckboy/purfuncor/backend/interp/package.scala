@@ -247,6 +247,8 @@ package object interp
           fieldsetFunValue.fullyApplyS(argValues)(env)
         case fieldSetAppFunValue @ FieldSetAppFunValue(_) =>
           fieldSetAppFunValue.fullyApplyS(argValues)(env)
+        case fieldswithFunValue @ FieldswithFunValue(_, _) =>
+          fieldswithFunValue.fullyApplyS(argValues)(env)
         case constructFunValue @ ConstructFunValue(_, _) =>
           constructFunValue.fullyApplyS(argValues)(env)
         case BuiltinFunValue(_, f) =>

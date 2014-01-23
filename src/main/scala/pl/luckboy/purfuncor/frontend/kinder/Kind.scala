@@ -96,8 +96,6 @@ object InferredKind
   def unittypeCombinatorKind(n: Int) = tupleTypeFunKind(n)
   
   val fieldTypeFunKind = InferringKind(Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition))
-  
-  val fieldsetTypeFunKind = fieldTypeFunKind
 }
 
 case class InferringKind(kindTerm: KindTerm[StarKindTerm[Int]]) extends Kind

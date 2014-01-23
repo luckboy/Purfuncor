@@ -34,6 +34,7 @@ sealed trait Value[+T, +U, +V, +W]
       case FieldFunValue(_)                     => 1
       case FieldsetFunValue(n)                  => n
       case FieldSetAppFunValue(n)               => 2
+      case FieldswithFunValue(_, is)            => is.size + 1
       case ConstructFunValue(n, _)              => n
       case BuiltinFunValue(bf, f)               => f.argCount
       case _                                    => 1
@@ -93,6 +94,7 @@ sealed trait Value[+T, +U, +V, +W]
       case FieldFunValue(i)                     => "##" + (i + 1)
       case FieldsetFunValue(n)                  => "fieldset " + n
       case FieldSetAppFunValue(n)               => "###" + n
+      case FieldswithFunValue(n, is)            => "(fieldswith " + n + is.map { i => " " + (i + 1) }.mkString("") + ")"
       case ConstructFunValue(n, _)              => "construct " + n
       case BuiltinFunValue(f, _)                => "#" + f
       case TupleValue(values)                   => "tuple " + values.size + values.map { " " + _.toArgString }.mkString("")
@@ -111,22 +113,23 @@ object Value
 {
   def fromLiteralValue[T, U, V, W](value: frontend.LiteralValue): Value[T, U, V, W] =
     value match {
-      case frontend.BooleanValue(x)          => BooleanValue(x)
-      case frontend.CharValue(x)             => CharValue(x)
-      case frontend.ByteValue(x)             => ByteValue(x)
-      case frontend.ShortValue(x)            => ShortValue(x)
-      case frontend.IntValue(x)              => IntValue(x)
-      case frontend.LongValue(x)             => LongValue(x)
-      case frontend.FloatValue(x)            => FloatValue(x)
-      case frontend.DoubleValue(x)           => DoubleValue(x)
-      case frontend.TupleFunValue(n)         => TupleFunValue(n)
-      case frontend.TupleFieldFunValue(n, i) => TupleFieldFunValue(n, i)
-      case frontend.MakearrayFunValue(n)     => MakearrayFunValue(n)
-      case frontend.MakelistFunValue(n)      => MakelistFunValue(n)
-      case frontend.FieldFunValue(i)         => FieldFunValue(i)
-      case frontend.FieldsetFunValue(n)      => FieldsetFunValue(n)
-      case frontend.FieldSetAppFunValue(n)   => FieldSetAppFunValue(n)
-      case frontend.BuiltinFunValue(bf)      => BuiltinFunValue.fromBuiltinFunction(bf)
+      case frontend.BooleanValue(x)           => BooleanValue(x)
+      case frontend.CharValue(x)              => CharValue(x)
+      case frontend.ByteValue(x)              => ByteValue(x)
+      case frontend.ShortValue(x)             => ShortValue(x)
+      case frontend.IntValue(x)               => IntValue(x)
+      case frontend.LongValue(x)              => LongValue(x)
+      case frontend.FloatValue(x)             => FloatValue(x)
+      case frontend.DoubleValue(x)            => DoubleValue(x)
+      case frontend.TupleFunValue(n)          => TupleFunValue(n)
+      case frontend.TupleFieldFunValue(n, i)  => TupleFieldFunValue(n, i)
+      case frontend.MakearrayFunValue(n)      => MakearrayFunValue(n)
+      case frontend.MakelistFunValue(n)       => MakelistFunValue(n)
+      case frontend.FieldFunValue(i)          => FieldFunValue(i)
+      case frontend.FieldsetFunValue(n)       => FieldsetFunValue(n)
+      case frontend.FieldSetAppFunValue(n)    => FieldSetAppFunValue(n)
+      case frontend.FieldswithFunValue(n, is) => FieldswithFunValue(n, is.toVector)
+      case frontend.BuiltinFunValue(bf)       => BuiltinFunValue.fromBuiltinFunction(bf)
     }
 }
 
@@ -224,27 +227,38 @@ case class FieldSetAppFunValue[+T, +U, +V, +W](n: Int) extends Value[T, U, V, W]
   def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
     argValues match {
       case Seq(funValue, FieldSetValue(fieldValues)) =>
-        if(fieldValues.size === n) {
-          if(n > 0) {
-            val optFieldArgValueMap = fieldValues.foldLeft(some(IntMap[Value[T2, U2, V2, W2]]())) {
-              case (Some(fieldArgValueMap), FieldValue(i, value)) => some(fieldArgValueMap + (i -> value))
-              case (Some(_), _)                                 => none
-              case (None, _)                                    => none
-            }
-            optFieldArgValueMap.map {
-              fieldArgValueMap =>
-                (0 until fieldArgValueMap.size).foldLeft(some(Vector[Value[T2, U2, V2, W2]]())) {
-                  case (Some(fieldArgValues), i) => fieldArgValueMap.get(i).map { fieldArgValues :+ _ }
-                  case (None, _)                 => none
-                }.map { appS(funValue, _)(env) }.getOrElse((env, NoValue.fromString("index out of bound")))
-            }.getOrElse((env, NoValue.fromString("illegal value")))
-          } else
-            (env, funValue)
+        if(n > 0) {
+          val optFieldArgValueMap = fieldValues.foldLeft(some(IntMap[Value[T2, U2, V2, W2]]())) {
+            case (Some(fieldArgValueMap), FieldValue(i, value)) => some(fieldArgValueMap + (i -> value))
+            case (Some(_), _)                                   => none
+            case (None, _)                                      => none
+          }
+          optFieldArgValueMap.map {
+            fieldArgValueMap =>
+              (0 until fieldArgValueMap.size).foldLeft(some(Vector[Value[T2, U2, V2, W2]]())) {
+                case (Some(fieldArgValues), i) => fieldArgValueMap.get(i).map { fieldArgValues :+ _ }
+                case (None, _)                 => none
+              }.map { appS(funValue, _)(env) }.getOrElse((env, NoValue.fromString("index out of bound")))
+          }.getOrElse((env, NoValue.fromString("illegal value")))
         } else
-          (env, NoValue.fromString("illegal number of fields"))
+          (env, funValue)
       case _                                         =>
         (env, NoValue.fromString("illegal application"))
     }
+}
+
+case class FieldswithFunValue[+T, +U, +V, +W](n: Int, is: Vector[Int]) extends Value[T, U, V, W]
+{
+  def fullyApplyS[T2 >: T, U2 >: U, V2 >: V, W2 >: W, E](argValues: Seq[Value[T2, U2, V2, W2]])(env: E)(implicit eval: Evaluator[SimpleTerm[T2, U2, V2], E, Value[T2, U2, V2, W2]]) =
+	if(argValues.size === is.size + 1) {
+	  argValues.lastOption.map {
+	    case FieldSetValue(values) =>
+	      (env, FieldSetValue(is.zip(argValues.init).map { case (i, v) => FieldValue(i, v) }.toVector ++ values))
+	    case _                     =>
+	      (env, NoValue.fromString("illegal application"))
+	  }.getOrElse((env, NoValue.fromString("illegal application")))
+    } else
+      (env, NoValue.fromString("illegal application"))
 }
 
 case class ConstructFunValue[+T, +U, +V, +W](n: Int, i: Int) extends Value[T, U, V, W]
