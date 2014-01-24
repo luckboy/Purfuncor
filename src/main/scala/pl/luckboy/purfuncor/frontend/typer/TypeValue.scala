@@ -137,9 +137,9 @@ object TypeValue
       case frontend.TypeBuiltinFunValue(bf) => TypeBuiltinFunValue.fromTypeBuiltinFunction[T, U, V, W](bf)
     }
   
-  def fullyAppForUnittypeCombinatorS[T, U, V, W, E](comb: UnittypeCombinator[U, V], loc: T, sym: GlobalSymbol, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) = 
+  def fullyAppForUnittypeCombinatorS[T, U, V, W, E](comb: UnittypeCombinator[U, V], loc: T, sym: GlobalSymbol, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = 
     if(comb.n === argValues.size) {
-      val (env2, res) = TypeValueTerm.typeValueTermsFromTypeValuesS(argValues)(env)
+      val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
       (env2, res.map { ts => EvaluatedTypeValue(Unittype(loc, ts, sym)) }.valueOr(identity))
     } else
       (env, NoTypeValue.fromError[T, U, V, W](FatalError("illegal number of type arguments", none, NoPosition)))
@@ -350,7 +350,7 @@ object TypeValueTerm
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class FieldType[T](i: Int, term: TypeValueTerm[T]) extends TypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class Unittype[T](loc: T, args: Seq[TypeValueTerm[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
+case class Unittype[T](loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) extends TypeValueTerm[T]
 sealed trait TypeApp[T] extends TypeValueTerm[T]
 {
   def args: Seq[TypeValueLambda[T]]

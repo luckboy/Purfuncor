@@ -845,8 +845,8 @@ f x = x select {
                       inside(retType1) { case BuiltinType(TypeBuiltinFunction.Char, Seq()) => () }
                       inside(argKinds) {
                         case Seq(
-                          InferredKind(Star(KindType, _)) /* * */,
-                          InferredKind(Star(KindType, _)) /* * */) =>
+                          InferredKind(Star(KindParam(_), _)) /* k1 */,
+                          InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                             ()
                       }
                   }
@@ -876,7 +876,7 @@ f x = x select {
                               inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
                           }
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -910,7 +910,7 @@ f x = x select {
                               inside(arg14) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
                           }
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -936,7 +936,7 @@ f x = x select {
                               }
                           }
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -952,7 +952,7 @@ f x = x select {
                               }
                           }
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -969,7 +969,7 @@ f x = x select {
                         case Some(InferredType(GlobalTypeApp(loc1, Seq(), GlobalSymbol(NonEmptyList("U"))), argKinds)) =>
                           loc1 should be ===(uLoc)
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -988,7 +988,7 @@ f x = x select {
                           loc1 should be ===(vLoc)
                           inside(type1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
                           inside(argKinds) {
-                            case Seq(InferredKind(Star(KindType, _)), InferredKind(Star(KindType, _))) =>
+                            case Seq(InferredKind(Star(KindParam(_), _)), InferredKind(Star(KindParam(_), _))) =>
                               ()
                           }
                       }
@@ -2005,7 +2005,7 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2117,8 +2117,8 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */,
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */,
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2198,7 +2198,7 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2271,7 +2271,7 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2452,7 +2452,7 @@ h = g f
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(TypeDisjunction(types1), argKinds) =>
-                      // (T t1) #| (V #& (W #| X #| #Empty)) #| (Y t1 t2)
+                      // \t1 t2 => (T t1) #| (V #& (W #| X #| #Empty)) #| (Y t1 t2)
                       types1 should have size(3)
                       inside(for {
                         x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11) }
@@ -2494,8 +2494,8 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */,
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */,
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2581,7 +2581,7 @@ h = g f
                       }
                       inside(argKinds) {
                         case Seq(
-                            InferredKind(Star(KindType, _)) /* * */) =>
+                            InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                           ()
                       }
                   }
@@ -2823,7 +2823,7 @@ h = g f
               inside(res2) {
                 case Success(Failure(noType)) =>
                   noType.errs.map { _.msg } should be ===(List(
-                      "couldn't match type \\(t1: *) => #.TWI (#.T #& (#.U t1)) with type \\(t1: *) => #.TWI (#.T #& (#.U t1) #& #.V)"))
+                      "couldn't match type \\(t1: k1) => #.TWI (#.T #& (#.U t1)) with type \\(t1: k1) => #.TWI (#.T #& (#.U t1) #& #.V)"))
               }
           }
       }
@@ -2854,7 +2854,7 @@ h = g f
               inside(res2) {
                 case Success(Failure(noType)) =>
                   noType.errs.map { _.msg } should be ===(List(
-                      "couldn't match type \\(t1: *) => #.U #& (#.V t1) with type \\(t1: *) (t2: *) => (#.T t1) #| #.U #& (#.V t2) #| #.W"))
+                      "couldn't match type \\(t1: k1) => #.U #& (#.V t1) with type \\(t1: k1) (t2: k1) => (#.T t1) #| #.U #& (#.V t2) #| #.W"))
               }
           }
       }
@@ -3255,9 +3255,9 @@ g x = x select {
                                 case Some(((loc11, arg11, arg12), (type13, type14))) =>
                                   loc11 should be ===(tLoc)
                                   inside(arg11) {
-                                    case TypeParamApp(param11, Seq(), 0) =>
+                                    case TypeValueLambda(Seq(), TypeParamApp(param11, Seq(), 0)) =>
                                       inside(arg12) {
-                                        case TypeParamApp(param12, Seq(), 0) =>
+                                        case TypeValueLambda(Seq(), TypeParamApp(param12, Seq(), 0)) =>
                                           inside(type13) {
                                             case TypeParamApp(param13, Seq(), 0) =>
                                               inside(type14) {
@@ -3311,9 +3311,9 @@ g x = x select {
                           }
                           inside(argKinds1) {
                             case Seq(
-                                 InferredKind(Star(KindType, _)) /* * */,
-                                 InferredKind(Star(KindType, _)) /* * */,
-                                 InferredKind(Star(KindType, _)) /* * */) =>
+                                 InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                 InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                 InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                               ()
                           }
                       }
@@ -3341,8 +3341,8 @@ g x = x select {
                                   }
                                   inside(argKinds11) {
                                     case Seq(
-                                        InferredKind(Star(KindType, _)) /* * */,
-                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                       ()
                                   }
                               }
@@ -3362,9 +3362,9 @@ g x = x select {
                                   }
                                   inside(argKinds11) {
                                     case Seq(
-                                         InferredKind(Star(KindType, _)) /* * */,
-                                         InferredKind(Star(KindType, _)) /* * */,
-                                         InferredKind(Star(KindType, _)) /* * */) =>
+                                         InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                         InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                         InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                       ()
                                   }
                               }
@@ -3386,7 +3386,7 @@ g x = x select {
                                   }
                                   inside(argKinds12) {
                                     case Seq(
-                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                       ()
                                   }
                               }
@@ -3400,9 +3400,9 @@ g x = x select {
                                   }
                                   inside(argKinds12) {
                                     case Seq(
-                                        InferredKind(Star(KindType, _)) /* * */,
-                                        InferredKind(Star(KindType, _)) /* * */,
-                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                      ()
                                   }
                               }
@@ -3425,9 +3425,9 @@ g x = x select {
                                   loc131 should be ===(vLoc)
                                   inside(argKinds13) {
                                     case Seq(
-                                        InferredKind(Star(KindType, _)) /* * */,
-                                        InferredKind(Star(KindType, _)) /* * */,
-                                        InferredKind(Star(KindType, _)) /* * */) =>
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                        InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                      ()
                                   }
                               }

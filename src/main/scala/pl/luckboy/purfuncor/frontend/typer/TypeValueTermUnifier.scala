@@ -264,6 +264,15 @@ object TypeValueTermUnifier
       }.valueOr { nt => State((_: E, nt.failure)) }
     } yield res7).run(env)
   
+  private def matchesUnittypesS[T, U, V, E](unittype1: Unittype[T], unittype2: Unittype[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+    (unittype1, unittype2) match {
+      case (Unittype(loc1, args1, sym1), Unittype(loc2, args2, _)) if loc1 == loc2 && args1.size === args2.size =>
+        val (env2, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env)
+        matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(env2)
+      case (_, _) =>
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+    }
+    
   private def matchesGlobalTypeAppWithTypeValueTermS[T, U, V, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (globalTypeApp1, term2) match {
       case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
@@ -722,8 +731,8 @@ object TypeValueTermUnifier
                     matchesFunctionTypesS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
                   case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
                     matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
-                  case (Unittype(loc1, args1, _), Unittype(loc2, args2, _)) if loc1 === loc2 &&  args1.size === args2.size =>
-                    matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
+                  case (unittype1: Unittype[T], unittype2: Unittype[T]) =>
+                    matchesUnittypesS(unittype1, unittype2)(z)(f)(env5)
                   case (typeParamApp1: TypeParamApp[T], _) =>
                     matchesTypeParamAppWithTypeValueTermS(typeParamApp1, instantiatedTerm2)(z)(f)(env5)
                   case (_, typeParamApp2: TypeParamApp[T]) =>
@@ -785,7 +794,7 @@ object TypeValueTermUnifier
       case BuiltinType(bf, args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { BuiltinType(bf, _) })
       case Unittype(loc, args, sym) =>
-        replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { Unittype(loc, _, sym) })
+        replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { Unittype(loc, _, sym) })
       case GlobalTypeApp(loc, args, sym) =>
         replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { GlobalTypeApp(loc, _, sym) })
       case TypeParamApp(param, args, paramAppIdx) =>
@@ -899,7 +908,7 @@ object TypeValueTermUnifier
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, BuiltinType(bf, _)) })
       case Unittype(loc, args, sym) =>
-        val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
+        val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, Unittype(loc, _, sym)) })
       case GlobalTypeApp(loc, args, sym) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)

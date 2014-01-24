@@ -944,12 +944,13 @@ g (x: \t => tuple 2 t (t #Int)) = x
             case Some(UnittypeCombinator(3, None, _)) => ()
           }
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
-            case Some(InferredKind(Arrow(Star(KindType, _), ret1, _))) => 
-              // * -> * -> * -> *
+            case Some(InferredKind(Arrow(Star(KindParam(param1), _), ret1, _))) => 
+              // k1 -> k2 -> k3 -> *
               inside(ret1) {
-                case Arrow(Star(KindType, _), ret2, _) =>
+                case Arrow(Star(KindParam(param2), _), ret2, _) =>
                   inside(ret2) {
-                    case Arrow(Star(KindType, _), Star(KindType, _), _) => ()
+                    case Arrow(Star(KindParam(param3), _), Star(KindType, _), _) =>
+                      List(param1, param2, param3).toSet should have size(3)
                   }
               }
           }
@@ -1128,16 +1129,16 @@ instance select \t1 t2 => ##| (##| (##& T tuple 0) (##& (U t1 t2) (tuple 2 t1 t2
               ()
           }
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
-            case Some(InferredKind(Arrow(Star(KindType, _), ret1, _))) => 
-              // * -> * -> *
+            case Some(InferredKind(Arrow(Star(KindParam(param1), _), ret1, _))) => 
+              // k1 -> k2 -> *
               inside(ret1) {
-                case Arrow(Star(KindType, _), Star(KindType, _), _) =>
-                  ()
+                case Arrow(Star(KindParam(param2), _), Star(KindType, _), _) =>
+                  List(param1, param2).toSet should have size(2)
               }
           }
           inside(typeGlobalSymTabular.getGlobalLocationFromTable(typeTreeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V"))).flatMap(typeTreeInfo.kindTable.kinds.get)) {
-            case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) => 
-              // * -> *
+            case Some(InferredKind(Arrow(Star(KindParam(_), _), Star(KindType, _), _))) => 
+              // k1 -> *
               ()
           }
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo)(GlobalSymbol(NonEmptyList("f"))).flatMap(insts.get)) {

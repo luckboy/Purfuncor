@@ -31,8 +31,9 @@ object TypeValueTermKindInferrer
         val (env2, res) = inferTypeValueTermKindsS(args)(env)
         res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
       case Unittype(loc, args, _) =>
-        val (env2, res) = inferTypeValueTermKindsS(args)(env)
-        res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
+        val (env2, funKind) = envSt.globalTypeVarKindFromEnvironmentS(loc)(env)
+        val (env3, res) = inferTypeValueLambdaKindsS(args)(env2)
+        res.map { appInfoS(funKind, _)(env3) }.valueOr { (env3, _) }
       case GlobalTypeApp(loc, args, _) =>
         val (env2, funKind) = envSt.globalTypeVarKindFromEnvironmentS(loc)(env)
         val (env3, res) = inferTypeValueLambdaKindsS(args)(env2)

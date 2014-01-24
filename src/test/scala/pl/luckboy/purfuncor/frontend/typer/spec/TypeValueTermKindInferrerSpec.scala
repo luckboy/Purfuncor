@@ -84,9 +84,9 @@ class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with In
             case Some(loc) =>
               // T #Any #Boolean #Int
               val typeValueTerm = Unittype[Z](loc, Seq(
-                  BuiltinType(TypeBuiltinFunction.Any, Seq()),
-                  BuiltinType(TypeBuiltinFunction.Boolean, Seq()),
-                  BuiltinType(TypeBuiltinFunction.Int, Seq())
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Any, Seq())),
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())),
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
                   ), GlobalSymbol(NonEmptyList("T")))
               val (env2, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env)
               val (env3, instantiatedKind) = kind.instantiatedKindS(env2)
@@ -344,8 +344,8 @@ unittype 2 U
                     TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))
                     ), GlobalSymbol(NonEmptyList("T"))),
                 Unittype(loc2, Seq(
-                    BuiltinType(TypeBuiltinFunction.Int, Seq()),
-                    TypeParamApp(3, Seq(), 0)
+                    TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                    TypeValueLambda(Seq(), TypeParamApp(3, Seq(), 0))
                     ), GlobalSymbol(NonEmptyList("U")))))
             val paramKind = InferredKind(Star(KindParam(0), NoPosition))
             val (env2, uninstantiatedKind1) = paramKind.uninstantiatedKindS(env)
@@ -383,8 +383,8 @@ unittype 2 U
             }
             val (env15, instantiatedKind4) = uninstantiatedKind4.instantiatedKindS(env14)
             inside(instantiatedKind4) {
-              case InferredKind(Star(KindType, _)) =>
-                // *
+              case InferredKind(Star(KindParam(_), _)) =>
+                // k1
                 ()
             }
         }
@@ -408,7 +408,7 @@ unittype 2 U
               inside(kind) {
                 case noKind: NoKind =>
                   noKind.errs.map { _.msg } should be ===(List(
-                      "couldn't match kind * -> * -> * with kind k1 -> k2 -> k3 -> k4"))
+                      "couldn't match kind k1 -> k2 -> * with kind k1 -> k2 -> k3 -> k4"))
               }
           }
       }

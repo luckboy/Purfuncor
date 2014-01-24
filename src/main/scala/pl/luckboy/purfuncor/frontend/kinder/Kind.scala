@@ -93,7 +93,8 @@ object InferredKind
   def tupleTypeFunKind(n: Int) =
     InferredKind((0 until n).foldRight(Star(KindType, NoPosition): KindTerm[StarKindTerm[Int]]) { (_, kt) => Arrow(Star(KindType, NoPosition), kt, NoPosition) })
     
-  def unittypeCombinatorKind(n: Int) = tupleTypeFunKind(n)
+  def unittypeCombinatorKind(n: Int) =
+    InferredKind((0 until n).foldRight(Star(KindType, NoPosition): KindTerm[StarKindTerm[Int]]) { (p, kt) => Arrow(Star(KindParam(p), NoPosition), kt, NoPosition) })
   
   val fieldTypeFunKind = InferringKind(Arrow(Star(KindType, NoPosition), Star(KindType, NoPosition), NoPosition))
 }

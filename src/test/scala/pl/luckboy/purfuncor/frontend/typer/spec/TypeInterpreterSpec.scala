@@ -366,10 +366,10 @@ unittype 3 U
           inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
             case Some(loc) =>
               term should be ===(Unittype(loc,
-                  Seq[TypeValueTerm[Z]](
-                      BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                      BuiltinType(TypeBuiltinFunction.Long, Seq[TypeValueTerm[Z]]()),
-                      BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]())),
+                  Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq[TypeValueTerm[Z]]())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))),
                   GlobalSymbol(NonEmptyList("U"))))
           }
       }

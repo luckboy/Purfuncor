@@ -19,7 +19,7 @@ object TypeValueTermUtils
       case TupleType(args)              => args.flatMap(typeParamsFromTypeValueTerm).toSet
       case FieldType(_, term2)          => typeParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case Unittype(_, args, _)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case Unittype(_, args, _)         => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case TypeParamApp(param, args, _) => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case TypeConjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
@@ -31,7 +31,7 @@ object TypeValueTermUtils
       case TupleType(args)              => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
       case FieldType(_, term2)          => typeArgParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
-      case Unittype(_, args, _)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
+      case Unittype(_, args, _)         => args.flatMap { _.argParams }.toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { _.argParams }.toSet
       case TypeParamApp(param, args, _) => args.flatMap { _.argParams }.toSet
       case TypeConjunction(terms)       => terms.flatMap(typeArgParamsFromTypeValueTerm).toSet
@@ -76,7 +76,7 @@ object TypeValueTermUtils
       case BuiltinType(bf, args)         =>
         substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
       case Unittype(loc, args, sym)      =>
-        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { Unittype(loc, _, sym) }
+        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Unittype(loc, _, sym) }
       case GlobalTypeApp(loc, args, sym) =>
         substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { GlobalTypeApp(loc, _, sym) }
       case typeParamApp: TypeParamApp[T] =>
@@ -150,7 +150,7 @@ object TypeValueTermUtils
         val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
         (termParams2, BuiltinType(bf, args2))
       case Unittype(loc, args, sym)               =>
-        val (termParams2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(termParams)
+        val (termParams2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams)
         (termParams2, Unittype(loc, args2, sym))
       case GlobalTypeApp(loc, args, sym)          =>
         val (termParams2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(termParams)

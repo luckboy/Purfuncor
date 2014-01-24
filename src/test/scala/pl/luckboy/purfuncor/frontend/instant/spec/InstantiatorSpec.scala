@@ -336,8 +336,8 @@ f x = x select {
                                                 }
                                                 inside(argKinds2) {
                                                   case Seq(
-                                                      InferredKind(Star(KindType, _)) /* * */,
-                                                      InferredKind(Star(KindType, _)) /* * */) =>
+                                                      InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                                      InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                                     ()
                                                 }
                                             }
@@ -347,8 +347,8 @@ f x = x select {
                             }
                             inside(argKinds1) {
                               case Seq(
-                                  InferredKind(Star(KindType, _)) /* * */,
-                                  InferredKind(Star(KindType, _)) /* * */) =>
+                                  InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                  InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                ()
                             }
                         }
@@ -360,8 +360,8 @@ f x = x select {
                             loc31 should be ===(uLoc)
                             inside(argKinds3) {
                               case Seq(
-                                  InferredKind(Star(KindType, _)) /* * */,
-                                  InferredKind(Star(KindType, _)) /* * */) =>
+                                  InferredKind(Star(KindParam(_), _)) /* k1 */,
+                                  InferredKind(Star(KindParam(_), _)) /* k1 */) =>
                                 ()
                             }
                         }
