@@ -2658,12 +2658,15 @@ i = h g
     }
     
     it should "unify the two unit types with the type arguments which are the type lambda-expression" in {
-      // Unifies \t1 => T (\t2 t3 => (t2, t3)) (\t2 => t1)
-      // with    \t1 => T (\t2 t3 => t1) (\t2 => #Array t2) for unittype 2 T.
+      // Unifies U (\t1 t2 => (t1, t2)) (\t2 => #Array t2)
+      // with    V (\t1 t2 => (t1, t2)) (\t2 => #Array t2)
+      // for unittype 2 T and type U = T and type V = T.
       val s = """
 unittype 2 T
-f = construct 0: \t1 => T (\t2 t3 => tuple 2 t2 t3) (\t2 => t1)
-g (x: \t1 => T (\t2 t3 => t1) (\t2 => #Array t2)) = x
+type U = T
+type V = T
+f = construct 0: U (\t1 t2 => tuple 2 t1 t2) (\t1 => #Array t1)
+g (x: V (\t1 t2 => tuple 2 t1 t2) (\t1 => #Array t1)) = x
 h = g f
 """
       inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
@@ -2676,20 +2679,20 @@ h = g f
               val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
-              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U")))) {
-                case Some(tLoc) =>
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("V")))) {
+                case Some(vLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq(_)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq()) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
-                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
-                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("U"))), Seq()) =>
-                      // T (\t1 t2 => (t1, t2)) (\t1 => #Array t1)
-                      loc1 should be ===(tLoc)
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("V"))), Seq()) =>
+                      // V (\t1 t2 => (t1, t2)) (\t1 => #Array t1)
+                      loc1 should be ===(vLoc)
                       inside(arg1) { 
                         case TypeValueLambda(Seq(param11, param12), TupleType(Seq(type11, type12))) =>
                           inside(type11) {
@@ -2960,6 +2963,33 @@ h = g f
         case Success(Failure(noType)) =>
           noType.errs.map { _.msg } should be ===(List(
               "couldn't match kind * -> * with kind (k1 -> *) -> *"))
+      }
+    }
+    
+    it should "complain on the type terms with the lambda arguments which were matched with other parameters" in {
+      // Unifies \t1 => T (\t2 t3 => (t2, t3)) (\t2 => t1)
+      // with    \t1 => T (\t2 t3 => t1) (\t2 => #Array t2) for unittype 2 T.
+      val s = """
+unittype 2 T
+f = construct 0: \t1 => T (\t2 t3 => tuple 2 t2 t3) (\t2 => t1)
+g (x: \t1 => T (\t2 t3 => t1) (\t2 => #Array t2)) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              inside(res2) {
+                case Success(Failure(noType)) =>
+                  noType.errs.map { _.msg } should be ===(List(
+                      "couldn't match type \\(t1: k1) => #.T (\\t2 t3 => t1) (\\t2 => #Array t2) with type \\(t1: k1) => #.T (\\t2 t3 => (t2, t3)) (\\t2 => t1)"))
+              }
+          }
       }
     }
     

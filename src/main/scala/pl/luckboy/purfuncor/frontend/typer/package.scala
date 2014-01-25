@@ -403,6 +403,9 @@ package object typer
       
     override def isInstanceTypeMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.isInstTypeMatching)
+    
+    override def isTypeLambdaArgParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeLambdaArgParams.contains(param))
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
@@ -420,22 +423,31 @@ package object typer
         if(!env.typeLambdaArgParams.contains(param))
           env.typeParamForest.findRootParam(param).map {
             rp =>
-              val prefix = if(!env.isInstTypeMatching) "defined" else "instance"
-              env.irreplaceableTypeParams.get(rp).map {
-                dts => (env, NoType.fromErrors[GlobalSymbol](dts.map { dt => Error("couldn't instantiate parameter at " + prefix + " type " + dt, none, NoPosition) }).failure)
-              }.getOrElse {
-                val paramKind = env.kindInferenceEnv.typeParamKind(param)
-                val (kindInferenceEnv, termKind) = inferTypeValueTermKindS(term)(env.kindInferenceEnv)
-                val (kindInferenceEnv2, retKind) = symbolTypeSimpleTermKindInferrer.unifyInfosS(paramKind, termKind)(kindInferenceEnv)
-                val env2 = env.withKindInferenceEnv(kindInferenceEnv2)
-                retKind match {
-                  case noKind: NoKind =>
-                    (env2, NoType.fromNoKind[GlobalSymbol](noKind).failure)
-                  case _              =>
-                    env2.typeParamForest.replaceParam(rp, term).map {
-                      tpf => (env2.withTypeParamForest(tpf).withTypeRetKind(retKind), ().success)
-                    }.getOrElse((env2, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
-                }
+              val (env2, res) = if(env.typeLambdaArgCount > 0)
+                checkTypeParamsFromTypeValueTermS(term)(env)
+              else
+                (env, ().success)
+              res match {
+                case Success(_)      =>
+                  val prefix = if(!env2.isInstTypeMatching) "defined" else "instance"
+                  env2.irreplaceableTypeParams.get(rp).map {
+                    dts => (env2, NoType.fromErrors[GlobalSymbol](dts.map { dt => Error("couldn't instantiate parameter at " + prefix + " type " + dt, none, NoPosition) }).failure)
+                  }.getOrElse {
+                    val paramKind = env2.kindInferenceEnv.typeParamKind(param)
+                    val (kindInferenceEnv, termKind) = inferTypeValueTermKindS(term)(env2.kindInferenceEnv)
+                    val (kindInferenceEnv2, retKind) = symbolTypeSimpleTermKindInferrer.unifyInfosS(paramKind, termKind)(kindInferenceEnv)
+                    val env3 = env.withKindInferenceEnv(kindInferenceEnv2)
+                    retKind match {
+                      case noKind: NoKind =>
+                        (env3, NoType.fromNoKind[GlobalSymbol](noKind).failure)
+                      case _              =>
+                        env3.typeParamForest.replaceParam(rp, term).map {
+                          tpf => (env3.withTypeParamForest(tpf).withTypeRetKind(retKind), ().success)
+                        }.getOrElse((env3, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
+                    }
+                  }
+                case Failure(noType) =>
+                  (env2, noType.failure)
               }
           }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
         else

@@ -1025,7 +1025,51 @@ object TypeValueTermUnifier
   
   def checkDefinedTypes[T, U, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     checkDefinedTypes2[T, U, E](definedTypes)
+
+  private def checkTypeParamsFromTypeValueTermsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    terms.foldLeft((env, ().success[NoType[T]])) {
+      case ((newEnv, newRes), term) =>
+        newRes.map { _ => checkTypeParamsFromTypeValueTermS(term)(newEnv) }.valueOr { nt => (newEnv, nt.failure) }
+    }
   
+  private def checkTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    lambdas.foldLeft((env, ().success[NoType[T]])) {
+      case ((newEnv, newRes), lambda) =>
+        newRes.map { _ => checkTypeParamsFromTypeValueTermS(lambda.body)(newEnv) }.valueOr { nt => (newEnv, nt.failure) }
+    }
+    
+  def checkTypeParamsFromTypeValueTermS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
+    partiallyInstantiateTypeValueTermS(term)(unifier.mismatchedTermErrorS)(env) match {
+      case (env2, Success((instantiatedTerm, optInstantiatedParam))) =>
+        envSt.withInfinityCheckingS(optInstantiatedParam.toSet) {
+          env3 =>
+            instantiatedTerm match {
+              case TupleType(args) =>
+                checkTypeParamsFromTypeValueTermsS(args)(env3)
+              case FieldType(_, term2) =>
+                checkTypeParamsFromTypeValueTermsS(Seq(term2))(env3)
+              case BuiltinType(_, args) =>
+                checkTypeParamsFromTypeValueTermsS(args)(env3)
+              case Unittype(_, args, _) =>
+                checkTypeParamsFromTypeValueLambdasS(args)(env3)
+              case GlobalTypeApp(_, args, _) =>
+                checkTypeParamsFromTypeValueLambdasS(args)(env3)
+              case TypeParamApp(param, args, _) =>
+                val (env4, isLambdaArgParam) = envSt.isTypeLambdaArgParamS(param)(env3)
+                if(!isLambdaArgParam)
+                  checkTypeParamsFromTypeValueLambdasS(args)(env4)
+                else
+                  unifier.mismatchedTermErrorS(env4).mapElements(identity, _.failure)
+              case TypeConjunction(terms) =>
+                checkTypeParamsFromTypeValueTermsS(terms.toSeq)(env3)
+              case TypeDisjunction(terms) =>
+                checkTypeParamsFromTypeValueTermsS(terms.toSeq)(env3)
+            }
+        } (env2)
+      case (env2, Failure(noType)) =>
+        (env2, noType.failure)
+    }
+    
   def normalizeTypeAppS[T, U, E](typeApp: TypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     (for {
       res <- State(envSt.inferTypeValueTermKindS(typeApp))
