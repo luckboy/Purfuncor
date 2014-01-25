@@ -2657,6 +2657,64 @@ i = h g
       }
     }
     
+    it should "unify the two unit types with the type arguments which are the type lambda-expression" in {
+      // Unifies \t1 => T (\t2 t3 => (t2, t3)) (\t2 => t1)
+      // with    \t1 => T (\t2 t3 => t1) (\t2 => #Array t2) for unittype 2 T.
+      val s = """
+unittype 2 T
+f = construct 0: \t1 => T (\t2 t3 => tuple 2 t2 t3) (\t2 => t1)
+g (x: \t1 => T (\t2 t3 => t1) (\t2 => #Array t2)) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U")))) {
+                case Some(tLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq(_)) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("U"))), Seq()) =>
+                      // T (\t1 t2 => (t1, t2)) (\t1 => #Array t1)
+                      loc1 should be ===(tLoc)
+                      inside(arg1) { 
+                        case TypeValueLambda(Seq(param11, param12), TupleType(Seq(type11, type12))) =>
+                          inside(type11) {
+                            case TypeParamApp(param13, Seq(), 0) =>
+                              inside(type12) {
+                                case TypeParamApp(param14, Seq(), 0) =>
+                                  List(param11, param13).toSet should have size(1)
+                                  List(param12, param14).toSet should have size(1)
+                                  List(param11, param12, param13, param14).toSet should have size(2)
+                              }
+                          }
+                      }
+                      inside(arg2) { 
+                        case TypeValueLambda(Seq(param21), BuiltinType(TypeBuiltinFunction.Array, Seq(type21))) =>
+                          inside(type21) {
+                            case TypeParamApp(param22, Seq(), 0) =>
+                              List(param21, param22).toSet should have size(1)
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    }
+    
     it should "normalize the type applications after the evaluation of the defined types" in {
       val s = """
 type T t1 t2 t3 t4 = tuple 3 t1 t2 t3 

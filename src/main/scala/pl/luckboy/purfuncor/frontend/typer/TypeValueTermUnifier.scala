@@ -88,7 +88,7 @@ object TypeValueTermUnifier
             val (newEnv5, unifiedKindRes) = argParamSeq.headOption.map {
               argParam =>
                 val (newEnv2, kindRes) = envSt.inferTypeValueTermKindS(TypeParamApp(argParam, Nil, 0))(newEnv)
-                argParamSeq.foldLeft((newEnv, kindRes.valueOr { _.toNoKind }.success[NoType[T]])) {
+                argParamSeq.foldLeft((newEnv2, kindRes.valueOr { _.toNoKind }.success[NoType[T]])) {
                   case ((newEnv3, Success(kind1)), param2) =>
                     val (newEnv4, kindRes2) = envSt.inferTypeValueTermKindS(TypeParamApp(param2, Nil, 0))(newEnv3)
                     envSt.unifyKindsS(kind1, kindRes2.valueOr { _.toNoKind })(newEnv4)
@@ -143,7 +143,7 @@ object TypeValueTermUnifier
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
-
+  
   private def partiallyInstantiateTypeValueTermForMarkedParamsS[T, E](term: TypeValueTerm[T])(markedParams: Set[Int])(err: E => (E, NoType[T]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], (TypeValueTerm[T], Option[Int])]) =
     term match {
       case TypeParamApp(param, args, paramAppIdx) =>
@@ -782,7 +782,17 @@ object TypeValueTermUnifier
   
   def replaceTypeValueLambdaParamsS[T, E](lambda: TypeValueLambda[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
     lambda match {
-      case TypeValueLambda(argParams, body) => replaceTypeValueTermParamsS(body)(f)(env).mapElements(identity, _.map { TypeValueLambda(argParams, _) })
+      case TypeValueLambda(argParams, body) =>
+        val (env2, res) = argParams.foldLeft((env, Seq[Int]().success[NoType[T]])) {
+          case ((newEnv, Success(newArgParams)), param) =>
+            val (newEnv2, newRes) = unifier.findRootParamS(param)(newEnv)
+            (newEnv2, newRes.map { newArgParams :+ _ })
+          case ((newEnv, Failure(noType)), _)           =>
+            (newEnv, noType.failure)
+        }
+        res.map {
+          argParams2 => replaceTypeValueTermParamsS(body)(f)(env2).mapElements(identity, _.map { TypeValueLambda(argParams2, _) })
+        }.valueOr { nt => (env2, nt.failure) }
     }
   
   def replaceTypeValueTermParamsS[T, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]): (E, Validation[NoType[T], TypeValueTerm[T]]) =

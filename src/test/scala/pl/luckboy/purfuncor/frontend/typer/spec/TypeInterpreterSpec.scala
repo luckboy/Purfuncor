@@ -377,6 +377,37 @@ unittype 3 U
 	    case TypeCombinatorValue(_, _, _) => ()
 	  }
     }
+
+    it should "interpret the type tree with the unit type with arguments which are type functions" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = V U #Float (\t1 t2 => t1 t2)
+type U t1 t2 = tuple 2 (#Array t1) t2
+unittype 3 V
+""")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("V")))) {
+            case Some(loc) =>
+              term should be ===(Unittype(loc,
+                  Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(0, 1),
+                          TupleType[Z](Seq(
+                              BuiltinType(TypeBuiltinFunction.Array, Seq(TypeParamApp(0, Seq(), 0))), 
+                              TypeParamApp(1, Seq(), 0)))),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]())),
+                      TypeValueLambda(Seq(0, 1),
+                          TypeParamApp[Z](0, Seq(TypeValueLambda(Seq(), TypeParamApp(1, Seq(), 0))), 0))),
+                  GlobalSymbol(NonEmptyList("V"))))
+          }
+      }
+      inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+	    case TypeCombinatorValue(_, _, _) => ()
+	  }
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("V")))) {
+	    case TypeCombinatorValue(_, _, _) => ()
+	  }
+    }
     
     it should "partially interpret the string of the type term" in {
       val s = """
