@@ -46,10 +46,22 @@ sealed trait Symbol
 {
   def pos: Position
   
+  def ++ (names: List[String]) =
+    this match {
+      case GlobalSymbol(names1, pos) => GlobalSymbol(names1 :::> names, pos)
+      case NormalSymbol(names1, pos) => NormalSymbol(names1 :::> names, pos)
+    }
+  
   def withPrefix(s: String) =
     this match {
-      case GlobalSymbol(names, pos) => GlobalSymbol(names.list.init <::: NonEmptyList(s + names.head), pos)
-      case NormalSymbol(names, pos) => NormalSymbol(names.list.init <::: NonEmptyList(s + names.head), pos)
+      case GlobalSymbol(names, pos) => GlobalSymbol(names.list.init <::: NonEmptyList(s + names.reverse.head), pos)
+      case NormalSymbol(names, pos) => NormalSymbol(names.list.init <::: NonEmptyList(s + names.reverse.head), pos)
+    }
+  
+  def withModule(name: String) =
+    this match {
+      case GlobalSymbol(names, pos) => GlobalSymbol(names.list.init <::: NonEmptyList(name, names.reverse.head), pos)
+      case NormalSymbol(names, pos) => NormalSymbol(names.list.init <::: NonEmptyList(name, names.reverse.head), pos)
     }
   
   override def toString =

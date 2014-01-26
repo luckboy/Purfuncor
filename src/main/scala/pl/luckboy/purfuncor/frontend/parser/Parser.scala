@@ -96,6 +96,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class TypeArgWrapper(typeArg: TypeArg) extends Positional
   case class KindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) extends Positional
   case class CaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
+  case class NamedFieldWrapper(namedField: NamedField) extends Positional
   case class FunctionWrapper[T](f: Position => T) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
@@ -140,6 +141,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def kindTermWrapperOptionToKindTermOption(wrapper: Option[KindTermWrapper]) = wrapper.map(kindTermWrapperToKindTerm)
   implicit def caseWrapperToCase(wrapper: CaseWrapper) = wrapper.cas.copy(pos = wrapper.pos)
   implicit def caseWrapperNelToCaseNel(wrappers: NonEmptyList[CaseWrapper]) = wrappers.map { caseWrapperToCase(_) }
+  implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField
+  implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { _.namedField }
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
   implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
@@ -150,6 +153,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def typeArgToTypeArgWrapper(typeArg: TypeArg) = TypeArgWrapper(typeArg)
   implicit def kindTermToKindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) = KindTermWrapper(kindTerm)
   implicit def caseToWrapperCase(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
+  implicit def namedFieldToNamedFieldWrapper(namedField: NamedField) = NamedFieldWrapper(namedField)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
   
@@ -544,7 +548,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val namedFieldConstructor = noNlParsers.symbol ~ ("{" ~-> (namedFields ?) <~- "}") ~ (extendTypePart ?) ^^ { case s ~ nfs ~ t => NamedFieldConstructor(s, nfs.getOrElse(Nil), t) }
   lazy val extendTypePart = "extends" ~-> noNlParsers.simpleTypeExpr
   lazy val namedFields = namedField ~- (("," ~-> namedField) -*)		^^ { case nf ~ nfs => nf :: nfs }
-  lazy val namedField = ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t) }
+  lazy val namedField = p(ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })
 
   def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
