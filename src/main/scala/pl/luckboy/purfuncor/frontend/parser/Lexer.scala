@@ -15,8 +15,8 @@ case class Lexer() extends StdLexical
 {
   delimiters ++= List("(", ")", "{", "}", "[", "]", "#", "##", ".", ";", "###", ",", "\n")
   reserved ++= List("_", "false", "true", "tuple", "let", "in", "module", "import", "type", "unittype", "construct", 
-      "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset", "fieldswith", "if", "else", "=",
-      "\\", "=>", ":", "*", "!", "->")
+      "select", "extract", "poly", "instance", "makearray", "makelist", "fieldset", "fieldswith", "if", "else",
+      "datatype", "=", "\\", "=>", ":", "*", "!", "->", "|")
   
   case class CharLit(chars: String) extends Token
   case class ByteLit(chars: String) extends Token

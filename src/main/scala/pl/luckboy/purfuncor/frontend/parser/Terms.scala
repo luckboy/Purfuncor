@@ -12,39 +12,23 @@ import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 
-object Terms {
-  def namedArgsFromTypeArgs(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) =
-    args.zip(1 to args.size).map { case (a, i) => a.copy(name = some(a.name.getOrElse("$x" + i))) }
-  
+object Terms
+{
   def namedArgsFromArgs(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) =
-    args.zip(1 to args.size).map { case (a, i) => a.copy(name = some(a.name.getOrElse("$x" + i))) }
-
-  def appForArgs(fun: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]], args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]], pos: Position) =
-    args.toNel.map { 
-      as =>
-        App(fun, as.zip(NonEmptyList.nel(1, (2 to as.size).toList)).map { 
-          case (a, i) => Simple(Var(NormalSymbol(NonEmptyList(a.name.getOrElse("$x" + i)), a.pos), LambdaInfo), a.pos)
-        }, pos)
-    }.getOrElse(fun)
-
-  def appForSymbolAndArgs(funSym: Symbol, args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]], pos: Position) =
-    appForArgs(Simple(TypeVar(funSym), pos), args, pos)
+    args.zipWithIndex.map { case (a, i) => a.copy(name = some(a.name.getOrElse("$x" + (i + 1)))) }
   
-  def typeAppForSymbol(funSym: Symbol, args: NonEmptyList[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]], pos: Position) =
-    App(Simple(TypeVar(funSym), pos), args, pos)
-  
+  def varsFromArgs(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) =
+    args.zipWithIndex.map { case (a, i) => Simple(Var(NormalSymbol(NonEmptyList(a.name.getOrElse("$x" + (i + 1))), a.pos), LambdaInfo), a.pos) }
+    
   def namedTypeArgsFromTypeArgs(args: List[TypeArg]) =
-    args.zip(1 to args.size).map { case (a, i) => a.copy(name = some(a.name.getOrElse("$t" + i))) }
-    
-  def typeAppForArgs(fun: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]], args: List[TypeArg], pos: Position) =
-    args.toNel.map { 
-      as =>
-        App(fun, as.zip(NonEmptyList.nel(1, (2 to as.size).toList)).map { 
-          case (a, i) => Simple(TypeVar(NormalSymbol(NonEmptyList(a.name.getOrElse("$t" + i)), a.pos)), a.pos)
-        }, pos)
-    }.getOrElse(fun)
-    
-  def typeAppForSymbolAndArgs(funSym: Symbol, args: List[TypeArg], pos: Position) =
-    typeAppForArgs(Simple(TypeVar(funSym), pos), args, pos)
-
+    args.zipWithIndex.map { case (a, i) => a.copy(name = some(a.name.getOrElse("$t" + (i + 1)))) }
+  
+  def typeVarsFromTypeArgs(args: List[TypeArg]) =
+    args.zipWithIndex.map { case (a, i) => Simple(TypeVar(NormalSymbol(NonEmptyList(a.name.getOrElse("$t" + (i + 1))), a.pos)), a.pos) }
+  
+  def renamedTypeArgsFromTypeArgs(args: List[TypeArg], prefix: String) =
+    args.zipWithIndex.map { case (a, i) => a.copy(name = some(prefix + (i + 1))) }
+  
+  def renamedTypeVarsFromTypeArgs(args: List[TypeArg], prefix: String) =
+    typeVarsFromTypeArgs(renamedTypeArgsFromTypeArgs(args, prefix))
 }

@@ -12,6 +12,6 @@ import scalaz.Scalaz._
 
 object Terms
 {
-  def appForList[T](fun: Term[T], args: List[Term[T]], pos: Position) =
+  def app[T](fun: Term[T], args: List[Term[T]], pos: Position) =
     args.toNel.map { App(fun, _, pos) }.getOrElse(fun)
 }

@@ -32,13 +32,19 @@ object Terms
   def fieldswithFun[T, U, V](n: Int, is: List[Int], pos: Position) = Simple(Literal[T, U, V](FieldswithFunValue(n, is)), pos)
   def builtinFun[T, U, V](bf: BuiltinFunction.Value, pos: Position) = Simple(Literal[T, U, V](BuiltinFunValue(bf)), pos)
   
-  def let[T, U, V](binds: NonEmptyList[Bind[T, U, V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) = Simple(Let(binds, body, lambdaInfo), pos)
-  def lambda[T, U, V](args: NonEmptyList[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) = Simple(Lambda(args, body, lambdaInfo), pos)
+  def let[T, U, V](binds: List[Bind[T, U, V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) = 
+    binds.toNel.map { bs => Simple(Let(bs, body, lambdaInfo), pos) }.getOrElse(body)
+  
+  def lambda[T, U, V](args: List[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) =
+    args.toNel.map { as => Simple(Lambda(as, body, lambdaInfo), pos) }.getOrElse(body)
+  
   def variable[T, U, V](loc: T, lambdaInfo: U, pos: Position) = Simple(Var[T, U, V](loc, lambdaInfo), pos)
   def typedTerm[T, U, V](term: Term[SimpleTerm[T, U, V]], typ: Term[V], pos: Position) = Simple(TypedTerm(term, typ), pos)
   def construct[T, U, V](n: Int, lambdaInfo: U, pos: Position) = Simple(Construct[T, U, V](n, lambdaInfo), pos)
   def select[T, U, V](term: Term[SimpleTerm[T, U, V]], cases: NonEmptyList[Case[T, U, V]], lambdaInfo: U, pos: Position) = Simple(Select(term, cases, lambdaInfo), pos)
-  def extract[T, U, V](term: Term[SimpleTerm[T, U, V]], args: NonEmptyList[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) = Simple(Extract(term, args, body, lambdaInfo), pos)
+  
+  def extract[T, U, V](term: Term[SimpleTerm[T, U, V]], args: List[Arg[V]], body: Term[SimpleTerm[T, U, V]], lambdaInfo: U, pos: Position) =
+    args.toNel.map { as => Simple(Extract(term, as, body, lambdaInfo), pos) }.getOrElse(body)
     
   def anyType[T, U](pos: Position) = Simple(TypeLiteral[T, U](TypeBuiltinFunValue(TypeBuiltinFunction.Any)), pos)
   def nothingType[T, U](pos: Position) = Simple(TypeLiteral[T, U](TypeBuiltinFunValue(TypeBuiltinFunction.Nothing)), pos)
@@ -62,12 +68,10 @@ object Terms
   def fieldSet2TypeFun[T, U](pos: Position) = Simple(TypeLiteral[T, U](TypeBuiltinFunValue(TypeBuiltinFunction.FieldSet2)), pos)
   def tupleTypeFun[T, U](n: Int, pos: Position) = Simple(TypeLiteral(TupleTypeFunValue(n)), pos)
   def fieldTypeFun[T, U](i: Int, pos: Position) = Simple(TypeLiteral(FieldTypeFunValue(i)), pos)
+
+  def typeLambda[T, U](args: List[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, pos: Position) =
+    args.toNel.map { as => Simple(TypeLambda(as, body, lambdaInfo), pos) }.getOrElse(body)
   
-  def typeLambda[T, U](args: NonEmptyList[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, pos: Position) = Simple(TypeLambda(args, body, lambdaInfo), pos)
   def typeVar[T, U](loc: T, pos: Position) = Simple(TypeVar[T, U](loc), pos)
   def kindedTypeTerm[T, U](term: Term[TypeSimpleTerm[T, U]], kind: KindTerm[StarKindTerm[String]], pos: Position) = Simple(KindedTypeTerm(term, kind), pos)
-
-  def typeLambdaForArgList[T, U](args: List[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, pos: Position) =
-    args.toNel.map { as => Simple(TypeLambda(as, body, lambdaInfo), pos) }.getOrElse(body)
-
 }

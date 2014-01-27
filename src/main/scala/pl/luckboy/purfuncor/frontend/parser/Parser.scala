@@ -173,9 +173,9 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
   lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
-  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!" | "->"
+  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!" | "->" | "|"
   
-  lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars }
+  lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars } | "|"
   lazy val opIdent2 = elem("operator identifier 2", t => t.isInstanceOf[lexical.OpIdentifier] && "^".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent3 = elem("operator identifier 3", t => t.isInstanceOf[lexical.OpIdentifier] && "&".contains(t.chars.head)) ^^ { _.chars }
   lazy val opIdent4 = elem("operator identifier 4", t => t.isInstanceOf[lexical.OpIdentifier] && "=!".contains(t.chars.head)) ^^ { _.chars } | "!"
@@ -457,7 +457,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       instanceDef |
       selectConstructInstanceDef)
   lazy val defs = defs1 ~ ((semi ~> defs1) *)							^^ { case ds ~ dss => (ds :: dss).foldLeft(List[Def]()) { _ ++ _ } }
-  lazy val defs1 = definition ^^ { List(_) }
+  lazy val defs1 = definition ^^ { List(_) } | sugarDefs1
 
   lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = simpleCombinatorDef | combinatorDef1 | sugarCombinatorDef
@@ -516,7 +516,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val unaryTypeOpDef = simpleUnaryOpDef | unaryTypeOpDef1
   lazy val simpleTypeUnaryOpDef = "type" ~-> simpleTypeOpDefPart ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ t => TypeCombinatorDef(s.withPrefix("unary_"), kt, Nil, t) }
   lazy val unaryTypeOpDef1 = "type" ~-> typeOpDefPart ~ (typeArg +) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s.withPrefix("unary_"), kt, as, t)}
-  lazy val binaryTypeOpDef = typeArg ~ typeOpDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case a ~ ((s, kt)) ~ as ~ t => TypeCombinatorDef(s, kt, typeArgWrappersToTypeArgs(a :: as), t) }
+  lazy val binaryTypeOpDef = "type" ~-> typeArg ~ typeOpDefPart ~ (typeArg *) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case a ~ ((s, kt)) ~ as ~ t => TypeCombinatorDef(s, kt, typeArgWrappersToTypeArgs(a :: as), t) }
 
   lazy val simpleTypeOpDefPart = simpleTypeOpDefPart1 | typeOpDefPart
   lazy val simpleTypeOpDefPart1 = noNlParsers.opSymbol ~ (":" ~-> nlParsers.kindExpr) ^^ { case s ~ kt => (s, some(kt)) }
@@ -527,26 +527,26 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val sugarDefs1 = datatypeDef
   
-  lazy val datatypeDef = datatypeDef1
+  lazy val datatypeDef = datatypeDef1									^^ makeDatatypeDef
   lazy val datatypeDef1 = simpleDatatypeDef | datatypeDef2 | datatypeOpDef
-  lazy val simpleDatatypeDef = "datatype" ~-> simpleTypeCombinatorDefPart ~ (extendTypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ t ~ cs => DatatypeDef(s, kt, Nil, t, cs) }
-  lazy val datatypeDef2 = "datatype" ~-> typeCombinatorDefPart ~ (typeArg +) ~ (extendTypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ as ~ t ~ cs => DatatypeDef(s, kt, as, t, cs) }
+  lazy val simpleDatatypeDef = "datatype" ~-> simpleTypeCombinatorDefPart ~ (supertypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ t ~ cs => DatatypeDef(s, kt, Nil, t, cs) }
+  lazy val datatypeDef2 = "datatype" ~-> typeCombinatorDefPart ~ (typeArg +) ~ (supertypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ as ~ t ~ cs => DatatypeDef(s, kt, as, t, cs) }
   lazy val datatypeOpDef = unaryDatatypeOpDef | binaryDatatypeOpDef
   lazy val unaryDatatypeOpDef = simpleUnaryDatatypeOpDef | unaryDatatypeOpDef1
-  lazy val simpleUnaryDatatypeOpDef = "datatype" ~-> (simpleTypeOpDefPart) ~ (extendTypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ t ~ cs => DatatypeDef(s.withPrefix("unary_"), kt, Nil, t, cs) }
-  lazy val unaryDatatypeOpDef1 = "datatype" ~-> typeOpDefPart ~ (typeArg +) ~ (extendTypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ as ~ t ~ cs => DatatypeDef(s.withPrefix("unary_"), kt, as, t, cs) }
-  lazy val binaryDatatypeOpDef = "datatype" ~-> typeArg ~ typeOpDefPart ~ (typeArg *) ~ (extendTypePart ?) ~- ("=" ~-> constructors) ^^ { case a ~ ((s, kt)) ~ as ~ t ~ cs => DatatypeDef(s, kt, typeArgWrappersToTypeArgs(a :: as), t, cs) }
+  lazy val simpleUnaryDatatypeOpDef = "datatype" ~-> (simpleTypeOpDefPart) ~ (supertypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ t ~ cs => DatatypeDef(s.withPrefix("unary_"), kt, Nil, t, cs) }
+  lazy val unaryDatatypeOpDef1 = "datatype" ~-> typeOpDefPart ~ (typeArg +) ~ (supertypePart ?) ~- ("=" ~-> constructors) ^^ { case (s, kt) ~ as ~ t ~ cs => DatatypeDef(s.withPrefix("unary_"), kt, as, t, cs) }
+  lazy val binaryDatatypeOpDef = "datatype" ~-> typeArg ~ typeOpDefPart ~ (typeArg *) ~ (supertypePart ?) ~- ("=" ~-> constructors) ^^ { case a ~ ((s, kt)) ~ as ~ t ~ cs => DatatypeDef(s, kt, typeArgWrappersToTypeArgs(a :: as), t, cs) }
   
   lazy val constructors = constructor ~ ((rep("\n") ~ "|" ~-> constructor) *) ^^ { case c ~ cs => NonEmptyList.nel(c, cs) }
   
-  lazy val constructor = unnamedFieldConstructor | namedFieldConstructor
+  lazy val constructor = namedFieldConstructor | unnamedFieldConstructor
   lazy val unnamedFieldConstructor = unnamedFieldConstructor1 | constrOp
-  lazy val unnamedFieldConstructor1 = noNlParsers.symbol ~ (noNlParsers.simpleTypeExpr *) ~ (extendTypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s, ts, t) }
+  lazy val unnamedFieldConstructor1 = noNlParsers.symbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s, ts, t) }
   lazy val constrOp = unaryConstrOp | binaryConstrOp
-  lazy val unaryConstrOp = noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (extendTypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s.withPrefix("unary_"), ts, t) }
-  lazy val binaryConstrOp = noNlParsers.simpleTypeExpr ~ noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (extendTypePart ?) ^^ { case t1 ~ s ~ ts ~ t2 => UnnamedFieldConstructor(s, typeTermWrappersToTypeTerms(t1 :: ts), t2) }
-  lazy val namedFieldConstructor = noNlParsers.symbol ~ ("{" ~-> (namedFields ?) <~- "}") ~ (extendTypePart ?) ^^ { case s ~ nfs ~ t => NamedFieldConstructor(s, nfs.getOrElse(Nil), t) }
-  lazy val extendTypePart = "extends" ~-> noNlParsers.simpleTypeExpr
+  lazy val unaryConstrOp = noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s.withPrefix("unary_"), ts, t) }
+  lazy val binaryConstrOp = noNlParsers.simpleTypeExpr ~ noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case t1 ~ s ~ ts ~ t2 => UnnamedFieldConstructor(s, typeTermWrappersToTypeTerms(t1 :: ts), t2) }
+  lazy val namedFieldConstructor = noNlParsers.symbol ~ ("{" ~-> (namedFields ?) <~- "}") ~ (supertypePart ?) ^^ { case s ~ nfs ~ t => NamedFieldConstructor(s, nfs.getOrElse(Nil), t) }
+  lazy val supertypePart = "extends" ~-> noNlParsers.simpleTypeExpr
   lazy val namedFields = namedField ~- (("," ~-> namedField) -*)		^^ { case nf ~ nfs => nf :: nfs }
   lazy val namedField = p(ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })
 

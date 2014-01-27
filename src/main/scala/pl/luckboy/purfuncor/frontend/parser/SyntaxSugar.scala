@@ -22,11 +22,11 @@ object SyntaxSugar
   }
   
   def makeTuple(terms: List[Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]]) = {
-    (pos: Position) => appForList(tupleFun(terms.size, pos), terms, pos)
+    (pos: Position) => app(tupleFun(terms.size, pos), terms, pos)
   }
   
   def makeArray(terms: List[Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]]) = {
-    (pos: Position) => appForList(makearrayFun(terms.size, pos), terms, pos)
+    (pos: Position) => app(makearrayFun(terms.size, pos), terms, pos)
   }
   
   def makeList(terms: List[Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]]) = {
@@ -47,10 +47,10 @@ object SyntaxSugar
   }
   
   def makeTypeTuple(terms: List[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = {
-    (pos: Position) => appForList(tupleTypeFun(terms.size, pos), terms, pos)
+    (pos: Position) => app(tupleTypeFun(terms.size, pos), terms, pos)
   }
   
-  def makeDatatype(datatype: DatatypeDef) = {
+  def makeDatatypeDef(datatype: DatatypeDef) = {
     //
     // datatype (T: k) t1 ... tN [extends V] = C1 U11 ... U1L1 extends V1 | ... | CM UM1 ... UMLM extends VM
     //
@@ -87,9 +87,9 @@ object SyntaxSugar
             // type (T: k) = tN = C1.Type t1 ... tN #| ... #| CM t1 ... tN
             TypeCombinatorDef(
                 sym, kind,
-                namedTypeArgsFromTypeArgs(args),
-                constrs.tail.foldLeft(typeAppForSymbolAndArgs(constrs.head.sym ++ List("Type"), args, constrs.head.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
-                  (tt, c) => App(typeDisjFun(sym.pos), NonEmptyList(tt, typeAppForSymbolAndArgs(constrs.head.sym ++ List("Type"), args, constrs.head.sym.pos)), sym.pos)
+                renamedTypeArgsFromTypeArgs(args, "t"),
+                constrs.tail.foldLeft(app(typeVar(constrs.head.sym ++ List("Type"), constrs.head.sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), constrs.head.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
+                  (tt, c) => App(typeDisjFun(sym.pos), NonEmptyList(tt, app(typeVar(constrs.head.sym ++ List("Type"), c.sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), c.sym.pos)), sym.pos)
                 }),
             // instance select T construct {
             //   C1.Type
@@ -110,11 +110,11 @@ object SyntaxSugar
             TypeCombinatorDef(
                 sym ++ List("BaseType"), 
                 kind,
-                namedTypeArgsFromTypeArgs(args),
+                renamedTypeArgsFromTypeArgs(args, "t"),
                 App(typeConjFun(sym.pos),
                     NonEmptyList(
-                        typeAppForSymbolAndArgs(sym ++ List("BaseUnittype"), args, sym.pos),
-                        typeAppForSymbolAndArgs(sym ++ List("BaseSupertype"), args, sym.pos)),
+                        app(typeVar(sym ++ List("BaseUnittype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos),
+                        app(typeVar(sym ++ List("BaseSupertype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos)),
                     sym.pos)),
             // type (T.BaseSupertype: k) t1 ... tN = V
             TypeCombinatorDef(
@@ -126,11 +126,11 @@ object SyntaxSugar
             List(
                 // Cj x1 ... xLj = _construct.Cj x1 ... xLj: T
                 CombinatorDef(
-                    sym, none,
-                    constr.fieldPoses.zipWithIndex.map { case (pos, i) => Arg(some("x" + i), none, pos) },
+                    constr.sym, none,
+                    constr.fieldPoses.zipWithIndex.map { case (pos, i) => Arg(some("x" + (i + 1)), none, pos) },
                     typedTerm(
-                        appForList(variable(constr.sym.withModule("_construct"), LambdaInfo, constr.sym.pos),
-                            constr.fieldPoses.zipWithIndex.map { case (pos, i) => variable(NormalSymbol(NonEmptyList("x" + i), pos), LambdaInfo, pos) },
+                        app(variable(constr.sym.withModule("_construct"), LambdaInfo, constr.sym.pos),
+                            constr.fieldPoses.zipWithIndex.map { case (pos, i) => variable(NormalSymbol(NonEmptyList("x" + (i + 1)), pos), LambdaInfo, pos) },
                             constr.sym.pos),
                         typeVar(sym, constr.sym.pos),
                         constr.sym.pos))) ++ makeConstructor(constr, sym, kind, args)
@@ -148,7 +148,8 @@ object SyntaxSugar
     // _construct.Cj x1 ... xLj = construct M x1 ... xLj: Cj.Type
     // unittype N Cj.Unittype: k
     // type (Cj.TypeWithoutTuple: k) t1 ... tN = T.BaseType t1 ... tN #& Cj.Unittype t1 ... tN #& Cj.Supertype t1 ... tN
-    // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& (Uj1, ..., UjLj)
+    // type (Cj.Tuple: k) t1 ... tN = (Uj1, ..., UjLj)
+    // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& Cj.Tuple t1 ... tN
     // type (Cj.Supertype: k) t1 ... tN = Vj
     //
     // // for named fields
@@ -178,10 +179,10 @@ object SyntaxSugar
         CombinatorDef(
             constr.sym.withModule("_construct"),
             none,
-            constr.fieldPoses.zipWithIndex.map { case (pos, i) => Arg(some("x" + i), none, pos) },
+            constr.fieldPoses.zipWithIndex.map { case (pos, i) => Arg(some("x" + (i + 1)), none, pos) },
             typedTerm(
-                appForList(construct(constr.fieldCount, LambdaInfo, constr.sym.pos),
-                    constr.fieldPoses.zipWithIndex.map { case (pos, i) => variable(NormalSymbol(NonEmptyList("x" + i), pos), LambdaInfo, pos) },
+                app(construct(constr.fieldCount, LambdaInfo, constr.sym.pos),
+                    constr.fieldPoses.zipWithIndex.map { case (pos, i) => variable(NormalSymbol(NonEmptyList("x" + (i + 1)), pos), LambdaInfo, pos) },
                     constr.sym.pos),
                 typeVar(constr.sym ++ List("Type"), constr.sym.pos),
                 constr.sym.pos)
@@ -195,25 +196,31 @@ object SyntaxSugar
         TypeCombinatorDef(
             constr.sym ++ List("TypeWithoutTuple"),
             datatypeKind,
-            namedTypeArgsFromTypeArgs(datatypeArgs),
+            renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
             App(typeConjFun(constr.sym.pos),
                 NonEmptyList(
                     App(typeConjFun(constr.sym.pos),
                         NonEmptyList(
-                            typeAppForSymbolAndArgs(datatypeSym ++ List("BaseType"), datatypeArgs, constr.sym.pos),
-                            typeAppForSymbolAndArgs(constr.sym ++ List("Unittype"), datatypeArgs, constr.sym.pos)),
+                            app(typeVar(datatypeSym ++ List("BaseType"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos),
+                            app(typeVar(constr.sym ++ List("Unittype"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos)),
                         constr.sym.pos),
-                     typeAppForSymbolAndArgs(constr.sym ++ List("Supertype"), datatypeArgs, constr.sym.pos)),
+                     app(typeVar(constr.sym ++ List("Supertype"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos)),
                 constr.sym.pos)),
-        // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& (Uj1, ..., UjLj)
+        // type (Cj.Tuple: k) t1 ... tN = (Uj1, ..., UjLj)
         TypeCombinatorDef(
-            constr.sym ++ List("TypeWithoutTuple"),
+            constr.sym ++ List("Tuple"),
             datatypeKind,
-            namedTypeArgsFromTypeArgs(datatypeArgs),
+            datatypeArgs,
+            app(tupleTypeFun(constr.fieldCount, constr.sym.pos), constr.fieldTypes, constr.sym.pos)),
+        // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& Cj.Tuple t1 ... tN
+        TypeCombinatorDef(
+            constr.sym ++ List("Type"),
+            datatypeKind,
+            renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
             App(typeConjFun(constr.sym.pos),
                 NonEmptyList(
-                    typeAppForSymbolAndArgs(constr.sym ++ List("TypeWithoutTuple"), datatypeArgs, constr.sym.pos),
-                    appForList(tupleTypeFun(constr.fieldCount, constr.sym.pos), constr.fieldTypes, constr.sym.pos)),
+                    app(typeVar(constr.sym ++ List("TypeWithoutTuple"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos),
+                    app(typeVar(constr.sym ++ List("Tuple"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos)),
                 constr.sym.pos)),
         // type (Cj.Supertype: k) t1 ... tN = Vj
         TypeCombinatorDef(
@@ -232,9 +239,11 @@ object SyntaxSugar
                 none, Nil,
                 typedTerm(
                     tupleFieldFun(constr.fieldCount, i, fieldPos),
-                    typeLambdaForArgList(
-                        datatypeArgs, 
-                        App(typeVar(constr.sym ++ List("Type"), fieldType.pos), NonEmptyList(fieldType), fieldType.pos), TypeLambdaInfo, fieldType.pos),
+                    typeLambda(
+                        datatypeArgs,                      
+                        App(typeVar(constr.sym ++ List("Type"), fieldType.pos), NonEmptyList(fieldType), fieldType.pos),
+                        TypeLambdaInfo,
+                        fieldType.pos),
                     fieldPos))
         }
         val fieldDefs = fields.zipWithIndex.flatMap {
@@ -260,30 +269,34 @@ object SyntaxSugar
             App(typeDisjFun(sym.pos), NonEmptyList(
                 tt, 
                 App(fieldSet1TypeFun(sym.pos), NonEmptyList(
-                    tupleTypeFun(0, sym.pos),
-                    typeAppForSymbolAndArgs(constr.sym ++ List("field", f.name), datatypeArgs, sym.pos)), sym.pos)), sym.pos)
+                    App(fieldTypeFun(i, f.pos), NonEmptyList(tupleTypeFun(0, f.pos)), f.pos),
+                    app(typeVar(constr.sym ++ List("field", f.name), f.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), f.pos)),
+                    sym.pos)),
+                sym.pos)
         }
         val tmpFieldSetTypeTerm2 = fields.zip(0 until fields.size).foldLeft(tmpFieldSetTypeTerm1) {
           case (tt, (f, i)) => 
             App(typeConjFun(sym.pos), NonEmptyList(
                 tt, 
                 App(fieldSet2TypeFun(sym.pos), NonEmptyList(
-                    tupleTypeFun(0, sym.pos),
-                    typeAppForSymbolAndArgs(constr.sym ++ List("field", f.name), datatypeArgs, sym.pos)), sym.pos)), sym.pos)
+                    App(fieldTypeFun(i, f.pos), NonEmptyList(tupleTypeFun(0, f.pos)), f.pos),
+                    app(typeVar(constr.sym ++ List("field", f.name), f.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), f.pos)),
+                    sym.pos)),
+                sym.pos)
         }
         val otherDefs = List(
             // type Cj.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
             TypeCombinatorDef(
                 constr.sym ++ List("FieldSet"),
                 none,
-                namedTypeArgsFromTypeArgs(datatypeArgs),
+                renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
                 tmpFieldSetTypeTerm2),
             // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
             CombinatorDef(
                 constr.sym ++ List("default", "_fieldsWith"),
                 none,
                 Nil,
-                appForList(
+                app(
                     fieldswithFun(fields.size, fields.zipWithIndex.flatMap { case (f, i) => f.default.map { _ => i } }, sym.pos),
                     fields.flatMap { _.default },
                     sym.pos)),
