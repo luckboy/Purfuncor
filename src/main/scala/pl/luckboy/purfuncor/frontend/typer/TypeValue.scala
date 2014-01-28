@@ -337,9 +337,10 @@ object TypeValueTerm
     else
       (env2, funValue)
     eval.forceS(retValue)(env3) match {
-      case (env4, noType: NoTypeValue[T, U, V, W]) => (env4, noType.failure)
-      case (env4, EvaluatedTypeValue(term))        => (env4, term.success)
-      case (env4, _)                               => (env4, NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure)
+      case (env4, noType: NoTypeValue[T, U, V, W])                        => (env4, noType.failure)
+      case (env4, EvaluatedTypeValue(term))                               => (env4, term.success)
+      case (env4, EvaluatedTypeLambdaValue(TypeValueLambda(Seq(), body))) => (env4, body.success)
+      case (env4, _)                                                      => (env4, NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure)
     }
   }
   
