@@ -4074,6 +4074,8 @@ k _ = f
                                               combTypeParams1 = combTypeParams1)
                                           inside(argKinds4) {
                                             case Seq(
+                                                InferredKind(Star(KindType, _)) /* * */,
+                                                InferredKind(Star(KindType, _)) /* * */,
                                                 InferredKind(Star(KindType, _)) /* * */) =>
                                               ()
                                           }
