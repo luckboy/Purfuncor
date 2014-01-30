@@ -173,7 +173,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val constrIdent = elem("constructor identifier", _.isInstanceOf[lexical.ConstrIdentifier]) ^^ { _.chars }
   lazy val varIdent = elem("variable identifier", _.isInstanceOf[lexical.VarIdentifier]) ^^ { _.chars }
-  lazy val opIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!" | "->" | "|"
+  lazy val opIdent = constrOpIdent | "|"
+  lazy val constrOpIdent = elem("operator identifier", _.isInstanceOf[lexical.OpIdentifier]) ^^ { _.chars } | "*" | "!" | "->"
   
   lazy val opIdent1 = elem("operator identifier 1", t => t.isInstanceOf[lexical.OpIdentifier] && "|".contains(t.chars.head)) ^^ { _.chars } | "|"
   lazy val opIdent2 = elem("operator identifier 2", t => t.isInstanceOf[lexical.OpIdentifier] && "^".contains(t.chars.head)) ^^ { _.chars }
@@ -367,6 +368,11 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val opNormalSymbol = p(((normalSymbolPart <~ rep("\n")) ?) ~ opIdent ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
     lazy val opGlobalSymbol = p(globalSymbolPart ~- opIdent ^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
     
+    lazy val constrOpSymbol = opGlobalSymbol | constrOpNormalSymbol
+    lazy val constrOpNormalSymbol = constrOpNormalSymbol1 | constrOpNormalSymbol2
+    lazy val constrOpNormalSymbol1 = p(constrOpIdent					^^ { case s => NormalSymbol(NonEmptyList(s), NoPosition) })
+    lazy val constrOpNormalSymbol2 = p(normalSymbolPart ~- opIdent		^^ { case ss ~ s => NormalSymbol(ss <::: NonEmptyList(s), NoPosition) })
+    
     def opSymbolI(parser: PackratParser[String]) = opGlobalSymbolI(parser) | opNormalSymbolI(parser)
     def opNormalSymbolI(parser: PackratParser[String]) = p(((normalSymbolPart <~ rep("\n")) ?) ~ parser ^^ { case optSs ~ s => NormalSymbol(optSs.getOrElse(Nil) <::: NonEmptyList(s), NoPosition) })
     def opGlobalSymbolI(parser: PackratParser[String]) = p(globalSymbolPart ~- parser ^^ { case ss ~ s => GlobalSymbol(ss <::: NonEmptyList(s), NoPosition) })
@@ -540,16 +546,16 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val constructors = constructor ~ ((rep("\n") ~ "|" ~-> constructor) *) ^^ { case c ~ cs => NonEmptyList.nel(c, cs) }
   
   lazy val constructor = namedFieldConstructor | unnamedFieldConstructor
-  lazy val unnamedFieldConstructor = unnamedFieldConstructor1 | constrOp
+  lazy val unnamedFieldConstructor = constrOp | unnamedFieldConstructor1
   lazy val unnamedFieldConstructor1 = noNlParsers.symbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s, ts, t) }
-  lazy val constrOp = unaryConstrOp | binaryConstrOp
+  lazy val constrOp = binaryConstrOp | unaryConstrOp
   lazy val unaryConstrOp = noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case s ~ ts ~ t => UnnamedFieldConstructor(s.withPrefix("unary_"), ts, t) }
-  lazy val binaryConstrOp = noNlParsers.simpleTypeExpr ~ noNlParsers.opSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case t1 ~ s ~ ts ~ t2 => UnnamedFieldConstructor(s, typeTermWrappersToTypeTerms(t1 :: ts), t2) }
+  lazy val binaryConstrOp = noNlParsers.simpleTypeExpr ~ noNlParsers.constrOpSymbol ~ (noNlParsers.simpleTypeExpr *) ~ (supertypePart ?) ^^ { case t1 ~ s ~ ts ~ t2 => UnnamedFieldConstructor(s, typeTermWrappersToTypeTerms(t1 :: ts), t2) }
   lazy val namedFieldConstructor = noNlParsers.symbol ~ ("{" ~-> (namedFields ?) <~- "}") ~ (supertypePart ?) ^^ { case s ~ nfs ~ t => NamedFieldConstructor(s, nfs.getOrElse(Nil), t) }
   lazy val supertypePart = "extends" ~-> noNlParsers.simpleTypeExpr
   lazy val namedFields = namedField ~- (("," ~-> namedField) -*)		^^ { case nf ~ nfs => nf :: nfs }
-  lazy val namedField = p(ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })
-
+  lazy val namedField = p(ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })  
+  
   def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
       case Success(parseTree, _) => parseTree.success

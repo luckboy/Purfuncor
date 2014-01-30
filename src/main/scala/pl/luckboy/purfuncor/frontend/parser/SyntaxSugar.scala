@@ -304,7 +304,7 @@ object SyntaxSugar
                     sym.pos)),
             // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.FieldSet
             CombinatorDef(
-                constr.sym ++ List("default", "_fieldsWith"),
+                constr.sym ++ List("default", "fieldsWith"),
                 none,
                 List(Arg(some("fs"), none, sym.pos)),
                 typedTerm(
