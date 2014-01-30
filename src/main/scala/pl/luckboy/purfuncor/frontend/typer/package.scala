@@ -66,9 +66,9 @@ package object typer
           (env, TypeLambdaValue(lambda, env.currentTypeClosure, none, env.currentFile))
         case TypeVar(loc)                  =>
           loc match {
-            case globalSym: GlobalSymbol if env.applyingTypeCombSyms.contains(globalSym) || env.isPartial =>
+            case globalSym: GlobalSymbol if env.hasRecursiveTypeComb(globalSym) || env.isPartial =>
               (env, EvaluatedTypeValue(GlobalTypeApp(globalSym, Nil, globalSym)))
-            case _                                                                                        =>
+            case _                                                                               =>
               (env, env.typeVarValue(loc))
           }
         case TypeLiteral(value)            =>
@@ -173,24 +173,29 @@ package object typer
       (res._1, res._2.withPos(pos))
   }
   
-  implicit def symbolTypeCombinatorInitializer[T] = new Initializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], SymbolTypeEnvironment[T]] {
-    override def globalVarsFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.globalTypeVarValues.keySet)
-      
-    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, T]) =
-      comb match {
-        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
-        case UnittypeCombinator(_, _, _)      => Set()
-      }
-      
-    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
-      (env.withGlobalTypeVar(loc, EvaluatedTypeValue(GlobalTypeApp(loc, Nil, loc))).withUninitializedTypeComb(loc), ())
-      
-    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]) = {
+  implicit def symbolTypeCombinatorRecursiveInitializer[T]: RecursiveInitializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolTypeEnvironment[T]] = new RecursiveInitializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], TypeCombinatorNode[Symbol, T, GlobalSymbol], SymbolTypeEnvironment[T]] {
+    override def combinatorFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.comb
+    
+    override def recursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.recursiveCombSyms
+    
+    override def markedRecursiveCombinatorsFromNode(node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = node.markedRecCombSyms
+    
+    override def createNode(comb: AbstractTypeCombinator[Symbol, T], recursiveCombLocs: Set[GlobalSymbol], markedRecCombLocs: Set[GlobalSymbol]) =
+      TypeCombinatorNode(comb, recursiveCombLocs, markedRecCombLocs)
+    
+    override def addNodeS(loc: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol])(env: SymbolTypeEnvironment[T]) =
+      (env.withTypeComb(loc, node), ())
+    
+    override def isRecursiveFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.isRecursive)
+    
+    override def isUninitializedGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
+      (env, env.uninitializedTypeCombSyms.contains(loc))
+    
+    override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]) = {
       val (env2, value) = if(comb.argCount === 0) {
         comb match {
           case TypeCombinator(_, _, body, _, file) =>
-            val recSyms = usedGlobalTypeVarsFromTypeTerm(body) & env.uninitializedTypeCombSyms
-            val (newEnv, value) = env.withRecursiveTypeCombs(recSyms).withFile(file) {
+            val (newEnv, value) = env.withFile(file) {
               _.withTypeCombSym(loc) { _.withPartialEvaluation(false) { evaluateS(body)(_) } }
             }
             (newEnv, value.forFile(file).forCombLoc(some(loc)))
@@ -205,6 +210,35 @@ package object typer
         case _                                                                   => (env3.withGlobalTypeVar(loc, value), ().success)
       }
     }
+    
+    override def checkInitializationS(res: Validation[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(env: SymbolTypeEnvironment[T]) =
+      (env, res)
+    
+    override def nodesFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.typeCombNodes)
+    
+    override def withRecursiveS[U](combLocs: Set[GlobalSymbol], newNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) = {
+      val (env2, res) = f(env.withRecursive(true).withRecursiveTypeCombs(combLocs).withoutGlobalTypeVars(combLocs))
+      (env2.withRecursive(false).withTypeCombNodes(newNodes), res)
+    }
+    
+    override def withClearS[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
+      f(env)
+  }
+  
+  implicit def symbolTypeCombinatorInitializer[T]: Initializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], SymbolTypeEnvironment[T]] = new Initializer[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]], GlobalSymbol, AbstractTypeCombinator[Symbol, T], SymbolTypeEnvironment[T]] {
+    override def globalVarsFromEnvironmentS(env: SymbolTypeEnvironment[T]) = (env, env.globalTypeVarValues.keySet)
+      
+    override def usedGlobalVarsFromCombinator(comb: AbstractTypeCombinator[Symbol, T]) =
+      comb match {
+        case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
+        case UnittypeCombinator(_, _, _)      => Set()
+      }
+      
+    override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
+      (env.withGlobalTypeVar(loc, EvaluatedTypeValue(GlobalTypeApp(loc, Nil, loc))).withUninitializedTypeComb(loc), ())
+      
+    override def initializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, T])(env: SymbolTypeEnvironment[T]) =
+      recursivelyInitializeGlobalVarS(loc, comb)(resolver.TypeTreeInfo)(env)
       
     override def checkEnvironmentS(env: SymbolTypeEnvironment[T]) =
       (env, ().success[NoTypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]])

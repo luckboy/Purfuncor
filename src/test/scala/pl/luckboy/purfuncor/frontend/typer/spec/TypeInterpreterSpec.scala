@@ -168,20 +168,11 @@ type V t1 t2 = tuple 2 #Char (U t1 t2)
         case EvaluatedTypeValue(term) =>
           inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
             case Some(loc) =>
-              term should be ===(TupleType(Seq[TypeValueTerm[Z]](
-                  BuiltinType(TypeBuiltinFunction.Int, Seq()),
-                  TupleType(Seq[TypeValueTerm[Z]](
-                      BuiltinType(TypeBuiltinFunction.Char, Seq()),
-                      GlobalTypeApp(loc,
-                          Seq[TypeValueLambda[Z]](
-                              TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
-                              TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))),
-                          GlobalSymbol(NonEmptyList("U"))))),
-                  GlobalTypeApp(loc,
-                      Seq[TypeValueLambda[Z]](
-                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
-                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))),
-                      GlobalSymbol(NonEmptyList("U"))))))
+              term should be ===(GlobalTypeApp(loc,
+                  Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Long, Seq()))),
+                  GlobalSymbol(NonEmptyList("U"))))
           }
       }
     }
@@ -345,12 +336,10 @@ type U = \t => ##| #Int (U t)
         case EvaluatedTypeValue(term) =>
           inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
             case Some(loc) =>
-              term should be ===(TypeDisjunction(Set[TypeValueTerm[Z]](
-                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                  GlobalTypeApp(loc,
-                      Seq[TypeValueLambda[Z]](
-                          TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))),
-                      GlobalSymbol(NonEmptyList("U"))))))
+              term should be ===(GlobalTypeApp(loc,
+                  Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()))),
+                  GlobalSymbol(NonEmptyList("U"))))
           }
       }
     }

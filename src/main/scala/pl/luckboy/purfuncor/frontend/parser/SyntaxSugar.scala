@@ -89,7 +89,7 @@ object SyntaxSugar
                 sym, kind,
                 renamedTypeArgsFromTypeArgs(args, "t"),
                 constrs.tail.foldLeft(app(typeVar(constrs.head.sym ++ List("Type"), constrs.head.sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), constrs.head.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
-                  (tt, c) => App(typeDisjFun(sym.pos), NonEmptyList(tt, app(typeVar(constrs.head.sym ++ List("Type"), c.sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), c.sym.pos)), sym.pos)
+                  (tt, c) => App(typeDisjFun(sym.pos), NonEmptyList(tt, app(typeVar(c.sym ++ List("Type"), c.sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), c.sym.pos)), sym.pos)
                 }),
             // instance select T construct {
             //   C1.Type
@@ -145,7 +145,7 @@ object SyntaxSugar
     //
     // will be translated to:
     //
-    // _construct.Cj x1 ... xLj = construct M x1 ... xLj: Cj.Type
+    // _construct.Cj = construct M: \t1 ... tN => Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
     // unittype N Cj.Unittype: k
     // type (Cj.TypeWithoutTuple: k) t1 ... tN = T.BaseType t1 ... tN #& Cj.Unittype t1 ... tN #& Cj.Supertype t1 ... tN
     // type (Cj.Tuple: k) t1 ... tN = (Uj1, ..., UjLj)
@@ -174,17 +174,19 @@ object SyntaxSugar
     // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
     // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.FieldSet
     //
+    // Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
+    val constructTypeTerm = constr.fieldTypes.foldRight(app(typeVar(constr.sym ++ List("Type"), constr.sym.pos), typeVarsFromTypeArgs(datatypeArgs), constr.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
+      case (ftt, tt) => App(funTypeFun(constr.sym.pos), NonEmptyList(ftt, tt), constr.sym.pos)
+    }
     val defs1 = List(
-        // _construct.Cj x1 ... xLj = construct M x1 ... xLj: Cj.Type
+        // _construct.Cj = construct M: \t1 ... tN => Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
         CombinatorDef(
             constr.sym.withModule("_construct"),
             none,
-            constr.fieldPoses.zipWithIndex.map { case (pos, i) => Arg(some("x" + (i + 1)), none, pos) },
+            Nil,
             typedTerm(
-                app(construct(constr.fieldCount, LambdaInfo, constr.sym.pos),
-                    constr.fieldPoses.zipWithIndex.map { case (pos, i) => variable(NormalSymbol(NonEmptyList("x" + (i + 1)), pos), LambdaInfo, pos) },
-                    constr.sym.pos),
-                typeVar(constr.sym ++ List("Type"), constr.sym.pos),
+                construct(constr.fieldCount, LambdaInfo, constr.sym.pos),
+                typeLambda(namedTypeArgsFromTypeArgs(datatypeArgs), constructTypeTerm, TypeLambdaInfo, constr.sym.pos),
                 constr.sym.pos)
         ),
         // unittype N Cj.Unittype: k

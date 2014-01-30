@@ -24,7 +24,9 @@ case class SymbolTypeEnvironment[T](
     currentTypeParamAppIdx: Int,
     isPartial: Boolean,
     recursiveTypeCombSyms: Set[GlobalSymbol],
-    uninitializedTypeCombSyms: Set[GlobalSymbol])
+    uninitializedTypeCombSyms: Set[GlobalSymbol],
+    typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]],
+    isRecursive: Boolean)
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -71,6 +73,8 @@ case class SymbolTypeEnvironment[T](
   
   def withGlobalTypeVar(sym: GlobalSymbol, value: TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]): SymbolTypeEnvironment[T] = copy(globalTypeVarValues = globalTypeVarValues + (sym -> value))
   
+  def withoutGlobalTypeVars(syms: Set[GlobalSymbol]): SymbolTypeEnvironment[T] = copy(globalTypeVarValues = globalTypeVarValues -- syms)
+  
   def withCurrentFile(file: Option[java.io.File]) = copy(currentFile = file)
   
   def withFile(file: Option[java.io.File])(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]])) = {
@@ -96,6 +100,8 @@ case class SymbolTypeEnvironment[T](
     val (newEnv, value) = f(withApplyingTypeCombs(syms))
     (newEnv.withoutApplyingTypeCombs(syms), value)
   }
+  
+  def hasRecursiveTypeComb(sym: GlobalSymbol) = applyingTypeCombSyms.contains(sym) || recursiveTypeCombSyms.contains(sym)
   
   def withCurrentTypeParamAppIdx(paramAppIdx: Int) = copy(currentTypeParamAppIdx = paramAppIdx)
   
@@ -127,6 +133,12 @@ case class SymbolTypeEnvironment[T](
     val (env, res) = f(copy(typeClosureStack = List(SymbolTypeClosure(Map()))))
     (env.copy(typeClosureStack = List(SymbolTypeClosure(Map()))), res)
   }
+  
+  def withTypeCombNodes(nodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]]) = copy(typeCombNodes = nodes)
+
+  def withTypeComb(sym: GlobalSymbol, node: TypeCombinatorNode[Symbol, T, GlobalSymbol]) = withTypeCombNodes(typeCombNodes + (sym -> node))
+
+  def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
 }
 
 object SymbolTypeEnvironment
@@ -140,7 +152,9 @@ object SymbolTypeEnvironment
       currentTypeParamAppIdx = 0,
       isPartial = false,
       recursiveTypeCombSyms = Set(),
-      uninitializedTypeCombSyms = Set())
+      uninitializedTypeCombSyms = Set(),
+      typeCombNodes = Map(),
+      isRecursive = false)
 }
     
 case class SymbolTypeClosure[T](
