@@ -50,7 +50,30 @@ object SyntaxSugar
     (pos: Position) => app(tupleTypeFun(terms.size, pos), terms, pos)
   }
   
-  def makeDatatypeDef(datatype: DatatypeDef) = {
+  private def makeDatatypeDefPart(sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], supertype: Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) =
+    List(
+        // unittype N T.BaseUnittype: k
+        UnittypeCombinatorDef(
+            args.size,
+            sym ++ List("BaseUnittype"),
+            kind),
+        // type (T.BaseType: k) t1 ... tN = T.BaseUnittype t1 ... tN #& T.BaseSupertype t1 ... tN
+        TypeCombinatorDef(
+            sym ++ List("BaseType"), 
+            kind,
+            renamedTypeArgsFromTypeArgs(args, "t"),
+            App(typeConjFun(sym.pos),
+                NonEmptyList(
+                    app(typeVar(sym ++ List("BaseUnittype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos),
+                    app(typeVar(sym ++ List("BaseSupertype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos)),
+                sym.pos)),
+        // type (T.BaseSupertype: k) t1 ... tN = V
+        TypeCombinatorDef(
+            sym ++ List("BaseSupertype"),
+            kind, args,
+            supertype.getOrElse(anyType(sym.pos))))
+  
+  def makeDatatypeDef(datatypeDef: DatatypeDef) = {
     //
     // datatype (T: k) t1 ... tN [extends V] = C1 U11 ... U1L1 extends V1 | ... | CM UM1 ... UMLM extends VM
     //
@@ -81,7 +104,7 @@ object SyntaxSugar
     // _construct.CM = ...
     // module CM { ... }
     //
-    datatype match {
+    datatypeDef match {
       case DatatypeDef(sym, kind, args, supertype, constrs) =>
         val defs1 = List(
             // type (T: k) = tN = C1.Type t1 ... tN #| ... #| CM t1 ... tN
@@ -100,27 +123,7 @@ object SyntaxSugar
             // }
             SelectConstructInstanceDef(
                 typeVar(sym, sym.pos),
-                constrs.map { c => typeVar(c.sym ++ List("Type"), c.sym.pos) }),
-            // unittype N T.BaseUnittype: k
-            UnittypeCombinatorDef(
-                args.size,
-                sym ++ List("BaseUnittype"),
-                kind),
-            // type (T.BaseType: k) t1 ... tN = T.BaseUnittype t1 ... tN #& T.BaseSupertype t1 ... tN
-            TypeCombinatorDef(
-                sym ++ List("BaseType"), 
-                kind,
-                renamedTypeArgsFromTypeArgs(args, "t"),
-                App(typeConjFun(sym.pos),
-                    NonEmptyList(
-                        app(typeVar(sym ++ List("BaseUnittype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos),
-                        app(typeVar(sym ++ List("BaseSupertype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos)),
-                    sym.pos)),
-            // type (T.BaseSupertype: k) t1 ... tN = V
-            TypeCombinatorDef(
-                sym ++ List("BaseSupertype"),
-                kind, args,
-                supertype.getOrElse(anyType(sym.pos))))
+                constrs.map { c => typeVar(c.sym ++ List("Type"), c.sym.pos) })) ++ makeDatatypeDefPart(sym, kind, args, supertype)
         val defs2 = constrs.list.flatMap {
           constr =>
             List(
@@ -315,5 +318,61 @@ object SyntaxSugar
         fieldCombDefs ++ fieldDefs ++ otherDefs
     }
     defs1 ++ defs2
+  }
+  
+  def makeTypeclassDef(typeclassDef: TypeclassDef) = {
+    //
+    // typeclass (TC: k) t1 ... tN
+    // {
+    //   m1: U1
+    //     .
+    //     .
+    //     .
+    //   mk1: Uk1 = xk1
+    //     .
+    //     .
+    //     .
+    //   mkL: UkL = xkL
+    //     .
+    //     .
+    //     .
+    //   mM: UM
+    // }
+    //
+    // will be translated to:
+    //
+    // unittype N _typeclass.TC.Unittype: k
+    // type (_typeclass.TC.Supertype: k) t1 ... tN = #Any
+    // type (_typeclass.TC.BaseType: k) t1 ... tN = _typeclass.TC.Unittype t1 ... tN #& _typeclass.TC.Supertype t1 ... tN
+    //
+    // poly _typeclass.TC: _typeclass.TC
+    //
+    // module _typeclass.TC { ... }
+    //
+    // m1 = _typeclass.TC.m1 _typeclass.TC
+    //   .
+    //   .
+    //   .
+    // mM = _typeclass.TC.mM _typeclass.TC
+    //
+    typeclassDef match {
+      case TypeclassDef(sym, kind, args, members) =>
+        val defs1 = List(
+            PolyCombinatorDef(sym.withModule("_typeclass"), none)) ++ makeDatatypeDefPart(sym.withModule("_typeclass"), kind, args, none)
+        val defs2 = makeConstructor(NamedFieldConstructor(
+            sym = sym.withModule("_typeclass"),
+            fields = members.list,
+            supertype = none), sym.withModule("_typeclass"), kind, args)
+        val defs3 = members.map {
+          member =>
+            // mj = _typeclass.TC.mj _typeclass.TC
+            CombinatorDef(
+                sym ++ List(member.name),
+                none, Nil,
+                App(variable(sym.withModule("_typeclass") ++ List(member.name), LambdaInfo, member.pos),
+                    NonEmptyList(variable(sym.withModule("_typeclass") ++ List(member.name), LambdaInfo, member.pos)), member.pos))
+        }.list
+        defs1 ++ defs2 ++ defs3
+    }
   }
 }

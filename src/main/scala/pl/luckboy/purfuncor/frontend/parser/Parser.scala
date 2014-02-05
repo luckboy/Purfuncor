@@ -142,6 +142,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def caseWrapperToCase(wrapper: CaseWrapper) = wrapper.cas.copy(pos = wrapper.pos)
   implicit def caseWrapperNelToCaseNel(wrappers: NonEmptyList[CaseWrapper]) = wrappers.map { caseWrapperToCase(_) }
   implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField
+  implicit def namedFieldWrapperNelToNamedFieldNel(wrappers: NonEmptyList[NamedFieldWrapper]) = wrappers.map { _.namedField }
   implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { _.namedField }
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
@@ -531,7 +532,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val typeOpDefPart1 = noNlParsers.opSymbol						^^ { (_, none) }
   lazy val typeOpDefPart2 = "(" ~-> nlParsers.opSymbol ~- ((":" ~-> nlParsers.kindExpr) ?) ^^ { case s ~ kt => (s, kt) }
   
-  lazy val sugarDefs1 = datatypeDef
+  lazy val sugarDefs1 = datatypeDef | typeclassDef
   
   lazy val datatypeDef = datatypeDef1									^^ makeDatatypeDef
   lazy val datatypeDef1 = simpleDatatypeDef | datatypeDef2 | datatypeOpDef
@@ -555,6 +556,15 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val supertypePart = "extends" ~-> noNlParsers.simpleTypeExpr
   lazy val namedFields = namedField ~- (("," ~-> namedField) -*)		^^ { case nf ~ nfs => nf :: nfs }
   lazy val namedField = p(ident ~- (":" ~-> nlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> nlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })  
+  
+  lazy val typeclassDef = typeclassDef1									^^ makeTypeclassDef
+  lazy val typeclassDef1 = simpleTypeclassDef | typeclassDef2
+  lazy val simpleTypeclassDef = "typeclass" ~-> simpleTypeCombinatorDefPart ~- ("{" ~-> (members) <~- "}") ^^ { case ((s, kt)) ~ ms => TypeclassDef(s, kt, Nil, ms) }
+  lazy val typeclassDef2 = "typeclass" ~-> typeCombinatorDefPart ~ (typeArg +) ~- ("{" ~-> (members) <~- "}") ^^ { case (s, kt) ~ as ~ ms => TypeclassDef(s, kt, as, ms) }
+  lazy val members = member ~ ((semi ~> member) *)						^^ { case m ~ ms => NonEmptyList.nel(m, ms) }
+  lazy val member = member1 | memberOp
+  lazy val member1 = p(ident ~ (":" ~-> noNlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> noNlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })
+  lazy val memberOp = p(opIdent ~ (":" ~-> noNlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> noNlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField("unary_" + s, tt, t, NoPosition) })
   
   def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
