@@ -54,6 +54,7 @@ object Main
           consoleReader.println(":kind <type expr>       display the kind of the type expression")
           consoleReader.println(":load <path> ...        load files")
           consoleReader.println(":paste                  enable the paste mode (exit from this mode is ctrl-D)")
+          consoleReader.println(":reset                  reset environment")
           consoleReader.println(":quit                   exit this interpreter")
           consoleReader.println(":type <expr>            display the type of the expression")
           consoleReader.println()
@@ -87,6 +88,11 @@ object Main
           val (env2, res) = interpretTreeString(readString()).run(env)
           printResult(res)
           (env2, ExitFlag.NoExit)
+        })
+      },
+      "reset" -> {
+        _ => State({ env => 
+          (interp.SymbolEnvironment.empty, ExitFlag.NoExit) 
         })
       },
       "quit" -> {
