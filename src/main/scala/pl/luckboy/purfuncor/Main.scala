@@ -34,10 +34,19 @@ object Main
     val Exit, NoExit = Value
   }
   
+  def withTime[T](f: => T) = {
+    val startTime = System.currentTimeMillis()
+    val res = f
+    val endTime = System.currentTimeMillis()
+    consoleReader.println("Time: " + ((endTime - startTime) / 1000.0) + "s")
+    res
+  }
+    
+  
   val commands = Map[String, String => State[Environment, ExitFlag.Value]](
       "evaltype" -> {
         arg => State({ env =>
-          val (env2, res) = interpretTypeTerm(arg)(env)
+          val (env2, res) = withTime { interpretTypeTerm(arg)(env) }
           res match {
             case Success(typeValue) => consoleReader.println(typeValue.toString)
             case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
@@ -64,7 +73,7 @@ object Main
       "load" -> {
         arg => State({ env =>
           if(!arg.isEmpty) {
-            val (env2, res) = interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env)
+            val (env2, res) = withTime { interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env) }
             printResult(res)
             (env2, ExitFlag.NoExit)
           } else {
@@ -75,7 +84,7 @@ object Main
       },
       "kind" -> {
         arg => State({ env =>
-          val (env2, res) = transformTypeTermStringWithKindInference(arg).run(env)
+          val (env2, res) = withTime { transformTypeTermStringWithKindInference(arg).run(env) }
           res match {
             case Success((_, kind)) => consoleReader.println(kind.toString)
             case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
@@ -85,7 +94,7 @@ object Main
       },
       "paste" -> {
         _ => State({ env =>
-          val (env2, res) = interpretTreeString(readString()).run(env)
+          val (env2, res) = withTime { interpretTreeString(readString()).run(env) }
           printResult(res)
           (env2, ExitFlag.NoExit)
         })
@@ -102,7 +111,7 @@ object Main
       },
       "type" -> {
         arg => State({ env =>
-          val (env2, res) = transformTermStringWithTypeInference(arg).run(env)
+          val (env2, res) = withTime { transformTermStringWithTypeInference(arg).run(env) }
           res match {
             case Success((_, typ)) => consoleReader.println(typ.toString)
             case Failure(errs)     => consoleReader.println(errs.list.mkString("\n"))
