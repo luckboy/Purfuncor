@@ -97,6 +97,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class KindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) extends Positional
   case class CaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class NamedFieldWrapper(namedField: NamedField) extends Positional
+  case class NamedFieldValueWrapper(namedFieldValue: NamedFieldValue) extends Positional
   case class FunctionWrapper[T](f: Position => T) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
@@ -142,8 +143,10 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def caseWrapperToCase(wrapper: CaseWrapper) = wrapper.cas.copy(pos = wrapper.pos)
   implicit def caseWrapperNelToCaseNel(wrappers: NonEmptyList[CaseWrapper]) = wrappers.map { caseWrapperToCase(_) }
   implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField
-  implicit def namedFieldWrapperNelToNamedFieldNel(wrappers: NonEmptyList[NamedFieldWrapper]) = wrappers.map { _.namedField }
-  implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { _.namedField }
+  implicit def namedFieldWrapperNelToNamedFieldNel(wrappers: NonEmptyList[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
+  implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
+  implicit def namedFieldValueToNamedFieldValue(wrapper: NamedFieldValueWrapper) = wrapper.namedFieldValue.copy(pos = wrapper.pos)
+  implicit def namedFieldValuesToNamedFieldValues(wrappers: List[NamedFieldValueWrapper]) = wrappers.map { namedFieldValueToNamedFieldValue(_) }
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
   implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
@@ -155,6 +158,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def kindTermToKindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) = KindTermWrapper(kindTerm)
   implicit def caseToWrapperCase(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
   implicit def namedFieldToNamedFieldWrapper(namedField: NamedField) = NamedFieldWrapper(namedField)
+  implicit def namedFieldValueToNamedFieldValue(namedFieldValue: NamedFieldValue) = NamedFieldValueWrapper(namedFieldValue)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
   
@@ -348,15 +352,24 @@ object Parser extends StandardTokenParsers with PackratParsers
     
     lazy val sugarExpr3 = opExprParsers.opExpr
     
-    lazy val sugarExprN = ifElse
-    lazy val sugarSimpleExpr = string | unit | tuple | array | list
+    lazy val sugarExprN = ifElse | namedFieldApp
+    lazy val sugarSimpleExpr = string | unit | tuple | array | list | constructVar
     
     lazy val ifElse = pp("if" ~-> simpleExpr ~- expr ~- ("else" ~-> expr) ^^ { case t1 ~ t2 ~ t3 => makeIfElse(t1, t2, t3) })
+    
+    lazy val namedFieldApp = pp(namedFieldAppSymbol ~ ("{" ~-> (namedFieldValues ?) <~- "}") ^^ { case (s1, s2) ~ nfvs => makeNamedFieldApp(s1, s2, nfvs.getOrElse(Nil)) })
+    lazy val namedFieldAppSymbol = namedFieldAppSymbol1 | namedFieldAppSymbol2
+    lazy val namedFieldAppSymbol1 = symbol								^^ { s => (s, none) }
+    lazy val namedFieldAppSymbol2 = "construct" ~-> symbol				^^ { s => (s, some("_construct")) }
+    lazy val namedFieldValues = namedFieldValue ~- (("," ~-> namedFieldValue) -*) ^^ { case nfv ~ nfvs => nfv :: nfvs }
+    lazy val namedFieldValue = p(ident ~- ("=" ~-> nlParsers.expr)		^^ { case s ~ t => NamedFieldValue(s, t, NoPosition) })
+
     lazy val string = pp(stringLit										^^ makeString)
     lazy val unit = pp("(" ~- ")" 										^^^ makeTuple(Nil))
     lazy val tuple = pp("(" ~-> nlParsers.expr ~- (("," ~-> nlParsers.expr) -+) <~- ")" ^^ { case t ~ ts => makeTuple(termWrappersToTerms(t :: ts)) })
     lazy val array = pp("#" ~- "[" ~-> ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ { xs => makeArray(xs.toList.flatMap { case t ~ ts => t :: ts }) })
     lazy val list = pp("[" ~-> ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ { xs => makeList(xs.toList.flatMap { case t ~ ts => t :: ts }) })
+    lazy val constructVar = p("construct" ~-> symbol					^^ { s => Simple(Var[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]](s.withModule("_construct"), LambdaInfo), NoPosition) })
     
     lazy val sugarTypeExpr2 = typeOpExprParsers.opExpr
     

@@ -50,6 +50,21 @@ object SyntaxSugar
     (pos: Position) => app(tupleTypeFun(terms.size, pos), terms, pos)
   }
   
+  def makeNamedFieldApp(sym: Symbol, moduleName: Option[String], fieldValues: List[NamedFieldValue]) = {
+    (pos: Position) =>
+      // C.fieldset.apply (C.default.fieldsWith (fieldset N (C.field.f1 x1) ... (C.field.fN xN)))
+      App(variable(sym ++ List("fieldset", "apply"), LambdaInfo, pos),
+          NonEmptyList(
+              variable(moduleName.map(sym.withModule).getOrElse(sym), LambdaInfo, pos),
+              App(variable(sym ++ List("default", "fieldsWith"), LambdaInfo, pos),
+                  NonEmptyList(app(fieldsetFun(fieldValues.size, pos), fieldValues.map { 
+                    case NamedFieldValue(name, value, fieldValuePos) =>
+                      App(variable(sym ++ List("field", name), LambdaInfo, fieldValuePos), NonEmptyList(value), fieldValuePos)
+                  }, pos)),
+                  pos)),
+          pos)
+  }
+  
   private def makeDatatypeDefPart(sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], supertype: Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) =
     List(
         // unittype N T.BaseUnittype: k
@@ -157,11 +172,11 @@ object SyntaxSugar
     //
     // // for named fields
     //
-    // Cj.fj1 = #M 1: \t1 ... t2 => Cj.Type #-> Uj1
+    // Cj.fj1 (x: Cj.Type) = #M 1 x
     //   .
     //   .
     //   .
-    // Cj.fjM = #M M: \t1 ... t2 => Cj.Type #-> UjM
+    // Cj.fjM (x: Cj.Type) = #M M x
     //
     // type Cj.field.fj1 t1 ... tN = ##1 Uj1
     // Cj.field.fj1 x = ##1 x: Cj.field.fj1
@@ -173,9 +188,11 @@ object SyntaxSugar
     // type Cj.field.fjM t1 ... tN = ##M UjM
     // Cj.field.fjM x = ##M x: Cj.field.fjM
     //
-    // type Cj.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
+    // type Cj.fieldset.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
+    // Cj.fieldset.apply = ###M
+    //
     // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
-    // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.FieldSet
+    // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.fieldset.FieldSet
     //
     // Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
     val constructTypeTerm = constr.fieldTypes.foldRight(app(typeVar(constr.sym ++ List("Type"), constr.sym.pos), typeVarsFromTypeArgs(datatypeArgs), constr.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
@@ -238,17 +255,13 @@ object SyntaxSugar
       case NamedFieldConstructor(sym, fields, _) =>
         val fieldCombDefs = fields.zipWithIndex.map {
           case (NamedField(fieldName, fieldType, _, fieldPos), i) =>
-            // Cj.fjk = #M k: \t1 ... t2 => Cj.Type #-> Ujk
+            // Cj.fjk (x: Cj.Type) = #M k x
             CombinatorDef(
                 constr.sym ++ List(fieldName),
-                none, Nil,
-                typedTerm(
-                    tupleFieldFun(constr.fieldCount, i, fieldPos),
-                    typeLambda(
-                        datatypeArgs,                      
-                        App(typeVar(constr.sym ++ List("Type"), fieldType.pos), NonEmptyList(fieldType), fieldType.pos),
-                        TypeLambdaInfo,
-                        fieldType.pos),
+                none, 
+                List(Arg(some("x"), some(typeVar(constr.sym ++ List("Type"), fieldPos)), fieldType.pos)),
+                App(tupleFieldFun(constr.fieldCount, i, fieldPos),
+                    NonEmptyList(variable(NormalSymbol(NonEmptyList("x"), fieldPos), LambdaInfo, fieldPos)),
                     fieldPos))
         }
         val fieldDefs = fields.zipWithIndex.flatMap {
@@ -290,17 +303,21 @@ object SyntaxSugar
                 sym.pos)
         }
         val otherDefs = List(
-            // type Cj.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
+            // type Cj.fieldset.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
             TypeCombinatorDef(
-                constr.sym ++ List("FieldSet"),
+                constr.sym ++ List("fieldset", "FieldSet"),
                 none,
                 renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
                 tmpFieldSetTypeTerm2),
+            // Cj.fieldset.apply = ###M
+            CombinatorDef(
+                constr.sym ++ List("fieldset", "apply"),
+                none, Nil,
+                fieldSetAppFun(fields.size, constr.sym.pos)),
             // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
             CombinatorDef(
                 constr.sym ++ List("default", "_fieldsWith"),
-                none,
-                Nil,
+                none, Nil,
                 app(
                     fieldswithFun(fields.size, fields.zipWithIndex.flatMap { case (f, i) => f.default.map { _ => i } }, sym.pos),
                     fields.flatMap { _.default },
@@ -314,7 +331,7 @@ object SyntaxSugar
                     App(variable(constr.sym ++ List("default", "_fieldsWith"), LambdaInfo, sym.pos), 
                         NonEmptyList(variable(NormalSymbol(NonEmptyList("fs"), sym.pos), LambdaInfo, sym.pos)),
                         sym.pos),
-                    typeVar(constr.sym ++ List("FieldSet"), sym.pos), sym.pos)))
+                    typeVar(constr.sym ++ List("fieldset", "FieldSet"), sym.pos), sym.pos)))
         fieldCombDefs ++ fieldDefs ++ otherDefs
     }
     defs1 ++ defs2
