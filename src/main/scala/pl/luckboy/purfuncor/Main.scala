@@ -94,7 +94,8 @@ object Main
       },
       "paste" -> {
         _ => State({ env =>
-          val (env2, res) = withTime { interpretTreeString(readString()).run(env) }
+          val s = readString()
+          val (env2, res) = withTime { interpretTreeString(s).run(env) }
           printResult(res)
           (env2, ExitFlag.NoExit)
         })
