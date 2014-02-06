@@ -710,6 +710,36 @@ object TypeValueTermUnifier
     }
   }  
   
+  private def prematchesLogicalTypeValueTermS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) = {
+    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+    typeMatching match {
+      case TypeMatching.Types             =>
+        if((term2.typeIdentities.contains(NoTypeIdentity) || term1.supertypeIdentities.subsetOf(term2.typeIdentities)) &&
+            (term1.typeIdentities.contains(NoTypeIdentity) || term2.supertypeIdentities.subsetOf(term1.typeIdentities)))
+          (env2, none)
+        else
+          unifier.mismatchedTermErrorS(env2).mapElements(identity, _.failure.some)
+      case TypeMatching.SupertypeWithType =>
+        if(term2.typeIdentities.contains(NoTypeIdentity) || term1.supertypeIdentities.subsetOf(term2.typeIdentities))
+          (env2, none)
+        else
+          unifier.mismatchedTermErrorS(env2).mapElements(identity, _.failure.some)
+      case TypeMatching.TypeWithSupertype =>
+        if(term1.typeIdentities.contains(NoTypeIdentity) || term2.supertypeIdentities.subsetOf(term1.typeIdentities))
+          (env2, none)
+        else
+          unifier.mismatchedTermErrorS(env2).mapElements(identity, _.failure.some)
+    }
+  }
+  
+  private def matchesLogicalTypeValueTermsWithTypePrematchingS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
+    val (env2, optRes) = prematchesLogicalTypeValueTermS(term1, term2)(env)
+    optRes match {
+      case Some(res) => (env2, res)
+      case None      => matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env2)
+    }
+  }
+  
   private def matchesBuiltinTypeWithTypeValueTermS[T, U, V, E](term: TypeValueTerm[T])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
     (for {
       retKindRes <- State(envSt.inferTypeValueTermKindS(term))
@@ -774,18 +804,18 @@ object TypeValueTermUnifier
       case (BuiltinType(TypeBuiltinFunction.Nothing, Seq()), _) if typeMatching === TypeMatching.TypeWithSupertype =>
         matchesBuiltinTypeWithTypeValueTermS(term2)(z)(env)
       case (globalTypeApp1: GlobalTypeApp[T], TypeConjunction(_) | TypeDisjunction(_)) =>
-        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+        matchesLogicalTypeValueTermsWithTypePrematchingS(term1, term2)(z)(f)(env)
       case (TypeConjunction(_) | TypeDisjunction(_), globalTypeApp2: GlobalTypeApp[T]) =>
-        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+        matchesLogicalTypeValueTermsWithTypePrematchingS(term1, term2)(z)(f)(env)
       case (globalTypeApp1: GlobalTypeApp[T], _) =>
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, term2)(z)(f)(env)
       case (_, globalTypeApp2: GlobalTypeApp[T]) =>
         val (env2, _) = reverseTypeMatchingS(env)
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, term1)(z)(f)(env2)
       case (TypeConjunction(_) | TypeDisjunction(_), _) =>
-        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+        matchesLogicalTypeValueTermsWithTypePrematchingS(term1, term2)(z)(f)(env)
       case (_, TypeConjunction(_) | TypeDisjunction(_)) =>
-        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+        matchesLogicalTypeValueTermsWithTypePrematchingS(term1, term2)(z)(f)(env)
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }
