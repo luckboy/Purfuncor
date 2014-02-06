@@ -458,7 +458,7 @@ object TypeValueTermUnifier
                     val (env6, _) = reverseTypeMatchingS(env5)
                     matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env6)
                   case _ =>
-                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
+                    matchesTypeValueTermsWithoutPartiallyInstantiationS(instantiatedTerm1, instantiatedTerm2, typeMatching)(z)(f)(env5)
                 }
             } (env4)
           case (env4, Failure(noType)) =>
@@ -597,7 +597,7 @@ object TypeValueTermUnifier
                     val (env6, _) = reverseTypeMatchingS(env5)
                     matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env6)
                   case _ =>
-                    matchesTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
+                    matchesTypeValueTermsWithoutPartiallyInstantiationS(instantiatedTerm1, instantiatedTerm2, typeMatching)(z)(f)(env5)
                 }
             } (env4)
           case (env4, Failure(noType)) =>
@@ -748,54 +748,57 @@ object TypeValueTermUnifier
     envSt.setCurrentTypeMatchingS(savedTypeMatching)(env4).mapElements(identity, _ => res)
   }
   
+  private def matchesTypeValueTermsWithoutPartiallyInstantiationS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
+    (term1, term2) match {
+      case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>
+        matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env)
+      case (FieldType(i1, term3), FieldType(i2, term4)) if i1 === i2 =>
+        matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env)
+      case (BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _))) =>
+        matchesFunctionTypesS(term1, term2)(z)(f)(env)
+      case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
+        matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env)
+      case (unittype1: Unittype[T], unittype2: Unittype[T]) =>
+        matchesUnittypesS(unittype1, unittype2)(z)(f)(env)
+      case (typeParamApp1: TypeParamApp[T], _) =>
+        matchesTypeParamAppWithTypeValueTermS(typeParamApp1, term2)(z)(f)(env)
+      case (_, typeParamApp2: TypeParamApp[T]) =>
+        val (env2, _) = reverseTypeMatchingS(env)
+        matchesTypeParamAppWithTypeValueTermS(typeParamApp2, term1)(z)(f)(env2)
+      case (BuiltinType(TypeBuiltinFunction.Any, Seq()), _) if typeMatching === TypeMatching.SupertypeWithType =>
+        matchesBuiltinTypeWithTypeValueTermS(term2)(z)(env)
+      case (_, BuiltinType(TypeBuiltinFunction.Nothing, Seq())) if typeMatching === TypeMatching.SupertypeWithType =>
+        matchesBuiltinTypeWithTypeValueTermS(term1)(z)(env)
+      case (_, BuiltinType(TypeBuiltinFunction.Any, Seq())) if typeMatching === TypeMatching.TypeWithSupertype =>
+        matchesBuiltinTypeWithTypeValueTermS(term1)(z)(env)
+      case (BuiltinType(TypeBuiltinFunction.Nothing, Seq()), _) if typeMatching === TypeMatching.TypeWithSupertype =>
+        matchesBuiltinTypeWithTypeValueTermS(term2)(z)(env)
+      case (globalTypeApp1: GlobalTypeApp[T], TypeConjunction(_) | TypeDisjunction(_)) =>
+        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+      case (TypeConjunction(_) | TypeDisjunction(_), globalTypeApp2: GlobalTypeApp[T]) =>
+        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+      case (globalTypeApp1: GlobalTypeApp[T], _) =>
+        matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, term2)(z)(f)(env)
+      case (_, globalTypeApp2: GlobalTypeApp[T]) =>
+        val (env2, _) = reverseTypeMatchingS(env)
+        matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, term1)(z)(f)(env2)
+      case (TypeConjunction(_) | TypeDisjunction(_), _) =>
+        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+      case (_, TypeConjunction(_) | TypeDisjunction(_)) =>
+        matchesLogicalTypeValueTermsS(term1, term2)(z)(f)(env)
+      case (_, _) =>
+        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+    }
+  
   def matchesTypeValueTermsS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
-    val (env7, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env2) match {
+    val (env6, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env2) match {
       case (env3, Success((instantiatedTerm1, optInstantiatedParam1))) =>
         partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env3) match {
           case (env4, Success((instantiatedTerm2, optInstantiatedParam2))) =>
             envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
               env5 =>
-                (instantiatedTerm1, instantiatedTerm2) match {
-                  case (TupleType(args1), TupleType(args2)) if args1.size === args2.size =>
-                    matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
-                  case (FieldType(i1, term3), FieldType(i2, term4)) if i1 === i2 =>
-                    matchesTypeValueTermListsWithReturnKindS(Seq(term3), Seq(term4))(z)(f)(env5)
-                  case (BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _))) =>
-                    matchesFunctionTypesS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
-                  case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
-                    matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env5)
-                  case (unittype1: Unittype[T], unittype2: Unittype[T]) =>
-                    matchesUnittypesS(unittype1, unittype2)(z)(f)(env5)
-                  case (typeParamApp1: TypeParamApp[T], _) =>
-                    matchesTypeParamAppWithTypeValueTermS(typeParamApp1, instantiatedTerm2)(z)(f)(env5)
-                  case (_, typeParamApp2: TypeParamApp[T]) =>
-                    val (env6, _) = reverseTypeMatchingS(env5)
-                    matchesTypeParamAppWithTypeValueTermS(typeParamApp2, instantiatedTerm1)(z)(f)(env6)
-                  case (BuiltinType(TypeBuiltinFunction.Any, Seq()), _) if typeMatching === TypeMatching.SupertypeWithType =>
-                    matchesBuiltinTypeWithTypeValueTermS(instantiatedTerm2)(z)(env5)
-                  case (_, BuiltinType(TypeBuiltinFunction.Nothing, Seq())) if typeMatching === TypeMatching.SupertypeWithType =>
-                    matchesBuiltinTypeWithTypeValueTermS(instantiatedTerm1)(z)(env5)
-                  case (_, BuiltinType(TypeBuiltinFunction.Any, Seq())) if typeMatching === TypeMatching.TypeWithSupertype =>
-                    matchesBuiltinTypeWithTypeValueTermS(instantiatedTerm1)(z)(env5)
-                  case (BuiltinType(TypeBuiltinFunction.Nothing, Seq()), _) if typeMatching === TypeMatching.TypeWithSupertype =>
-                    matchesBuiltinTypeWithTypeValueTermS(instantiatedTerm2)(z)(env5)
-                  case (globalTypeApp1: GlobalTypeApp[T], TypeConjunction(_) | TypeDisjunction(_)) =>
-                    matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
-                  case (TypeConjunction(_) | TypeDisjunction(_), globalTypeApp2: GlobalTypeApp[T]) =>
-                    matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
-                  case (globalTypeApp1: GlobalTypeApp[T], _) =>
-                    matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, instantiatedTerm2)(z)(f)(env5)
-                  case (_, globalTypeApp2: GlobalTypeApp[T]) =>
-                    val (env6, _) = reverseTypeMatchingS(env5)
-                    matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env6)
-                  case (TypeConjunction(_) | TypeDisjunction(_), _) =>
-                    matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
-                  case (_, TypeConjunction(_) | TypeDisjunction(_)) =>
-                    matchesLogicalTypeValueTermsS(instantiatedTerm1, instantiatedTerm2)(z)(f)(env5)
-                  case (_, _) =>
-                    unifier.mismatchedTermErrorS(env5).mapElements(identity, _.failure)
-                }
+                matchesTypeValueTermsWithoutPartiallyInstantiationS(instantiatedTerm1, instantiatedTerm2, typeMatching)(z)(f)(env5)
             } (env4)
           case (env4, Failure(noType)) =>
             (env4, noType.failure)
@@ -803,7 +806,7 @@ object TypeValueTermUnifier
       case (env3, Failure(noType)) =>
         (env3, noType.failure)
     }
-    envSt.setCurrentTypeMatchingS(typeMatching)(env7).mapElements(identity, _ => res)
+    envSt.setCurrentTypeMatchingS(typeMatching)(env6).mapElements(identity, _ => res)
   }
   
   def replaceTypeParamsFromTypeValueTermsS[T, E](terms: Seq[TypeValueTerm[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int]) =
