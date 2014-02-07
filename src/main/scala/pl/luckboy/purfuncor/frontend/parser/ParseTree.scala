@@ -64,6 +64,12 @@ sealed trait Symbol
       case NormalSymbol(names, pos) => NormalSymbol(names.list.init <::: NonEmptyList(name, names.reverse.head), pos)
     }
   
+  def withName(name: String) =
+    this match {
+      case GlobalSymbol(names, pos) => GlobalSymbol(NonEmptyList.nel(name, names.list.init.reverse).reverse, pos)
+      case NormalSymbol(names, pos) => NormalSymbol(NonEmptyList.nel(name, names.list.init.reverse).reverse, pos)
+    }
+  
   override def toString =
     this match {
       case GlobalSymbol(names, _) => "#." + names.list.mkString(".")

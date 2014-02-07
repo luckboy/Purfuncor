@@ -142,7 +142,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def kindTermWrapperOptionToKindTermOption(wrapper: Option[KindTermWrapper]) = wrapper.map(kindTermWrapperToKindTerm)
   implicit def caseWrapperToCase(wrapper: CaseWrapper) = wrapper.cas.copy(pos = wrapper.pos)
   implicit def caseWrapperNelToCaseNel(wrappers: NonEmptyList[CaseWrapper]) = wrappers.map { caseWrapperToCase(_) }
-  implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField
+  implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField.copy(pos = wrapper.pos)
   implicit def namedFieldWrapperNelToNamedFieldNel(wrappers: NonEmptyList[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
   implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
   implicit def namedFieldValueToNamedFieldValue(wrapper: NamedFieldValueWrapper) = wrapper.namedFieldValue.copy(pos = wrapper.pos)

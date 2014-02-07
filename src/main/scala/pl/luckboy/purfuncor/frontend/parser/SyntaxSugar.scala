@@ -52,8 +52,8 @@ object SyntaxSugar
   
   def makeNamedFieldApp(sym: Symbol, moduleName: Option[String], fieldValues: List[NamedFieldValue]) = {
     (pos: Position) =>
-      // C.fieldset.apply (C.default.fieldsWith (fieldset N (C.field.f1 x1) ... (C.field.fN xN)))
-      App(variable(sym ++ List("fieldset", "apply"), LambdaInfo, pos),
+      // C.apply.fields (C.default.fieldsWith (fieldset N (C.field.f1 x1) ... (C.field.fN xN)))
+      App(variable(sym ++ List("apply", "fields"), LambdaInfo, pos),
           NonEmptyList(
               variable(moduleName.map(sym.withModule).getOrElse(sym), LambdaInfo, pos),
               App(variable(sym ++ List("default", "fieldsWith"), LambdaInfo, pos),
@@ -188,11 +188,11 @@ object SyntaxSugar
     // type Cj.field.fjM t1 ... tN = ##M UjM
     // Cj.field.fjM x = ##M x: Cj.field.fjM
     //
-    // type Cj.fieldset.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
-    // Cj.fieldset.apply = ###M
+    // type Cj.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
+    // Cj.apply.fields = ###M
     //
     // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
-    // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.fieldset.FieldSet
+    // Cj.default.fieldsWith fs = Cj.default._fieldsWith fs: Cj.FieldSet
     //
     // Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
     val constructTypeTerm = constr.fieldTypes.foldRight(app(typeVar(constr.sym ++ List("Type"), constr.sym.pos), typeVarsFromTypeArgs(datatypeArgs), constr.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
@@ -303,15 +303,15 @@ object SyntaxSugar
                 sym.pos)
         }
         val otherDefs = List(
-            // type Cj.fieldset.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
+            // type Cj.FieldSet t1 ... tN = ((#FieldSet1 () () #| #FieldSet1 ##1 () (Cj.field.fj1 t1 ... tN) #| ... #| #FieldSet1 ##M () (Cj.field.fjM t1 ... tN)) #& #FieldSet2 ##1 () (Cj.field.fj1 t1 ... tN) #& ... #& #FieldSet2 ##M () (Cj.field.fjM t1 ... tN))
             TypeCombinatorDef(
-                constr.sym ++ List("fieldset", "FieldSet"),
+                constr.sym ++ List("FieldSet"),
                 none,
                 renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
                 tmpFieldSetTypeTerm2),
-            // Cj.fieldset.apply = ###M
+            // Cj.apply.fields = ###M
             CombinatorDef(
-                constr.sym ++ List("fieldset", "apply"),
+                constr.sym ++ List("apply", "fields"),
                 none, Nil,
                 fieldSetAppFun(fields.size, constr.sym.pos)),
             // Cj.default._fieldsWith = (fieldswith Lj k1 ... kK) xjk1 ... xjkK
@@ -331,7 +331,7 @@ object SyntaxSugar
                     App(variable(constr.sym ++ List("default", "_fieldsWith"), LambdaInfo, sym.pos), 
                         NonEmptyList(variable(NormalSymbol(NonEmptyList("fs"), sym.pos), LambdaInfo, sym.pos)),
                         sym.pos),
-                    typeVar(constr.sym ++ List("fieldset", "FieldSet"), sym.pos), sym.pos)))
+                    typeVar(constr.sym ++ List("FieldSet"), sym.pos), sym.pos)))
         fieldCombDefs ++ fieldDefs ++ otherDefs
     }
     defs1 ++ defs2
@@ -384,10 +384,10 @@ object SyntaxSugar
           member =>
             // mj = _typeclass.TC.mj _typeclass.TC
             CombinatorDef(
-                sym ++ List(member.name),
+                sym.withName(member.name),
                 none, Nil,
                 App(variable(sym.withModule("_typeclass") ++ List(member.name), LambdaInfo, member.pos),
-                    NonEmptyList(variable(sym.withModule("_typeclass") ++ List(member.name), LambdaInfo, member.pos)), member.pos))
+                    NonEmptyList(variable(sym.withModule("_typeclass"), LambdaInfo, member.pos)), member.pos))
         }.list
         defs1 ++ defs2 ++ defs3
     }
