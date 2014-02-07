@@ -255,7 +255,7 @@ sealed trait TypeValueTerm[T]
   
   def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
   
-  lazy val typeIdentities: Set[TypeIdentity[T]] =
+  /*lazy val typeIdentities: Set[TypeIdentity[T]] =
     this match {
       case TupleType(_)           => Set(TupleTypeIdentity)
       case FieldType(i, _)        => Set(FieldTypeIdentity[T](i))
@@ -264,9 +264,9 @@ sealed trait TypeValueTerm[T]
       case TypeConjunction(terms) => terms.flatMap { _.typeIdentities }
       case TypeDisjunction(terms) => terms.flatMap { _.typeIdentities }
       case _                      => Set(NoTypeIdentity: TypeIdentity[T])
-    }
+    }*/
   
-  lazy val supertypeIdentities: Set[TypeIdentity[T]] = 
+  /*lazy val supertypeIdentities: Set[TypeIdentity[T]] = 
     this match { 
       case _: TypeApp[T]          =>
         Set()
@@ -277,7 +277,7 @@ sealed trait TypeValueTerm[T]
         supertypeIdents.headOption.map { si => supertypeIdents.tail.foldLeft(si) { _ & _ } }.getOrElse(Set())
       case _                      =>
         typeIdentities
-    }
+    }*/
   
   def toArgString =
     this match {
