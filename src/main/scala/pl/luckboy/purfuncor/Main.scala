@@ -34,19 +34,29 @@ object Main
     val Exit, NoExit = Value
   }
   
-  def withTime[T](f: => T) = {
-    val startTime = System.currentTimeMillis()
-    val res = f
-    val endTime = System.currentTimeMillis()
-    consoleReader.println("Time: " + ((endTime - startTime) / 1000.0) + "s")
-    res
+  object TimeFlag extends Enumeration
+  {
+    val Time, NoTime = Value
+  }
+  
+  def withTime[T](timeFlag: TimeFlag.Value)(f: => T) = {
+    timeFlag match {
+      case TimeFlag.Time   =>
+        val startTime = System.currentTimeMillis()
+        val res = f
+        val endTime = System.currentTimeMillis()
+        consoleReader.println("Time: " + ((endTime - startTime) / 1000.0) + "s")
+        res
+      case TimeFlag.NoTime =>
+        f
+    }
   }
     
   
-  val commands = Map[String, String => State[Environment, ExitFlag.Value]](
+  val commands = Map[String, (String, TimeFlag.Value) => State[Environment, ExitFlag.Value]](
       "evaltype" -> {
-        arg => State({ env =>
-          val (env2, res) = withTime { interpretTypeTerm(arg)(env) }
+        (arg, timeFlag) => State({ env =>
+          val (env2, res) = withTime(timeFlag) { interpretTypeTerm(arg)(env) }
           res match {
             case Success(typeValue) => consoleReader.println(typeValue.toString)
             case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
@@ -55,7 +65,7 @@ object Main
         })
       },
       "help" -> {
-        _ => State({ env =>
+        (_, _) => State({ env =>
           consoleReader.println("Commands:")
           consoleReader.println()
           consoleReader.println(":evaltype <type expr>   evaluate the type expression")
@@ -71,9 +81,9 @@ object Main
         })
       },
       "load" -> {
-        arg => State({ env =>
+        (arg, isTime) => State({ env =>
           if(!arg.isEmpty) {
-            val (env2, res) = withTime { interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env) }
+            val (env2, res) = withTime(isTime) { interpretTreeFiles(arg.split("\\s+").map { s => new java.io.File(s) }.toList).run(env) }
             printResult(res)
             (env2, ExitFlag.NoExit)
           } else {
@@ -83,8 +93,8 @@ object Main
         })
       },
       "kind" -> {
-        arg => State({ env =>
-          val (env2, res) = withTime { transformTypeTermStringWithKindInference(arg).run(env) }
+        (arg, timeFlag) => State({ env =>
+          val (env2, res) = withTime(timeFlag) { transformTypeTermStringWithKindInference(arg).run(env) }
           res match {
             case Success((_, kind)) => consoleReader.println(kind.toString)
             case Failure(errs)      => consoleReader.println(errs.list.mkString("\n"))
@@ -93,26 +103,26 @@ object Main
         })
       },
       "paste" -> {
-        _ => State({ env =>
+        (_, timeFlag) => State({ env =>
           val s = readString()
-          val (env2, res) = withTime { interpretTreeString(s).run(env) }
+          val (env2, res) = withTime(timeFlag) { interpretTreeString(s).run(env) }
           printResult(res)
           (env2, ExitFlag.NoExit)
         })
       },
       "reset" -> {
-        _ => State({ env => 
+        (_, _) => State({ env => 
           (interp.SymbolEnvironment.empty, ExitFlag.NoExit) 
         })
       },
       "quit" -> {
-        _ => State({ env => 
+        (_, _) => State({ env => 
           (env, ExitFlag.Exit) 
         })
       },
       "type" -> {
-        arg => State({ env =>
-          val (env2, res) = withTime { transformTermStringWithTypeInference(arg).run(env) }
+        (arg, timeFlag) => State({ env =>
+          val (env2, res) = withTime(timeFlag) { transformTermStringWithTypeInference(arg).run(env) }
           res match {
             case Success((_, typ)) => consoleReader.println(typ.toString)
             case Failure(errs)     => consoleReader.println(errs.list.mkString("\n"))
@@ -184,19 +194,19 @@ object Main
     }
   
   @tailrec
-  def mainLoop(env: Environment): Unit = {
+  def mainLoop(timeFlag: TimeFlag.Value)(env: Environment): Unit = {
     consoleReader.setPrompt("purfuncor> ")
     val line = consoleReader.readLine()
     if(line =/= null) {
       val (env2, exitFlag) = parseCommandLine(line) match {
         case Some((cmdName, arg)) =>
           commands.filter { _._1.startsWith(cmdName) }.map { _._2 }.toList match {
-            case List(cmd) => cmd(arg).run(env)
+            case List(cmd) => cmd(arg, timeFlag).run(env)
             case Nil       => consoleReader.println("unknown command"); (env, ExitFlag.NoExit)
             case _         => consoleReader.println("ambiguous command"); (env, ExitFlag.NoExit)
           }
         case None                  =>
-          val (newEnv, res) = interpretTermString(line).run(env)
+          val (newEnv, res) = withTime(timeFlag) { interpretTermString(line).run(env) }
           res match {
             case Success(value) => consoleReader.println(value.toString)
             case Failure(errs)  => consoleReader.println(errs.list.mkString("\n"))
@@ -205,12 +215,13 @@ object Main
       }
       exitFlag match {
         case ExitFlag.Exit   => ()
-        case ExitFlag.NoExit => mainLoop(env2)
+        case ExitFlag.NoExit => mainLoop(timeFlag)(env2)
       } 
     }
   }
   
   def main(args: Array[String]): Unit = {
-    mainLoop(interp.SymbolEnvironment.empty)
+    val timeFlag = if(args.contains("-t")) TimeFlag.Time else TimeFlag.NoTime
+    mainLoop(timeFlag)(interp.SymbolEnvironment.empty)
   }
 }
