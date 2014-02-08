@@ -49,7 +49,7 @@ class InstantiatorBugFixSpec  extends FlatSpec with ShouldMatchers with Inside
     def f3 = f4(initData)
     def h = h3(initData)(InferredKindTable.empty, InferredTypeTable.empty, emptyTypeEnv)
     
-    it should "transform the string of the term with the instantiation" in {
+    it should "complain on a non-existent instance with unused type parameter" in {
       val s = """
 poly f
 instance f => g
