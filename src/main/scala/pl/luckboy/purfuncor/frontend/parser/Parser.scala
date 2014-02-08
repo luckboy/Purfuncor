@@ -98,6 +98,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   case class CaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Positional
   case class NamedFieldWrapper(namedField: NamedField) extends Positional
   case class NamedFieldValueWrapper(namedFieldValue: NamedFieldValue) extends Positional
+  case class MemberValueWrapper(memberValue: MemberValue) extends Positional
   case class FunctionWrapper[T](f: Position => T) extends Positional
 
   implicit def termWrapperToTerm(wrapper: TermWrapper) =
@@ -145,8 +146,10 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def namedFieldWrapperToNamedField(wrapper: NamedFieldWrapper) = wrapper.namedField.copy(pos = wrapper.pos)
   implicit def namedFieldWrapperNelToNamedFieldNel(wrappers: NonEmptyList[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
   implicit def namedFieldWrappersToNamedFields(wrappers: List[NamedFieldWrapper]) = wrappers.map { namedFieldWrapperToNamedField(_) }
-  implicit def namedFieldValueToNamedFieldValue(wrapper: NamedFieldValueWrapper) = wrapper.namedFieldValue.copy(pos = wrapper.pos)
-  implicit def namedFieldValuesToNamedFieldValues(wrappers: List[NamedFieldValueWrapper]) = wrappers.map { namedFieldValueToNamedFieldValue(_) }
+  implicit def namedFieldValueWrapperToNamedFieldValue(wrapper: NamedFieldValueWrapper) = wrapper.namedFieldValue.copy(pos = wrapper.pos)
+  implicit def namedFieldValueWrappersToNamedFieldValues(wrappers: List[NamedFieldValueWrapper]) = wrappers.map { namedFieldValueWrapperToNamedFieldValue(_) }
+  implicit def memberValueWrapperToMemberValue(wrapper: MemberValueWrapper) = wrapper.memberValue.copy(pos = wrapper.pos)
+  implicit def memberValueWrapperNelToMemberValueNel(wrappers: NonEmptyList[MemberValueWrapper]) = wrappers.map { memberValueWrapperToMemberValue(_) }
   
   implicit def termToTermWrapper(term: Term[SimpleTerm[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) = TermWrapper(term)
   implicit def typeTermToTypeTermWrapper(typeTerm: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = TypeTermWrapper(typeTerm)
@@ -156,9 +159,10 @@ object Parser extends StandardTokenParsers with PackratParsers
   implicit def argToArgWrapper(arg: Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = ArgWrapper(arg)
   implicit def typeArgToTypeArgWrapper(typeArg: TypeArg) = TypeArgWrapper(typeArg)
   implicit def kindTermToKindTermWrapper(kindTerm: KindTerm[StarKindTerm[String]]) = KindTermWrapper(kindTerm)
-  implicit def caseToWrapperCase(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
+  implicit def caseToCaseWrapper(cas: Case[Symbol, LambdaInfo, TypeSimpleTerm[Symbol, TypeLambdaInfo]]) = CaseWrapper(cas)
   implicit def namedFieldToNamedFieldWrapper(namedField: NamedField) = NamedFieldWrapper(namedField)
-  implicit def namedFieldValueToNamedFieldValue(namedFieldValue: NamedFieldValue) = NamedFieldValueWrapper(namedFieldValue)
+  implicit def namedFieldValueToNamedFieldValueWrapper(namedFieldValue: NamedFieldValue) = NamedFieldValueWrapper(namedFieldValue)
+  implicit def memberValueToMemberValueWrapper(memberValue: MemberValue) = MemberValueWrapper(memberValue)
   
   def p[T, U <: Positional](parser: Parser[T])(implicit f: T => U) = positioned(parser ^^ f)
   
@@ -477,7 +481,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       instanceDef |
       selectConstructInstanceDef)
   lazy val defs = defs1 ~ ((semi ~> defs1) *)							^^ { case ds ~ dss => (ds :: dss).foldLeft(List[Def]()) { _ ++ _ } }
-  lazy val defs1 = definition ^^ { List(_) } | sugarDefs1
+  lazy val defs1 = typeClassInstanceDef1 | definition ^^ { List(_) } | sugarDefs1
 
   lazy val importDef = "import" ~-> noNlParsers.moduleSymbol			^^ { ImportDef(_) }
   lazy val combinatorDef = simpleCombinatorDef | combinatorDef1 | sugarCombinatorDef
@@ -545,7 +549,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val typeOpDefPart1 = noNlParsers.opSymbol						^^ { (_, none) }
   lazy val typeOpDefPart2 = "(" ~-> nlParsers.opSymbol ~- ((":" ~-> nlParsers.kindExpr) ?) ^^ { case s ~ kt => (s, kt) }
   
-  lazy val sugarDefs1 = datatypeDef | typeclassDef
+  lazy val sugarDefs1 = datatypeDef | typeclassDef | typeClassInstanceDef2
   
   lazy val datatypeDef = datatypeDef1									^^ makeDatatypeDef
   lazy val datatypeDef1 = simpleDatatypeDef | datatypeDef2 | datatypeOpDef
@@ -578,6 +582,18 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val member = member1 | memberOp
   lazy val member1 = p(ident ~ (":" ~-> noNlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> noNlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField(s, tt, t, NoPosition) })
   lazy val memberOp = p(opIdent ~ (":" ~-> noNlParsers.typeExpr) ~ ((rep("\n") ~ "=" ~-> noNlParsers.expr) ?) ^^ { case s ~ tt ~ t => NamedField("unary_" + s, tt, t, NoPosition) })
+  
+  lazy val typeClassInstanceDef1 = typeClassInstanceDef3				^^ makeTypeClassInstanceDef
+  lazy val typeClassInstanceDef2 = typeClassInstanceDef4				^^ makeTypeClassInstanceDef
+  lazy val typeClassInstanceDef3 = "instance" ~-> typeClassInstanceDefPart ^^ { case (s, tts, mvs) => TypeClassInstanceDef(Nil, s, tts, mvs) }
+  lazy val typeClassInstanceDef4 = "instance" ~- "\\" ~> (typeArg +) ~ ("=>" ~-> typeClassInstanceDefPart) ^^ { case as ~ ((s, tts, mvs)) => TypeClassInstanceDef(as, s, tts, mvs) }
+  lazy val typeClassInstanceDefPart = noNlParsers.symbol ~ (noNlParsers.simpleTypeExpr *) ~- ("{" ~-> memberValues <~- "}") ^^ { case s ~ tts ~ mvs => (s, tts, mvs) }
+  lazy val memberValues = memberValue ~ ((semi ~> memberValue) *)		^^ { case mv ~ mvs => NonEmptyList.nel(mv, mvs) }
+  lazy val memberValue = memberValue1 | memberValueOp
+  lazy val memberValue1 = p(ident ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ as ~ t => MemberValue(s, as, t, NoPosition) })
+  lazy val memberValueOp = unaryMemberValueOp | binaryMemberValueOp
+  lazy val unaryMemberValueOp = p(opIdent ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case s ~ as ~ t => MemberValue("unary_" + s, as, t, NoPosition) })
+  lazy val binaryMemberValueOp = p(arg ~ opIdent ~ (arg *) ~- ("=" ~-> noNlParsers.expr) ^^ { case a ~ s ~ as ~ t => MemberValue(s, argWrappersToArgs(a :: as), t, NoPosition) })
   
   def parseString(s: String) =
     phrase(parseTree)(new lexical.Scanner(s)) match {
