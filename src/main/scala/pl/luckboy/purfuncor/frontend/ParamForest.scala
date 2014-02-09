@@ -73,6 +73,17 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
       case None                        =>
         none
     }
+  
+  def findParamUnions(params: Set[Int]) =
+    params.foldLeft(some(IntMap[BitSet]())) {
+      case (Some(unions), param) =>
+        findRootParam(param).map { rp => unions.updated(rp, unions.getOrElse(rp, BitSet()) + param) }
+      case (None, _)             =>
+        none
+    }
+  
+  def findParamUnionsWithTerms(params: Set[Int]) =
+    findParamUnions(params).map { _.map { case (rp, ps) => (rp, (ps, getTerm(rp))) } }
 }
 
 object ParamForest
