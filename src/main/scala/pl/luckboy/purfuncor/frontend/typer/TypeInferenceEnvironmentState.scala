@@ -18,6 +18,8 @@ trait TypeInferenceEnvironmentState[E, L, M]
   
   def inferTypeValueTermKindS(term: TypeValueTerm[M])(env: E): (E, Validation[NoType[M], Kind])
   
+  def inferTypeValueLambdaKindS(lambda: TypeValueLambda[M])(env: E): (E, Validation[NoType[M], Kind])
+  
   def appKindS(funKind: Kind, argKinds: Seq[Kind])(env: E): (E, Validation[NoType[M], Kind])
 
   def appStarKindS(argKinds: Seq[Kind])(env: E): (E, Validation[NoType[M], Kind])
@@ -73,6 +75,12 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def isInstanceTypeMatchingS(env: E): (E, Boolean)
   
   def isTypeLambdaArgParamS(param: Int)(env: E): (E, Boolean)
+  
+  def withNewTypeParamForestS[T](f: E => (E,  T))(env: E): (E, T)
+  
+  def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M)(env: E): (E, Option[TypeMatchingCondition[M]])
+
+  def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M, cond: TypeMatchingCondition[M])(env: E): (E, Unit)
 }
 
 object TypeInferenceEnvironmentState

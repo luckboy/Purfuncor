@@ -64,7 +64,6 @@ sealed trait TypeValue[T, +U, +V, +W]
           case _                            => NoTypeValue.fromError[T, U, V, W](FatalError("type lambda value has arguments", none, NoPosition)).failure
         }
       case _                                =>
-        println(evaluatedValue)
         NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure
     }
     (env2, term)

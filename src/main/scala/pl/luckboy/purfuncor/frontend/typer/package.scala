@@ -317,6 +317,9 @@ package object typer
     override def inferTypeValueTermKindS(term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       TypeValueTermKindInferrer.inferTypeValueTermKindS(term)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
+    override def inferTypeValueLambdaKindS(lambda: TypeValueLambda[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
+      throw new UnsupportedOperationException
+    
     override def appKindS(funKind: Kind, argKinds: Seq[Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
       appInfoS(funKind, argKinds)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
@@ -440,6 +443,15 @@ package object typer
     
     override def isTypeLambdaArgParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeLambdaArgParams.contains(param))
+      
+    override def withNewTypeParamForestS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
+      throw new UnsupportedOperationException
+    
+    override def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Option[TypeMatchingCondition[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
+    
+    override def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol, cond: TypeMatchingCondition[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
+      throw new UnsupportedOperationException
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
