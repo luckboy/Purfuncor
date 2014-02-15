@@ -452,6 +452,9 @@ package object typer
     
     override def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol, cond: TypeMatchingCondition[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
       throw new UnsupportedOperationException
+      
+    override def findTypeMatchingCondiationS(params: Set[Int])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeMatchingCondition[GlobalSymbol]]) =
+      throw new UnsupportedOperationException
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

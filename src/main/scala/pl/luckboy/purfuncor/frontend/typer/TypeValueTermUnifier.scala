@@ -289,7 +289,7 @@ object TypeValueTermUnifier
     }.valueOr { nt => (env2, nt.failure) }
   }
   
-  private def checkTypeMatchingConditionS[T, U, E](cond: TypeMatchingCondition[T], globalTypeApp1: GlobalTypeApp[T], globalTypeApp2: GlobalTypeApp[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
+  private def checkTypeMatchingConditionS[T, U, V, E](cond: TypeMatchingCondition[T], globalTypeApp1: GlobalTypeApp[T], globalTypeApp2: GlobalTypeApp[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
     (cond, globalTypeApp1, globalTypeApp2) match {
       case (TypeMatchingCondition(firstArgIdxs, secondArgIdxs, matches, otherParams, lambdaParams), GlobalTypeApp(loc1, lambdas1, sym1), GlobalTypeApp(loc2, lambdas2, sym2)) =>
         if(firstArgIdxs.size === lambdas1.size && secondArgIdxs.size === lambdas2.size) {
@@ -385,7 +385,7 @@ object TypeValueTermUnifier
                       val (env9, retKindRes2) = envSt.appKindS(funKindRes1.valueOr { _.toNoKind }, kinds22)(env8)
                       val (env10, unifiedKindRes) = envSt.unifyKindsS(retKindRes1.valueOr { _.toNoKind }, retKindRes2.valueOr { _.toNoKind })(env9)
                       unifiedKindRes.map {
-                        envSt.setReturnKindS(_)(env10).mapElements(identity, _.success)
+                        envSt.setReturnKindS(_)(env10).mapElements(identity, _ => y.success)
                       }.valueOr { nt => (env10, nt.failure) }
                   }.getOrElse((env5, NoType.fromError[T](FatalError("index out of bounds", none, NoPosition)).failure))
               }.valueOr { nt => (env5, nt.failure) }
@@ -393,6 +393,67 @@ object TypeValueTermUnifier
           (env11, some(res4))
         } else
           (env, none)
+    }
+  
+  private def unifyGlobalTypeAppsWithTypeParamsS[T, U, V, E](globalTypeApp1: GlobalTypeApp[T], globalTypeApp2: GlobalTypeApp[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
+    (globalTypeApp1, globalTypeApp2) match {
+      case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, sym2)) =>
+        val (env2, funKindRes1) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env)
+        val (env3, funKindRes2) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc2, Nil, sym2))(env2)
+        val (env4, funKindArgCountRes1) = envSt.argCountFromKindS(funKindRes1.valueOr { _.toNoKind })(env3)
+        val (env5, funKindArgCountRes2) = envSt.argCountFromKindS(funKindRes2.valueOr { _.toNoKind })(env4)
+        (funKindArgCountRes1 |@| funKindArgCountRes2) {
+          case (funKindArgCount1, funKindArgCount2) =>
+            if(funKindArgCount1 === args1.size && funKindArgCount2 === args2.size) {
+              envSt.withNewTypeParamForestS {
+                env6 =>
+                  envSt.withRecursionCheckingS(Set(loc1, loc2)) { 
+                    env7 =>
+                      appForGlobalTypeWithOnlyAllocatedTypeParamsS(loc1, funKindArgCount1)(env7) match {
+                        case (env8, Success((evaluatedTerm1, argParams1))) =>
+                          appForGlobalTypeWithOnlyAllocatedTypeParamsS(loc2, funKindArgCount2)(env8) match {
+                            case (env9, Success((evaluatedTerm2, argParams2))) =>
+                              val (env10, res) = unifyS(evaluatedTerm1, evaluatedTerm2)(env9)
+                              res.map {
+                                _ => envSt.findTypeMatchingCondiationS(argParams1.toSet | argParams2.toSet)(env10)
+                              }.valueOr { nt => (env10, nt.failure) }
+                            case (env9, Failure(noType)) =>
+                              (env9, noType.failure)
+                          }
+                        case (env8, Failure(noType)) =>
+                          (env8, noType.failure)
+                      }
+                  } (env6).mapElements(identity, some)
+              } (env5)
+            } else
+              (env5, none)
+        }.valueOr { nt => (env5, some(nt.failure)) }
+    }
+  
+  private def matchesGlobalTypeAppsForTypeMatchingConditionS[T, U, V, E](globalTypeApp1: GlobalTypeApp[T], globalTypeApp2: GlobalTypeApp[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Option[Validation[NoType[T], U]]) =
+    (globalTypeApp1, globalTypeApp2) match {
+      case (GlobalTypeApp(loc1, args1, _), GlobalTypeApp(loc2, args2, _)) =>
+        val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+        typeMatching match {
+          case TypeMatching.TypeWithSupertype =>
+            val (env3, _) = reverseTypeMatchingS(env2)
+            matchesGlobalTypeAppsForTypeMatchingConditionS(globalTypeApp2, globalTypeApp1)(z)(f)(env3)
+          case _ =>
+            val globalTypeMatching = typeMatching match {
+              case TypeMatching.Types => GlobalTypeMatching.Types
+              case _                  => GlobalTypeMatching.SupertypeWithType
+            }
+            val (env3, optCond) = envSt.getTypeMatchingConditionFromEnvironmentS(globalTypeMatching, loc1, loc2)(env2)
+            val (env4, optCondRes) = optCond.map { c => (env3, some(c.success)) }.getOrElse {
+              unifyGlobalTypeAppsWithTypeParamsS(globalTypeApp1, globalTypeApp2)(env3)
+            }
+            optCondRes.map {
+              case Success(cond)   =>
+                checkTypeMatchingConditionS(cond, globalTypeApp1, globalTypeApp2)(z)(f)(env4)
+              case Failure(noType) =>
+                (env4, some(noType.failure))
+            }.getOrElse((env4, none))
+        }
     }
   
   private def matchesUnittypesS[T, U, V, E](unittype1: Unittype[T], unittype2: Unittype[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
