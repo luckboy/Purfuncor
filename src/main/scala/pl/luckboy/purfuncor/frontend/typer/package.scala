@@ -317,8 +317,8 @@ package object typer
     override def inferTypeValueTermKindS(term: TypeValueTerm[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
       TypeValueTermKindInferrer.inferTypeValueTermKindS(term)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
-    override def inferTypeValueLambdaKindS(lambda: TypeValueLambda[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Kind]) =
-      throw new UnsupportedOperationException
+    override def inferTypeValueLambdaKindS(lambda: TypeValueLambda[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      TypeValueTermKindInferrer.inferTypeValueLambdaKindS(lambda)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
     
     override def appKindS(funKind: Kind, argKinds: Seq[Kind])(env: SymbolTypeInferenceEnvironment[T, U]) =
       appInfoS(funKind, argKinds)(env.kindInferenceEnv).mapElements(env.withKindInferenceEnv, typeResultFromKind)
@@ -444,17 +444,27 @@ package object typer
     override def isTypeLambdaArgParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeLambdaArgParams.contains(param))
       
-    override def withNewTypeParamForestS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
+    override def withEmptyTypeParamForestS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
       throw new UnsupportedOperationException
     
-    override def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Option[TypeMatchingCondition[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, env.typeEnv.typeMatchingConds.get((typeMatching, loc1, loc2)))
     
-    override def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol, cond: TypeMatchingCondition[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Unit) =
-      throw new UnsupportedOperationException
-      
-    override def findTypeMatchingCondiationS(params: Set[Int])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], TypeMatchingCondition[GlobalSymbol]]) =
-      throw new UnsupportedOperationException
+    override def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol, cond: TypeMatchingCondition[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val typeEnv = env.typeEnv.withTypeMatchingConds(env.typeEnv.typeMatchingConds + ((typeMatching, loc1, loc2) -> cond))
+      val typeEnv2 = typeMatching match {
+        case GlobalTypeMatching.Types             =>
+          typeEnv.withTypeMatchingConds(env.typeEnv.typeMatchingConds + ((typeMatching, loc2, loc1) -> cond))
+        case GlobalTypeMatching.SupertypeWithType =>
+          typeEnv
+      }
+      (env.withTypeEnv(typeEnv), ())
+    }
+    
+    override def findTypeMatchingCondiationS(argParams1: Seq[Int], argParams2: Seq[Int])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.typeParamForest.findParamUnionsWithTerms(argParams1.toSet | argParams2.toSet).map {
+        TypeMatchingCondition.fromTypeParamUnionsWithTypeValueTermsS(_)(env).mapElements(identity, _.map { _.withFirstArgIdxs(argParams1.zipWithIndex.toMap).withSecondArgIdxs(argParams2.zipWithIndex.toMap) })
+      }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

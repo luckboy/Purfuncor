@@ -76,13 +76,13 @@ trait TypeInferenceEnvironmentState[E, L, M]
   
   def isTypeLambdaArgParamS(param: Int)(env: E): (E, Boolean)
   
-  def withNewTypeParamForestS[T](f: E => (E,  T))(env: E): (E, T)
+  def withEmptyTypeParamForestS[T](f: E => (E,  T))(env: E): (E, T)
   
   def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M)(env: E): (E, Option[TypeMatchingCondition[M]])
 
   def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M, cond: TypeMatchingCondition[M])(env: E): (E, Unit)
   
-  def findTypeMatchingCondiationS(params: Set[Int])(env: E): (E, Validation[NoType[M], TypeMatchingCondition[M]])
+  def findTypeMatchingCondiationS(argParams1: Seq[Int], argParams2: Seq[Int])(env: E): (E, Validation[NoType[M], TypeMatchingCondition[M]])
 }
 
 object TypeInferenceEnvironmentState

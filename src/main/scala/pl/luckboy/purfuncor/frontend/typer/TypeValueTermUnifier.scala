@@ -405,7 +405,7 @@ object TypeValueTermUnifier
         (funKindArgCountRes1 |@| funKindArgCountRes2) {
           case (funKindArgCount1, funKindArgCount2) =>
             if(funKindArgCount1 === args1.size && funKindArgCount2 === args2.size) {
-              envSt.withNewTypeParamForestS {
+              envSt.withEmptyTypeParamForestS {
                 env6 =>
                   envSt.withRecursionCheckingS(Set(loc1, loc2)) { 
                     env7 =>
@@ -415,7 +415,7 @@ object TypeValueTermUnifier
                             case (env9, Success((evaluatedTerm2, argParams2))) =>
                               val (env10, res) = unifyS(evaluatedTerm1, evaluatedTerm2)(env9)
                               res.map {
-                                _ => envSt.findTypeMatchingCondiationS(argParams1.toSet | argParams2.toSet)(env10)
+                                _ => envSt.findTypeMatchingCondiationS(argParams1, argParams2)(env10)
                               }.valueOr { nt => (env10, nt.failure) }
                             case (env9, Failure(noType)) =>
                               (env9, noType.failure)
@@ -449,7 +449,8 @@ object TypeValueTermUnifier
             }
             optCondRes.map {
               case Success(cond)   =>
-                checkTypeMatchingConditionS(cond, globalTypeApp1, globalTypeApp2)(z)(f)(env4)
+                val (env5, _) = envSt.addTypeMatchingConditionS(globalTypeMatching, loc1, loc2, cond)(env4)
+                checkTypeMatchingConditionS(cond, globalTypeApp1, globalTypeApp2)(z)(f)(env5)
               case Failure(noType) =>
                 (env4, some(noType.failure))
             }.getOrElse((env4, none))
@@ -467,18 +468,18 @@ object TypeValueTermUnifier
     
   private def matchesGlobalTypeAppWithTypeValueTermS[T, U, V, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (globalTypeApp1, term2) match {
-      case (GlobalTypeApp(loc1, args1, sym1), GlobalTypeApp(loc2, args2, _)) =>
-        val (env3, res) = if(loc1 === loc2) {
+      case (GlobalTypeApp(loc1, args1, sym1), globalTypeApp2 @ GlobalTypeApp(loc2, args2, _)) =>
+        val (env3, optRes) = if(loc1 === loc2) {
           val (env2, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env)
           unifier.withSaveS {
             matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(_)
-          } (env2)
+          } (env2).mapElements(identity, _.map { x => some(x.success) }.getOrElse(none))
         } else
-          unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
-        res match {
-          case Success(x) =>
-            (env3, x.success)
-          case Failure(_) =>
+          matchesGlobalTypeAppsForTypeMatchingConditionS(globalTypeApp1, globalTypeApp2)(z)(f)(env)
+        optRes match {
+          case Some(res) =>
+            (env3, res)
+          case None      =>
             envSt.withRecursionCheckingS(Set(loc1, loc2)) { 
               env4 =>
                 appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env4) match {
