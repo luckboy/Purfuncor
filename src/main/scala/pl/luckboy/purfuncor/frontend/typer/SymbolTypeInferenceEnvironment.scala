@@ -282,6 +282,20 @@ case class SymbolTypeInferenceEnvironment[T, U](
           (newEnv2, argInfo :: newArgInfos)
         }
     }.mapElements(identity, _.reverse)
+    
+  def withEmptyTypeParamForest[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
+    val (env, res) = f(copy(
+        typeParamForest = ParamForest.empty,
+        definedTypes = Nil,
+        irreplaceableTypeParams = Map(),
+        markedTypeParams = Set(),
+        delayedErrNoTypes = Map(),
+        prevDelayedErrTypeParamAppIdxs = Set(),
+        nextTypeParamAppIdx = 0,
+        typeLambdaArgParams = Map(),
+        typeLambdaArgCount = 0))
+    (copy(env.typeEnv), res)
+  }
 }
 
 case class SymbolTypeInferenceEnvironmentExtra[T, U](

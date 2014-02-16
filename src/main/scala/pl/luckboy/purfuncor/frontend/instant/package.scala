@@ -217,7 +217,7 @@ package object instant
     
     override def withSaveS[V, W](f: SymbolInstantiationEnvironment[T, U] => (SymbolInstantiationEnvironment[T, U], Validation[V, W]))(env: SymbolInstantiationEnvironment[T, U]) =  {
       val (env2, res) = f(env)
-      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
+      res.map { x => (env2, x.success) }.valueOr { e => (env.withTypeInferenceEnv(env.typeInferenceEnv.withTypeEnv(env2.typeInferenceEnv.typeEnv)), e.failure ) }        
     }
   }
   

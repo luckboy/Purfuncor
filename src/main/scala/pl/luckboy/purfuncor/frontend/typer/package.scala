@@ -360,9 +360,9 @@ package object typer
       val (env3, res2) = checkDefinedTypesS(env2.definedTypes)(env2)
       ((res |@| res2) { (_, _) => () }) match {
         case Success(_)      =>
-          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env, (res, false))
+          if(savedErrCount === env3.delayedErrNoTypes.size) (env3, (res, true)) else (env.withTypeEnv(env3.typeEnv), (res, false))
         case Failure(noType) =>
-          (env, (noType.failure, false))
+          (env.withTypeEnv(env3.typeEnv), (noType.failure, false))
       }
     }
     
@@ -443,9 +443,9 @@ package object typer
     
     override def isTypeLambdaArgParamS(param: Int)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeLambdaArgParams.contains(param))
-      
-    override def withEmptyTypeParamForestS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) =
-      throw new UnsupportedOperationException
+    
+    override def withEmptyTypeParamForestS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]) =
+      env.withEmptyTypeParamForest(f)
     
     override def getTypeMatchingConditionFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeEnv.typeMatchingConds.get((typeMatching, loc1, loc2)))
@@ -581,7 +581,7 @@ package object typer
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = f(env)
-      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
+      res.map { x => (env2, x.success) }.valueOr { e => (env.withTypeEnv(env2.typeEnv), e.failure ) }        
     }
   }
   
@@ -1056,7 +1056,7 @@ package object typer
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
       val (env2, res) = f(env)
-      res.map { x => (env2, x.success) }.valueOr { e => (env, e.failure ) }        
+      res.map { x => (env2, x.success) }.valueOr { e => (env.withTypeEnv(env2.typeEnv), e.failure ) }        
     }
   }
   
