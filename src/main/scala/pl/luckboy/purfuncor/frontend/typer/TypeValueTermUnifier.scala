@@ -382,7 +382,7 @@ object TypeValueTermUnifier
                       val (env6, funKindRes1) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Seq(), sym1))(env5)
                       val (env7, funKindRes2) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc2, Seq(), sym2))(env6)
                       val (env8, retKindRes1) = envSt.appKindS(funKindRes1.valueOr { _.toNoKind }, kinds21)(env7)
-                      val (env9, retKindRes2) = envSt.appKindS(funKindRes1.valueOr { _.toNoKind }, kinds22)(env8)
+                      val (env9, retKindRes2) = envSt.appKindS(funKindRes2.valueOr { _.toNoKind }, kinds22)(env8)
                       val (env10, unifiedKindRes) = envSt.unifyKindsS(retKindRes1.valueOr { _.toNoKind }, retKindRes2.valueOr { _.toNoKind })(env9)
                       unifiedKindRes.map {
                         envSt.setReturnKindS(_)(env10).mapElements(identity, _ => y.success)
