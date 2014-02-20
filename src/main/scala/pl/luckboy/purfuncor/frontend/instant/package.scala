@@ -48,8 +48,8 @@ package object instant
       (env, NoType.fromError[GlobalSymbol](Error("ambiguous instance for " + instArg.polyFun + " with type " + instArg.typ, none, NoPosition)))
     
     override def withInstanceTypeClearingS[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V))(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], V) = {
-      val (_, res) = f(env.withInstTypeMatching(true))
-      (env, res)
+      val (env2, res) = f(env.withInstTypeMatching(true))
+      (env.withTypeEnv(env2.typeEnv), res)
     }
     
     override def definedTypesFromEnvironmentS(env: SymbolTypeInferenceEnvironment[T, U]) =
