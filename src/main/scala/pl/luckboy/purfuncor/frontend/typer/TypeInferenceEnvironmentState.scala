@@ -83,6 +83,10 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M, cond: TypeMatchingCondition[M])(env: E): (E, Unit)
   
   def findTypeMatchingCondiationS(argParams1: Seq[Int], argParams2: Seq[Int])(env: E): (E, Validation[NoType[M], TypeMatchingCondition[M]])
+
+  def hasGlobalTypeMismatchFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M)(env: E): (E, Boolean)
+  
+  def setGlobalTypeMismatchS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M, isMismatch: Boolean)(env: E): (E, Unit)
 }
 
 object TypeInferenceEnvironmentState

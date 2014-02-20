@@ -296,6 +296,10 @@ case class SymbolTypeInferenceEnvironment[T, U](
         typeLambdaArgCount = 0))
     (copy(env.typeEnv), res)
   }
+    
+  def globalTypeMismatches = extra.globalTypeMismatches
+  
+  def withGlobalTypeMismatches(mismatches: Set[(GlobalTypeMatching.Value, GlobalSymbol, GlobalSymbol)]) = copy(extra = extra.copy(globalTypeMismatches = mismatches))
 }
 
 case class SymbolTypeInferenceEnvironmentExtra[T, U](
@@ -303,7 +307,8 @@ case class SymbolTypeInferenceEnvironmentExtra[T, U](
     errNoType: Option[NoType[GlobalSymbol]],
     isRecursive: Boolean,
     isInstTypeMatching: Boolean,
-    currentDefinedType: Option[DefinedType[GlobalSymbol]])
+    currentDefinedType: Option[DefinedType[GlobalSymbol]],
+    globalTypeMismatches: Set[(GlobalTypeMatching.Value, GlobalSymbol, GlobalSymbol)])
 
 object SymbolTypeInferenceEnvironment
 {
@@ -336,5 +341,6 @@ object SymbolTypeInferenceEnvironment
         errNoType = none,
         isRecursive = false,
         isInstTypeMatching = false,
-        currentDefinedType = none))
+        currentDefinedType = none,
+        globalTypeMismatches = Set()))
 }
