@@ -445,7 +445,7 @@ object TypeValueTermUnifier
             }
             val (env3, optCond) = envSt.getTypeMatchingConditionFromEnvironmentS(globalTypeMatching, loc1, loc2)(env2)
             val (env5, optCondRes) = optCond.map { c => (env3, some(c.success)) }.getOrElse {
-              val (env4, isMismatch) = envSt.hasGlobalTypeMismatchFromEnvironmentS(globalTypeMatching, loc1, loc2)(env3)
+              val (env4, isMismatch) = envSt.containsGlobalTypeMismatchFromEnvironmentS(globalTypeMatching, loc1, loc2)(env3)
               if(!isMismatch)
                 unifyGlobalTypeAppsWithTypeParamsS(globalTypeApp1, globalTypeApp2)(env4)
               else
@@ -456,7 +456,7 @@ object TypeValueTermUnifier
                 val (env6, _) = envSt.addTypeMatchingConditionS(globalTypeMatching, loc1, loc2, cond)(env5)
                 checkTypeMatchingConditionS(cond, globalTypeApp1, globalTypeApp2)(z)(f)(env6)
               case Failure(noType) =>
-                val (env6, _) = envSt.setGlobalTypeMismatchS(globalTypeMatching, loc1, loc2, true)(env5)
+                val (env6, _) = envSt.addGlobalTypeMismatchS(globalTypeMatching, loc1, loc2)(env5)
                 (env6, some(noType.failure))
             }.getOrElse((env5, none))
         }

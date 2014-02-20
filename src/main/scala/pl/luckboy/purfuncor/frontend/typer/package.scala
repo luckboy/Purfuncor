@@ -466,16 +466,14 @@ package object typer
         TypeMatchingCondition.fromTypeParamUnionsWithTypeValueTermsS(_)(env).mapElements(identity, _.map { _.withFirstArgIdxs(argParams1.zipWithIndex.toMap).withSecondArgIdxs(argParams2.zipWithIndex.toMap) })
       }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
       
-    override def hasGlobalTypeMismatchFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
+    override def containsGlobalTypeMismatchFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.globalTypeMismatches.contains((typeMatching, loc1, loc2)))
       
-    override def setGlobalTypeMismatchS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol, isMismatch: Boolean)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val triple = (typeMatching, loc1, loc2)
-      val env2 = env.withGlobalTypeMismatches(if(isMismatch) (env.globalTypeMismatches + triple) else (env.globalTypeMismatches - triple))
+    override def addGlobalTypeMismatchS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) = {
+      val env2 = env.withGlobalTypeMismatches(env.globalTypeMismatches + ((typeMatching, loc1, loc2)))
       val env3 = typeMatching match {
         case GlobalTypeMatching.Types             =>
-          val triple2 = (typeMatching, loc2, loc1)
-          env2.withGlobalTypeMismatches(if(isMismatch) (env2.globalTypeMismatches + triple2) else (env2.globalTypeMismatches - triple2))
+          env2.withGlobalTypeMismatches(env2.globalTypeMismatches + ((typeMatching, loc2, loc1)))
         case GlobalTypeMatching.SupertypeWithType =>
           env2
       }
