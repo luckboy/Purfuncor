@@ -17,7 +17,7 @@ import TypeValueTermUtils._
 case class TypeMatchingCondition[T](
     firstArgIdxs: Map[Int, Int],
     secondArgIdxs: Map[Int, Int],
-    matches: Seq[TypeValueTermMatch[T]],
+    matchings: Seq[TypeValueTermMatching[T]],
     otherParams: Set[Int],
     lambdaParams: Set[Int])
 {
@@ -32,15 +32,15 @@ object TypeMatchingCondition
     val terms = paramUnionsWithTerms.map { _._2._2 }
     val otherParams = terms.flatMap { _.map(typeParamsFromTypeValueTerm).getOrElse(Set()) }.toSet
     val lambdaParams = terms.flatMap { _.map(typeArgParamsFromTypeValueTerm).getOrElse(Set()) }.toSet
-    val (env2, res) = paramUnionsWithTerms.foldLeft((env, IntMap[TypeValueTermMatch[T]]().success[NoType[T]])) {
-      case ((newEnv, Success(matches)), (rootParam, (params, term))) =>
+    val (env2, res) = paramUnionsWithTerms.foldLeft((env, IntMap[TypeValueTermMatching[T]]().success[NoType[T]])) {
+      case ((newEnv, Success(matchings)), (rootParam, (params, term))) =>
         val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(rootParam, Nil, 0))(newEnv)
         newRes.map {
           kind =>
             val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
             newRes2.map {
               inferredKind =>
-                (newEnv3, (matches + (rootParam -> TypeValueTermMatch(params, term, inferredKind))).success)
+                (newEnv3, (matchings + (rootParam -> TypeValueTermMatching(params, term, inferredKind))).success)
             }.valueOr { nt => (newEnv3, nt.failure) }
         }.valueOr { nt => (newEnv2, nt.failure) }
     }
@@ -48,7 +48,7 @@ object TypeMatchingCondition
   }
 }
     
-case class TypeValueTermMatch[T](
+case class TypeValueTermMatching[T](
     params: Set[Int],
     term: Option[TypeValueTerm[T]],
     kind: InferredKind)

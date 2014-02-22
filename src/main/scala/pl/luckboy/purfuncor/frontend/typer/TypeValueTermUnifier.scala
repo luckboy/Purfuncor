@@ -291,7 +291,7 @@ object TypeValueTermUnifier
   
   private def checkTypeMatchingConditionS[T, U, V, E](cond: TypeMatchingCondition[T], globalTypeApp1: GlobalTypeApp[T], globalTypeApp2: GlobalTypeApp[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
     (cond, globalTypeApp1, globalTypeApp2) match {
-      case (TypeMatchingCondition(firstArgIdxs, secondArgIdxs, matches, otherParams, lambdaParams), GlobalTypeApp(loc1, lambdas1, sym1), GlobalTypeApp(loc2, lambdas2, sym2)) =>
+      case (TypeMatchingCondition(firstArgIdxs, secondArgIdxs, matchings, otherParams, lambdaParams), GlobalTypeApp(loc1, lambdas1, sym1), GlobalTypeApp(loc2, lambdas2, sym2)) =>
         if(firstArgIdxs.size === lambdas1.size && secondArgIdxs.size === lambdas2.size) {
           val (env2, res) = otherParams.foldLeft((env, Map[Int, Int]().success[NoType[T]])) {
             case ((newEnv, Success(newOtherParams)), param) =>
@@ -309,8 +309,8 @@ object TypeValueTermUnifier
             (otherParams2, lambdaParams2) =>
               val (env4, nextParam) = envSt.nextTypeParamFromEnvironmentS(env3)
               val termParams2 = otherParams2 ++ (firstArgIdxs.keys ++ secondArgIdxs.keys).zipWithIndex.map { case (p1, p2) => (p1, p2 + nextParam) }
-              val (env5, res3) = matches.foldLeft((env4, (z, Map[Int, Kind]()).success[NoType[T]])) {
-                case ((newEnv, Success((x, kinds))), TypeValueTermMatch(params, term, kind)) =>
+              val (env5, res3) = matchings.foldLeft((env4, (z, Map[Int, Kind]()).success[NoType[T]])) {
+                case ((newEnv, Success((x, kinds))), TypeValueTermMatching(params, term, kind)) =>
                   val (newEnv5, newRes) = params.foldLeft((newEnv, (x, kinds, none[(TypeValueLambda[T], Int)], none[Kind]).success[NoType[T]])) {
                     case ((newEnv2, Success((x2, kinds2, optPair1, optRetKind))), param) =>
                       val optPair2 = firstArgIdxs.get(param).flatMap { 
@@ -445,7 +445,7 @@ object TypeValueTermUnifier
             }
             val (env3, optCond) = envSt.getTypeMatchingConditionFromEnvironmentS(globalTypeMatching, loc1, loc2)(env2)
             val (env5, optCondRes) = optCond.map { c => (env3, some(c.success)) }.getOrElse {
-              val (env4, isMismatch) = envSt.containsGlobalTypeMismatchFromEnvironmentS(globalTypeMatching, loc1, loc2)(env3)
+              val (env4, isMismatch) = envSt.containsGlobalTypeMismatchingFromEnvironmentS(globalTypeMatching, loc1, loc2)(env3)
               if(!isMismatch)
                 unifyGlobalTypeAppsWithTypeParamsS(globalTypeApp1, globalTypeApp2)(env4)
               else
@@ -456,7 +456,7 @@ object TypeValueTermUnifier
                 val (env6, _) = envSt.addTypeMatchingConditionS(globalTypeMatching, loc1, loc2, cond)(env5)
                 checkTypeMatchingConditionS(cond, globalTypeApp1, globalTypeApp2)(z)(f)(env6)
               case Failure(noType) =>
-                val (env6, _) = envSt.addGlobalTypeMismatchS(globalTypeMatching, loc1, loc2)(env5)
+                val (env6, _) = envSt.addGlobalTypeMismatchingS(globalTypeMatching, loc1, loc2)(env5)
                 (env6, some(noType.failure))
             }.getOrElse((env5, none))
         }
