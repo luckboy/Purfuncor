@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.instant
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -117,7 +118,7 @@ object PolyFunInstantiator {
   private def justInstantiatePolyFunctionsS[L, M, N, I, E](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit polyFunInstantiator: PolyFunInstantiator[L, M, N, I, E]) = {
     val (env2, (res, localInstTree2)) = lambdaInfoMaps.foldLeft((env, (Map[Option[L], Map[Int, InstantiationLambdaInfo[L]]]().successNel[AbstractError], localInstTree))) {
       case ((newEnv, (newRes, newLocalInstTree)), (polyFun, lambdaInfos)) =>
-        val (newEnv6, (newRes5, newLocalInstTree3)) = lambdaInfos.foldLeft((newEnv, (Map[Int, InstantiationLambdaInfo[L]]().successNel[AbstractError], newLocalInstTree))) {
+        val (newEnv6, (newRes5, newLocalInstTree3)) = lambdaInfos.foldLeft((newEnv, (IntMap[InstantiationLambdaInfo[L]]().successNel[AbstractError], newLocalInstTree))) {
           case ((newEnv2, (newRes2, newLocalInstTree2)), (i, lambdaInfo)) =>
             val (newEnv3, newRes3) = lambdaInfo.polyFun.map {
               polyFun =>
@@ -151,7 +152,7 @@ object PolyFunInstantiator {
     instArgs.foldLeft(Vector[InstanceArg[L, N]]().successNel[AbstractError]) {
       case (Success(newInstArgs), InstanceArg(polyFun, typ)) =>
         val typeValueTerm = normalizeTypeParamsForParams(typ.typeValueTerm, params.size)(params)
-        val argKindMap = params.foldLeft(Map[Int, InferredKind]()) {
+        val argKindMap = params.foldLeft(IntMap[InferredKind]()) {
           case (ks, (p, p2)) => typ.argKinds.lift(p).map { k => ks + (p2 -> k) }.getOrElse(ks)
         }
         val argKinds = (0 until params.size).foldLeft(Vector[InferredKind]()) {
@@ -232,7 +233,7 @@ object PolyFunInstantiator {
                                               (env2: E) =>
                                                 polyFunType match {
                                                  case InferredType(_, argKinds) =>
-                                                   argKinds.zipWithIndex.foldLeft((env2, Map[Int, (Int, InferredKind)]().success[NoType[N]])) {
+                                                   argKinds.zipWithIndex.foldLeft((env2, IntMap[(Int, InferredKind)]().success[NoType[N]])) {
                                                      case ((newEnv, Success(newParamsWithKinds)), (kind, i)) =>
                                                        if(reversedPolyFunTypeParamMap.values.toSet.contains(i))
                                                          (newEnv, newParamsWithKinds.success)

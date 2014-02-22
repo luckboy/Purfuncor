@@ -142,7 +142,7 @@ object SymbolKindInferenceEnvironment
       currentTypeLambdaIdx = 0,
       globalTypeVarKinds = kindTable.kinds,
       localTypeVarKinds = Map(),
-      typeParamKinds = Map(),
+      typeParamKinds = IntMap(),
       localKindTables = Map(),
       kindParamForest = ParamForest.empty,
       typeCombNodes = Map(),

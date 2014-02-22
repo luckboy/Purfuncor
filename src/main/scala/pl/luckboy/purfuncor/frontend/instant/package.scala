@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
@@ -274,7 +275,7 @@ package object instant
             case Combinator(_, _, body, lambdaInfo, file) =>
               (some(loc), preinstantiationLambdaInfosFromTerm(body).mapValues { _.copy(file = file) } + (0 -> PreinstantiationLambdaInfo.fromLambdaInfo(lambdaInfo)))
             case PolyCombinator(_, _)            =>
-              (some(loc), Map[Int, PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
+              (some(loc), IntMap[PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
           }
       }
       val (env2, res4) = (for {

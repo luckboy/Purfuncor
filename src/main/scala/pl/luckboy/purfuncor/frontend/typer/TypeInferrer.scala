@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -19,7 +20,7 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 object TypeInferrer
 {
   private def normalizeInferredTypeValueTermS[T, U, E](term: TypeValueTerm[T], kinds: Map[Int, InferredKind])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
-    val (env2, res) = allocateTypeValueTermParamsWithKindsS(term, kinds)(Map(), 0)(env)
+    val (env2, res) = allocateTypeValueTermParamsWithKindsS(term, kinds)(IntMap(), 0)(env)
     res.map { f => normalizeTypeValueTermS(f._4)(env2) }.valueOr { nt => (env2, nt.failure) }
   }
   
@@ -262,5 +263,5 @@ object TypeInferrer
     }.getOrElse((env, none.success))
     
   def instantiateTypeOptionS[T, U, E](optType: Option[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    instantiateTypeOptionForParamsS(optType)(Map())(env)
+    instantiateTypeOptionForParamsS(optType)(IntMap())(env)
 }

@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.kinder
-import scala.collection.immutable.BitSet
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -91,7 +90,7 @@ object KindTermUnifier
     
   def checkDefinedKindTermS[E](term: KindTerm[StarKindTerm[Int]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
     val params = kindParamsFromKindTerm(term)
-    val (env2, res) = params.foldLeft((env, BitSet().success[NoKind])) {
+    val (env2, res) = params.foldLeft((env, Set[Int]().success[NoKind])) {
       case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
       case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
     }

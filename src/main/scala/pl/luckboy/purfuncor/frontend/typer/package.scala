@@ -421,7 +421,7 @@ package object typer
     }
       
     override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
-      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, Map()).foldLeft((env, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, IntMap()).foldLeft((env, IntMap[InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
         case ((newEnv, Success(lis)), (i, li)) =>
           val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
           newRes.map {
@@ -547,7 +547,7 @@ package object typer
                     rp =>
                       val newIrreplaceableTypeParams = if(param1 =/= param2) {
                         val definedTypes = env2.irreplaceableTypeParams.get(param1).map { _.list }.getOrElse(Nil) ++ env2.irreplaceableTypeParams.get(param2).map { _.list }.getOrElse(Nil)
-                        IntMap() ++ (env2.irreplaceableTypeParams ++ definedTypes.toNel.map { rp -> _ })
+                        env2.irreplaceableTypeParams ++ definedTypes.toNel.map { rp -> _ }
                       } else
                         env2.irreplaceableTypeParams
                       (env2.withTypeParamForest(tpf).copy(irreplaceableTypeParams = newIrreplaceableTypeParams).withTypeRetKind(retKind), isChanged.success)
@@ -562,7 +562,7 @@ package object typer
     override def allocateParamS(env: SymbolTypeInferenceEnvironment[T, U]) =
       env.typeParamForest.allocateParam.map {
         case (tpf, p) =>
-          val (kindInferenceEnv, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env.kindInferenceEnv)
+          val (kindInferenceEnv, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(IntMap())(env.kindInferenceEnv)
           val env2 = env.withKindInferenceEnv(kindInferenceEnv)
           res.map {
             case (_, kt) =>
@@ -582,15 +582,15 @@ package object typer
     }
     
     override def prepareToUnificationS(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), ())
+      (env.withDelayedErrNoTypes(IntMap()).withPrevDelayedErrTypeParamAppIdxs(Set()), ())
     
     override def checkMatchingS(env: SymbolTypeInferenceEnvironment[T, U]) = {
       if(env.delayedErrNoTypes.keySet === env.prevDelayedErrTypeParamAppIdxs)
         env.delayedErrNoTypes.headOption.map {
-          case (_, nt) => (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), nt.failure)
-        }.getOrElse((env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(Set()), false.success))
+          case (_, nt) => (env.withDelayedErrNoTypes(IntMap()).withPrevDelayedErrTypeParamAppIdxs(Set()), nt.failure)
+        }.getOrElse((env.withDelayedErrNoTypes(IntMap()).withPrevDelayedErrTypeParamAppIdxs(Set()), false.success))
       else
-        (env.withDelayedErrNoTypes(Map()).withPrevDelayedErrTypeParamAppIdxs(env.delayedErrNoTypes.keySet), true.success)
+        (env.withDelayedErrNoTypes(IntMap()).withPrevDelayedErrTypeParamAppIdxs(env.delayedErrNoTypes.keySet), true.success)
     }
     
     override def withSaveS[V, W](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Validation[V, W]))(env: SymbolTypeInferenceEnvironment[T, U]) = {
@@ -634,7 +634,7 @@ package object typer
                 case Success(argTypes) =>
                   Type.uninstantiatedTypeValueTermFromTypesS(argTypes)(newEnv) match {
                     case (newEnv2, Success(argTypeValueTerms)) =>
-                      val (newEnv3, newRes) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0)(newEnv2)
+                      val (newEnv3, newRes) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), IntMap(0 -> InferredKind(Star(KindType, NoPosition))))(IntMap(), 0)(newEnv2)
                       newRes.map {
                         case (_, _, _, tmpTypeValueTerm) =>
                           val tmpType = InferringType(tmpTypeValueTerm & TupleType(argTypeValueTerms))
@@ -680,7 +680,7 @@ package object typer
                   }
                   val argTypes = cases.list.flatMap { 
                     cas => 
-                      newEnv3.lambdaInfos.getOrElse(newEnv3.currentCombSym, Map()).get(cas.lambdaInfo.idx).toSeq.flatMap {
+                      newEnv3.lambdaInfos.getOrElse(newEnv3.currentCombSym, IntMap()).get(cas.lambdaInfo.idx).toSeq.flatMap {
                         _.polyFunType
                       } 
                   }
@@ -770,7 +770,7 @@ package object typer
                 case _                                                                        => 
                   (newEnv, none)
               }
-              (newEnv2.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, polyFunType, Map())), polyFunType.getOrElse(newEnv2.varType(loc)))
+              (newEnv2.withCurrentLambdaInfo(InferenceLambdaInfo(TypeTable.empty, polyFunType, IntMap())), polyFunType.getOrElse(newEnv2.varType(loc)))
           }
         case Literal(value) =>
           value match {
@@ -883,7 +883,7 @@ package object typer
               val ps1 = tmpPs.zipWithIndex.toMap
               val (env4, res3) = syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env3, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
                 case ((newEnv, Success(liMaps)), (s, lis)) =>
-                  lis.foldLeft((newEnv, Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
+                  lis.foldLeft((newEnv, IntMap[InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
                     case ((newEnv2, Success(newLis)), (i, li)) =>
                       val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                       newRes.map {
@@ -990,7 +990,7 @@ package object typer
           } yield res4).run(env)
         case PolyCombinator(typ, file) =>
           (for {
-            tmpPolyCombType <- allocateTypeValueTermParamsWithKinds(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
+            tmpPolyCombType <- allocateTypeValueTermParamsWithKinds(TypeParamApp(0, Nil, 0), IntMap(0 -> InferredKind(Star(KindType, NoPosition))))(IntMap(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
             tmpPolyCombType2 <- typ.map {
               tt =>
                 for {
@@ -1053,7 +1053,7 @@ package object typer
       if(!env.isRecursive) {
         (env.withGlobalVarType(loc, UninferredType[GlobalSymbol]()), ())
       } else {
-        val (env2, res) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), Map(0 -> InferredKind(Star(KindType, NoPosition))))(Map(), 0)(env)
+        val (env2, res) = allocateTypeValueTermParamsWithKindsS(TypeParamApp(0, Nil, 0), IntMap(0 -> InferredKind(Star(KindType, NoPosition))))(IntMap(), 0)(env)
         res.map { f => (env2.withGlobalVarType(loc, InferringType(f._4)), ()) }.valueOr { nt => (env2.withGlobalVarType(loc, nt), ()) }
       }
     
@@ -1081,10 +1081,10 @@ package object typer
       env.varType(sym)
       
     override def lambdaInfosFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(sym: Option[GlobalSymbol]) =
-      env.lambdaInfos.getOrElse(sym, Map())
+      env.lambdaInfos.getOrElse(sym, IntMap())
     
     override def getLambdaInfoFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U])(lambdaIdx: Int) =
-      env.lambdaInfos.getOrElse(env.currentCombSym, Map()).get(lambdaIdx)
+      env.lambdaInfos.getOrElse(env.currentCombSym, IntMap()).get(lambdaIdx)
     
     override def globalTypeTableFromEnvironment(env: SymbolTypeInferenceEnvironment[T, U]) =
       TypeTable(env.globalVarTypes)

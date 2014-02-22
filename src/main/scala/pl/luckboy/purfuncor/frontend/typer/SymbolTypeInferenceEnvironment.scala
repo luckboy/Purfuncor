@@ -82,7 +82,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   
   def popLocalVarTypes(syms: Set[LocalSymbol]) =  copy(localVarTypes = localVarTypes.flatMap { case (s, ts) => if(syms.contains(s)) ts.tail.toNel.map { (s, _) } else some((s, ts)) }.toMap)
   
-  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, Map()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none, Map()))
+  def currentLambdaInfo = lambdaInfos.getOrElse(currentCombSym, IntMap()).getOrElse(currentLambdaIdx, InferenceLambdaInfo(TypeTable(Map()), none, IntMap()))
   
   def withCurrentLambdaInfo(lambdaInfo: InferenceLambdaInfo[LocalSymbol, GlobalSymbol]) = copy(lambdaInfos = lambdaInfos + (currentCombSym -> (lambdaInfos.getOrElse(currentCombSym, IntMap()) + (currentLambdaIdx -> lambdaInfo))))
 
@@ -106,7 +106,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
     res.map {
       case (typeValueTerm, kinds) =>
         val inferredKinds = kinds.map { _._2 }.zipWithIndex.map { _.swap }.toMap 
-        val (env2, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, inferredKinds)(Map(), 0)(env)
+        val (env2, res2) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, inferredKinds)(IntMap(), 0)(env)
         res2.map {
           case (allocatedParams, _, _, typeValueTerm2) =>
             val (env3, res3) = normalizeTypeValueTermS(typeValueTerm2)(env2)
@@ -138,7 +138,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
         val (newEnv3, newRes2) = caseType.map {
           ct => newEnv.definedTypeFromTypeTerm(ct.term).mapElements(identity, _.map { dt => (if(ct.isDefinedCaseType) some(dt) else none, InferringType(dt.term)) })
         }.orElse(defaultType.map { t => (newEnv, (none, t).success) }).getOrElse {
-          val (newEnv2, newRes) = allocateTypeValueTermParamsS(TypeParamApp(0, Nil, 0))(Map(), 0)(newEnv)
+          val (newEnv2, newRes) = allocateTypeValueTermParamsS(TypeParamApp(0, Nil, 0))(IntMap(), 0)(newEnv)
           (newEnv2, newRes.map { f => (none, InferringType(f._4)) })
         }
         newRes2.map {
@@ -163,7 +163,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withDefinedType(definedType: DefinedType[GlobalSymbol]): SymbolTypeInferenceEnvironment[T, U] =
     copy(
         definedTypes = definedTypes :+ definedType,
-        irreplaceableTypeParams = IntMap() ++ (irreplaceableTypeParams |+| definedType.args.flatMap { _.param.map { (_, NonEmptyList(definedType)) } }.toMap))
+        irreplaceableTypeParams = irreplaceableTypeParams |+| definedType.args.flatMap { _.param.map { (_, NonEmptyList(definedType)) } }.toMap)
   
   def withMatchingGlobalTypes(syms: Set[GlobalSymbol]) = {
     val recSyms = syms & typeEnv.recursiveTypeCombSyms
@@ -263,9 +263,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   def withClear[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) =
     if(!isRecursive) {
       val (kindInferenceEnv2, (env, res)) = kindInferenceEnv.withClear {
-        (_, f(copy(typeParamForest = ParamForest.empty, typeRetKind = UninferredKind, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0)))
+        (_, f(copy(typeParamForest = ParamForest.empty, typeRetKind = UninferredKind, definedTypes = Nil, irreplaceableTypeParams = IntMap(), nextTypeParamAppIdx = 0)))
       }
-      (env.withKindInferenceEnv(kindInferenceEnv2).copy(typeParamForest = ParamForest.empty, typeRetKind = UninferredKind, definedTypes = Nil, irreplaceableTypeParams = Map(), nextTypeParamAppIdx = 0), res)
+      (env.withKindInferenceEnv(kindInferenceEnv2).copy(typeParamForest = ParamForest.empty, typeRetKind = UninferredKind, definedTypes = Nil, irreplaceableTypeParams = IntMap(), nextTypeParamAppIdx = 0), res)
     } else {
       f(this)
     }
@@ -287,12 +287,12 @@ case class SymbolTypeInferenceEnvironment[T, U](
     val (env, res) = f(copy(
         typeParamForest = ParamForest.empty,
         definedTypes = Nil,
-        irreplaceableTypeParams = Map(),
+        irreplaceableTypeParams = IntMap(),
         markedTypeParams = Set(),
-        delayedErrNoTypes = Map(),
+        delayedErrNoTypes = IntMap(),
         prevDelayedErrTypeParamAppIdxs = Set(),
         nextTypeParamAppIdx = 0,
-        typeLambdaArgParams = Map(),
+        typeLambdaArgParams = IntMap(),
         typeLambdaArgCount = 0))
     (copy(env.typeEnv), res)
   }
@@ -326,13 +326,13 @@ object SymbolTypeInferenceEnvironment
     typeRetKind = UninferredKind,
     combNodes = Map(),
     definedTypes = Nil,
-    irreplaceableTypeParams = Map(),
+    irreplaceableTypeParams = IntMap(),
     matchingGlobalTypeSymCounts = Map(),
     markedTypeParams = Set(),
-    delayedErrNoTypes = Map(),
+    delayedErrNoTypes = IntMap(),
     prevDelayedErrTypeParamAppIdxs = Set(),
     nextTypeParamAppIdx = 0,
-    typeLambdaArgParams = Map(),
+    typeLambdaArgParams = IntMap(),
     typeLambdaArgCount = 0,
     currentTypeMatching = TypeMatching.Types,
     currentTypePair = none,

@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.instant
+import scala.collection.immutable.IntMap
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -40,7 +41,7 @@ case class SymbolInstantiationEnvironment[T, U](
   
   def withInstArgs(instArgs: Map[GlobalSymbol, Seq[InstanceArg[GlobalSymbol, GlobalSymbol]]]) = copy(instArgs = instArgs)
   
-  def currentLambdaInfos = lambdaInfos.getOrElse(currentCombSym, Map())
+  def currentLambdaInfos = lambdaInfos.getOrElse(currentCombSym, IntMap())
   
   def withLambdaInfos(lambdaInfos: Map[Option[GlobalSymbol], Map[Int, InstantiationLambdaInfo[GlobalSymbol]]]) = copy(lambdaInfos = lambdaInfos)
   

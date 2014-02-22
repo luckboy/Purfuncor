@@ -8,6 +8,7 @@
 package pl.luckboy.purfuncor.frontend.typer
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
+import scala.collection.immutable.IntMap
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -31,7 +32,7 @@ sealed trait Type[T]
       case noType: NoType[T]                     =>
         (env, noType.failure)
       case InferredType(typeValueTerm, argKinds) =>
-        (env, (typeValueTerm, argKinds, Map[Int, Int]()).success)
+        (env, (typeValueTerm, argKinds, IntMap[Int]()).success)
       case InferringType(typeValueTerm)          =>
         (for {
           res <- instantiate(typeValueTerm)
@@ -40,7 +41,7 @@ sealed trait Type[T]
               val (typeValueTerm3, params2) = normalizeTypeParamsWithTypeParamsForParams(typeValueTerm2, (typeParamsFromTypeValueTerm(typeValueTerm2) | params.keySet).size)(params)
               State({
                 (env2: E) =>
-                  params2.foldLeft((env2, Map[Int, InferredKind]().success[NoType[T]])) {
+                  params2.foldLeft((env2, IntMap[InferredKind]().success[NoType[T]])) {
                     case ((newEnv, Success(newKinds)), (param, param2)) => 
                       val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
                       newRes.map {
@@ -84,7 +85,7 @@ sealed trait Type[T]
         val (env2, res) = allocateTypeValueTermParamsWithKindsS(typeValueTerm, argKinds.zipWithIndex.map { _.swap }.toMap)(Map(), 0)(env)
         (env2, res.map { f => (f._4, f._1) })
       case InferringType(typeValueTerm)          =>
-        (env, (typeValueTerm, Map[Int, Int]()).success)
+        (env, (typeValueTerm, IntMap[Int]()).success)
       case UninferredType()                      =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }

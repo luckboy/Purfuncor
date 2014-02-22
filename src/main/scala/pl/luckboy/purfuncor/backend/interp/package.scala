@@ -47,7 +47,7 @@ package object interp
               case _                             => NoValue.fromString("incorrect instane value")
             }.getOrElse(NoValue.fromString("no local instance value")))
           case (_, insts) =>
-            val (env2, res) = insts.foldLeft((env, Seq[InstanceValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]]().success[NoValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]])) {
+            val (env2, res) = insts.foldLeft((env, Vector[InstanceValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]]().success[NoValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]])) {
               case ((newEnv, Success(instValues)), inst) =>
                 InstanceValue.fromInstanceS(inst)(newEnv).mapElements(identity, _.map { instValues :+ _ })
               case ((newEnv, Failure(noValue)), _)       =>

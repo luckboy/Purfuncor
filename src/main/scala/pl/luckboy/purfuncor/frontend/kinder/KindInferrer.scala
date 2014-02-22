@@ -7,6 +7,7 @@
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.kinder
 import scala.annotation.tailrec
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
@@ -21,22 +22,22 @@ object KindInferrer
   def unifyKindsS[E](kind1: Kind, kind2: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     (kind1, kind2) match {
       case (InferredKind(kindTerm1), InferredKind(kindTerm2)) =>
-        val (env2, res1) = allocateKindTermParamsS(kindTerm1)(Map())(env)
-        val (env3, res2) = allocateKindTermParamsS(kindTerm2)(Map())(env2)
+        val (env2, res1) = allocateKindTermParamsS(kindTerm1)(IntMap())(env)
+        val (env3, res2) = allocateKindTermParamsS(kindTerm2)(IntMap())(env2)
         ((res1 |@| res2) {
           case ((_, inferringKindTerm1), (_, inferringKindTerm2)) =>
             val (env4, res3) = unifyS(inferringKindTerm1, inferringKindTerm2)(env3)
             (env4, res3.map(InferringKind).valueOr(identity))
         }).valueOr { (env3, _) }
       case (InferredKind(kindTerm1), InferringKind(inferringKindTerm2)) =>  
-        val (env2, res) = allocateKindTermParamsS(kindTerm1)(Map())(env)
+        val (env2, res) = allocateKindTermParamsS(kindTerm1)(IntMap())(env)
         res.map {
           case (_, inferringKindTerm1) =>
             val (env3, res2) = unifyS(inferringKindTerm1, inferringKindTerm2)(env2)
             (env3, res2.map(InferringKind).valueOr(identity))
         }.valueOr { (env2, _) }
       case (InferringKind(inferringKindTerm1), InferredKind(kindTerm2)) =>
-        val (env2, res) = allocateKindTermParamsS(kindTerm2)(Map())(env)
+        val (env2, res) = allocateKindTermParamsS(kindTerm2)(IntMap())(env)
         res.map {
           case (_, inferringKindTerm2) =>
             val (env3, res2) = unifyS(inferringKindTerm1, inferringKindTerm2)(env2)
@@ -131,14 +132,14 @@ object KindInferrer
   def functionKindFromKindsS[E](argKinds: Seq[Kind], retKind: Kind)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     argKinds.foldRight((env, retKind)) {
       case (InferredKind(argKindTerm), (newEnv, InferredKind(kindTerm)))                          =>
-        val (newEnv2, argRes) = allocateKindTermParamsS(argKindTerm)(Map())(newEnv)
-        val (newEnv3, retRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv2)
+        val (newEnv2, argRes) = allocateKindTermParamsS(argKindTerm)(IntMap())(newEnv)
+        val (newEnv3, retRes) = allocateKindTermParamsS(kindTerm)(IntMap())(newEnv2)
         (newEnv3, (argRes |@| retRes) { (p1, p2) => InferringKind(Arrow(p1._2, p2._2, NoPosition)) }.valueOr(identity))
       case (InferredKind(argKindTerm), (newEnv, InferringKind(inferringKindTerm)))                =>
-        val (newEnv2, res) = allocateKindTermParamsS(argKindTerm)(Map())(newEnv)
+        val (newEnv2, res) = allocateKindTermParamsS(argKindTerm)(IntMap())(newEnv)
         (newEnv2, res.map { p => InferringKind(Arrow(p._2, inferringKindTerm, NoPosition)) }.valueOr(identity))
       case (InferringKind(argInferringKindTerm), (newEnv, InferredKind(kindTerm)))                =>
-        val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
+        val (newEnv2, res) = allocateKindTermParamsS(kindTerm)(IntMap())(newEnv)
         (newEnv2, res.map { p => InferringKind(Arrow(argInferringKindTerm, p._2, NoPosition)) }.valueOr(identity))
       case (InferringKind(argInferringKindTerm), (newEnv, InferringKind(inferringKindTerm)))      =>
         (newEnv, InferringKind(Arrow(argInferringKindTerm, inferringKindTerm, NoPosition)))

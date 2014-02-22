@@ -19,7 +19,7 @@ object BuiltinInstanceTree
 {
   def builtinInstanceTree[T, U] = InstanceTree.fromInstanceTables[AbstractPolyFunction[T], U, GlobalInstance[T]](Map(
       // construct
-      ConstructFunction -> InstanceTable.fromTuples(Seq(
+      ConstructFunction -> InstanceTable.fromTuples(Vector(
           // Byte
           GlobalInstanceType(InferredType(zeroType & byteType, Seq())) -> ZeroIntegerConstructInstance(IntegerTypeFunction.Byte),
           GlobalInstanceType(InferredType(nonZeroType & byteType, Seq())) -> NonZeroIntegerConstructInstance(IntegerTypeFunction.Byte),
@@ -36,7 +36,7 @@ object BuiltinInstanceTree
           GlobalInstanceType(InferredType(emptyType & arrayType(typeParam(0, 0)), Seq(InferredKind(Star(KindType, NoPosition))))) -> EmptyArrayConstructInstance,
           GlobalInstanceType(InferredType(nonEmptyType & arrayType(typeParam(0, 0)), Seq(InferredKind(Star(KindType, NoPosition))))) -> NonEmptyArrayConstructInstance)),
       // select
-      SelectFunction -> InstanceTable.fromTuples(Seq(
+      SelectFunction -> InstanceTable.fromTuples(Vector(
           // Byte
           GlobalInstanceType(InferredType((zeroType | nonZeroType) & byteType, Seq())) -> IntegerSelectInstance(IntegerTypeFunction.Byte),
           // Short

@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend
-import scala.collection.immutable.BitSet
 import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.annotation.tailrec
@@ -48,9 +47,9 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
   def allocatedParams = nodes.keySet
   
   def reverseParamMap(paramMap: Map[Int, Int]) = {
-    nodes.keySet.foldLeft(some((paramMap.map { _.swap }.toMap, BitSet()))) {
+    nodes.keySet.foldLeft(some((paramMap.map { _.swap }.toMap, Set[Int]()))) {
       case (Some((reversedParamMap, markedParams)), param) =>        
-        findParams(param)(BitSet(), markedParams).map {
+        findParams(param)(Set[Int](), markedParams).map {
           params =>
             val tmpReversedParamMap = reversedParamMap.find { p => params.contains(p._1) }.toList.flatMap { p => params.map { (_, p._2) } }.toMap
             (reversedParamMap ++ tmpReversedParamMap, markedParams | params)
@@ -61,7 +60,7 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
   }
   
   @tailrec
-  private def findParams(param: Int)(params: BitSet, markedParams: BitSet): Option[BitSet] =
+  private def findParams(param: Int)(params: Set[Int], markedParams: Set[Int]): Option[Set[Int]] =
     nodes.get(param) match {
       case Some(ParamNode(Some(prev))) => 
         if(!markedParams.contains(param))
@@ -75,9 +74,9 @@ case class ParamForest[+T](nodes: IntMap[ParamNode], terms: IntMap[T], next: Int
     }
   
   def findParamUnions(params: Set[Int]) =
-    params.foldLeft(some(IntMap[BitSet]())) {
+    params.foldLeft(some(IntMap[Set[Int]]())) {
       case (Some(unions), param) =>
-        findRootParam(param).map { rp => unions.updated(rp, unions.getOrElse(rp, BitSet()) + param) }
+        findRootParam(param).map { rp => unions.updated(rp, unions.getOrElse(rp, Set()) + param) }
       case (None, _)             =>
         none
     }

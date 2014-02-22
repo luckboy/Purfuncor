@@ -98,7 +98,7 @@ object TypeValueTermUtils
         paramLambdas.values.flatMap { l => typeParamsFromTypeValueTerm(l.body) }.toSet)
     val params2 = paramLambdas.values.flatMap { l => typeArgParamsFromTypeValueTerm(l.body) ++ l.argParams }.toSet
     val nextArgParam2 = (params | params2).maximum.map(1 +).getOrElse(nextArgParam)
-    val paramLambdas2 = paramLambdas.foldLeft((Map[Int, TypeValueLambda[T]](), nextArgParam2)) {
+    val paramLambdas2 = paramLambdas.foldLeft((IntMap[TypeValueLambda[T]](), nextArgParam2)) {
       case ((newParamLambdas, newNextArgParam), (param, lambda @ TypeValueLambda(argParams, body))) =>
         val lambdaArgParams = typeArgParamsFromTypeValueTerm(body) ++ argParams
         if((params & lambdaArgParams).isEmpty) {

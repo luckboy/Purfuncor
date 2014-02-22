@@ -69,7 +69,7 @@ package object kinder
               rp =>
                 val newIrreplaceableKindParams = if(param1 =/= param2) {
                   val definedKindTerms = env.irreplaceableKindParams.get(param1).map { _.list }.getOrElse(Nil) ++ env.irreplaceableKindParams.get(param2).map { _.list }.getOrElse(Nil)
-                  IntMap() ++ (env.irreplaceableKindParams ++ definedKindTerms.toNel.map { rp -> _ })
+                  env.irreplaceableKindParams ++ definedKindTerms.toNel.map { rp -> _ }
                 } else
                   env.irreplaceableKindParams
                 (env.withKindParamForest(kpf).copy(irreplaceableKindParams = newIrreplaceableKindParams), isChanged.success)
@@ -188,7 +188,7 @@ package object kinder
         ks =>
           val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
             case ((newEnv, Success(ktMaps)), (s, kts)) =>
-              kts.foldLeft((newEnv, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
+              kts.foldLeft((newEnv, IntMap[KindTable[LocalSymbol]]().success[NoKind])) {
                 case ((newEnv2, Success(newKts)), (i, kt)) =>
                   instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => newKts + (i -> KindTable(ks)) })
                 case ((newEnv2, Failure(nk)), _)        =>
@@ -336,7 +336,7 @@ package object kinder
       if(!env.isRecursive) {
         (env.withGlobalTypeVarKind(loc, UninferredKind), ())
       } else {
-        val (env2, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(Map())(env)
+        val (env2, res) = allocateKindTermParamsS(Star(KindParam(0), NoPosition))(IntMap())(env)
         res.map { p => (env2.withGlobalTypeVarKind(loc, InferringKind(p._2)), ()) }.valueOr { nk => (env2.withGlobalTypeVarKind(loc, nk), ()) }
       }
     
@@ -364,7 +364,7 @@ package object kinder
       env.typeVarKind(sym)
  
     override def localKindTablesFromEnvironment(env: SymbolKindInferenceEnvironment[T])(sym: Option[GlobalSymbol]): Map[Int, KindTable[LocalSymbol]] =
-      env.localKindTables.getOrElse(sym, Map())
+      env.localKindTables.getOrElse(sym, IntMap())
       
     override def globalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment[T]) =
       KindTable(env.globalTypeVarKinds)
@@ -373,12 +373,12 @@ package object kinder
       env.withCurrentTypeCombSym(loc)
   
     override def getLocalKindTableFromEnvironment(env: SymbolKindInferenceEnvironment[T])(lambdaIdx: Int) =
-      env.localKindTables.getOrElse(env.currentTypeCombSym, Map()).get(lambdaIdx)
+      env.localKindTables.getOrElse(env.currentTypeCombSym, IntMap()).get(lambdaIdx)
   }
   
   implicit def symbolKindInferenceEnvironmentState[T]: KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
     override def instantiateLocalKindTablesS(env: SymbolKindInferenceEnvironment[T]) = {
-      val (env2, res) = env.localKindTables.getOrElse(env.currentTypeCombSym, Map()).foldLeft((env, Map[Int, KindTable[LocalSymbol]]().success[NoKind])) {
+      val (env2, res) = env.localKindTables.getOrElse(env.currentTypeCombSym, IntMap()).foldLeft((env, IntMap[KindTable[LocalSymbol]]().success[NoKind])) {
         case ((newEnv, Success(kts)), (i, kt)) =>
           instantiateKindMapS(kt.kinds)(newEnv).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
         case ((newEnv, Failure(nk)), _)        =>

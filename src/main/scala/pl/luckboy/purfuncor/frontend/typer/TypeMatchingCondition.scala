@@ -44,7 +44,7 @@ object TypeMatchingCondition
             }.valueOr { nt => (newEnv3, nt.failure) }
         }.valueOr { nt => (newEnv2, nt.failure) }
     }
-    (env2, res.map { ms => TypeMatchingCondition(Map(), Map(), ms.values.toVector, otherParams, lambdaParams) })
+    (env2, res.map { ms => TypeMatchingCondition(IntMap(), IntMap(), ms.values.toVector, otherParams, lambdaParams) })
   }
 }
     
