@@ -27,8 +27,8 @@ object TypeValueTerms
   def doubleType[T] = BuiltinType[T](TypeBuiltinFunction.Double, Nil)
   def emptyType[T] = BuiltinType[T](TypeBuiltinFunction.Empty, Nil)
   def nonEmptyType[T] = BuiltinType[T](TypeBuiltinFunction.NonEmpty, Nil)
-  def arrayType[T](term: TypeValueTerm[T]) = BuiltinType[T](TypeBuiltinFunction.Array, Seq(term))
-  def funType[T](term1: TypeValueTerm[T], term2: TypeValueTerm[T]) = BuiltinType[T](TypeBuiltinFunction.Fun, Seq(term1, term2))
+  def arrayType[T](term: TypeValueTerm[T]) = BuiltinType[T](TypeBuiltinFunction.Array, Vector(term))
+  def funType[T](term1: TypeValueTerm[T], term2: TypeValueTerm[T]) = BuiltinType[T](TypeBuiltinFunction.Fun, Vector(term1, term2))
   
   def typeParam[T](param: Int, paramAppIdx: Int) = TypeParamApp[T](param, Nil, paramAppIdx)
 }

@@ -122,7 +122,7 @@ object TypeBuiltinFunctions
           argValues match {
             case Seq(value) =>
               val (env2, res) = value.typeValueTermS(env)
-              (env2, res.map { tvt => EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Array, Seq(tvt))) }.valueOr(identity))
+              (env2, res.map { tvt => EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Array, Vector(tvt))) }.valueOr(identity))
             case _     =>
               (env, illegalAppNoTypeValue)
           }
@@ -136,7 +136,7 @@ object TypeBuiltinFunctions
               val retValue = (for {
                 t1 <- res1
                 t2 <- res2
-              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Fun, Seq(t1, t2)))).valueOr(identity)
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.Fun, Vector(t1, t2)))).valueOr(identity)
               (env3, retValue)
             case _     =>
               (env, illegalAppNoTypeValue)
@@ -181,7 +181,7 @@ object TypeBuiltinFunctions
               val retValue = (for {
                 t1 <- res1
                 t2 <- res2
-              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet1, Seq(t1, t2)))).valueOr(identity)
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet1, Vector(t1, t2)))).valueOr(identity)
               (env3, retValue)
             case _                  =>
               (env, illegalAppNoTypeValue)
@@ -196,7 +196,7 @@ object TypeBuiltinFunctions
               val retValue = (for {
                 t1 <- res1
                 t2 <- res2
-              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet2, Seq(t1, t2)))).valueOr(identity)
+              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet2, Vector(t1, t2)))).valueOr(identity)
               (env3, retValue)
             case _                  =>
               (env, illegalAppNoTypeValue)

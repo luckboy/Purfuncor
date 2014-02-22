@@ -39,12 +39,12 @@ object TypeValueTermUtils
     }
   
   private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
-    terms.foldLeft(some(Seq[TypeValueTerm[T]]())) {
+    terms.foldLeft(some(Vector[TypeValueTerm[T]]())) {
       (o, t) => for(ts <- o; t2 <- substituteTypeValueLambdasInTypeValueTerm(t, paramLambdas)) yield (ts :+ t2)
     }
 
   private def substituteTypeValueLambdasInTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
-    lambdas.foldLeft(some(Seq[TypeValueLambda[T]]())) {
+    lambdas.foldLeft(some(Vector[TypeValueLambda[T]]())) {
       (o, l) => for(ls <- o; l2 <- substituteTypeValueLambdasInTypeValueLambda(l, paramLambdas -- l.argParams)) yield (ls :+ l2)
     }
 
@@ -120,12 +120,12 @@ object TypeValueTermUtils
   }
     
   private def normalizeTypeParamsInTypeValueTermsForParamsS[T](terms: Seq[TypeValueTerm[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
-    terms.foldLeft((pair, Seq[TypeValueTerm[T]]())) {
+    terms.foldLeft((pair, Vector[TypeValueTerm[T]]())) {
       case ((p, ts), t) => normalizeTypeParamsInTypeValyeTermForParamsS(t, nextArgParam)(lambdaParams)(p).mapElements(identity, ts :+ _)
     }
   
   private def normalizeTypeParamsInTypeValueLambdasForParamsS[T](lambdas: Seq[TypeValueLambda[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
-    lambdas.foldLeft((pair, Seq[TypeValueLambda[T]]())) {
+    lambdas.foldLeft((pair, Vector[TypeValueLambda[T]]())) {
       case ((p, ls), l) => normalizeTypeParamsInTypeValueLambdaForParamsS(l, nextArgParam)(lambdaParams)(p).mapElements(identity, ls :+ _)
     }
   

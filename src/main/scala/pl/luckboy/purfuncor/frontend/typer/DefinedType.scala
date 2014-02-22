@@ -21,7 +21,7 @@ import TypeValueTermUtils._
 case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], pos: Position)
 {
   override def toString = {
-    val argsWithOptIndexes = args.foldLeft((Seq[(DefinedTypeArg, Option[Int])](), 0)) {
+    val argsWithOptIndexes = args.foldLeft((Vector[(DefinedTypeArg, Option[Int])](), 0)) {
       case ((as, i), a) => a.param.map { _ => (as :+ (a, some(i)), i + 1) }.getOrElse((as :+ (a, none), i)) 
     }._1
     val params = argsWithOptIndexes.flatMap { case (a, o) => o.flatMap { i => a.param.map { (_, i) } }.toSeq }.toMap
@@ -48,7 +48,7 @@ object DefinedType
             val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U, TypeLambdaInfo[V, W], X](TypeParamApp(i, Nil, paramAppIdx)) }
             val definedKinds = lambdaValue.lambda.args.map { _.kind.map(intKindTermFromKindTerm) }.list
             val lambdaInfo = lambdaValue.lambda.lambdaInfo
-            val newRes = argTabular.getArgLocationsFromTable(lambdaValue.lambda).zip(definedKinds).foldLeft(Seq[InferredKind]().success[NoTypeValue[T, U, TypeLambdaInfo[V, W], X]]) {
+            val newRes = argTabular.getArgLocationsFromTable(lambdaValue.lambda).zip(definedKinds).foldLeft(Vector[InferredKind]().success[NoTypeValue[T, U, TypeLambdaInfo[V, W], X]]) {
               case (Success(ks), (Some(l), _)) =>
                 lambdaInfo.kindTable.kinds.get(l).map { k => (ks :+ k).success }.getOrElse {
                   NoTypeValue.fromError[T, U, TypeLambdaInfo[V, W], X](FatalError("not found kind at local kind table", none, NoPosition)).failure

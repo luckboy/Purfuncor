@@ -180,7 +180,7 @@ package object instant
                                       val selectInstPair = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size, definedSupertype.pos, file))
                                       State({
                                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
-                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Seq[(InferredType[GlobalSymbol], ConstructInstance[GlobalSymbol])]().success[NoType[GlobalSymbol]])) {
+                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Vector[(InferredType[GlobalSymbol], ConstructInstance[GlobalSymbol])]().success[NoType[GlobalSymbol]])) {
                                             case ((newTypeInfernceEnv, Success(newConstructInstPairs)), ((definedType, _), i)) =>
                                               val (newTypeInfernceEnv2, newRes) = InferringType(definedType.term).instantiatedTypeValueTermWithKindsS(newTypeInfernceEnv)
                                               (newTypeInfernceEnv2, newRes.map { 

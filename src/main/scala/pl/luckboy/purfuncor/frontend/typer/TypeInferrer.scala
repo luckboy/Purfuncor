@@ -242,7 +242,7 @@ object TypeInferrer
     instantiateTypeMapWithTypeParamsS(types)(env).mapElements(identity, _.map { _.mapValues { _._1 } })
   
   def instantiateTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    types.foldLeft((env, Seq[Type[T]]().success[NoType[T]])) {
+    types.foldLeft((env, Vector[Type[T]]().success[NoType[T]])) {
       case ((newEnv, Success(newTypes)), typ) =>
         typ.instantiatedTypeS(newEnv)  match {
           case (newEnv2, noType: NoType[T]) => (newEnv2, noType.failure)

@@ -277,7 +277,7 @@ case class SymbolTypeInferenceEnvironment[T, U](
           val (newEnv2, argInfo) = arg.typ.map { 
             newEnv.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
           }.getOrElse {
-            (newEnv, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Seq(InferredKind(Star(KindType, NoPosition)))))
+            (newEnv, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Vector(InferredKind(Star(KindType, NoPosition)))))
           }
           (newEnv2, argInfo :: newArgInfos)
         }

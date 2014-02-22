@@ -51,7 +51,7 @@ object TypeValueTermKindInferrer
     }
 
   def inferTypeValueTermKindsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) =
-    terms.foldLeft((env, Seq[Kind]().success[NoKind])) {
+    terms.foldLeft((env, Vector[Kind]().success[NoKind])) {
       case ((newEnv, Success(kinds)), term) => 
         inferTypeValueTermKindS(term)(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
@@ -67,7 +67,7 @@ object TypeValueTermKindInferrer
       case noKind: NoKind =>
         (env2, noKind)
       case _              =>
-       val (env3, argParamKinds) = lambda.argParams.foldLeft((env2, Seq[Kind]())) {
+       val (env3, argParamKinds) = lambda.argParams.foldLeft((env2, Vector[Kind]())) {
          case ((newEnv, ks), p) => envSt.typeParamKindFromEnvironmentS(p)(newEnv).mapElements(identity, ks :+ _)
        }
        lambdaKindS(argParamKinds, kind)(env3)
@@ -75,7 +75,7 @@ object TypeValueTermKindInferrer
   }
 
   def inferTypeValueLambdaKindsS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) =
-    lambdas.foldLeft((env, Seq[Kind]().success[NoKind])) {
+    lambdas.foldLeft((env, Vector[Kind]().success[NoKind])) {
       case ((newEnv, Success(kinds)), lambda) =>
         inferTypeValueLambdaKindS(lambda)(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)

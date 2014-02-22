@@ -142,19 +142,19 @@ object PolyFunInstantiator {
     val instArgs = localInstTree.instTables.flatMap {
       case (pf, it) => it.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) }
     }
-    (0 until instArgs.size).foldLeft(some(Seq[InstanceArg[L, M]]())) {
+    (0 until instArgs.size).foldLeft(some(Vector[InstanceArg[L, M]]())) {
       (optIas, i) => optIas.flatMap { ias => instArgs.get(i).map { ias :+ _ } }
     }.toSuccess(NonEmptyList(FatalError("index of out bounds", none, NoPosition)))
   }
 
   private def normalizeInstanceArgs[L, N](instArgs: Seq[InstanceArg[L, N]], params: Map[Int, Int]) = 
-    instArgs.foldLeft(Seq[InstanceArg[L, N]]().successNel[AbstractError]) {
+    instArgs.foldLeft(Vector[InstanceArg[L, N]]().successNel[AbstractError]) {
       case (Success(newInstArgs), InstanceArg(polyFun, typ)) =>
         val typeValueTerm = normalizeTypeParamsForParams(typ.typeValueTerm, params.size)(params)
         val argKindMap = params.foldLeft(Map[Int, InferredKind]()) {
           case (ks, (p, p2)) => typ.argKinds.lift(p).map { k => ks + (p2 -> k) }.getOrElse(ks)
         }
-        val argKinds = (0 until params.size).foldLeft(Seq[InferredKind]()) {
+        val argKinds = (0 until params.size).foldLeft(Vector[InferredKind]()) {
           case (ks, i) => ks :+ argKindMap.getOrElse(i, InferredKind(Star(KindParam(0), NoPosition)))
         }
         (newInstArgs :+ InstanceArg(polyFun, InferredType(typeValueTerm, argKinds))).successNel
@@ -165,7 +165,7 @@ object PolyFunInstantiator {
   private def combinatorInstanceArgsS[L, N](lambdaInfoMaps: Map[Option[L], Map[Int, PreinstantiationLambdaInfo[L, N]]])(localInstTree: InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]) =
     instanceArgsFromLocalInstanceTree(localInstTree).flatMap {
       instArgs =>
-        lambdaInfoMaps.foldLeft(Map[L, Seq[InstanceArg[L, N]]]().successNel[AbstractError]) {
+        lambdaInfoMaps.foldLeft(Map[L, Vector[InstanceArg[L, N]]]().successNel[AbstractError]) {
           case (Success(newInstArgs), (Some(loc), lambdaInfos)) =>
             lambdaInfos.get(0).map {
               lambdaInfo =>
@@ -193,7 +193,7 @@ object PolyFunInstantiator {
                   for {
                     res2 <- State({
                       (env2: E) =>
-                        instArgs.foldLeft((env2, Seq[InferringType[N]]().success[NoType[N]])) {
+                        instArgs.foldLeft((env2, Vector[InferringType[N]]().success[NoType[N]])) {
                           case ((newEnv, Success(newInstTypes)), instArg) =>
                             val (newEnv2, newRes) = instArg.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv)
                             newRes.map {
@@ -249,7 +249,7 @@ object PolyFunInstantiator {
                                                 State({
                                                   (env2: E) =>
                                                     val (env3, _) = envSt.setTypeParamKindsS(polyFunTypeParamsWithKinds.map { _._2 }.toMap)(env2)
-                                                    instArgs.zip(instInferringTypes).foldLeft((env3, Seq[InstanceArg[L, N]]().success[NoType[N]])) {
+                                                    instArgs.zip(instInferringTypes).foldLeft((env3, Vector[InstanceArg[L, N]]().success[NoType[N]])) {
                                                       case ((newEnv, Success(newInstArgs)), (instArg, instInferringType)) =>
                                                         val (newEnv2, newInstType) = instInferringType.instantiatedTypeForParamsS(reversedPolyFunTypeParamMap2)(newEnv)
                                                           newInstType match {
@@ -285,7 +285,7 @@ object PolyFunInstantiator {
         val (newEnv2, newRes) = instanceArgsFromPreinstantiationLambdaInfoS(lambdaInfo, instArgs)(newEnv)
         val (newEnv7, newRes5) = newRes.map {
           instArgs =>
-            instArgs.foldLeft((newEnv2, (Seq[Instance[L]]().success[NoType[N]], localInstTree))) {
+            instArgs.foldLeft((newEnv2, (Vector[Instance[L]]().success[NoType[N]], localInstTree))) {
               case ((newEnv3, (newRes, newLocalInstTree)), instArg @ InstanceArg(polyFun, typ)) =>
                 val (newEnv4, newRes2) = globalInstTree.findInstsS(polyFun, GlobalInstanceType(typ))(newEnv3)
                 val (newEnv6, (newRes3, newLocalInstTree2)) = newRes2.map {
@@ -322,7 +322,7 @@ object PolyFunInstantiator {
       case tupleType @ TupleType(_) =>
         (env, Seq(tupleType).success)
       case TypeConjunction(terms) =>
-        terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
+        terms.foldLeft((env, Vector[TupleType[N]]().success[NoType[N]])) {
           case ((newEnv, Success(newTerms)), term2) => 
             findTupleTypesS(term2)(err)(newEnv) match {
               case (newEnv2, Success(terms2)) => (newEnv2, (newTerms ++ terms2).success)
@@ -332,7 +332,7 @@ object PolyFunInstantiator {
             (newEnv, newRes)
         }
       case TypeDisjunction(terms) =>
-        terms.foldLeft((env, Seq[TupleType[N]]().success[NoType[N]])) {
+        terms.foldLeft((env, Vector[TupleType[N]]().success[NoType[N]])) {
           case ((newEnv, Success(newTerms)), term2) =>
             findTupleTypesS(term2)(err)(newEnv) match {
               case (newEnv2, Success(Seq()))  => err(newEnv).mapElements(identity, _.failure)
