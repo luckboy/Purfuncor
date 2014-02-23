@@ -10,12 +10,13 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.typer.TypeIdentity
 
-object LambdaInfoUtils
+trait TypeEnvironmentState[E, L]
 {
-  def usedGlobalVarsFromLambdaInfo[T, U](lambdaInfo: T)(implicit lambdaInfoExtractor: LambdaInfoExtractor[T, Instance[U]]) =
-    lambdaInfoExtractor.instancesFromLambdaInfo(lambdaInfo).flatMap {
-      case PolyFunInstance(loc, _, _) => Seq(loc)
-      case _                          => Seq[U]()
-    }.toSet
+  def withPartialEvaluationS[T](isPartial: Boolean)(f: E => (E, T))(env: E): (E, T)
+  
+  def getTypeIdentityFromEnvironmentS(loc: L)(env: E): (E, Option[TypeIdentity[L]])
+  
+  def addTypeIdentityS(loc: L, ident: TypeIdentity[L])(env: E): (E, Unit)
 }
