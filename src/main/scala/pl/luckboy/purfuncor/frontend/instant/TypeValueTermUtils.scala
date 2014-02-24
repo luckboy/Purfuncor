@@ -109,7 +109,7 @@ object TypeValueTermUtils
           typeIdentRes.map {
             case typeIdent @ TypeIdentity(idents, paramApps) =>
               paramApps.foldLeft((env5, TypeIdentity[T](idents, Vector()).success[NoTypeValue[T, U, V, W]])) {
-                case ((newEnv, Success(TypeIdentity(idents, paramApps))), paramApp @ TypeParamApp(param2, args2, _)) =>
+                case ((newEnv, Success(TypeIdentity(idents, paramApps))), TypeParamApp(param2, args2, _)) =>
                   args.lift(param2).map {
                     funLambda =>
                       appForTypeValueLambda(funLambda, args2, nextArgParam).map {
