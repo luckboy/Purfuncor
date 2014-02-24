@@ -11,6 +11,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 import pl.luckboy.purfuncor.frontend.typer.TypeValue
 import pl.luckboy.purfuncor.frontend.typer.NoTypeValue
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
@@ -42,8 +43,8 @@ object TypeValueTermUtils
       case BuiltinType(bf, _)     => Set(BuiltinTypeIdentity(bf))
       case Unittype(loc, _, _)    => Set(UnittypeIdentity(loc))
       case TypeParamApp(_, _, _)  => Set(TypeParamAppIdentity)
-      case TypeConjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm)
-      case TypeDisjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm)
+      case TypeConjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm) - BuiltinTypeIdentity(TypeBuiltinFunction.Any)
+      case TypeDisjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm) - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing)
       case _                      => Set()
     }
   
@@ -126,9 +127,15 @@ object TypeValueTermUtils
       case paramApp: TypeParamApp[T]   =>
         (env, TypeIdentity(Set[TypeValueTermIdentity[T]](TypeParamAppIdentity), Vector(paramApp)).success)
       case TypeConjunction(terms)      =>
-        typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
+        val (env2, res) = typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
+        (env2, res.map {
+          case TypeIdentity(is, ps) => TypeIdentity(is - BuiltinTypeIdentity(TypeBuiltinFunction.Any), ps)
+        })
       case TypeDisjunction(terms)      =>
-        typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
+        val (env2, res) = typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
+        (env2, res.map {
+          case TypeIdentity(is, ps) => TypeIdentity(is - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing), ps)
+        })
       case _ =>
         (env, TypeIdentity(typeValueTermIdentitiesFromTypeValueTerm(term), Vector()).success)
     }
