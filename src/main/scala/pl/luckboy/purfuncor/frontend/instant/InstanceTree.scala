@@ -47,7 +47,7 @@ object InstanceTree
   def fromInstanceTables[T, U, V](instTables: Map[T, InstanceTable[U, V]]) = InstanceTree[T, U, V](instTables)
 }
 
-case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[TypeValueTermIdentity[T], Vector[Int]])
+case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[TypeValueTermIdentity[T], Set[Int]])
 {
   private def matchesInstTypesS[V, E](typ: InstanceType[T], instType: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt2.withInstanceTypeClearingS {
@@ -98,13 +98,13 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[T
           case BuiltinTypeIdentity(TypeBuiltinFunction.Any) => true
           case _                                            => false
         }
-        if(isAny) (0 until pairs.size) else typeIdent.idents.toSeq.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
+        if(isAny) (0 until pairs.size).toSet else typeIdent.idents.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
       case TypeMatching.TypeWithSupertype =>
         val isNothing = typeIdent.idents.exists {
           case BuiltinTypeIdentity(TypeBuiltinFunction.Nothing) => true
           case _                                                => false
         }
-        if(isNothing) (0 until pairs.size) else typeIdent.idents.toSeq.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
+        if(isNothing) (0 until pairs.size).toSet else typeIdent.idents.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
     }
     val selectedPairsWithIdxs = idxs.flatMap { i => pairs.lift(i).map { (_, i) } }
     selectedPairsWithIdxs.foldLeft((env, Seq[(U, Int)]().success[NoType[T]])) {
@@ -124,7 +124,7 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[T
   }
   
   private def withPairIdx(typeIdent: TypeIdentity[T], idx: Int) =
-    copy(pairIdxs = pairIdxs |+| typeIdent.idents.map { (_, Vector(idx)) }.toMap)
+    copy(pairIdxs = pairIdxs |+| typeIdent.idents.map { (_, Set(idx)) }.toMap)
   
   def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) = {
     val (env2, res) = envSt2.typeIdentityFromTypeS(typ.typ)(env)
@@ -163,9 +163,9 @@ object InstanceTable
   def empty[T, U] = InstanceTable[T, U](Vector(), Map())
   
   def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = {
-    val pairIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueTermIdentity[T], Vector[Int]]()) {
+    val pairIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueTermIdentity[T], Set[Int]]()) {
       case (pis, ((t, _), i)) => 
-        pis |+| typeValueTermIdentitiesFromTypeValueTerm(t.typ.typeValueTerm).map { (_, Vector(i)) }.toMap
+        pis |+| typeValueTermIdentitiesFromTypeValueTerm(t.typ.typeValueTerm).map { (_, Set(i)) }.toMap
     }
     InstanceTable(pairs, pairIdxs)
   }
