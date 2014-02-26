@@ -47,7 +47,11 @@ object InstanceTree
   def fromInstanceTables[T, U, V](instTables: Map[T, InstanceTable[U, V]]) = InstanceTree[T, U, V](instTables)
 }
 
-case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[TypeValueTermIdentity[T], Set[Int]])
+case class InstanceTable[T, U](
+    pairs: Seq[(InstanceType[T], U)],
+    pairIdxs: Map[TypeValueTermIdentity[T], Set[Int]],
+    superidents: Seq[Option[Set[TypeValueTermIdentity[T]]]],
+    subidents: Seq[Option[Set[TypeValueTermIdentity[T]]]])
 {
   private def matchesInstTypesS[V, E](typ: InstanceType[T], instType: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt2.withInstanceTypeClearingS {
@@ -124,7 +128,22 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[T
   }
   
   private def withPairIdx(typeIdent: TypeIdentity[T], idx: Int) =
-    copy(pairIdxs = pairIdxs |+| typeIdent.idents.map { (_, Set(idx)) }.toMap)
+    copy(
+        pairIdxs = pairIdxs |+| typeIdent.idents.map { (_, Set(idx)) }.toMap)
+        
+  private def withoutPairIdx(idx: Int) =
+    copy(
+        pairIdxs = pairIdxs.flatMap { case (i, is) => some((i -> (is - idx))) })
+  
+  private def withIdentsFromTypeIdent(typeIdent: TypeIdentity[T]) =
+    copy(
+        superidents = superidents :+ typeIdent.superidents,
+        subidents = subidents :+ typeIdent.subidents)
+  
+  private def updatedIdentsFromTypeIdent(idx: Int, typeIdent: TypeIdentity[T]) =
+    copy(
+        superidents = superidents.updated(idx, typeIdent.superidents),
+        subidents = subidents.updated(idx, typeIdent.subidents))
   
   def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) = {
     val (env2, res) = envSt2.typeIdentityFromTypeS(typ.typ)(env)
@@ -134,14 +153,14 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[T
         val (env4, subtypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType, typeIdent)(env3)
         (for { ps1 <- supertypePairListRes; ps2 <- subtypePairListRes } yield (ps1, ps2)) match {
           case Success((Seq(), Seq()))                     =>
-            (env4, some((copy(pairs = pairs :+ (typ, inst)).withPairIdx(typeIdent, pairs.size), none)).success)
+            (env4, some((copy(pairs = pairs :+ (typ, inst)).withPairIdx(typeIdent, pairs.size).withIdentsFromTypeIdent(typeIdent), none)).success)
           case Success((Seq((oldInst, i)), Seq()))         =>
-            (env4, some((copy(pairs = pairs.updated(i, (typ, oldInst))), some(oldInst))).success)
+            (env4, some((copy(pairs = pairs.updated(i, (typ, oldInst))).withoutPairIdx(i).withPairIdx(typeIdent, i).updatedIdentsFromTypeIdent(i, typeIdent), some(oldInst))).success)
           case Success((Seq(), Seq((oldInst, _))))         =>
             (env4, some((this, some(oldInst))).success)
           case Success((Seq((oldInst, i1)), Seq((_, i2)))) =>
             if(i1 === i2)
-              (env4, some((copy(pairs = pairs.updated(i1, (typ, oldInst))), some(oldInst))).success)
+              (env4, some((copy(pairs = pairs.updated(i1, (typ, oldInst))).withoutPairIdx(i1).withPairIdx(typeIdent, i1).updatedIdentsFromTypeIdent(i1, typeIdent), some(oldInst))).success)
             else
               (env4, none.success)
           case Success(_)                                  =>
@@ -160,14 +179,17 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)], pairIdxs: Map[T
 
 object InstanceTable
 {
-  def empty[T, U] = InstanceTable[T, U](Vector(), Map())
+  def empty[T, U] = InstanceTable[T, U](Vector(), Map(), Vector(), Vector())
   
   def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = {
-    val pairIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueTermIdentity[T], Set[Int]]()) {
-      case (pis, ((t, _), i)) => 
-        pis |+| typeValueTermIdentitiesFromTypeValueTerm(t.typ.typeValueTerm).map { (_, Set(i)) }.toMap
+    val (pairIdxs, superidents, subidents) = pairs.zipWithIndex.foldLeft((Map[TypeValueTermIdentity[T], Set[Int]](), Vector[Option[Set[TypeValueTermIdentity[T]]]](), Vector[Option[Set[TypeValueTermIdentity[T]]]]())) {
+      case ((pis, sis1, sis2), ((t, _), i)) => 
+        typeIdentityFromTypeValueTermWithoutGlobalTypes(t.typ.typeValueTerm) match {
+          case TypeIdentity(is2, sis3, sis4, _) =>
+            (pis |+| is2.map { (_, Set(i)) }.toMap, sis1 :+ sis3, sis2 :+ sis4)
+        }
     }
-    InstanceTable(pairs, pairIdxs)
+    InstanceTable(pairs, pairIdxs, superidents, subidents)
   }
 }
 

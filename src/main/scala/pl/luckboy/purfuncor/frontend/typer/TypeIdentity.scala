@@ -9,7 +9,11 @@ package pl.luckboy.purfuncor.frontend.typer
 import scalaz._
 import scalaz.Scalaz._
 
-case class TypeIdentity[T](idents: Set[TypeValueTermIdentity[T]], paramApps: Seq[TypeParamApp[T]])
+case class TypeIdentity[T](
+    idents: Set[TypeValueTermIdentity[T]], 
+    superidents: Option[Set[TypeValueTermIdentity[T]]],
+    subidents: Option[Set[TypeValueTermIdentity[T]]],
+    paramApps: Seq[TypeParamApp[T]])
 
 sealed trait TypeValueTermIdentity[+T]
 case object TupleTypeIdentity extends TypeValueTermIdentity[Nothing]

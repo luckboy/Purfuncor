@@ -368,7 +368,7 @@ package object instant
 
   implicit def instanceTableSemigroup[T, U]: Semigroup[InstanceTable[T, U]] = new Semigroup[InstanceTable[T, U]] {
     override def append(f1: InstanceTable[T, U], f2: => InstanceTable[T, U]) =
-      InstanceTable[T, U](f1.pairs ++ f2.pairs, f1.pairIdxs |+| f2.pairIdxs.mapValues { _.map(f1.pairs.size +) })
+      InstanceTable[T, U](f1.pairs ++ f2.pairs, f1.pairIdxs |+| f2.pairIdxs.mapValues { _.map(f1.pairs.size +) }, f1.superidents ++ f2.superidents, f1.subidents ++ f2.subidents)
   }
   
   implicit def instanceTreeSemigroup[T, U, V]: Semigroup[InstanceTree[T, U, V]] = new Semigroup[InstanceTree[T, U, V]] {
