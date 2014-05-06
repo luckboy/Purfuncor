@@ -10,7 +10,6 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
-import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
@@ -18,12 +17,8 @@ import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.TypeMatching
-import pl.luckboy.purfuncor.frontend.typer.TypeIdentity
-import pl.luckboy.purfuncor.frontend.typer.TypeValueTermIdentity
-import pl.luckboy.purfuncor.frontend.typer.BuiltinTypeIdentity
 import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
-import TypeValueTermUtils._
 
 case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
 {
@@ -47,11 +42,7 @@ object InstanceTree
   def fromInstanceTables[T, U, V](instTables: Map[T, InstanceTable[U, V]]) = InstanceTree[T, U, V](instTables)
 }
 
-case class InstanceTable[T, U](
-    pairs: Seq[(InstanceType[T], U)],
-    pairIdxs: Map[TypeValueTermIdentity[T], Set[Int]],
-    superidents: Seq[Option[Set[TypeValueTermIdentity[T]]]],
-    subidents: Seq[Option[Set[TypeValueTermIdentity[T]]]])
+case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
 {
   private def matchesInstTypesS[V, E](typ: InstanceType[T], instType: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt2.withInstanceTypeClearingS {
@@ -93,104 +84,50 @@ case class InstanceTable[T, U](
         }.valueOr { nt => (newEnv5, nt.failure)}
     } (env)
   
-  private def findInstsWithIndexesS[V, E](typ: InstanceType[T], typeMatching: TypeMatching.Value, typeIdent: TypeIdentity[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) = {
-    val idxs = typeMatching match {
-      case TypeMatching.Types             =>
-        typeIdent.idents.toSeq.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
-      case TypeMatching.SupertypeWithType =>
-        val isAny = typeIdent.idents.exists {
-          case BuiltinTypeIdentity(TypeBuiltinFunction.Any) => true
-          case _                                            => false
-        }
-        if(isAny) (0 until pairs.size).toSet else typeIdent.idents.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
-      case TypeMatching.TypeWithSupertype =>
-        val isNothing = typeIdent.idents.exists {
-          case BuiltinTypeIdentity(TypeBuiltinFunction.Nothing) => true
-          case _                                                => false
-        }
-        if(isNothing) (0 until pairs.size).toSet else typeIdent.idents.flatMap { pairIdxs.lift(_).getOrElse(Set()) }
-    }
-    val selectedPairsWithIdxs = idxs.flatMap { i => pairs.lift(i).map { (_, i) } }
-    selectedPairsWithIdxs.foldLeft((env, Seq[(U, Int)]().success[NoType[T]])) {
+  private def findInstsWithIndexesS[V, E](typ: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
+    pairs.zipWithIndex.foldLeft((env, Seq[(U, Int)]().success[NoType[T]])) {
       case ((newEnv, Success(newPairs)), ((instType, inst), i)) =>
         val (newEnv2, newRes) = matchesInstTypesS(typ, instType, typeMatching)(newEnv)
         (newEnv2, newRes.map { if(_) newPairs :+ (inst, i) else newPairs })
       case ((newEnv, Failure(noType)), _)                       =>
         (newEnv, noType.failure)
     }
-  }
   
-  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) = {
-    val (env2, res) = envSt2.typeIdentityFromTypeS(typ.typ)(env)
-    res.map {
-      findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType, _)(env).mapElements(identity, _.map { _.map { _._1 } })
-    }.valueOr { nt => (env2, nt.failure ) }
-  }
-  
-  private def withPairIdx(typeIdent: TypeIdentity[T], idx: Int) =
-    copy(
-        pairIdxs = pairIdxs |+| typeIdent.idents.map { (_, Set(idx)) }.toMap)
-        
-  private def withoutPairIdx(idx: Int) =
-    copy(
-        pairIdxs = pairIdxs.flatMap { case (i, is) => some((i -> (is - idx))) })
-  
-  private def withIdentsFromTypeIdent(typeIdent: TypeIdentity[T]) =
-    copy(
-        superidents = superidents :+ typeIdent.superidents,
-        subidents = subidents :+ typeIdent.subidents)
-  
-  private def updatedIdentsFromTypeIdent(idx: Int, typeIdent: TypeIdentity[T]) =
-    copy(
-        superidents = superidents.updated(idx, typeIdent.superidents),
-        subidents = subidents.updated(idx, typeIdent.subidents))
+  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
+    findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env).mapElements(identity, _.map { _.map { _._1 } })
   
   def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) = {
-    val (env2, res) = envSt2.typeIdentityFromTypeS(typ.typ)(env)
-    res.map { 
-      typeIdent =>
-        val (env3, supertypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.TypeWithSupertype, typeIdent)(env2)
-        val (env4, subtypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType, typeIdent)(env3)
-        (for { ps1 <- supertypePairListRes; ps2 <- subtypePairListRes } yield (ps1, ps2)) match {
-          case Success((Seq(), Seq()))                     =>
-            (env4, some((copy(pairs = pairs :+ (typ, inst)).withPairIdx(typeIdent, pairs.size).withIdentsFromTypeIdent(typeIdent), none)).success)
-          case Success((Seq((oldInst, i)), Seq()))         =>
-            (env4, some((copy(pairs = pairs.updated(i, (typ, oldInst))).withoutPairIdx(i).withPairIdx(typeIdent, i).updatedIdentsFromTypeIdent(i, typeIdent), some(oldInst))).success)
-          case Success((Seq(), Seq((oldInst, _))))         =>
-            (env4, some((this, some(oldInst))).success)
-          case Success((Seq((oldInst, i1)), Seq((_, i2)))) =>
-            if(i1 === i2)
-              (env4, some((copy(pairs = pairs.updated(i1, (typ, oldInst))).withoutPairIdx(i1).withPairIdx(typeIdent, i1).updatedIdentsFromTypeIdent(i1, typeIdent), some(oldInst))).success)
-            else
-              (env4, none.success)
-          case Success(_)                                  =>
-            (env4, none.success)
-          case Failure(noType)                             =>
-            (env4, noType.failure)
-        }
-    }.valueOr { nt => (env2, nt.failure) }
+    val (env2, supertypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.TypeWithSupertype)(env)
+    val (env3, subtypePairListRes) = findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env2)
+    (for { ps1 <- supertypePairListRes; ps2 <- subtypePairListRes } yield (ps1, ps2)) match {
+      case Success((Seq(), Seq()))                     =>
+        (env3, some((copy(pairs = pairs :+ (typ, inst)), none)).success)
+      case Success((Seq((oldInst, i)), Seq()))         =>
+        (env3, some((copy(pairs = pairs.updated(i, (typ, oldInst))), some(oldInst))).success)
+      case Success((Seq(), Seq((oldInst, _))))         =>
+        (env3, some((this, some(oldInst))).success)
+      case Success((Seq((oldInst, i1)), Seq((_, i2)))) =>
+        if(i1 === i2)
+          (env3, some((copy(pairs = pairs.updated(i1, (typ, oldInst))), some(oldInst))).success)
+        else
+          (env3, none.success)
+      case Success(_)                                  =>
+        (env3, none.success)
+      case Failure(noType)                             =>
+        (env3, noType.failure)
+    }
   }
   
-  def withoutFirstInsts(n: Int) =
-    copy(pairs = pairs.drop(n), pairIdxs = pairIdxs.mapValues { _.flatMap { i => if(i >= n) some(i - n) else Vector() } })
+  def withoutFirstInsts(n: Int) = copy(pairs.drop(n))
   
   def instCount = pairs.size
 }
 
 object InstanceTable
 {
-  def empty[T, U] = InstanceTable[T, U](Vector(), Map(), Vector(), Vector())
+  def empty[T, U] = InstanceTable[T, U](Vector())
   
-  def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = {
-    val (pairIdxs, superidents, subidents) = pairs.zipWithIndex.foldLeft((Map[TypeValueTermIdentity[T], Set[Int]](), Vector[Option[Set[TypeValueTermIdentity[T]]]](), Vector[Option[Set[TypeValueTermIdentity[T]]]]())) {
-      case ((pis, sis1, sis2), ((t, _), i)) => 
-        typeIdentityFromTypeValueTermWithoutGlobalTypes(t.typ.typeValueTerm) match {
-          case TypeIdentity(is2, sis3, sis4, _) =>
-            (pis |+| is2.map { (_, Set(i)) }.toMap, sis1 :+ sis3, sis2 :+ sis4)
-        }
-    }
-    InstanceTable(pairs, pairIdxs, superidents, subidents)
-  }
+  def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = InstanceTable(pairs)
 }
 
 sealed trait InstanceType[T]

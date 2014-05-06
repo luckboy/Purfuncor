@@ -13,8 +13,6 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.typer.DefinedType
 import pl.luckboy.purfuncor.frontend.typer.Type
 import pl.luckboy.purfuncor.frontend.typer.NoType
-import pl.luckboy.purfuncor.frontend.typer.InferredType
-import pl.luckboy.purfuncor.frontend.typer.TypeIdentity
 
 trait TypeInferenceEnvironmentState[E, L, M]
 {  
@@ -33,6 +31,4 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def reverseTypeParamMapS(paramMap: Map[Int, Int])(env: E): (E, Validation[NoType[M], Map[Int, Int]])
   
   def incorrectConstructTypeNoTypeS(env: E): (E, NoType[M])
-  
-  def typeIdentityFromTypeS(typ: InferredType[M])(env: E): (E, Validation[NoType[M], TypeIdentity[M]])
 }

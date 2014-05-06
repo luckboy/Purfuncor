@@ -11,7 +11,6 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
-import pl.luckboy.purfuncor.frontend.typer.TypeBuiltinFunction
 import pl.luckboy.purfuncor.frontend.typer.TypeValue
 import pl.luckboy.purfuncor.frontend.typer.NoTypeValue
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
@@ -36,54 +35,24 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 
 object TypeValueTermUtils
 {
-  def typeIdentityFromTypeValueTermWithoutGlobalTypes[T](term: TypeValueTerm[T]): TypeIdentity[T] =
+  def typeValueTermIdentitiesFromTypeValueTerm[T](term: TypeValueTerm[T]): Set[TypeValueTermIdentity[T]] =
     term match {
-      case TupleType(_)           =>
-        val idents = Set[TypeValueTermIdentity[T]](TupleTypeIdentity)
-        TypeIdentity(idents, some(idents), some(idents), Vector())
-      case FieldType(i, _)        => 
-        val idents = Set[TypeValueTermIdentity[T]](FieldTypeIdentity(i))
-        TypeIdentity(idents, some(idents), some(idents), Vector())
-      case BuiltinType(bf, _)     => 
-        val idents = Set[TypeValueTermIdentity[T]](BuiltinTypeIdentity(bf))
-        TypeIdentity(idents, some(idents), some(idents), Vector())
-      case Unittype(loc, _, _)    =>
-        val idents = Set[TypeValueTermIdentity[T]](UnittypeIdentity(loc))
-        TypeIdentity(idents, some(idents), some(idents), Vector())
-      case TypeParamApp(_, _, _)  => 
-        val idents = Set[TypeValueTermIdentity[T]](TypeParamAppIdentity)
-        TypeIdentity(idents, some(idents), some(idents), Vector())
-      case TypeConjunction(terms) => 
-        terms.foldLeft(TypeIdentity[T](Set(), some(Set()), some(Set()), Vector())) {
-          case (TypeIdentity(idents, superidents, subidents, _), term) =>
-            typeIdentityFromTypeValueTermWithoutGlobalTypes(term) match {
-              case TypeIdentity(idents2, superidents2, subidents2, _) =>
-                TypeIdentity(idents | idents2, (superidents |@| superidents2) { _ | _ }, (subidents |@| subidents2) { _ & _ }, Vector())
-            }
-        }
-      case TypeDisjunction(terms) =>
-        terms.foldLeft(TypeIdentity[T](Set(), some(Set()), some(Set()), Vector())) {
-          case (TypeIdentity(idents, superidents, subidents, _), term) =>
-            typeIdentityFromTypeValueTermWithoutGlobalTypes(term) match {
-              case TypeIdentity(idents2, superidents2, subidents2, _) =>
-                TypeIdentity(idents | idents2, (superidents |@| superidents2) { _ & _ }, (subidents |@| subidents2) { _ | _ }, Vector())
-            }
-        }
-      case _                      =>
-        TypeIdentity(Set(), some(Set()), some(Set()), Vector())
+      case TupleType(_)           => Set(TupleTypeIdentity)
+      case FieldType(i, _)        => Set(FieldTypeIdentity(i))
+      case BuiltinType(bf, _)     => Set(BuiltinTypeIdentity(bf))
+      case Unittype(loc, _, _)    => Set(UnittypeIdentity(loc))
+      case TypeParamApp(_, _, _)  => Set(TypeParamAppIdentity)
+      case TypeConjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm)
+      case TypeDisjunction(terms) => terms.flatMap(typeValueTermIdentitiesFromTypeValueTerm)
+      case _                      => Set()
     }
   
-  private def typeIdentityFromTypeValueTermsForMarkedLocsS[T, U, V, W, E](terms: Seq[TypeValueTerm[T]], isTypeConj: Boolean)(markedLocs: Set[T], nextParam: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: typer.TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], envSt2: TypeEnvironmentState[E, T]): (E, Validation[NoTypeValue[T, U, V, W], TypeIdentity[T]]) =
-    terms.foldLeft((env, TypeIdentity[T](Set(), some(Set()), some(Set()), Vector()).success[NoTypeValue[T, U, V, W]])) {
-      case ((newEnv, Success(TypeIdentity(idents, superidents, subidents, paramApps))), term) =>
+  private def typeIdentityFromTypeValueTermsForMarkedLocsS[T, U, V, W, E](terms: Seq[TypeValueTerm[T]])(markedLocs: Set[T], nextParam: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: typer.TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], envSt2: TypeEnvironmentState[E, T]): (E, Validation[NoTypeValue[T, U, V, W], TypeIdentity[T]]) =
+    terms.foldLeft((env, TypeIdentity[T](Set(), Vector()).success[NoTypeValue[T, U, V, W]])) {
+      case ((newEnv, Success(TypeIdentity(idents, paramApps))), term) =>
         val (newEnv2, newRes) = typeIdentityFromTypeValueTermForMarkedLocsS(term)(markedLocs,nextParam)(newEnv)
         newRes.map {
-          case TypeIdentity(idents2, superidends2, subidents2, paramApps2) =>
-            (newEnv2, TypeIdentity(
-                idents | idents2,
-                (superidents |@| superidends2) { (sis, sis2) => if(isTypeConj) sis | sis2 else sis & sis2 },
-                (subidents |@| subidents2) { (sis, sis2) => if(isTypeConj) sis & sis2 else sis | sis2 },
-                paramApps ++ paramApps2).success)
+          case TypeIdentity(idents2, paramApps2) => (newEnv2, TypeIdentity(idents | idents2, paramApps ++ paramApps2).success)
         }.valueOr { nv => (newEnv2, nv.failure) }
       case ((newEnv, Failure(noValue)), _)                         =>
         (newEnv, noValue.failure)
@@ -137,50 +106,31 @@ object TypeValueTermUtils
               }.valueOr { nv => (env4, nv.failure) }
           }
           typeIdentRes.map {
-            case typeIdent @ TypeIdentity(idents, _, _, paramApps) =>
-              if(!paramApps.isEmpty)
-                paramApps.foldLeft((env5, TypeIdentity[T](idents, none, none, Vector()).success[NoTypeValue[T, U, V, W]])) {
-                  case ((newEnv, Success(TypeIdentity(idents, _, _, paramApps))), TypeParamApp(param2, args2, _)) =>
-                    args.lift(param2).map {
-                      funLambda =>
-                        appForTypeValueLambda(funLambda, args2, nextArgParam).map {
-                          term2 =>
-                            val (newEnv2, newRes) = typeIdentityFromTypeValueTermForMarkedLocsS(term2)(markedLocs, nextArgParam)(newEnv)
-                            (newEnv2, newRes.map { case TypeIdentity(is, _, _, pas) => TypeIdentity(idents | is, none, none, paramApps ++ pas) })
-                        }.valueOr { nv => (newEnv, nv.failure) }
-                    }.getOrElse((newEnv, NoTypeValue.fromError[T, U, V, W](FatalError("index out of bound", none, NoPosition)).failure))
-                  case ((newEnv, Failure(noValue)), _)        =>
-                    (newEnv, noValue.failure)
-                }
-              else
-                (env5, typeIdent.success)
+            case typeIdent @ TypeIdentity(idents, paramApps) =>
+              paramApps.foldLeft((env5, TypeIdentity[T](idents, Vector()).success[NoTypeValue[T, U, V, W]])) {
+                case ((newEnv, Success(TypeIdentity(idents, paramApps))), paramApp @ TypeParamApp(param2, args2, _)) =>
+                  args.lift(param2).map {
+                    funLambda =>
+                      appForTypeValueLambda(funLambda, args2, nextArgParam).map {
+                        term2 =>
+                          val (newEnv2, newRes) = typeIdentityFromTypeValueTermForMarkedLocsS(term2)(markedLocs, nextArgParam)(newEnv)
+                          (newEnv2, newRes.map { case TypeIdentity(is, pas) => TypeIdentity(idents | is, paramApps ++ pas) })
+                      }.valueOr { nv => (newEnv, nv.failure) }
+                  }.getOrElse((newEnv, NoTypeValue.fromError[T, U, V, W](FatalError("index out of bound", none, NoPosition)).failure))
+                case ((newEnv, Failure(noValue)), _)        =>
+                  (newEnv, noValue.failure)
+              }
           }.valueOr { nv => (env5, nv.failure) }
         } else
-          (env, TypeIdentity[T](Set(), some(Set()), some(Set()), Vector()).success)
+          (env, TypeIdentity(typeValueTermIdentitiesFromTypeValueTerm(term), Vector()).success)
       case paramApp: TypeParamApp[T]   =>
-        (env, TypeIdentity(Set[TypeValueTermIdentity[T]](TypeParamAppIdentity), none, none, Vector(paramApp)).success)
+        (env, TypeIdentity(Set[TypeValueTermIdentity[T]](TypeParamAppIdentity), Vector(paramApp)).success)
       case TypeConjunction(terms)      =>
-        val (env2, res) = typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq, true)(markedLocs, nextArgParam)(env)
-        (env2, res.map {
-          case TypeIdentity(is, sis1, sis2, ps) =>
-            TypeIdentity(
-                is - BuiltinTypeIdentity(TypeBuiltinFunction.Any),
-                sis1.map { _ - BuiltinTypeIdentity(TypeBuiltinFunction.Any) },
-                sis2.map { _ - BuiltinTypeIdentity(TypeBuiltinFunction.Any) },
-                ps)
-        })
+        typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
       case TypeDisjunction(terms)      =>
-        val (env2, res) = typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq, false)(markedLocs, nextArgParam)(env)
-        (env2, res.map {
-          case TypeIdentity(is, sis1, sis2, ps) =>
-            TypeIdentity(
-                is - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing),
-                sis1.map { _ - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing) },
-                sis2.map { _ - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing) },
-                ps)
-        })
+        typeIdentityFromTypeValueTermsForMarkedLocsS(terms.toSeq)(markedLocs, nextArgParam)(env)
       case _ =>
-        (env, typeIdentityFromTypeValueTermWithoutGlobalTypes(term).success)
+        (env, TypeIdentity(typeValueTermIdentitiesFromTypeValueTerm(term), Vector()).success)
     }
 
   def typeIdentityFromTypeValueTermS[T, U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: typer.TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], envSt2: TypeEnvironmentState[E, T]) = {

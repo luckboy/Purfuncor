@@ -24,10 +24,8 @@ import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TupleType
-import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.typer.symbolSimpleTermTypeInferrer
-import pl.luckboy.purfuncor.frontend.typer.TypeIdentity
 import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
 import pl.luckboy.purfuncor.common.RecursiveInitializer._
@@ -37,21 +35,9 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
 import pl.luckboy.purfuncor.frontend.instant.PolyFunInstantiator._
 import pl.luckboy.purfuncor.frontend.instant.TermUtils._
-import pl.luckboy.purfuncor.frontend.instant.TypeValueTermUtils._
 
 package object instant
 {
-  implicit def symbolTypeEnvironmentState[T]: TypeEnvironmentState[SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]], GlobalSymbol] = new TypeEnvironmentState[SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]], GlobalSymbol] {
-    override def withPartialEvaluationS[U](isPartial: Boolean)(f: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]] => (SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]], U))(env: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]]) =
-      env.withPartialEvaluation(isPartial)(f)
-    
-    override def getTypeIdentityFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]]) =
-      (env, env.typeIdents.get(loc))
-    
-    override def addTypeIdentityS(loc: GlobalSymbol, ident: TypeIdentity[GlobalSymbol])(env: SymbolTypeEnvironment[TypeLambdaInfo[T, LocalSymbol]]) =
-      (env.withTypeIdents(env.typeIdents + (loc -> ident)), ())
-  }
-  
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] {
     override def globalVarTypeFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.varType(loc))
@@ -78,9 +64,6 @@ package object instant
   
     override def incorrectConstructTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
       (env, NoType.fromError[GlobalSymbol](Error("incorrect construct type " + env.currentDefinedType.map { _.toString }.getOrElse("<unknown type>"), none, NoPosition)))
-      
-    override def typeIdentityFromTypeS(typ: InferredType[GlobalSymbol])(env: SymbolTypeInferenceEnvironment[T, U]) =
-      typeIdentityFromTypeValueTermS(typ.typeValueTerm)(env.typeEnv).mapElements(env.withTypeEnv, typeResultFromTypeValueResult(_))
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
@@ -368,7 +351,7 @@ package object instant
 
   implicit def instanceTableSemigroup[T, U]: Semigroup[InstanceTable[T, U]] = new Semigroup[InstanceTable[T, U]] {
     override def append(f1: InstanceTable[T, U], f2: => InstanceTable[T, U]) =
-      InstanceTable[T, U](f1.pairs ++ f2.pairs, f1.pairIdxs |+| f2.pairIdxs.mapValues { _.map(f1.pairs.size +) }, f1.superidents ++ f2.superidents, f1.subidents ++ f2.subidents)
+      InstanceTable[T, U](f1.pairs ++ f2.pairs)
   }
   
   implicit def instanceTreeSemigroup[T, U, V]: Semigroup[InstanceTree[T, U, V]] = new Semigroup[InstanceTree[T, U, V]] {

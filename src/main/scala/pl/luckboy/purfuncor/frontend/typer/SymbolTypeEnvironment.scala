@@ -27,8 +27,7 @@ case class SymbolTypeEnvironment[T](
     uninitializedTypeCombSyms: Set[GlobalSymbol],
     typeCombNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, T, GlobalSymbol]],
     isRecursive: Boolean,
-    typeMatchingConds: Map[(GlobalTypeMatching.Value, GlobalSymbol, GlobalSymbol), TypeMatchingCondition[GlobalSymbol]],
-    typeIdents: Map[GlobalSymbol, TypeIdentity[GlobalSymbol]])
+    typeMatchingConds: Map[(GlobalTypeMatching.Value, GlobalSymbol, GlobalSymbol), TypeMatchingCondition[GlobalSymbol]])
 {
   def currentTypeClosure = typeClosureStack.headOption.getOrElse(SymbolTypeClosure(Map()))
   
@@ -143,8 +142,6 @@ case class SymbolTypeEnvironment[T](
   def withRecursive(isRecursive: Boolean) = copy(isRecursive = isRecursive)
   
   def withTypeMatchingConds(conds: Map[(GlobalTypeMatching.Value, GlobalSymbol, GlobalSymbol), TypeMatchingCondition[GlobalSymbol]]) = copy(typeMatchingConds = conds)
-
-  def withTypeIdents(idents: Map[GlobalSymbol, TypeIdentity[GlobalSymbol]]) = copy(typeIdents = idents)
 }
 
 object SymbolTypeEnvironment
@@ -161,8 +158,7 @@ object SymbolTypeEnvironment
       uninitializedTypeCombSyms = Set(),
       typeCombNodes = Map(),
       isRecursive = false,
-      typeMatchingConds = Map(),
-      typeIdents = Map())
+      typeMatchingConds = Map())
 }
     
 case class SymbolTypeClosure[T](
