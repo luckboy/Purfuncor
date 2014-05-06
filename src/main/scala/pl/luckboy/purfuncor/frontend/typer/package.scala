@@ -464,21 +464,7 @@ package object typer
     override def findTypeMatchingCondiationS(argParams1: Seq[Int], argParams2: Seq[Int])(env: SymbolTypeInferenceEnvironment[T, U]) =
       env.typeParamForest.findParamUnionsWithTerms(argParams1.toSet | argParams2.toSet).map {
         TypeMatchingCondition.fromTypeParamUnionsWithTypeValueTermsS(_)(env).mapElements(identity, _.map { _.withFirstArgIdxs(argParams1.zipWithIndex.toMap).withSecondArgIdxs(argParams2.zipWithIndex.toMap) })
-      }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))
-      
-    override def containsGlobalTypeMismatchingFromEnvironmentS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
-      (env, env.globalTypeMismatchings.contains((typeMatching, loc1, loc2)))
-      
-    override def addGlobalTypeMismatchingS(typeMatching: GlobalTypeMatching.Value, loc1: GlobalSymbol, loc2: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) = {
-      val env2 = env.withGlobalTypeMismatchings(env.globalTypeMismatchings + ((typeMatching, loc1, loc2)))
-      val env3 = typeMatching match {
-        case GlobalTypeMatching.Types             =>
-          env2.withGlobalTypeMismatchings(env2.globalTypeMismatchings + ((typeMatching, loc2, loc1)))
-        case GlobalTypeMatching.SupertypeWithType =>
-          env2
-      }
-      (env3, ())
-    }
+      }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))      
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {
