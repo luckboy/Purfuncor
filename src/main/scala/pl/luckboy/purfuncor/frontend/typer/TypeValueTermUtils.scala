@@ -186,4 +186,5 @@ object TypeValueTermUtils
 
   def normalizeTypeParamsForTermParamsAndLambdaParams[T](term: TypeValueTerm[T], nextArgParam: Int)(termParams: Map[Int, Int], lambdaParams: Map[Int, Int]) =
     normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(lambdaParams)((termParams, termParams.values.toSet.size))._2
+
 }

@@ -9,11 +9,9 @@ package pl.luckboy.purfuncor.frontend.typer
 import scalaz._
 import scalaz.Scalaz._
 
-case class TypeIdentity[T](idents: Set[TypeValueTermIdentity[T]], paramApps: Seq[TypeParamApp[T]])
-
-sealed trait TypeValueTermIdentity[+T]
-case object TupleTypeIdentity extends TypeValueTermIdentity[Nothing]
-case class FieldTypeIdentity[+T](i: Int) extends TypeValueTermIdentity[T]
-case class BuiltinTypeIdentity[+T](bf: TypeBuiltinFunction.Value) extends TypeValueTermIdentity[T]
-case class UnittypeIdentity[+T](loc: T) extends TypeValueTermIdentity[T]
-case object TypeParamAppIdentity extends TypeValueTermIdentity[Nothing]
+sealed trait TypeIdentity[+T]
+case object TupleTypeIdentity extends TypeIdentity[Nothing]
+case class FieldTypeIdentity[+T](i: Int) extends TypeIdentity[T]
+case class BuiltinTypeIdentity[+T](bf: TypeBuiltinFunction.Value) extends TypeIdentity[T]
+case class UnittypeIdentity[+T](loc: T) extends TypeIdentity[T]
+case object NoTypeIdentity extends TypeIdentity[Nothing]

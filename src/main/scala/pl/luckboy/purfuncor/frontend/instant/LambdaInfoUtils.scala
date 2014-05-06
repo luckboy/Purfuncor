@@ -10,6 +10,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.LambdaInfoExtractor
 
 object LambdaInfoUtils
 {
