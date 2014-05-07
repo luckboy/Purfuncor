@@ -172,6 +172,8 @@ object Kinder
             (res |@| resultForFile(res2, file)) { (cs, c) => cs + (loc -> c) }
           case UnittypeCombinator(kind, n, file) =>
             res.map { cs => (cs + (loc -> UnittypeCombinator(kind, n, file))) }
+          case GrouptypeCombinator(kind, n, file) =>
+            res.map { cs => (cs + (loc -> GrouptypeCombinator(kind, n, file))) }
         }
     }.flatMap {
       combs =>

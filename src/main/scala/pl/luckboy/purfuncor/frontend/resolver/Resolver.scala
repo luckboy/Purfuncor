@@ -391,6 +391,14 @@ object Resolver
               ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> UnittypeCombinator(n, kind, none))))), res), scope)
             } else
               ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
+          case parser.GrouptypeCombinatorDef(n, sym, kind) =>
+            val sym2 = transformGlobalSymbol(sym)(scope.currentModuleSyms.head)
+            if(scope.nameTree.containsTypeComb(sym2)) {
+              val treeInfo2 = tree2.treeInfo
+              val typeTree2 = treeInfo2.typeTree
+              ((tree2.copy(treeInfo = treeInfo2.copy(typeTree = typeTree2.copy(combs = typeTree2.combs + (sym2 -> GrouptypeCombinator(n, kind, none))))), res), scope)
+            } else
+              ((tree, res |+| FatalError("name tree doesn't contain type combinator", none, sym.pos).failureNel[Unit]), scope)
           case parser.ModuleDef(sym, defs2) =>
             val sym2 = transformModuleSymbol(sym)(scope.currentModuleSyms.head)
             val (newTree2, res2) = transformDefsS(defs2)(scope.withCurrentModule(sym2))(tree2)

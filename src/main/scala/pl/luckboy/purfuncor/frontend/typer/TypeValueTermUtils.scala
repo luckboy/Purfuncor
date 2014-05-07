@@ -20,6 +20,7 @@ object TypeValueTermUtils
       case FieldType(_, term2)          => typeParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
       case Unittype(_, args, _)         => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case Grouptype(_, args, _)        => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case TypeParamApp(param, args, _) => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
       case TypeConjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
@@ -32,6 +33,7 @@ object TypeValueTermUtils
       case FieldType(_, term2)          => typeArgParamsFromTypeValueTerm(term2)
       case BuiltinType(_, args)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
       case Unittype(_, args, _)         => args.flatMap { _.argParams }.toSet
+      case Grouptype(_, args, _)        => args.flatMap { _.argParams }.toSet
       case GlobalTypeApp(_, args, _)    => args.flatMap { _.argParams }.toSet
       case TypeParamApp(param, args, _) => args.flatMap { _.argParams }.toSet
       case TypeConjunction(terms)       => terms.flatMap(typeArgParamsFromTypeValueTerm).toSet
@@ -77,6 +79,8 @@ object TypeValueTermUtils
         substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
       case Unittype(loc, args, sym)      =>
         substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Unittype(loc, _, sym) }
+      case Grouptype(loc, args, sym)     =>
+        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Grouptype(loc, _, sym) }
       case GlobalTypeApp(loc, args, sym) =>
         substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { GlobalTypeApp(loc, _, sym) }
       case typeParamApp: TypeParamApp[T] =>
@@ -152,6 +156,9 @@ object TypeValueTermUtils
       case Unittype(loc, args, sym)               =>
         val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, Unittype(loc, args2, sym))
+      case Grouptype(loc, args, sym)               =>
+        val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
+        (pair2, Grouptype(loc, args2, sym))
       case GlobalTypeApp(loc, args, sym)          =>
         val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, GlobalTypeApp(loc, args2, sym))
@@ -186,5 +193,4 @@ object TypeValueTermUtils
 
   def normalizeTypeParamsForTermParamsAndLambdaParams[T](term: TypeValueTerm[T], nextArgParam: Int)(termParams: Map[Int, Int], lambdaParams: Map[Int, Int]) =
     normalizeTypeParamsInTypeValyeTermForParamsS(term, nextArgParam)(lambdaParams)((termParams, termParams.values.toSet.size))._2
-
 }

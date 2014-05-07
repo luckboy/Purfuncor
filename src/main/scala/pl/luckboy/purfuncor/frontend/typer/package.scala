@@ -201,6 +201,8 @@ package object typer
             (newEnv, value.forFile(file).forCombLoc(some(loc)))
           case UnittypeCombinator(_, _, _)         =>
             (env, EvaluatedTypeValue(Unittype(loc, Nil, loc)))
+          case GrouptypeCombinator(_, _, _)        =>
+            (env, EvaluatedTypeValue(Grouptype(loc, Nil, loc)))
         }
       } else
         (env, TypeCombinatorValue(comb, loc, loc))
@@ -232,6 +234,7 @@ package object typer
       comb match {
         case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
         case UnittypeCombinator(_, _, _)      => Set()
+        case GrouptypeCombinator(_, _, _)     => Set()
       }
       
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =

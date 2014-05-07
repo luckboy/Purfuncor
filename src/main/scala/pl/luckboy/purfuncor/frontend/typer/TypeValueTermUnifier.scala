@@ -457,14 +457,12 @@ object TypeValueTermUnifier
         }
     }
   
-  private def matchesUnittypesS[T, U, V, E](unittype1: Unittype[T], unittype2: Unittype[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
-    (unittype1, unittype2) match {
-      case (Unittype(loc1, args1, sym1), Unittype(loc2, args2, _)) if loc1 == loc2 && args1.size === args2.size =>
-        val (env2, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(loc1, Nil, sym1))(env)
-        matchesTypeValueLambdaListsWithReturnKindS(args1, args2, funKindRes.valueOr { _.toNoKind })(z)(f)(env2)
-      case (_, _) =>
-        unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
-    }
+  private def matchesGlobalTypesS[T, U, V, E](globalType1: GlobalType[T], globalType2: GlobalType[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
+    if(globalType1.loc === globalType2.loc && globalType1.args.size === globalType2.args.size) {
+      val (env2, funKindRes) = envSt.inferTypeValueTermKindS(GlobalTypeApp(globalType1.loc, Nil, globalType1.sym))(env)
+      matchesTypeValueLambdaListsWithReturnKindS(globalType1.args, globalType2.args, funKindRes.valueOr { _.toNoKind })(z)(f)(env2)
+    } else 
+      unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     
   private def matchesGlobalTypeAppWithTypeValueTermS[T, U, V, E](globalTypeApp1: GlobalTypeApp[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) =
     (globalTypeApp1, term2) match {
@@ -981,8 +979,8 @@ object TypeValueTermUnifier
         matchesFunctionTypesS(term1, term2)(z)(f)(env)
       case (BuiltinType(bf1, args1), BuiltinType(bf2, args2)) if bf1 === bf2 && args1.size === args2.size =>
         matchesTypeValueTermListsWithReturnKindS(args1, args2)(z)(f)(env)
-      case (unittype1: Unittype[T], unittype2: Unittype[T]) =>
-        matchesUnittypesS(unittype1, unittype2)(z)(f)(env)
+      case (globalType1: GlobalType[T], globalType2: GlobalType[T]) =>
+        matchesGlobalTypesS(globalType1, globalType2)(z)(f)(env)
       case (typeParamApp1: TypeParamApp[T], _) =>
         matchesTypeParamAppWithTypeValueTermS(typeParamApp1, term2)(z)(f)(env)
       case (_, typeParamApp2: TypeParamApp[T]) =>

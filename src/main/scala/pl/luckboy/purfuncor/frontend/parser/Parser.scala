@@ -477,6 +477,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       polyCombinatorDef |
       typeCombinatorDef |
       unittypeCombinatorDef |
+      grouptypeCombinatorDef |
       moduleDef |
       instanceDef |
       selectConstructInstanceDef)
@@ -492,6 +493,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val simpleTypeCombinatorDef = "type" ~-> simpleTypeCombinatorDefPart ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ t => TypeCombinatorDef(s, kt, Nil, t)}
   lazy val typeCombinatorDef1 = "type" ~-> typeCombinatorDefPart ~ (typeArg +) ~- ("=" ~-> noNlParsers.typeExpr) ^^ { case (s, kt) ~ as ~ t => TypeCombinatorDef(s, kt, as, t) }
   lazy val unittypeCombinatorDef = "unittype" ~-> integer ~- simpleTypeCombinatorDefPart ^^ { case n ~ ((s, kt)) => UnittypeCombinatorDef(n, s, kt) }
+  lazy val grouptypeCombinatorDef = "grouptype" ~-> integer ~- simpleTypeCombinatorDefPart ^^ { case n ~ ((s, kt)) => GrouptypeCombinatorDef(n, s, kt) }
   lazy val moduleDef = "module" ~-> noNlParsers.moduleSymbol ~- ("{" ~-> defs <~- "}") ^^ { case s ~ ds => ModuleDef(s, ds) }
   lazy val instanceDef = "instance" ~-> noNlParsers.symbol ~- ("=>" ~-> noNlParsers.symbol) ^^ { case s ~ s2 => InstanceDef(s, s2) }
   lazy val selectConstructInstanceDef = ("instance" ~- "select") ~-> noNlParsers.typeExpr ~- (("construct" ~- "{") ~-> typeExprs <~- "}") ^^ { case tt ~ (tt2 ~ tts) => SelectConstructInstanceDef(tt, NonEmptyList.nel(tt2, tts)) }

@@ -26,6 +26,7 @@ case class CombinatorDef(sym: Symbol, typ: Option[Term[TypeSimpleTerm[Symbol, Ty
 case class PolyCombinatorDef(sym: Symbol, typ: Option[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def
 case class TypeCombinatorDef(sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], body: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) extends Def
 case class UnittypeCombinatorDef(n: Int, sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]]) extends Def
+case class GrouptypeCombinatorDef(n: Int, sym: Symbol, kind: Option[KindTerm[StarKindTerm[String]]]) extends Def
 case class ModuleDef(sym: ModuleSymbol, defs: List[Def]) extends Def
 case class InstanceDef(polyCombSym: Symbol, instCombSym: Symbol) extends Def
 case class SelectConstructInstanceDef(supertype: Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]], types: NonEmptyList[Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]]) extends Def

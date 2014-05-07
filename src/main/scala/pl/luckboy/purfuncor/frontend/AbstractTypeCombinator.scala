@@ -16,6 +16,7 @@ sealed trait AbstractTypeCombinator[+T, +U]
     this match {
       case TypeCombinator(_, args, _, _, _) => args.size
       case UnittypeCombinator(n, _, _)      => n
+      case GrouptypeCombinator(n, _, _)     => n
     }
   
   def file: Option[java.io.File]
@@ -29,8 +30,10 @@ sealed trait AbstractTypeCombinator[+T, +U]
         args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + 
         (if(lambdaInfo.toString =/= "")  "/*" + lambdaInfo.toString + "*/ " else "") +
         "= " + typeTermShowing.stringFrom(body)
-      case UnittypeCombinator(n, kind, _)           =>
+      case UnittypeCombinator(n, kind, _)                  =>
         "unittype " + n + " " + kind.map { k => "(" + name + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(name)
+      case GrouptypeCombinator(n, kind, _)                 =>
+        "grouptype " + n + " " + kind.map { k => "(" + name + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(name)
     }
 }
 case class TypeCombinator[+T, +U](kind: Option[KindTerm[StarKindTerm[String]]], args: List[TypeArg], body: Term[TypeSimpleTerm[T, U]], lambdaInfo: U, file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
@@ -38,6 +41,10 @@ case class TypeCombinator[+T, +U](kind: Option[KindTerm[StarKindTerm[String]]], 
   override def withFile(file: Option[java.io.File]) = copy(file = file)
 }
 case class UnittypeCombinator[+T, +U](n: Int,  kind: Option[KindTerm[StarKindTerm[String]]], file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
+{
+  override def withFile(file: Option[java.io.File]) = copy(file = file)
+}
+case class GrouptypeCombinator[+T, +U](n: Int, kind: Option[KindTerm[StarKindTerm[String]]], file: Option[java.io.File]) extends AbstractTypeCombinator[T, U]
 {
   override def withFile(file: Option[java.io.File]) = copy(file = file)
 }
