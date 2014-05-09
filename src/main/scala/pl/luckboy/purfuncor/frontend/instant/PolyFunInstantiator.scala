@@ -24,10 +24,12 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.BuiltinType
 import pl.luckboy.purfuncor.frontend.typer.TupleType
 import pl.luckboy.purfuncor.frontend.typer.Unittype
+import pl.luckboy.purfuncor.frontend.typer.Grouptype
 import pl.luckboy.purfuncor.frontend.typer.TypeParamApp
 import pl.luckboy.purfuncor.frontend.typer.GlobalTypeApp
 import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TypeDisjunction
+import pl.luckboy.purfuncor.frontend.typer.TypeValueLambda
 import pl.luckboy.purfuncor.frontend.typer.TypeMatching
 import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Inferrer._
@@ -460,4 +462,86 @@ object PolyFunInstantiator {
   
   def checkConstructInferringType[L, N, E](typ: InferringType[N])(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) =
     State(checkConstructInferringTypeS[L, N, E](typ))
+    
+  private val groupTypeBuiltinFunctions = Map(
+      TypeBuiltinFunction.Boolean ->  GroupTypeBuiltinFunction.Boolean,
+      TypeBuiltinFunction.Char -> GroupTypeBuiltinFunction.Char,
+      TypeBuiltinFunction.Byte -> GroupTypeBuiltinFunction.Byte,
+      TypeBuiltinFunction.Short -> GroupTypeBuiltinFunction.Short,
+      TypeBuiltinFunction.Int -> GroupTypeBuiltinFunction.Int,
+      TypeBuiltinFunction.Long -> GroupTypeBuiltinFunction.Long,
+      TypeBuiltinFunction.Float -> GroupTypeBuiltinFunction.Float,
+      TypeBuiltinFunction.Double -> GroupTypeBuiltinFunction.Double,
+      TypeBuiltinFunction.Array -> GroupTypeBuiltinFunction.Array,
+      TypeBuiltinFunction.Fun -> GroupTypeBuiltinFunction.Fun)
+  
+  private def groupIdentitiesFromTypeValueTermsS[L, N, E](terms: Seq[TypeValueTerm[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+    terms.foldLeft((env, Vector[GroupIdentity[N]]().success[NoType[N]])) {
+      case ((newEnv, Success(groupIdents)), term) =>
+        groupIdentityFromTypeValueTermS(term)(err)(newEnv).mapElements(identity, _.map { groupIdents :+ _ })
+      case ((newEnv, Failure(noType)), _)         =>
+        (newEnv, noType.failure)
+    }
+  
+  private def groupIdentitiesFromTypeValueLambdasS[L, N, E](lambdas: Seq[TypeValueLambda[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+    lambdas.foldLeft((env, Vector[GroupIdentity[N]]().success[NoType[N]])) {
+      case ((newEnv, Success(groupIdents)), lambda) =>
+        groupIdentityFromTypeValueTermS(lambda.body)(err)(newEnv).mapElements(identity, _.map { 
+          case DefaultGroupIdentity =>
+            groupIdents :+ DefaultGroupIdentity
+          case BuiltinTypeGroupIdentity(bf, argIdents) => 
+            groupIdents :+ BuiltinTypeGroupIdentity(bf, argIdents.reverse.dropWhile { _.isTypeParamAppGroupIdentity }.reverse)
+          case GrouptypeGroupIdentity(loc, argIdents) =>
+            groupIdents :+ GrouptypeGroupIdentity(loc, argIdents.reverse.dropWhile { _.isTypeParamAppGroupIdentity }.reverse)
+          case TypeParamAppGroupIdentity =>
+            groupIdents :+ TypeParamAppGroupIdentity
+        })
+      case ((newEnv, Failure(noType)), _)           =>
+        (newEnv, noType.failure)
+    }
+  
+  private def groupIdentityFromTypeValueTermS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]): (E, Validation[NoType[N], GroupIdentity[N]]) =
+    term match {
+      case BuiltinType(bf, args) =>
+        groupTypeBuiltinFunctions.get(bf).map {
+          gtbf => groupIdentitiesFromTypeValueTermsS(args)(err)(env).mapElements(identity, _.map { BuiltinTypeGroupIdentity(gtbf, _) })
+        }.getOrElse((env, DefaultGroupIdentity.success))
+      case Grouptype(loc, args, _) =>
+        groupIdentitiesFromTypeValueLambdasS(args)(err)(env).mapElements(identity, _.map { GrouptypeGroupIdentity(loc, _) })
+      case TypeParamApp(_, _, _) =>
+        (env, TypeParamAppGroupIdentity.success[NoType[N]])
+      case TypeConjunction(terms) =>
+        val (env2, res) = groupIdentitiesFromTypeValueTermsS(terms.toVector)(err)(env)
+        res.map {
+          groupIdents =>
+            groupIdents.headOption.map {
+              groupIdent =>
+                if(groupIdents.tail.forall { _ === groupIdent }) (env2, groupIdent.success) else err(env2).mapElements(identity, _.failure)
+            }.getOrElse((env2, NoType.fromError[N](FatalError("no group identities", none, NoPosition)).failure))
+        }.valueOr { nt => (env2, nt.failure) }
+      case TypeDisjunction(terms) =>
+        val (env2, res) = groupIdentitiesFromTypeValueTermsS(terms.toVector)(err)(env)
+        res.map {
+          groupIdents =>
+            groupIdents.headOption.map {
+              groupIdent =>
+                if(groupIdents.tail.forall { _ === groupIdent }) (env2, groupIdent.success) else err(env2).mapElements(identity, _.failure)
+            }.getOrElse((env2, NoType.fromError[N](FatalError("no group identities", none, NoPosition)).failure))
+        }.valueOr { nt => (env2, nt.failure) }
+      case GlobalTypeApp(loc, args, _) =>
+        envSt.withRecursionCheckingS(Set(loc)) {
+          env2 =>
+            appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
+              case (env3, Success(evaluatedTerm)) =>
+                groupIdentityFromTypeValueTermS(evaluatedTerm)(err)(env3)
+              case (env3, Failure(noType))        =>
+                (env3, noType.failure)
+            }
+        } (env)
+      case _ =>
+        (env, DefaultGroupIdentity.success)
+    }
+  
+  def groupIdentityFromInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+    groupIdentityFromTypeValueTermS(typ.typeValueTerm)(envSt2.incorrectInstanceTypeNoTypeS)(env)
 }

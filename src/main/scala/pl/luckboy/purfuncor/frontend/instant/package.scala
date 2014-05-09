@@ -62,8 +62,11 @@ package object instant
     override def reverseTypeParamMapS(paramMap: Map[Int, Int])(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.typeParamForest.reverseParamMap(paramMap).toSuccess(NoType.fromError[GlobalSymbol](FatalError("can't reverse type parameter map", none, NoPosition))))
   
-    override def incorrectConstructTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], NoType[GlobalSymbol]) =
+    override def incorrectConstructTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, NoType.fromError[GlobalSymbol](Error("incorrect construct type " + env.currentDefinedType.map { _.toString }.getOrElse("<unknown type>"), none, NoPosition)))
+  
+    override def incorrectInstanceTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env, NoType.fromError[GlobalSymbol](Error("incorrect instance type " + env.currentDefinedType.map { _.toString }.getOrElse("<unknown type>"), none, NoPosition)))
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {
@@ -358,4 +361,26 @@ package object instant
     override def append(f1: InstanceTree[T, U, V], f2: => InstanceTree[T, U, V]) =
       InstanceTree.fromInstanceTables(f1.instTables |+| f2.instTables)
   }
+  
+  implicit val groupTypeBuiltinFunction = new Equal[GroupTypeBuiltinFunction.Value] {
+    override def equal(a1: GroupTypeBuiltinFunction.Value, a2: GroupTypeBuiltinFunction.Value) = a1 == a2
+  }
+  
+  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
+    override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
+      (a1, a2) match {
+        case (DefaultGroupIdentity, DefaultGroupIdentity)                                           =>
+          true
+        case (BuiltinTypeGroupIdentity(bf1, argIdents1), BuiltinTypeGroupIdentity(bf2, argIdents2)) =>
+          bf1 === bf2 && argIdents1.toVector === argIdents2.toVector
+        case (GrouptypeGroupIdentity(loc1, argIdents1), GrouptypeGroupIdentity(loc2, argIdents2))   =>
+          loc1 === loc2 && argIdents1.toVector === argIdents2.toVector
+        case (TypeParamAppGroupIdentity, TypeParamAppGroupIdentity)                                 =>
+          true
+        case _                                                                                      =>
+          false
+      }
+  }
+  
+  implicit val symbolGroupIdentityEqual: Equal[GroupIdentity[Symbol]] = groupIdentityEqual[Symbol]
 }
