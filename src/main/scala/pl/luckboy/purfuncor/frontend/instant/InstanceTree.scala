@@ -20,29 +20,60 @@ import pl.luckboy.purfuncor.frontend.typer.TypeMatching
 import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 
-case class InstanceTree[T, U, V](instTables: Map[T, InstanceTable[U, V]])
+case class InstanceTree[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]])
 {
-  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U]) =
-    instTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
+  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]]) =
+    instGroupTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
   
-  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U]) = {
-    val (env2, res) = instTables.getOrElse(loc, InstanceTable.empty).addInstS(typ, inst)(env)
-    (env2, res.map { _.map { case (it, b) => (InstanceTree(instTables + (loc -> it)), b) } })
+  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]]) = {
+    val (env2, res) = instGroupTables.getOrElse(loc, InstanceGroupTable.empty[U, V]).addInstS(typ, inst)(env)
+    (env2, res.map { _.map { case (igt, b) => (InstanceTree(instGroupTables + (loc -> igt)), b) } })
   }
   
-  def insts = instTables.toSeq.flatMap { _._2.pairs.map { _._2 } }
+  def insts = instGroupTables.values.flatMap { _.insts }
     
-  def instCount = instTables.values.foldLeft(0) { _ + _.instCount }
+  def instCount = instGroupTables.values.foldLeft(0) { _ + _.instCount }
 }
 
 object InstanceTree
 {
-  def empty[T, U, V] = fromInstanceTables[T, U, V](Map())
+  def empty[T, U, V] = fromInstanceGroupTables[T, U, V](Map())
   
-  def fromInstanceTables[T, U, V](instTables: Map[T, InstanceTable[U, V]]) = InstanceTree[T, U, V](instTables)
+  def fromInstanceGroupTables[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]]) = InstanceTree[T, U, V](instGroupTables)
 }
 
-case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
+case class InstanceGroupTable[T, U](instGroups: Map[GroupIdentity[T], InstanceGroup[T, U]])
+{
+  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]]) =  {
+    val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
+    res.map {
+      instGroups.get(_).map { _.findInstsS(typ)(env2) }.getOrElse((env2, Vector().success[NoType[T]]))
+    }.valueOr { nt => (env2, nt.failure) }
+  }
+  
+  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]]) = {
+    val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
+    res.map {
+      groupIdent =>
+        instGroups.get(groupIdent).map { 
+          _.addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => (InstanceGroupTable(instGroups + (groupIdent -> ig)), b) } }) 
+        }.getOrElse((env2, none.success))
+    }.valueOr { nt => (env2, nt.failure) }
+  }
+  
+  def insts = instGroups.toSeq.flatMap { _._2.pairs.map { _._2 } }
+  
+  def instCount = instGroups.values.foldLeft(0) { _ + _.instCount }
+}
+
+object InstanceGroupTable
+{
+  def empty[T, U] = InstanceGroupTable[T, U](Map())
+  
+  def fromInstanceGroups[T, U](instGroups: Map[GroupIdentity[T], InstanceGroup[T, U]]) = InstanceGroupTable(instGroups)
+}
+
+case class InstanceGroup[T, U](pairs: Seq[(InstanceType[T], U)])
 {
   private def matchesInstTypesS[V, E](typ: InstanceType[T], instType: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt2.withInstanceTypeClearingS {
@@ -85,7 +116,7 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
     } (env)
   
   private def findInstsWithIndexesS[V, E](typ: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
-    pairs.zipWithIndex.foldLeft((env, Seq[(U, Int)]().success[NoType[T]])) {
+    pairs.zipWithIndex.foldLeft((env, Vector[(U, Int)]().success[NoType[T]])) {
       case ((newEnv, Success(newPairs)), ((instType, inst), i)) =>
         val (newEnv2, newRes) = matchesInstTypesS(typ, instType, typeMatching)(newEnv)
         (newEnv2, newRes.map { if(_) newPairs :+ (inst, i) else newPairs })
@@ -123,11 +154,11 @@ case class InstanceTable[T, U](pairs: Seq[(InstanceType[T], U)])
   def instCount = pairs.size
 }
 
-object InstanceTable
+object InstanceGroup
 {
-  def empty[T, U] = InstanceTable[T, U](Vector())
+  def empty[T, U] = InstanceGroup[T, U](Vector())
   
-  def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = InstanceTable(pairs)
+  def fromTuples[T, U](pairs: Seq[(InstanceType[T], U)]) = InstanceGroup(pairs)
 }
 
 sealed trait InstanceType[T]

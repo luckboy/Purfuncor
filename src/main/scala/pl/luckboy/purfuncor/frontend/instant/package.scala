@@ -38,6 +38,28 @@ import pl.luckboy.purfuncor.frontend.instant.TermUtils._
 
 package object instant
 {
+    implicit val groupTypeBuiltinFunction = new Equal[GroupTypeBuiltinFunction.Value] {
+    override def equal(a1: GroupTypeBuiltinFunction.Value, a2: GroupTypeBuiltinFunction.Value) = a1 == a2
+  }
+  
+  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
+    override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
+      (a1, a2) match {
+        case (DefaultGroupIdentity, DefaultGroupIdentity)                                           =>
+          true
+        case (BuiltinTypeGroupIdentity(bf1, argIdents1), BuiltinTypeGroupIdentity(bf2, argIdents2)) =>
+          bf1 === bf2 && argIdents1.toVector === argIdents2.toVector
+        case (GrouptypeGroupIdentity(loc1, argIdents1), GrouptypeGroupIdentity(loc2, argIdents2))   =>
+          loc1 === loc2 && argIdents1.toVector === argIdents2.toVector
+        case (TypeParamAppGroupIdentity, TypeParamAppGroupIdentity)                                 =>
+          true
+        case _                                                                                      =>
+          false
+      }
+  }
+  
+  implicit val symbolGroupIdentityEqual: Equal[GroupIdentity[GlobalSymbol]] = groupIdentityEqual[GlobalSymbol]
+  
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] {
     override def globalVarTypeFromEnvironmentS(loc: GlobalSymbol)(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, env.varType(loc))
@@ -347,40 +369,23 @@ package object instant
     override def withCurrentCombinatorLocation(env: SymbolInstantiationEnvironment[T, U])(loc: Option[GlobalSymbol]) = env.withCurrentCombSym(loc)
     
     override def treeGlobalInstanceTreeFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) =
-      InstanceTree.fromInstanceTables(env.globalInstTree.instTables.map { case (pf, it) => (pf, env.firstGlobalInstCounts.get(pf).map { it.withoutFirstInsts(_) }.getOrElse(it)) })
+      InstanceTree.fromInstanceGroupTables(env.globalInstTree.instGroupTables.map { case (pf, igt) => (pf, InstanceGroupTable(igt.instGroups.map { case (gi, ig) => (gi, env.firstGlobalInstCounts.getOrElse(pf, Map()).get(gi).map { ig.withoutFirstInsts(_) }.getOrElse(ig)) })) })
     
     override def instanceArgTableFromFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) = InstanceArgTable(env.instArgs)
   }
 
-  implicit def instanceTableSemigroup[T, U]: Semigroup[InstanceTable[T, U]] = new Semigroup[InstanceTable[T, U]] {
-    override def append(f1: InstanceTable[T, U], f2: => InstanceTable[T, U]) =
-      InstanceTable[T, U](f1.pairs ++ f2.pairs)
+  implicit def instanceGroupSemigroup[T, U]: Semigroup[InstanceGroup[T, U]] = new Semigroup[InstanceGroup[T, U]] {
+    override def append(f1: InstanceGroup[T, U], f2: => InstanceGroup[T, U]) =
+      InstanceGroup[T, U](f1.pairs ++ f2.pairs)
+  }
+  
+  implicit def instanceGroupTableSemigroup[T, U]: Semigroup[InstanceGroupTable[T, U]] = new Semigroup[InstanceGroupTable[T, U]] {
+    override def append(f1: InstanceGroupTable[T, U], f2: => InstanceGroupTable[T, U]) =
+      InstanceGroupTable[T, U](f1.instGroups |+| f2.instGroups)
   }
   
   implicit def instanceTreeSemigroup[T, U, V]: Semigroup[InstanceTree[T, U, V]] = new Semigroup[InstanceTree[T, U, V]] {
     override def append(f1: InstanceTree[T, U, V], f2: => InstanceTree[T, U, V]) =
-      InstanceTree.fromInstanceTables(f1.instTables |+| f2.instTables)
-  }
-  
-  implicit val groupTypeBuiltinFunction = new Equal[GroupTypeBuiltinFunction.Value] {
-    override def equal(a1: GroupTypeBuiltinFunction.Value, a2: GroupTypeBuiltinFunction.Value) = a1 == a2
-  }
-  
-  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
-    override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
-      (a1, a2) match {
-        case (DefaultGroupIdentity, DefaultGroupIdentity)                                           =>
-          true
-        case (BuiltinTypeGroupIdentity(bf1, argIdents1), BuiltinTypeGroupIdentity(bf2, argIdents2)) =>
-          bf1 === bf2 && argIdents1.toVector === argIdents2.toVector
-        case (GrouptypeGroupIdentity(loc1, argIdents1), GrouptypeGroupIdentity(loc2, argIdents2))   =>
-          loc1 === loc2 && argIdents1.toVector === argIdents2.toVector
-        case (TypeParamAppGroupIdentity, TypeParamAppGroupIdentity)                                 =>
-          true
-        case _                                                                                      =>
-          false
-      }
-  }
-  
-  implicit val symbolGroupIdentityEqual: Equal[GroupIdentity[Symbol]] = groupIdentityEqual[Symbol]
+      InstanceTree.fromInstanceGroupTables(f1.instGroupTables |+| f2.instGroupTables)
+  }  
 }

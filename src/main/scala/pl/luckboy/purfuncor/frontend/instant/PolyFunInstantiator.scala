@@ -142,8 +142,8 @@ object PolyFunInstantiator {
   }
 
   private def instanceArgsFromLocalInstanceTree[L, M](localInstTree: InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]) = {
-    val instArgs = localInstTree.instTables.flatMap {
-      case (pf, it) => it.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) }
+    val instArgs = localInstTree.instGroupTables.flatMap {
+      case (pf, igt) => igt.instGroups.values.flatMap { _.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) } }
     }
     (0 until instArgs.size).foldLeft(some(Vector[InstanceArg[L, M]]())) {
       (optIas, i) => optIas.flatMap { ias => instArgs.get(i).map { ias :+ _ } }
@@ -282,7 +282,7 @@ object PolyFunInstantiator {
         (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no polymorphic function type", none, NoPosition)).failure))
     }.getOrElse((env, Seq().success))
   
-  def instantiatePolyFunctionS[L, N, E](lambdaInfo: PreinstantiationLambdaInfo[L, N], instArgs: Seq[InstanceArg[L, N]], globalInstTree: InstanceTree[AbstractPolyFunction[L], N, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) =
+  def instantiatePolyFunctionS[L, N, E](lambdaInfo: PreinstantiationLambdaInfo[L, N], instArgs: Seq[InstanceArg[L, N]], globalInstTree: InstanceTree[AbstractPolyFunction[L], N, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
     envSt2.withInstanceTypeClearingS {
       newEnv =>
         val (newEnv2, newRes) = instanceArgsFromPreinstantiationLambdaInfoS(lambdaInfo, instArgs)(newEnv)
@@ -544,4 +544,15 @@ object PolyFunInstantiator {
   
   def groupIdentityFromInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
     groupIdentityFromTypeValueTermS(typ.typeValueTerm)(envSt2.incorrectInstanceTypeNoTypeS)(env)
+    
+  def groupIdentityFromInferredTypeS[L, N, E](typ: InferredType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) = {
+    typ.uninstantiatedTypeS(env) match {
+      case (env2, inferringType @ InferringType(_)) =>
+        groupIdentityFromInferringTypeS(inferringType)(env2)
+      case (env2, noType: NoType[N])                =>
+        (env2, noType.failure)
+      case (env2, _)                                =>
+        (env2, NoType.fromError[N](FatalError("inferred type or uninferred type", none, NoPosition)).failure)
+    }
+  }
 }
