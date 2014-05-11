@@ -38,26 +38,31 @@ import pl.luckboy.purfuncor.frontend.instant.TermUtils._
 
 package object instant
 {
-    implicit val groupTypeBuiltinFunction = new Equal[GroupTypeBuiltinFunction.Value] {
+  implicit val groupTypeBuiltinFunction = new Equal[GroupTypeBuiltinFunction.Value] {
     override def equal(a1: GroupTypeBuiltinFunction.Value, a2: GroupTypeBuiltinFunction.Value) = a1 == a2
   }
   
-  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
-    override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
+  def groupNodeIdentityEqual[T](implicit groupNodeIdent: Equal[GroupNodeIdentity[T]], locEqual: Equal[T]): Equal[GroupNodeIdentity[T]] = new Equal[GroupNodeIdentity[T]] {
+    override def equal(a1: GroupNodeIdentity[T], a2: GroupNodeIdentity[T]) =
       (a1, a2) match {
-        case (DefaultGroupIdentity, DefaultGroupIdentity)                                           =>
-          true
-        case (BuiltinTypeGroupIdentity(bf1, argIdents1), BuiltinTypeGroupIdentity(bf2, argIdents2)) =>
-          bf1 === bf2 && argIdents1.toVector === argIdents2.toVector
-        case (GrouptypeGroupIdentity(loc1, argIdents1), GrouptypeGroupIdentity(loc2, argIdents2))   =>
-          loc1 === loc2 && argIdents1.toVector === argIdents2.toVector
-        case (TypeParamAppGroupIdentity, TypeParamAppGroupIdentity)                                 =>
-          true
-        case _                                                                                      =>
-          false
+        case (DefaultGroupNodeIdentity, DefaultGroupNodeIdentity)                   => true
+        case (BuiltinTypeGroupNodeIdentity(bf1), BuiltinTypeGroupNodeIdentity(bf2)) => bf1 === bf2
+        case (GrouptypeGroupNodeIdentity(loc1), GrouptypeGroupNodeIdentity(loc2))   => loc1 === loc2
+        case (TypeParamAppGroupNodeIdentity, TypeParamAppGroupNodeIdentity)         => true
+        case _                                                                      => false
       }
   }
   
+  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], groupNodeIdent: Equal[GroupNodeIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
+    override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
+      (a1, a2) match {
+        case (GroupIdentity(funIdent1, argIdents1), GroupIdentity(funIdent2, argIdents2)) =>
+          funIdent1 === funIdent2 && argIdents1.toVector === argIdents2.toVector
+      }
+  }
+  
+  implicit val symbolGroupNodeIdentityEqual: Equal[GroupNodeIdentity[GlobalSymbol]] = groupNodeIdentityEqual[GlobalSymbol]
+
   implicit val symbolGroupIdentityEqual: Equal[GroupIdentity[GlobalSymbol]] = groupIdentityEqual[GlobalSymbol]
   
   implicit def symbolTypeInferenceEnvironmentState[T, U]: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] = new TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol] {

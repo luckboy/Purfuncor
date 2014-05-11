@@ -70,7 +70,7 @@ object InstanceGroupTable
 {
   def empty[T, U] = InstanceGroupTable[T, U](Map())
   
-  def fromInstanceGroups[T, U](instGroups: Map[GroupIdentity[T], InstanceGroup[T, U]]) = InstanceGroupTable(instGroups)
+  def fromInstanceGroups[T, U](instGroups: Seq[(GroupIdentity[T], InstanceGroup[T, U])]) = InstanceGroupTable(Map() ++ instGroups)
 }
 
 case class InstanceGroup[T, U](pairs: Seq[(InstanceType[T], U)])

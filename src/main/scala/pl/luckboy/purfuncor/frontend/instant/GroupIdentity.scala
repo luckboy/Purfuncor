@@ -7,18 +7,13 @@
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.instant
 
-sealed trait GroupIdentity[+T]
-{
-  def isTypeParamAppGroupIdentity =
-    this match {
-      case TypeParamAppGroupIdentity => true
-      case _                         => false
-    }
-}
-case object DefaultGroupIdentity extends GroupIdentity[Nothing]
-case class BuiltinTypeGroupIdentity[+T](bf: GroupTypeBuiltinFunction.Value, argIdents: Seq[GroupIdentity[T]]) extends GroupIdentity[T]
-case class GrouptypeGroupIdentity[+T](loc: T, argIdents: Seq[GroupIdentity[T]]) extends GroupIdentity[T]
-case object TypeParamAppGroupIdentity extends GroupIdentity[Nothing]
+case class GroupIdentity[+T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
+
+sealed trait GroupNodeIdentity[+T]
+case object DefaultGroupNodeIdentity extends GroupNodeIdentity[Nothing]
+case class BuiltinTypeGroupNodeIdentity[+T](bf: GroupTypeBuiltinFunction.Value) extends GroupNodeIdentity[T]
+case class GrouptypeGroupNodeIdentity[+T](loc: T) extends GroupNodeIdentity[T]
+case object TypeParamAppGroupNodeIdentity extends GroupNodeIdentity[Nothing]
 
 object GroupTypeBuiltinFunction extends Enumeration
 {

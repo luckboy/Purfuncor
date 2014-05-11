@@ -19,42 +19,42 @@ object BuiltinInstanceTree
 {
   def builtinInstanceTree[T, U] = InstanceTree.fromInstanceGroupTables[AbstractPolyFunction[T], U, GlobalInstance[T]](Map(
       // construct
-      ConstructFunction -> InstanceGroupTable.fromInstanceGroups[U, GlobalInstance[T]](Map(
+      ConstructFunction -> InstanceGroupTable.fromInstanceGroups[U, GlobalInstance[T]](Vector(
           // Byte
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Byte, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Byte), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType(zeroType & byteType, Seq())) -> ZeroIntegerConstructInstance(IntegerTypeFunction.Byte),
               GlobalInstanceType(InferredType(nonZeroType & byteType, Seq())) -> NonZeroIntegerConstructInstance(IntegerTypeFunction.Byte))),
           // Short
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Short, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Short), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType(zeroType & shortType, Seq())) -> ZeroIntegerConstructInstance(IntegerTypeFunction.Short),
               GlobalInstanceType(InferredType(nonZeroType & shortType, Seq())) -> NonZeroIntegerConstructInstance(IntegerTypeFunction.Short))),
           // Int
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Int, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Int), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType(zeroType & intType, Seq())) -> ZeroIntegerConstructInstance(IntegerTypeFunction.Int),
               GlobalInstanceType(InferredType(nonZeroType & intType, Seq())) -> NonZeroIntegerConstructInstance(IntegerTypeFunction.Int))),
           // Long
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Long, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Long), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType(zeroType & longType, Seq())) -> ZeroIntegerConstructInstance(IntegerTypeFunction.Long),
               GlobalInstanceType(InferredType(nonZeroType & longType, Seq())) -> NonZeroIntegerConstructInstance(IntegerTypeFunction.Long))),
           // Array
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Array, Vector(TypeParamAppGroupIdentity)) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Array), Vector(GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Array), Nil))) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType(emptyType & arrayType(typeParam(0, 0)), Seq(InferredKind(Star(KindType, NoPosition))))) -> EmptyArrayConstructInstance,
               GlobalInstanceType(InferredType(nonEmptyType & arrayType(typeParam(0, 0)), Seq(InferredKind(Star(KindType, NoPosition))))) -> NonEmptyArrayConstructInstance)))),
       // select
-      SelectFunction -> InstanceGroupTable.fromInstanceGroups[U, GlobalInstance[T]](Map(
+      SelectFunction -> InstanceGroupTable.fromInstanceGroups[U, GlobalInstance[T]](Vector(
           // Byte
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Byte, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Byte), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType((zeroType | nonZeroType) & byteType, Seq())) -> IntegerSelectInstance(IntegerTypeFunction.Byte))),
           // Short
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Short, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Byte), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType((zeroType | nonZeroType) & shortType, Seq())) -> IntegerSelectInstance(IntegerTypeFunction.Short))),
           // Int
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Int, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Byte), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType((zeroType | nonZeroType) & intType, Seq())) -> IntegerSelectInstance(IntegerTypeFunction.Int))),
           // Long
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Long, Nil) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Byte), Nil) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType((zeroType | nonZeroType) & longType, Seq())) -> IntegerSelectInstance(IntegerTypeFunction.Long))),
           // Array
-          BuiltinTypeGroupIdentity(GroupTypeBuiltinFunction.Array, Vector(TypeParamAppGroupIdentity)) -> InstanceGroup.fromTuples(Vector(
+          GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Array), Vector(GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Array), Nil))) -> InstanceGroup.fromTuples(Vector(
               GlobalInstanceType(InferredType((emptyType | nonEmptyType) & arrayType(typeParam(0, 0)), Seq(InferredKind(Star(KindType, NoPosition))))) -> ArraySelectInstance))))))
 }

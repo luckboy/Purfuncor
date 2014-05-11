@@ -486,16 +486,7 @@ object PolyFunInstantiator {
   private def groupIdentitiesFromTypeValueLambdasS[L, N, E](lambdas: Seq[TypeValueLambda[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
     lambdas.foldLeft((env, Vector[GroupIdentity[N]]().success[NoType[N]])) {
       case ((newEnv, Success(groupIdents)), lambda) =>
-        groupIdentityFromTypeValueTermS(lambda.body)(err)(newEnv).mapElements(identity, _.map { 
-          case DefaultGroupIdentity =>
-            groupIdents :+ DefaultGroupIdentity
-          case BuiltinTypeGroupIdentity(bf, argIdents) => 
-            groupIdents :+ BuiltinTypeGroupIdentity(bf, argIdents.reverse.dropWhile { _.isTypeParamAppGroupIdentity }.reverse)
-          case GrouptypeGroupIdentity(loc, argIdents) =>
-            groupIdents :+ GrouptypeGroupIdentity(loc, argIdents.reverse.dropWhile { _.isTypeParamAppGroupIdentity }.reverse)
-          case TypeParamAppGroupIdentity =>
-            groupIdents :+ TypeParamAppGroupIdentity
-        })
+        groupIdentityFromTypeValueTermS(lambda.body)(err)(newEnv).mapElements(identity, _.map { groupIdents :+ _ })
       case ((newEnv, Failure(noType)), _)           =>
         (newEnv, noType.failure)
     }
@@ -504,12 +495,12 @@ object PolyFunInstantiator {
     term match {
       case BuiltinType(bf, args) =>
         groupTypeBuiltinFunctions.get(bf).map {
-          gtbf => groupIdentitiesFromTypeValueTermsS(args)(err)(env).mapElements(identity, _.map { BuiltinTypeGroupIdentity(gtbf, _) })
-        }.getOrElse((env, DefaultGroupIdentity.success))
+          gtbf => groupIdentitiesFromTypeValueTermsS(args)(err)(env).mapElements(identity, _.map { GroupIdentity(BuiltinTypeGroupNodeIdentity(gtbf), _) })
+        }.getOrElse((env, GroupIdentity(DefaultGroupNodeIdentity, Nil).success))
       case Grouptype(loc, args, _) =>
-        groupIdentitiesFromTypeValueLambdasS(args)(err)(env).mapElements(identity, _.map { GrouptypeGroupIdentity(loc, _) })
+        groupIdentitiesFromTypeValueLambdasS(args)(err)(env).mapElements(identity, _.map { GroupIdentity(GrouptypeGroupNodeIdentity(loc), _) })
       case TypeParamApp(_, _, _) =>
-        (env, TypeParamAppGroupIdentity.success[NoType[N]])
+        (env, GroupIdentity(TypeParamAppGroupNodeIdentity, Nil).success[NoType[N]])
       case TypeConjunction(terms) =>
         val (env2, res) = groupIdentitiesFromTypeValueTermsS(terms.toVector)(err)(env)
         res.map {
@@ -539,7 +530,7 @@ object PolyFunInstantiator {
             }
         } (env)
       case _ =>
-        (env, DefaultGroupIdentity.success)
+        (env, GroupIdentity(DefaultGroupNodeIdentity, Nil).success)
     }
   
   def groupIdentityFromInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
