@@ -23,8 +23,8 @@ case class TreeInfo[+T, U, V](
     "//// instTree\n" +
     instTree.instGroupTables.flatMap {
       case (pf, igt) =>
-        igt.instGroups.values.flatMap {
-          _.pairs.map { case (t, i) => "// instance " + pf + " => " + i + " // " + t + "\n" }
+        igt.instGroups.flatMap {
+          _._2.pairs.map { case (t, i) => "// instance " + pf + " => " + i + " // " + t + "\n" }
         }
     }.mkString("\n") + "\n" +
     "//// instArgTable\n" +

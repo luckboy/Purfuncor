@@ -143,7 +143,7 @@ object PolyFunInstantiator {
 
   private def instanceArgsFromLocalInstanceTree[L, M](localInstTree: InstanceTree[AbstractPolyFunction[L], M, LocalInstance[L]]) = {
     val instArgs = localInstTree.instGroupTables.flatMap {
-      case (pf, igt) => igt.instGroups.values.flatMap { _.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) } }
+      case (pf, igt) => igt.instGroups.flatMap { _._2.pairs.map { case (t, LocalInstance(i)) => (i, InstanceArg(pf, t.typ)) } }
     }
     (0 until instArgs.size).foldLeft(some(Vector[InstanceArg[L, M]]())) {
       (optIas, i) => optIas.flatMap { ias => instArgs.get(i).map { ias :+ _ } }

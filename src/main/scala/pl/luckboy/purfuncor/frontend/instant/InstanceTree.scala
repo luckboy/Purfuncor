@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.instant
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
@@ -42,12 +43,65 @@ object InstanceTree
   def fromInstanceGroupTables[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]]) = InstanceTree[T, U, V](instGroupTables)
 }
 
-case class InstanceGroupTable[T, U](instGroups: Map[GroupIdentity[T], InstanceGroup[T, U]])
+case class InstanceGroupTable[T, U](instGroupNode: InstanceGroupNode[T, U])
 {
+  private def findInstGroupWithGroupNodeIdentsInInstGroupNode(instGroupNode: InstanceGroupNode[T, U], groupIdentPairs: List[(GroupNodeIdentity[T], Int)], isGlobalInstType: Boolean): Validation[NoType[T], Option[(InstanceGroup[T, U], List[GroupNodeIdentity[T]])]] =
+    groupIdentPairs match {
+      case (groupNodeIdent, n) :: groupIdentPairs2 =>
+        val optChildRes = instGroupNode match {
+          case InstanceGroupBranch(instGroupChilds) => instGroupChilds.get(groupNodeIdent).success
+          case InstanceGroupLeaf(_, _)              => NoType.fromError[T](FatalError("instance group leaf", none, NoPosition)).failure
+        }
+        optChildRes.map {
+          _.map { findInstGroupWithGroupNodeIdentsInInstGroupNode(_, groupIdentPairs2, isGlobalInstType).map { _.map { case (ig, gis) => (ig, groupNodeIdent :: gis) } } }.getOrElse {
+            if(isGlobalInstType) {
+              val optChildRes2 = instGroupNode match {
+                case InstanceGroupBranch(instGroupChilds) => instGroupChilds.get(TypeParamAppGroupNodeIdentity).success
+                case InstanceGroupLeaf(_, _)              => NoType.fromError[T](FatalError("instance group leaf", none, NoPosition)).failure
+              }
+              optChildRes2.map {
+                _.map { findInstGroupWithGroupNodeIdentsInInstGroupNode(_, groupIdentPairs2.drop(n), isGlobalInstType).map { _.map { case (ig, gis) => (ig, TypeParamAppGroupNodeIdentity :: gis) }} }.getOrElse(none.success)
+              }.valueOr { _.failure }
+            } else
+              none.success
+          }
+        }.valueOr { _.failure }
+      case Nil                                     =>
+        instGroupNode match {
+          case InstanceGroupBranch(_)          => NoType.fromError[T](FatalError("instance group branch", none, NoPosition)).failure
+          case InstanceGroupLeaf(_, instGroup) => some((instGroup, List[GroupNodeIdentity[T]]())).success
+        }
+    }
+  
+  private def findInstGroupWithGroupNodeIdents(groupIdent: GroupIdentity[T], isGlobalInstType: Boolean) =
+    findInstGroupWithGroupNodeIdentsInInstGroupNode(instGroupNode, groupIdent.groupIdentPairs.toList, isGlobalInstType)
+    
+  private def addInstGroupOntoInstGroupNode(instGroupNode: InstanceGroupNode[T, U], groupNodeIdents: List[GroupNodeIdentity[T]], instGroup: InstanceGroup[T, U]): Validation[NoType[T], InstanceGroupNode[T, U]] =
+    groupNodeIdents match {
+      case groupNodeIdent :: groupNodeIdents2 =>
+        instGroupNode match {
+          case InstanceGroupBranch(instGroupChilds) =>
+            val child = instGroupChilds.get(groupNodeIdent).getOrElse(InstanceGroupNode.empty)
+            addInstGroupOntoInstGroupNode(child, groupNodeIdents2, instGroup).map { ign => InstanceGroupBranch(instGroupChilds + (groupNodeIdent -> ign)) }
+          case InstanceGroupLeaf(_, _)              =>
+            NoType.fromError[T](FatalError("instance group leaf", none, NoPosition)).failure
+        }
+      case Nil                                =>
+        instGroupNode match {
+          case InstanceGroupBranch(_)           => NoType.fromError[T](FatalError("instance group branch", none, NoPosition)).failure
+          case InstanceGroupLeaf(groupIdent, _) => InstanceGroupLeaf(groupIdent, instGroup).success
+        }
+    }
+
+  private def addInstGroup(groupNodeIdents: List[GroupNodeIdentity[T]], instGroup: InstanceGroup[T, U]) =
+    addInstGroupOntoInstGroupNode(instGroupNode, groupNodeIdents, instGroup).map { InstanceGroupTable(_) }
+  
   def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]]) =  {
     val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
     res.map {
-      instGroups.get(_).map { _.findInstsS(typ)(env2) }.getOrElse((env2, Vector().success[NoType[T]]))
+      findInstGroupWithGroupNodeIdents(_, typ.isGlobalInstanceType).map {
+        _.map { _._1.findInstsS(typ)(env2) }.getOrElse((env2, Vector().success[NoType[T]]))
+      }.valueOr { nt => (env2, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
   }
   
@@ -55,23 +109,82 @@ case class InstanceGroupTable[T, U](instGroups: Map[GroupIdentity[T], InstanceGr
     val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
     res.map {
       groupIdent =>
-        instGroups.get(groupIdent).map { 
-          _.addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => (InstanceGroupTable(instGroups + (groupIdent -> ig)), b) } }) 
-        }.getOrElse((env2, none.success))
+        findInstGroupWithGroupNodeIdents(groupIdent, typ.isGlobalInstanceType).map {
+          _.map {
+            case (ig, gnis) =>
+              ig.addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(gnis, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
+          }.getOrElse {
+            InstanceGroup.empty[T, U].addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(groupIdent.groupNodeIdents.toList, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
+          }
+        }.valueOr { nt => (env2, nt.failure) }
     }.valueOr { nt => (env2, nt.failure) }
   }
   
-  def insts = instGroups.toSeq.flatMap { _._2.pairs.map { _._2 } }
+  def insts = instGroupNode.insts
   
-  def instCount = instGroups.values.foldLeft(0) { _ + _.instCount }
+  def instCount = instGroupNode.instCount
+  
+  def instGroups = instGroupNode.instGroups
 }
 
 object InstanceGroupTable
 {
-  def empty[T, U] = InstanceGroupTable[T, U](Map())
+  def empty[T, U] = InstanceGroupTable[T, U](InstanceGroupBranch(Map()))
   
-  def fromInstanceGroups[T, U](instGroups: Seq[(GroupIdentity[T], InstanceGroup[T, U])]) = InstanceGroupTable(Map() ++ instGroups)
+  def fromInstanceGroups[T, U](instGroups: Seq[(GroupIdentity[T], InstanceGroup[T, U])]) =
+    InstanceGroupTable(instGroups.foldLeft(InstanceGroupNode.empty[T, U]) {
+      case (ign, (gi, ig)) => ign |+| InstanceGroupNode.fromGroupIdentityAndInstanceGroup(gi, ig)
+    })
 }
+
+sealed trait InstanceGroupNode[T, U]
+{
+  def insts: Seq[U] =
+    this match {
+      case InstanceGroupLeaf(_, instGroup)      => instGroup.pairs.map { _._2 }
+      case InstanceGroupBranch(instGroupChilds) => instGroupChilds.flatMap { _._2.insts }.toSeq
+    }
+  
+  def instCount: Int =
+    this match {
+      case InstanceGroupLeaf(_, instGroup)      => instGroup.instCount
+      case InstanceGroupBranch(instGroupChilds) => instGroupChilds.values.foldLeft(0) { _ + _.instCount }
+    }
+  
+  def instGroups: Seq[(GroupIdentity[T], InstanceGroup[T, U])] =
+    this match {
+      case InstanceGroupLeaf(groupIdent, instGroup) => Seq(groupIdent -> instGroup)
+      case InstanceGroupBranch(instGroupChilds)     => instGroupChilds.values.flatMap { _.instGroups }.toSeq
+    }
+  
+  def mapInstGroups(f: ((GroupIdentity[T], InstanceGroup[T, U])) => (GroupIdentity[T], InstanceGroup[T, U])): InstanceGroupNode[T, U] =
+    this match {
+      case InstanceGroupLeaf(groupIdent, instGroup) =>
+        val (groupIdent2, instGroup2) = f(groupIdent, instGroup)
+        InstanceGroupLeaf(groupIdent2, instGroup2)
+      case InstanceGroupBranch(instGroupChilds)     =>
+        InstanceGroupBranch(instGroupChilds.mapValues { _.mapInstGroups(f) })
+    }
+}
+
+object InstanceGroupNode
+{
+  private def fromGroupNodeIdentitiesAndInstanceGroup[T, U](groupNodeIdents: List[GroupNodeIdentity[T]], groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]): InstanceGroupNode[T, U] =
+    groupNodeIdents match {
+      case groupNodeIdent :: groupNodeIdents2 =>
+        InstanceGroupBranch(Map(groupNodeIdent -> fromGroupNodeIdentitiesAndInstanceGroup(groupNodeIdents2, groupIdent, instGroup)))
+      case Nil                                =>
+        InstanceGroupLeaf(groupIdent, instGroup)
+    }
+  
+  def empty[T, U] = InstanceGroupBranch[T, U](Map()): InstanceGroupNode[T, U]
+  
+  def fromGroupIdentityAndInstanceGroup[T, U](groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]) =
+    fromGroupNodeIdentitiesAndInstanceGroup(groupIdent.groupNodeIdents.toList, groupIdent, instGroup)
+}
+
+case class InstanceGroupLeaf[T, U](groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]) extends InstanceGroupNode[T, U]
+case class InstanceGroupBranch[T, U](instGroupChilds: Map[GroupNodeIdentity[T], InstanceGroupNode[T, U]]) extends InstanceGroupNode[T, U]
 
 case class InstanceGroup[T, U](pairs: Seq[(InstanceType[T], U)])
 {
@@ -164,6 +277,8 @@ object InstanceGroup
 sealed trait InstanceType[T]
 {
   def typ: InferredType[T]
+  
+  def isGlobalInstanceType = isInstanceOf[GlobalInstanceType[T]]
   
   override def toString =
     this match {

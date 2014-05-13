@@ -374,7 +374,7 @@ package object instant
     override def withCurrentCombinatorLocation(env: SymbolInstantiationEnvironment[T, U])(loc: Option[GlobalSymbol]) = env.withCurrentCombSym(loc)
     
     override def treeGlobalInstanceTreeFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) =
-      InstanceTree.fromInstanceGroupTables(env.globalInstTree.instGroupTables.map { case (pf, igt) => (pf, InstanceGroupTable(igt.instGroups.map { case (gi, ig) => (gi, env.firstGlobalInstCounts.getOrElse(pf, Map()).get(gi).map { ig.withoutFirstInsts(_) }.getOrElse(ig)) })) })
+      InstanceTree.fromInstanceGroupTables(env.globalInstTree.instGroupTables.map { case (pf, igt) => (pf, InstanceGroupTable(igt.instGroupNode.mapInstGroups { case (gi, ig) => (gi, env.firstGlobalInstCounts.getOrElse(pf, Map()).get(gi).map { ig.withoutFirstInsts(_) }.getOrElse(ig)) })) })
     
     override def instanceArgTableFromFromEnvironment(env: SymbolInstantiationEnvironment[T, U]) = InstanceArgTable(env.instArgs)
   }
@@ -384,13 +384,27 @@ package object instant
       InstanceGroup[T, U](f1.pairs ++ f2.pairs)
   }
   
+  implicit def instanceGroupNodeSemiGroup[T, U]: Semigroup[InstanceGroupNode[T, U]] = new Semigroup[InstanceGroupNode[T, U]] {
+    override def append(f1: InstanceGroupNode[T, U], f2: => InstanceGroupNode[T, U]) =
+      (f1, f2) match {
+        case (InstanceGroupLeaf(groupIdent1, instGroup1), InstanceGroupLeaf(groupIdent2, instGroup2)) =>
+          InstanceGroupLeaf(groupIdent2, instGroup1 |+| instGroup2)
+        case (InstanceGroupBranch(instGroupChilds1), InstanceGroupBranch(instGroupChilds2))           =>
+          InstanceGroupBranch(instGroupChilds1 |+| instGroupChilds2)
+        case (_, InstanceGroupLeaf(groupIdent, instGroup))                                            =>
+          InstanceGroupLeaf(groupIdent, instGroup)
+        case (_, InstanceGroupBranch(instGroupChilds))                                                =>
+          InstanceGroupBranch(instGroupChilds)
+      } 
+  }
+  
   implicit def instanceGroupTableSemigroup[T, U]: Semigroup[InstanceGroupTable[T, U]] = new Semigroup[InstanceGroupTable[T, U]] {
     override def append(f1: InstanceGroupTable[T, U], f2: => InstanceGroupTable[T, U]) =
-      InstanceGroupTable[T, U](f1.instGroups |+| f2.instGroups)
+      InstanceGroupTable[T, U](f1.instGroupNode |+| f2.instGroupNode)
   }
   
   implicit def instanceTreeSemigroup[T, U, V]: Semigroup[InstanceTree[T, U, V]] = new Semigroup[InstanceTree[T, U, V]] {
     override def append(f1: InstanceTree[T, U, V], f2: => InstanceTree[T, U, V]) =
       InstanceTree.fromInstanceGroupTables(f1.instGroupTables |+| f2.instGroupTables)
-  }  
+  }
 }

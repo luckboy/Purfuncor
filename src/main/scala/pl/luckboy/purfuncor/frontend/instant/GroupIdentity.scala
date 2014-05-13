@@ -8,6 +8,16 @@
 package pl.luckboy.purfuncor.frontend.instant
 
 case class GroupIdentity[+T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
+{
+  def groupIdentPairs: Vector[(GroupNodeIdentity[T], Int)] =
+    this match {
+      case GroupIdentity(funIdent, argIdents) =>
+        val pairs = argIdents.flatMap { _.groupIdentPairs }.toVector
+        ((funIdent, pairs.size)) +: pairs
+    }
+  
+  def groupNodeIdents = groupIdentPairs.map { _._1 }
+}
 
 sealed trait GroupNodeIdentity[+T]
 case object DefaultGroupNodeIdentity extends GroupNodeIdentity[Nothing]
