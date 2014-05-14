@@ -33,4 +33,6 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def incorrectConstructTypeNoTypeS(env: E): (E, NoType[M])
   
   def incorrectInstanceTypeNoTypeS(env: E): (E, NoType[M])
+  
+  def setCurrentDefinedType(definedType: Option[DefinedType[M]])(env: E): (E, Unit)
 }

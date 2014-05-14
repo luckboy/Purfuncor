@@ -53,7 +53,7 @@ package object instant
       }
   }
   
-  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], groupNodeIdent: Equal[GroupNodeIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
+  def groupIdentityEqual[T](implicit groupIdent: Equal[GroupIdentity[T]], groupNodeIdentEqual: Equal[GroupNodeIdentity[T]], locEqual: Equal[T]): Equal[GroupIdentity[T]] = new Equal[GroupIdentity[T]] {
     override def equal(a1: GroupIdentity[T], a2: GroupIdentity[T]) =
       (a1, a2) match {
         case (GroupIdentity(funIdent1, argIdents1), GroupIdentity(funIdent2, argIdents2)) =>
@@ -94,6 +94,9 @@ package object instant
   
     override def incorrectInstanceTypeNoTypeS(env: SymbolTypeInferenceEnvironment[T, U]) =
       (env, NoType.fromError[GlobalSymbol](Error("incorrect instance type " + env.currentDefinedType.map { _.toString }.getOrElse("<unknown type>"), none, NoPosition)))
+      
+    override def setCurrentDefinedType(definedType: Option[DefinedType[GlobalSymbol]])(env: SymbolTypeInferenceEnvironment[T, U]) =
+      (env.withCurrentDefinedType(definedType), ())
   }
   
   implicit def symbolPolyFunInstantiator[T, U](implicit envSt: TypeInferenceEnvironmentState[SymbolTypeInferenceEnvironment[T, U], GlobalSymbol, GlobalSymbol]): PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] = new PolyFunInstantiator[GlobalSymbol, Symbol, GlobalSymbol, TypeLambdaInfo[U, LocalSymbol], SymbolInstantiationEnvironment[T, U]] {

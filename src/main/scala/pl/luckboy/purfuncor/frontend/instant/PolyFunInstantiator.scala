@@ -282,7 +282,7 @@ object PolyFunInstantiator {
         (env, lambdaInfo.polyFunType.map { pft => Seq(InstanceArg(polyFun, pft)).success }.getOrElse(NoType.fromError[N](FatalError("no polymorphic function type", none, NoPosition)).failure))
     }.getOrElse((env, Seq().success))
   
-  def instantiatePolyFunctionS[L, N, E](lambdaInfo: PreinstantiationLambdaInfo[L, N], instArgs: Seq[InstanceArg[L, N]], globalInstTree: InstanceTree[AbstractPolyFunction[L], N, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+  def instantiatePolyFunctionS[L, N, E](lambdaInfo: PreinstantiationLambdaInfo[L, N], instArgs: Seq[InstanceArg[L, N]], globalInstTree: InstanceTree[AbstractPolyFunction[L], N, GlobalInstance[L]])(localInstTree: Option[InstanceTree[AbstractPolyFunction[L], N, LocalInstance[L]]])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]) =
     envSt2.withInstanceTypeClearingS {
       newEnv =>
         val (newEnv2, newRes) = instanceArgsFromPreinstantiationLambdaInfoS(lambdaInfo, instArgs)(newEnv)
@@ -475,7 +475,7 @@ object PolyFunInstantiator {
       TypeBuiltinFunction.Array -> GroupTypeBuiltinFunction.Array,
       TypeBuiltinFunction.Fun -> GroupTypeBuiltinFunction.Fun)
   
-  private def groupIdentitiesFromTypeValueTermsS[L, N, E](terms: Seq[TypeValueTerm[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+  private def groupIdentitiesFromTypeValueTermsS[L, N, E](terms: Seq[TypeValueTerm[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]) =
     terms.foldLeft((env, Vector[GroupIdentity[N]]().success[NoType[N]])) {
       case ((newEnv, Success(groupIdents)), term) =>
         groupIdentityFromTypeValueTermS(term)(err)(newEnv).mapElements(identity, _.map { groupIdents :+ _ })
@@ -483,7 +483,7 @@ object PolyFunInstantiator {
         (newEnv, noType.failure)
     }
   
-  private def groupIdentitiesFromTypeValueLambdasS[L, N, E](lambdas: Seq[TypeValueLambda[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+  private def groupIdentitiesFromTypeValueLambdasS[L, N, E](lambdas: Seq[TypeValueLambda[N]])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]) =
     lambdas.foldLeft((env, Vector[GroupIdentity[N]]().success[NoType[N]])) {
       case ((newEnv, Success(groupIdents)), lambda) =>
         groupIdentityFromTypeValueTermS(lambda.body)(err)(newEnv).mapElements(identity, _.map { groupIdents :+ _ })
@@ -491,7 +491,7 @@ object PolyFunInstantiator {
         (newEnv, noType.failure)
     }
   
-  private def groupIdentityFromTypeValueTermS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]): (E, Validation[NoType[N], GroupIdentity[N]]) =
+  private def groupIdentityFromTypeValueTermS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]): (E, Validation[NoType[N], GroupIdentity[N]]) =
     term match {
       case BuiltinType(bf, args) =>
         groupTypeBuiltinFunctions.get(bf).map {
@@ -507,7 +507,9 @@ object PolyFunInstantiator {
           groupIdents =>
             groupIdents.headOption.map {
               groupIdent =>
-                if(groupIdents.tail.forall { _ === groupIdent }) (env2, groupIdent.success) else err(env2).mapElements(identity, _.failure)
+                groupIdents.foldLeft(some(groupIdent)) {
+                  (optGroupIdent, groupIdent2) => optGroupIdent.flatMap { _.unify(groupIdent2) }
+                }.map { gi => (env2, gi.success) }.getOrElse(err(env2).mapElements(identity, _.failure))
             }.getOrElse((env2, NoType.fromError[N](FatalError("no group identities", none, NoPosition)).failure))
         }.valueOr { nt => (env2, nt.failure) }
       case TypeDisjunction(terms) =>
@@ -533,10 +535,10 @@ object PolyFunInstantiator {
         (env, GroupIdentity(DefaultGroupNodeIdentity, Nil).success)
     }
   
-  def groupIdentityFromInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) =
+  def groupIdentityFromInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]) =
     groupIdentityFromTypeValueTermS(typ.typeValueTerm)(envSt2.incorrectInstanceTypeNoTypeS)(env)
     
-  def groupIdentityFromInferredTypeS[L, N, E](typ: InferredType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]]) = {
+  def groupIdentityFromInferredTypeS[L, N, E](typ: InferredType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N], groupIdentEqual: Equal[GroupIdentity[N]], groupNodeIdentEqual: Equal[GroupNodeIdentity[N]]) = {
     typ.uninstantiatedTypeS(env) match {
       case (env2, inferringType @ InferringType(_)) =>
         groupIdentityFromInferringTypeS(inferringType)(env2)

@@ -438,14 +438,15 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
             case List(tLoc, uLoc) =>
               treeInfo.instTree.instCount should be ===(6)
               // i 
-              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("i"))).flatMap { l => treeInfo.instTree.instTables.get(PolyFunction(l)) }) {
-                case Some(instTable) =>
-                  instTable.pairs should have size(2)
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("i"))).flatMap { l => treeInfo.instTree.instGroupTables.get(PolyFunction(l)) }) {
+                case Some(instGroupTable) =>
+                  val instGroup = instGroupTable.instGroups.head._2
+                  instGroup.pairs should have size(2)
                   inside(for {
-                    x1 <- instTable.pairs.collectFirst { 
+                    x1 <- instGroup.pairs.collectFirst { 
                       case (GlobalInstanceType(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), BuiltinType(TypeBuiltinFunction.Char, Seq()))), Seq())), inst1) => inst1
                     }
-                    x2 <- instTable.pairs.collectFirst { 
+                    x2 <- instGroup.pairs.collectFirst { 
                       case (GlobalInstanceType(InferredType(TupleType(Seq(BuiltinType(TypeBuiltinFunction.Boolean, Seq()), BuiltinType(TypeBuiltinFunction.Double, Seq()))), Seq())), inst2) => inst2
                     }
                   } yield (x1, x2)) {
@@ -461,11 +462,12 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                   }
               }
               // j
-              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("j"))).flatMap { l => treeInfo.instTree.instTables.get(PolyFunction(l)) }) {
-                case Some(instTable) =>
-                  instTable.pairs should have size(1)
+              inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("j"))).flatMap { l => treeInfo.instTree.instGroupTables.get(PolyFunction(l)) }) {
+                case Some(instGroupTable) =>
+                  val instGroup = instGroupTable.instGroups.head._2
+                  instGroup.pairs should have size(1)
                   inside(for {
-                    x1 <- instTable.pairs.collectFirst { 
+                    x1 <- instGroup.pairs.collectFirst { 
                       case (GlobalInstanceType(InferredType(BuiltinType(TypeBuiltinFunction.Char, Seq()), Seq())), inst1) => inst1
                     }
                   } yield x1) {
@@ -477,11 +479,12 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                   }
               }
               // select
-              inside(treeInfo.instTree.instTables.get(SelectFunction)) {
-                case Some(instTable) =>
-                  instTable.pairs should have size(1)
+              inside(treeInfo.instTree.instGroupTables.get(SelectFunction)) {
+                case Some(instGroupTable) =>
+                  val instGroup = instGroupTable.instGroups.head._2
+                  instGroup.pairs should have size(1)
                   inside(for {
-                    x1 <- instTable.pairs.collectFirst { case (GlobalInstanceType(type1), inst1) => (type1, inst1) }
+                    x1 <- instGroup.pairs.collectFirst { case (GlobalInstanceType(type1), inst1) => (type1, inst1) }
                   } yield (x1)) {
                     case Some((type1, inst1)) =>
                       inside(type1) {
@@ -534,14 +537,15 @@ instance select \t1 t2 => ##| (##& (T t1 t2) (tuple 2 t1 t2)) (##& U tuple 0) co
                   }
               }
               // construct
-              inside(treeInfo.instTree.instTables.get(ConstructFunction)) {
-                case Some(instTable) =>
-                  instTable.pairs should have size(2)
+              inside(treeInfo.instTree.instGroupTables.get(ConstructFunction)) {
+                case Some(instGroupTable) =>
+                  val instGroup = instGroupTable.instGroups.head._2
+                  instGroup.pairs should have size(2)
                   inside(for {
-                    x1 <- instTable.pairs.collectFirst { 
+                    x1 <- instGroup.pairs.collectFirst { 
                       case (GlobalInstanceType(type1 @ InferredType(TypeConjunction(types11), _)), inst1) if types11.size == 2 && types11.collectFirst { case TupleType(Seq(_, _)) => () }.size == 1 => (type1, inst1)
                     }
-                    x2 <- instTable.pairs.collectFirst { 
+                    x2 <- instGroup.pairs.collectFirst { 
                       case (GlobalInstanceType(type2 @ InferredType(TypeConjunction(types21), _)), inst2) if types21.size == 2 && types21.collectFirst { case TupleType(Seq()) => () }.size == 1 => (type2, inst2)
                     }
                   } yield (x1, x2)) {
@@ -1209,11 +1213,13 @@ j = 'a'
                       selectConstructInsts2 should be ('empty)
                       treeInfo2.instTree.instCount should be ===(1)
                       // g
-                      inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap { l => treeInfo2.instTree.instTables.get(PolyFunction(l)) }) {
-                        case Some(instTable) =>
-                          instTable.pairs should have size(1)
+                      inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap { l => treeInfo2.instTree.instGroupTables.get(PolyFunction(l)) }) {
+                        case Some(instGroupTable) =>
+                          //val instGroup = instGroupTable.instGroups.head._2
+                          val instGroup = instGroupTable.instGroups.find { _._1 == GroupIdentity(BuiltinTypeGroupNodeIdentity(GroupTypeBuiltinFunction.Char), Seq()) }.get._2
+                          instGroup.pairs should have size(1)
                           inside(for { 
-                            x1 <- instTable.pairs.collectFirst { case (GlobalInstanceType(type1), inst1) => (type1, inst1) }
+                            x1 <- instGroup.pairs.collectFirst { case (GlobalInstanceType(type1), inst1) => (type1, inst1) }
                           } yield x1) {
                             case Some((type1, inst1)) =>
                               inside(type1) {

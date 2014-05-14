@@ -23,10 +23,10 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 
 case class InstanceTree[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]])
 {
-  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]]) =
+  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]], groupNodeIdentEqual: Equal[GroupNodeIdentity[U]]) =
     instGroupTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
   
-  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]]) = {
+  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]], groupNodeIdentEqual: Equal[GroupNodeIdentity[U]]) = {
     val (env2, res) = instGroupTables.getOrElse(loc, InstanceGroupTable.empty[U, V]).addInstS(typ, inst)(env)
     (env2, res.map { _.map { case (igt, b) => (InstanceTree(instGroupTables + (loc -> igt)), b) } })
   }
@@ -76,13 +76,15 @@ case class InstanceGroupTable[T, U](instGroupNode: InstanceGroupNode[T, U])
   private def findInstGroupWithGroupNodeIdents(groupIdent: GroupIdentity[T], isGlobalInstType: Boolean) =
     findInstGroupWithGroupNodeIdentsInInstGroupNode(instGroupNode, groupIdent.groupIdentPairs.toList, isGlobalInstType)
     
-  private def addInstGroupOntoInstGroupNode(instGroupNode: InstanceGroupNode[T, U], groupNodeIdents: List[GroupNodeIdentity[T]], instGroup: InstanceGroup[T, U]): Validation[NoType[T], InstanceGroupNode[T, U]] =
+  private def addInstGroupOntoInstGroupNode(instGroupNode: InstanceGroupNode[T, U], groupNodeIdents: List[GroupNodeIdentity[T]], groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]): Validation[NoType[T], InstanceGroupNode[T, U]] =
     groupNodeIdents match {
       case groupNodeIdent :: groupNodeIdents2 =>
         instGroupNode match {
           case InstanceGroupBranch(instGroupChilds) =>
-            val child = instGroupChilds.get(groupNodeIdent).getOrElse(InstanceGroupNode.empty)
-            addInstGroupOntoInstGroupNode(child, groupNodeIdents2, instGroup).map { ign => InstanceGroupBranch(instGroupChilds + (groupNodeIdent -> ign)) }
+            val child = instGroupChilds.get(groupNodeIdent).getOrElse {
+              if(groupNodeIdents2.isEmpty) InstanceGroupLeaf[T, U](groupIdent, InstanceGroup.empty) else InstanceGroupNode.empty[T, U]
+            }
+            addInstGroupOntoInstGroupNode(child, groupNodeIdents2, groupIdent, instGroup).map { ign => InstanceGroupBranch(instGroupChilds + (groupNodeIdent -> ign)) }
           case InstanceGroupLeaf(_, _)              =>
             NoType.fromError[T](FatalError("instance group leaf", none, NoPosition)).failure
         }
@@ -93,32 +95,52 @@ case class InstanceGroupTable[T, U](instGroupNode: InstanceGroupNode[T, U])
         }
     }
 
-  private def addInstGroup(groupNodeIdents: List[GroupNodeIdentity[T]], instGroup: InstanceGroup[T, U]) =
-    addInstGroupOntoInstGroupNode(instGroupNode, groupNodeIdents, instGroup).map { InstanceGroupTable(_) }
+  private def addInstGroup(groupNodeIdents: List[GroupNodeIdentity[T]], groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]) =
+    addInstGroupOntoInstGroupNode(instGroupNode, groupNodeIdents, groupIdent, instGroup).map { InstanceGroupTable(_) }
   
-  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]]) =  {
-    val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
-    res.map {
-      findInstGroupWithGroupNodeIdents(_, typ.isGlobalInstanceType).map {
-        _.map { _._1.findInstsS(typ)(env2) }.getOrElse((env2, Vector().success[NoType[T]]))
-      }.valueOr { nt => (env2, nt.failure) }
-    }.valueOr { nt => (env2, nt.failure) }
-  }
+  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]], groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]) =
+    envSt.withClearS {
+      newEnv =>
+        typ.typ.uninstantiatedTypeS(newEnv) match {
+          case (newEnv2, inferringType @ InferringType(_)) =>
+            val (newEnv3, _) = envSt2.setCurrentDefinedType(some(DefinedType.fromInferringType(inferringType)))(newEnv2)
+            val (newEnv4, res) = PolyFunInstantiator.groupIdentityFromInferringTypeS(inferringType)(newEnv3)
+            res.map {
+              findInstGroupWithGroupNodeIdents(_, typ.isGlobalInstanceType).map {
+                _.map { _._1.findInstsS(typ)(newEnv4) }.getOrElse((newEnv4, Vector().success[NoType[T]]))
+              }.valueOr { nt => (newEnv4, nt.failure) }
+            }.valueOr { nt => (newEnv4, nt.failure) }
+          case (newEnv2, noType: NoType[T])                =>
+            (newEnv2, noType.failure)
+          case (newEnv2, _)                                =>
+            (newEnv2, NoType.fromError[T](FatalError("inferred type or uninferred type", none, NoPosition)).failure)
+        }
+    } (env)
   
-  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]]) = {
-    val (env2, res) = PolyFunInstantiator.groupIdentityFromInferredTypeS(typ.typ)(env)
-    res.map {
-      groupIdent =>
-        findInstGroupWithGroupNodeIdents(groupIdent, typ.isGlobalInstanceType).map {
-          _.map {
-            case (ig, gnis) =>
-              ig.addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(gnis, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
-          }.getOrElse {
-            InstanceGroup.empty[T, U].addInstS(typ, inst)(env2).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(groupIdent.groupNodeIdents.toList, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
-          }
-        }.valueOr { nt => (env2, nt.failure) }
-    }.valueOr { nt => (env2, nt.failure) }
-  }
+  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]], groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]) =
+    envSt.withClearS {
+      newEnv =>
+        typ.typ.uninstantiatedTypeS(newEnv) match {
+          case (newEnv2, inferringType @ InferringType(_)) =>
+            val (newEnv3, _) = envSt2.setCurrentDefinedType(some(DefinedType.fromInferringType(inferringType)))(newEnv2)
+            val (newEnv4, res) = PolyFunInstantiator.groupIdentityFromInferringTypeS(inferringType)(newEnv3)
+            res.map {
+              groupIdent =>
+                findInstGroupWithGroupNodeIdents(groupIdent, typ.isGlobalInstanceType).map {
+                  _.map {
+                    case (ig, gnis) =>
+                      ig.addInstS(typ, inst)(newEnv4).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(gnis, groupIdent, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
+                }.getOrElse {
+                  InstanceGroup.empty[T, U].addInstS(typ, inst)(newEnv4).mapElements(identity, _.map { _.map { case (ig, b) => addInstGroup(groupIdent.groupNodeIdents.toList, groupIdent, ig).map { igt => some((igt, b)) } }.getOrElse(none.success) }.valueOr { _.failure })
+                }
+              }.valueOr { nt => (newEnv4, nt.failure) }
+            }.valueOr { nt => (newEnv4, nt.failure) }
+          case (newEnv2, noType: NoType[T])                =>
+            (newEnv2, noType.failure)
+          case (newEnv2, _)                                =>
+            (newEnv2, NoType.fromError[T](FatalError("inferred type or uninferred type", none, NoPosition)).failure)
+        }
+    } (env)
   
   def insts = instGroupNode.insts
   

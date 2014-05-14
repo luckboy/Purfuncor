@@ -6,9 +6,32 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.instant
+import scalaz._
+import scalaz.Scalaz._
 
-case class GroupIdentity[+T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
+case class GroupIdentity[T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
 {
+  def unify(groupIdent: GroupIdentity[T])(implicit groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]): Option[GroupIdentity[T]] =
+    (this, groupIdent) match {
+      case (GroupIdentity(funIdent1, argIdents1), GroupIdentity(funIdent2, argIdents2))  =>
+        if(funIdent1 === funIdent2 && argIdents1.size === argIdents2.size)
+          argIdents1.zip(argIdents2).foldLeft(some(Vector[GroupIdentity[T]]())) {
+            case (Some(newArgIdents), (argIdent1, argIdent2)) =>
+              argIdent1.unify(argIdent2).map { newArgIdents :+ _ }
+            case (None, _)                                    =>
+              none
+          }.map { GroupIdentity(funIdent1, _) }
+        else
+          (funIdent1, funIdent2) match {
+            case (BuiltinTypeGroupNodeIdentity(_) | GrouptypeGroupNodeIdentity(_) | TypeParamAppGroupNodeIdentity, DefaultGroupNodeIdentity) =>
+              some(this)
+            case (DefaultGroupNodeIdentity, BuiltinTypeGroupNodeIdentity(_) | GrouptypeGroupNodeIdentity(_) | TypeParamAppGroupNodeIdentity) =>
+              groupIdent.unify(this)
+            case _ =>
+              none
+          }
+    }
+  
   def groupIdentPairs: Vector[(GroupNodeIdentity[T], Int)] =
     this match {
       case GroupIdentity(funIdent, argIdents) =>
