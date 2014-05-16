@@ -146,7 +146,7 @@ f x = construct 1 x: \t => TID (T t) #& (tuple 1 t)
       }
     }
 
-    it should "infer the global type with the zero tuple tuple and the unit types" in {
+    it should "infer the global type with the zero tuple type and the unit types" in {
       val s = """
 unittype 0 T
 unittype 0 U
