@@ -23,10 +23,10 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 
 case class InstanceTree[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]])
 {
-  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]], groupNodeIdentEqual: Equal[GroupNodeIdentity[U]]) =
+  def findInstsS[W, E](loc: T, typ: InstanceType[U])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U]) =
     instGroupTables.get(loc).map { _.findInstsS(typ)(env) }.getOrElse((env, Seq().success))
   
-  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U], groupIdentEqual: Equal[GroupIdentity[U]], groupNodeIdentEqual: Equal[GroupNodeIdentity[U]]) = {
+  def addInstS[W, E](loc: T, typ: InstanceType[U], inst: V)(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, W, U], envSt2: TypeInferenceEnvironmentState[E, W, U]) = {
     val (env2, res) = instGroupTables.getOrElse(loc, InstanceGroupTable.empty[U, V]).addInstS(typ, inst)(env)
     (env2, res.map { _.map { case (igt, b) => (InstanceTree(instGroupTables + (loc -> igt)), b) } })
   }
@@ -98,7 +98,7 @@ case class InstanceGroupTable[T, U](instGroupNode: InstanceGroupNode[T, U])
   private def addInstGroup(groupNodeIdents: List[GroupNodeIdentity[T]], groupIdent: GroupIdentity[T], instGroup: InstanceGroup[T, U]) =
     addInstGroupOntoInstGroupNode(instGroupNode, groupNodeIdents, groupIdent, instGroup).map { InstanceGroupTable(_) }
   
-  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]], groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]) =
+  def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt.withClearS {
       newEnv =>
         typ.typ.uninstantiatedTypeS(newEnv) match {
@@ -117,7 +117,7 @@ case class InstanceGroupTable[T, U](instGroupNode: InstanceGroupNode[T, U])
         }
     } (env)
   
-  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T], groupIdentEqual: Equal[GroupIdentity[T]], groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]) =
+  def addInstS[V, E](typ: InstanceType[T], inst: U)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     envSt.withClearS {
       newEnv =>
         typ.typ.uninstantiatedTypeS(newEnv) match {

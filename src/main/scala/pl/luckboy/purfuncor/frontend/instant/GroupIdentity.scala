@@ -11,7 +11,7 @@ import scalaz.Scalaz._
 
 case class GroupIdentity[T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
 {
-  def unify(groupIdent: GroupIdentity[T])(implicit groupNodeIdentEqual: Equal[GroupNodeIdentity[T]]): Option[GroupIdentity[T]] =
+  def unify(groupIdent: GroupIdentity[T]): Option[GroupIdentity[T]] =
     (this, groupIdent) match {
       case (GroupIdentity(funIdent1, argIdents1), GroupIdentity(funIdent2, argIdents2))  =>
         if(funIdent1 === funIdent2 && argIdents1.size === argIdents2.size)
