@@ -1486,8 +1486,8 @@ type Y t1 = ##& (U t1) (W t1)
 type Z t1 = ##& (X t1) (tuple 1 t1)
 type TT t1 = ##& (Y t1) (tuple 1 (##& (T #Float) (tuple 1 #Float)))
 f = construct 1 0.1: Z #Double
-g = construct 1 (construct 1 0.2f: Z #Float): \t1 => TT t1
-h x = construct 1 x: (\t1 => Z t1)
+g = (construct 1: \t1 => ##-> (##& (T #Float) (tuple 1 #Float)) (TT t1)) (construct 1 0.2f: ##& (T #Float) (tuple 1 #Float))
+h x = (construct 1: \t1 => ##-> t1 (Z t1)) x
 """)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
       inside(res) {
         case Success(Tree(combs, treeInfo)) =>
@@ -1733,7 +1733,7 @@ h x = construct 1 x: (\t1 => Z t1)
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("g"))).flatMap(combs.get)) {
             case Some(Combinator(None, Nil, body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
               inside(body) {
-                case Simple(TypedTerm(App(Simple(Construct(1, LambdaInfo(_, 1, _, insts1)), _), args1, _), _), _) =>
+                case App(Simple(TypedTerm(Simple(Construct(1, LambdaInfo(_, 1, _, insts1)), _), _), _), args1, _) =>
                   inside(args1) {
                     case NonEmptyList(arg11) =>
                       inside(arg11) {
@@ -1751,7 +1751,7 @@ h x = construct 1 x: (\t1 => Z t1)
           inside(globalSymTabular.getGlobalLocationFromTable(treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("h"))).flatMap(combs.get)) {
             case Some(Combinator(None, List(_), body, LambdaInfo(lambdaInfo, 0, typeTable, Seq()), _)) =>
               inside(body) {
-                case Simple(TypedTerm(App(Simple(Construct(1, LambdaInfo(_, 1, _, insts1)), _), _, _), _), _) =>
+                case App(Simple(TypedTerm(Simple(Construct(1, LambdaInfo(_, 1, _, insts1)), _), _), _), _, _) =>
                   inside(insts1) { case Seq(ConstructInstance(0, _, _)) => () }
               }
           }
