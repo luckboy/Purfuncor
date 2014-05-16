@@ -141,8 +141,10 @@ object LambdaIndexer
     val combs2 = tree.combs.mapValues {
       case TypeCombinator(kind, args, body, lambdaInfo, file) =>
         TypeCombinator(kind, args, transformTypeTermFromIndex(body).run(1)._2, TypeLambdaInfo(lambdaInfo, 0), file): AbstractTypeCombinator[U, TypeLambdaInfo[V]]
-      case UnittypeCombinator(n, kind, file)         =>
+      case UnittypeCombinator(n, kind, file)                  =>
         UnittypeCombinator(n, kind, file): AbstractTypeCombinator[U, TypeLambdaInfo[V]]
+      case GrouptypeCombinator(n, kind, file)                 =>
+        GrouptypeCombinator(n, kind, file): AbstractTypeCombinator[U, TypeLambdaInfo[V]]
     }
     Tree(combs = combs2, treeInfo = tree.treeInfo).successNel[AbstractError]
   }

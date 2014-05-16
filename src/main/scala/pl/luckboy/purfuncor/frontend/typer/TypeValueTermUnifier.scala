@@ -1071,6 +1071,8 @@ object TypeValueTermUnifier
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { BuiltinType(bf, _) })
       case Unittype(loc, args, sym) =>
         replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { Unittype(loc, _, sym) })
+      case Grouptype(loc, args, sym) =>
+        replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { Grouptype(loc, _, sym) })
       case GlobalTypeApp(loc, args, sym) =>
         replaceTypeParamsFromTypeValueLambdasS(args)(f)(env).mapElements(identity, _.map { GlobalTypeApp(loc, _, sym) })
       case TypeParamApp(param, args, paramAppIdx) =>
@@ -1186,6 +1188,9 @@ object TypeValueTermUnifier
       case Unittype(loc, args, sym) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, Unittype(loc, _, sym)) })
+      case Grouptype(loc, args, sym) =>
+        val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)
+        (env2, res.map { _.mapElements(identity, identity, identity, Grouptype(loc, _, sym)) })
       case GlobalTypeApp(loc, args, sym) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, GlobalTypeApp(loc, _, sym)) })
@@ -1316,8 +1321,8 @@ object TypeValueTermUnifier
                 checkTypeParamsFromTypeValueTermsS(Seq(term2))(env3)
               case BuiltinType(_, args) =>
                 checkTypeParamsFromTypeValueTermsS(args)(env3)
-              case Unittype(_, args, _) =>
-                checkTypeParamsFromTypeValueLambdasS(args)(env3)
+              case globalType: GlobalType[T] =>
+                checkTypeParamsFromTypeValueLambdasS(globalType.args)(env3)
               case GlobalTypeApp(_, args, _) =>
                 checkTypeParamsFromTypeValueLambdasS(args)(env3)
               case TypeParamApp(param, args, _) =>

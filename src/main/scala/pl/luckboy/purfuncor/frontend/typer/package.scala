@@ -104,6 +104,8 @@ package object typer
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case TypeCombinatorValue(comb: UnittypeCombinator[Symbol, T], loc, sym) =>
           TypeValue.fullyAppForUnittypeCombinatorS(comb, loc, sym, argValues)(env)
+        case TypeCombinatorValue(comb: GrouptypeCombinator[Symbol, T], loc, sym) =>
+          TypeValue.fullyAppForGrouptypeCombinatorS(comb, loc, sym, argValues)(env)
         case TypeLambdaValue(lambda, closure, combLoc, file) =>
           if(lambda.args.size === argValues.size) {
             val localTypeVarValues = lambda.args.list.zip(argValues).flatMap {

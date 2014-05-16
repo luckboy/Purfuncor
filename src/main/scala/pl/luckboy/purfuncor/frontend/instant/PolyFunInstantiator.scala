@@ -23,6 +23,7 @@ import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.BuiltinType
 import pl.luckboy.purfuncor.frontend.typer.TupleType
+import pl.luckboy.purfuncor.frontend.typer.GlobalType
 import pl.luckboy.purfuncor.frontend.typer.Unittype
 import pl.luckboy.purfuncor.frontend.typer.Grouptype
 import pl.luckboy.purfuncor.frontend.typer.TypeParamApp
@@ -369,7 +370,7 @@ object PolyFunInstantiator {
     term match {
       case BuiltinType(bf, _) if correctTypeBuiltinFunctions.contains(bf) =>
         (env, false.success)
-      case Unittype(_, _, _) =>
+      case _: GlobalType[N] =>
         (env, true.success)
       case TupleType(_) =>
         (env, false.success)

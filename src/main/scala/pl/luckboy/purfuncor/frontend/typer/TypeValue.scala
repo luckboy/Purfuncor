@@ -15,6 +15,7 @@ import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.frontend.AbstractTypeCombinator
 import pl.luckboy.purfuncor.frontend.TypeCombinator
 import pl.luckboy.purfuncor.frontend.UnittypeCombinator
+import pl.luckboy.purfuncor.frontend.GrouptypeCombinator
 import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
 import pl.luckboy.purfuncor.frontend.TypeLambda
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
@@ -141,6 +142,13 @@ object TypeValue
     if(comb.n === argValues.size) {
       val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
       (env2, res.map { ts => EvaluatedTypeValue(Unittype(loc, ts, sym)) }.valueOr(identity))
+    } else
+      (env, NoTypeValue.fromError[T, U, V, W](FatalError("illegal number of type arguments", none, NoPosition)))
+
+  def fullyAppForGrouptypeCombinatorS[T, U, V, W, E](comb: GrouptypeCombinator[U, V], loc: T, sym: GlobalSymbol, argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = 
+    if(comb.n === argValues.size) {
+      val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
+      (env2, res.map { ts => EvaluatedTypeValue(Grouptype(loc, ts, sym)) }.valueOr(identity))
     } else
       (env, NoTypeValue.fromError[T, U, V, W](FatalError("illegal number of type arguments", none, NoPosition)))
 }

@@ -25,6 +25,8 @@ package object parser
           args.map { a => a.kind.map { _ => "(" + a + ")" }.getOrElse(a.toString) + " " }.mkString("") + "= "+ typeTermShowing.stringFrom(body)
         case UnittypeCombinatorDef(n, sym, kind)          =>
           "unittype " + n + " " + kind.map { k => "(" + sym + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(sym)
+        case GrouptypeCombinatorDef(n, sym, kind)         =>
+          "grouptype " + n + " " + kind.map { k => "(" + sym + ": " + stringKindTermShowing.stringFrom(k) + ")" }.getOrElse(sym)
         case ModuleDef(sym, defs)                         =>
           "module " + sym + "\n" + (" " * n) + "{\n" + defs.map { d => (" " * (n + 2)) + defIndenting.indentedStringFrom(d)(n + 2) }.mkString("\n\n") + "\n" + (" " * n) + "}"
         case InstanceDef(polyCombSym, instCombSym)        =>

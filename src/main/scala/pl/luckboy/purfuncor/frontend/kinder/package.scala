@@ -209,6 +209,39 @@ package object kinder
       else
         (env, noKind.failure)
     
+    private def initializerUnittypeOrGrouptype(loc: GlobalSymbol, n: Int, kind: Option[KindTerm[StarKindTerm[String]]], file: Option[java.io.File])(env: SymbolKindInferenceEnvironment[T]) = {
+      val tmpTypeCombKind = InferredKind.unittypeCombinatorKind(n)
+      (for {
+        tmpTypeCombKind2 <- kind.map {
+          case kt =>
+            for {
+              res <- allocateKindTermParams(kt)(Map())
+              tmpKind2 <- res.map {
+                case (_, kt2) =>
+                  for {
+                    _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withDefinedKind(kt2), ()))
+                    tmpKind <- State(symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpTypeCombKind, InferringKind(kt2))(_: SymbolKindInferenceEnvironment[T]))
+                  } yield tmpKind
+              }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
+            } yield (tmpKind2.withPos(kt.pos))
+        }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind)))
+          definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
+          res <- checkDefinedKindTerms(definedKindTerms)
+          res3 <- res.map {
+            _ =>
+              for {
+                typeCombKind <- State(tmpTypeCombKind2.instantiatedKindS(_: SymbolKindInferenceEnvironment[T]))
+                res2 <- typeCombKind match {
+                  case noKind: NoKind =>
+                    State((_: SymbolKindInferenceEnvironment[T], noKind.failure))
+                  case _              =>
+                    State((env2: SymbolKindInferenceEnvironment[T]) => ((env2.withGlobalTypeVarKind(loc, typeCombKind), ().success)))
+                 }
+               } yield res2
+          }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+      } yield res3).run(env)
+    }
+    
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
       comb match {
         case typeComb @ TypeCombinator(kind, args, body, lmbdindexer.TypeLambdaInfo(_, lambdaIdx), file) =>
@@ -273,36 +306,9 @@ package object kinder
             }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
           } yield res4).run(env)
         case UnittypeCombinator(n, kind, file) =>
-          val tmpUnittypeCombKind = InferredKind.unittypeCombinatorKind(n)
-          (for {
-            tmpUnittypeCombKind2 <- kind.map {
-              case kt =>
-                for {
-                  res <- allocateKindTermParams(kt)(Map())
-                  tmpKind2 <- res.map {
-                    case (_, kt2) =>
-                      for {
-                        _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withDefinedKind(kt2), ()))
-                        tmpKind <- State(symbolTypeSimpleTermKindInferrer.unifyInfosS(tmpUnittypeCombKind, InferringKind(kt2))(_: SymbolKindInferenceEnvironment[T]))
-                      } yield tmpKind
-                  }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
-                } yield (tmpKind2.withPos(kt.pos))
-            }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpUnittypeCombKind)))
-            definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
-            res <- checkDefinedKindTerms(definedKindTerms)
-            res3 <- res.map {
-              _ =>
-                for {
-                  unittypeCombKind <- State(tmpUnittypeCombKind2.instantiatedKindS(_: SymbolKindInferenceEnvironment[T]))
-                  res2 <- unittypeCombKind match {
-                    case noKind: NoKind =>
-                      State((_: SymbolKindInferenceEnvironment[T], noKind.failure))
-                    case _              =>
-                      State((env2: SymbolKindInferenceEnvironment[T]) => ((env2.withGlobalTypeVarKind(loc, unittypeCombKind), ().success)))
-                  }
-                } yield res2
-            }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
-          } yield res3).run(env)
+          initializerUnittypeOrGrouptype(loc, n, kind, file)(env)
+        case GrouptypeCombinator(n, kind, file) =>
+          initializerUnittypeOrGrouptype(loc, n, kind, file)(env)
       }
     
     override def checkInitializationS(res: Validation[NoKind, Unit], combLocs: Set[GlobalSymbol], oldNodes: Map[GlobalSymbol, TypeCombinatorNode[Symbol, lmbdindexer.TypeLambdaInfo[T], GlobalSymbol]])(env: SymbolKindInferenceEnvironment[T]) = {
@@ -330,6 +336,7 @@ package object kinder
       comb match {
         case TypeCombinator(_, _, body, _, _) => usedGlobalTypeVarsFromTypeTerm(body)
         case UnittypeCombinator(_, _, _)      => Set()
+        case GrouptypeCombinator(_, _, _)     => Set()
       }
     
     override def prepareGlobalVarS(loc: GlobalSymbol)(env: SymbolKindInferenceEnvironment[T]) =

@@ -279,6 +279,12 @@ object Resolver
           (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
         else
           (nameTree |+| NameTree.fromTypeGlobalSymbol(sym2), ().successNel[AbstractError])
+      case parser.GrouptypeCombinatorDef(_, sym, _) =>
+        val sym2 = transformGlobalSymbol(sym)(currentModuleSym)
+        if(nameTree.containsTypeComb(sym2))
+          (nameTree, Error("already defined global type variable " + sym2, none, sym.pos).failureNel)
+        else
+          (nameTree |+| NameTree.fromTypeGlobalSymbol(sym2), ().successNel[AbstractError])
       case parser.ModuleDef(sym, defs) =>
         defs.foldLeft((nameTree, ().successNel[AbstractError])) {
           case ((nt, res), d) =>
