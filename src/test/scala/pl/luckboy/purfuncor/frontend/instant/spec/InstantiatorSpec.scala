@@ -1760,6 +1760,22 @@ h x = (construct 1: \t1 => ##-> t1 (Z t1)) x
           }
       }
     }
+    
+    it should "complain on the incorrect instance types for the type term of the grouptype" in {
+      val (typeEnv, res) = Instantiator.transformString("""
+grouptype 0 T
+grouptype 0 U
+instance select T #& U #& () construct {
+  T #& U #& ()
+}
+""")(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) {
+        case Failure(errs) =>
+          errs.map { _.msg } should be ===(NonEmptyList(
+              "incorrect instance type #.T #& #.U #& ()",
+              "incorrect instance type #.T #& #.U #& ()"))
+      }
+    }
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolInstantiationEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
