@@ -1309,6 +1309,50 @@ h = g f
       }
     }
     
+    it should "unify the two group types" in {
+      // Unifies T #Boolean #Float
+      // with    U #Boolean #Flaot
+      // for type T t1 t2 = V t1 t2 and type U t1 t2 = V t1 t2 and grouptype 2 V.
+      val s = """
+type T t1 t2 = V t1 t2
+type U t1 t2 = V t1 t2
+grouptype 2 V
+f = construct 0: T #Boolean #Float
+g (x: U #Boolean #Float) = x
+h = g f
+"""
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          inside(makeData(s)) {
+            case Success(data) =>
+              val kindTable = kindTableFromData(data)
+              val (typeEnv, res) = Typer.interpretTypeTreeFromTreeS(tree)(emptyTypeEnv)
+              res should be ===(().success)
+              val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
+              val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
+              res2 should be ===(().success.success)
+              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("U")))) {
+                case Some(uLoc) =>
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
+                    case InferredType(GlobalTypeApp(_, Seq(_, _), _), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
+                    case InferredType(BuiltinType(TypeBuiltinFunction.Fun, Seq(_, _)), Seq()) =>
+                      ()
+                  }
+                  inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
+                    case InferredType(GlobalTypeApp(loc1, Seq(arg1, arg2), GlobalSymbol(NonEmptyList("U"))), Seq()) =>
+                      // U #Boolean #Float
+                      loc1 should be ===(uLoc)
+                      inside(arg1) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq())) => () }
+                      inside(arg2) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq())) => () }
+                  }
+              }
+          }
+      }
+    }
+    
     it should "unify the global type application with the type that isn't global type application" in {
       // Unifies \t1 => T #Array t1 #Int
       // with    \t1 => (#Array #Byte, #Short, t1) for (type T t1 t2 t3 = (t1 #Byte, t2, t3).

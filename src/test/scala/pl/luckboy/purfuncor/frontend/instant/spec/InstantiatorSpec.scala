@@ -1451,7 +1451,7 @@ g x y = tuple 2 x y
       }
     }
     
-    it should "complain on the incorrect construct types for the type term of the unittype" in {
+    it should "complain on the incorrect construct types for the type term of the unit type" in {
       val (typeEnv, res) = Instantiator.transformString("""
 instance select \t1 t2 => ##| (##| (tuple 2 t1 t2) (##& #Int (tuple 2 t1 t2))) (##& #Empty (tuple 2 t1 t2)) construct {
   \t1 t2 => tuple 2 t1 t2
@@ -1761,7 +1761,7 @@ h x = (construct 1: \t1 => ##-> t1 (Z t1)) x
       }
     }
     
-    it should "complain on the incorrect instance types for the type term of the grouptype" in {
+    it should "complain on the incorrect instance types for the type term of the group type" in {
       val (typeEnv, res) = Instantiator.transformString("""
 grouptype 0 T
 grouptype 0 U

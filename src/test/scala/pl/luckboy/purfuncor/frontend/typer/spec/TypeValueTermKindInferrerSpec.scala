@@ -99,6 +99,29 @@ class TypeValueTermKindInferrerSpec extends FlatSpec with ShouldMatchers with In
       }
     }
     
+    it should "infer the kind from the group type" in {
+      val s = "grouptype 2 T"
+      inside(resolver.Resolver.transformString(s)(NameTree.empty).flatMap(f)) {
+        case Success(tree) =>
+          val (env, _) = kinder.Kinder.inferKindsFromTreeString(s)(NameTree.empty)(f).run(emptyEnv)
+          inside(globalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+            case Some(loc) =>
+              // T #Float #Double
+              val typeValueTerm = Grouptype[Z](loc, Seq(
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Float, Seq())),
+                  TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Double, Seq()))
+                  ), GlobalSymbol(NonEmptyList("T")))
+              val (env2, kind) = TypeValueTermKindInferrer.inferTypeValueTermKindS(typeValueTerm)(env)
+              val (env3, instantiatedKind) = kind.instantiatedKindS(env2)
+              inside(instantiatedKind) {
+                case InferredKind(Star(KindType, _)) =>
+                  // *
+                  ()
+              }
+          }
+      }
+    }
+    
     it should "infer the kind from the global type application" in {
       val s = """
 type T t1 t2 = t2 t1

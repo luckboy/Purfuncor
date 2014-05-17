@@ -398,6 +398,28 @@ unittype 3 V
 	  }
     }
     
+    it should "interpret the type tree with the group type" in {
+      val (env, res) = Typer.interpretTypeTreeFromTreeString("""
+type T = U #Boolean #Double
+grouptype 2 U
+""")(NameTree.empty)(f).run(emptyEnv)
+	  res should be ===(().success.success)
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
+        case EvaluatedTypeValue(term) =>
+          inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("U")))) {
+            case Some(loc) =>
+              term should be ===(Grouptype(loc,
+                  Seq[TypeValueLambda[Z]](
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Boolean, Seq[TypeValueTerm[Z]]())),
+                      TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Double, Seq[TypeValueTerm[Z]]()))),
+                  GlobalSymbol(NonEmptyList("U"))))
+          }
+      }
+	  inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
+	    case TypeCombinatorValue(_, _, _) => ()
+	  }
+    }
+    
     it should "partially interpret the string of the type term" in {
       val s = """
 type T t = #Array t
