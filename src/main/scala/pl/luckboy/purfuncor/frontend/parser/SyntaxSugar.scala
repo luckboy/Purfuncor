@@ -84,19 +84,19 @@ object SyntaxSugar
         SelectConstructInstanceDef(
             typeVar(sym, sym.pos),
             constrs.map { c => typeVar(c.sym ++ List("Type"), c.sym.pos) }),
-        // unittype N T.BaseUnittype: k
+        // grouptype N T.BaseGrouptype: k
         UnittypeCombinatorDef(
             args.size,
-            sym ++ List("BaseUnittype"),
+            sym ++ List("BaseGrouptype"),
             kind),
-        // type (T.BaseType: k) t1 ... tN = T.BaseUnittype t1 ... tN #& T.BaseSupertype t1 ... tN
+        // type (T.BaseType: k) t1 ... tN = T.BaseGrouptype t1 ... tN #& T.BaseSupertype t1 ... tN
         TypeCombinatorDef(
             sym ++ List("BaseType"), 
             kind,
             renamedTypeArgsFromTypeArgs(args, "t"),
             App(typeConjFun(sym.pos),
                 NonEmptyList(
-                    app(typeVar(sym ++ List("BaseUnittype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos),
+                    app(typeVar(sym ++ List("BaseGrouptype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos),
                     app(typeVar(sym ++ List("BaseSupertype"), sym.pos), renamedTypeVarsFromTypeArgs(args, "t"), sym.pos)),
                 sym.pos)),
         // type (T.BaseSupertype: k) t1 ... tN = V
@@ -120,8 +120,8 @@ object SyntaxSugar
     //   CM.Type
     // }
     //
-    // unittype N T.BaseUnittype: k
-    // type (T.BaseType: k) t1 ... tN = T.BaseUnittype t1 ... tN #& T.BaseSupertype t1 ... tN
+    // grouptype N T.BaseGrouptype: k
+    // type (T.BaseType: k) t1 ... tN = T.BaseGrouptype t1 ... tN #& T.BaseSupertype t1 ... tN
     // type (T.BaseSupertype: k) t1 ... tN = V
     //
     // C1 x1 ... xL1 = _construct.C1 x1 ... xL1: T
