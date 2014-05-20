@@ -10,6 +10,7 @@ import scala.annotation.tailrec
 import scala.util.parsing.input.Position
 import scalaz._
 import scalaz.Scalaz._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 trait Evaluator[-T, E, V]
 {
@@ -71,13 +72,11 @@ object Evaluator
     State(appS[T, E, V](funValue, argValues))
     
   def valuesFromTermsS[T, E, V](terms: List[Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
-    terms.foldLeft((env, Seq[V]().success[V])) {
-      case ((newEnv, Success(values)), term) =>
+    mapToVectorValidationS(terms) {
+      (term, newEnv: E) =>
         val (newEnv2, value) = eval.valueFromTermS(term)(newEnv)
-        (newEnv2, if(!eval.isNoValue(value)) (values :+ value).success else value.failure)
-      case ((newEnv, Failure(noValue)), _)   =>
-        (newEnv, Failure(noValue))
-    }
+        (newEnv2, if(!eval.isNoValue(value)) value.success else value.failure)
+    } (env)
   
   def valuesFromTerms[T, E, V](terms: List[Term[T]])(implicit eval: Evaluator[T, E, V]) =
     State(valuesFromTermsS[T, E, V](terms))

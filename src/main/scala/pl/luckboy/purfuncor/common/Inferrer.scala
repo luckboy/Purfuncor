@@ -71,7 +71,7 @@ object Inferrer
   
   def unifyArgInfoListsS[T, E, I](funArgInfos: List[I], argInfos: List[I])(env: E)(implicit inferrer: Inferrer[T, E, I]) =
     if(funArgInfos.size === argInfos.size)
-      funArgInfos.zip(argInfos).foldLeft((env, Seq[I]().success[I])) {
+      funArgInfos.zip(argInfos).foldLeft((env, Vector[I]().success[I])) {
         case ((newEnv, Success(unifiedInfos)), (funArgInfo, argInfo)) =>
           val (newEnv2, unifiedInfo) = inferrer.unifyArgInfosS(funArgInfo, argInfo)(newEnv)
           (newEnv2, if(!inferrer.isNoInfo(unifiedInfo)) (unifiedInfos :+ unifiedInfo).success else unifiedInfo.failure)

@@ -10,6 +10,8 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.util._
 import pl.luckboy.purfuncor.common.Initializer._
+import pl.luckboy.purfuncor.util.CollectionUtils._
+
 
 trait RecursiveInitializer[E, L, C, N, F]
 {
@@ -75,7 +77,7 @@ object RecursiveInitializer
     } (env)
   
   private def varDependencesS[E, L, C, I, N, F](comb: C)(env: F)(implicit recInit: RecursiveInitializer[E, L, C, N, F], init: Initializer[E, L, C, F]) =
-    init.usedGlobalVarsFromCombinator(comb).foldLeft((env, Set[L]())) {
-      case ((newEnv, ls), l) => recInit.isUninitializedGlobalVarS(l)(newEnv).mapElements(identity, if(_) ls + l else ls)
-    }
+    flatMapToSetS(init.usedGlobalVarsFromCombinator(comb)) {
+      (l, newEnv: F) => recInit.isUninitializedGlobalVarS(l)(newEnv).mapElements(identity, if(_) List(l) else Nil)
+    } (env)
 }

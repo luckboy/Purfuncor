@@ -13,6 +13,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 object KindTermUnifier
 {
@@ -90,10 +91,7 @@ object KindTermUnifier
     
   def checkDefinedKindTermS[E](term: KindTerm[StarKindTerm[Int]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
     val params = kindParamsFromKindTerm(term)
-    val (env2, res) = params.foldLeft((env, Set[Int]().success[NoKind])) {
-      case ((newEnv, Success(rps)), p) => unifier.findRootParamS(p)(newEnv).mapElements(identity, _.map { rps + _ })
-      case ((newEnv, Failure(nk)), _)  => (newEnv, nk.failure)
-    }
+    val (env2, res) = mapToSetValidationS(params)(unifier.findRootParamS(_)(_: E))(env)
     (env2, res.map {
       rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters are distinct at defined kind " + intKindTermShowing.stringFrom(intKindTermFromKindTerm(term)), none, term.pos)).failure
     }.valueOr { _.failure })
