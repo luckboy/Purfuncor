@@ -28,7 +28,7 @@ object TypeValueTermUnifier
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(terms1.size === terms2.size) {
-      val (env4, res) = foldLeftValidationS(terms1.zip(terms2))((z, Vector[Kind]()).success[NoType[T]])({
+      val (env4, res) = foldLeftValidationMS(terms1.zip(terms2))((z, Vector[Kind]()).success[NoType[T]])({
         case ((x, kinds), (term1, term2), newEnv) =>
           val (newEnv2, newRes) = matchesTypeValueTermsS(term1, term2)(x)(f)(newEnv: E)
           newRes.map {
@@ -49,7 +49,7 @@ object TypeValueTermUnifier
     val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(lambdas1.size === lambdas2.size) {
-      val (env4, res) = foldLeftValidationS(lambdas1.zip(lambdas2))((z, Vector[Kind]()).success[NoType[T]])({
+      val (env4, res) = foldLeftValidationMS(lambdas1.zip(lambdas2))((z, Vector[Kind]()).success[NoType[T]])({
         case ((x, kinds), (lambda1, lambda2), newEnv) =>
           val (newEnv2, newRes) = matchesTypeValueLambdasS(lambda1, lambda2)(x)(f)(newEnv)
           newRes.map {
@@ -67,7 +67,7 @@ object TypeValueTermUnifier
   }
   
   private def typeValueLambdasFromParamsS[T, U, E](params: Seq[Int])(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Seq[TypeValueLambda[T]]]) =
-    mapToVectorValidationS(params) {
+    mapToVectorValidationMS(params) {
       (param, newEnv: E) =>
         val (newEnv2, res) = envSt.allocateTypeParamAppIdxS(newEnv)
         (newEnv2, res.map {
@@ -78,13 +78,13 @@ object TypeValueTermUnifier
   private def withTypeLambdaArgsWithReturnKindS[T, U, V, E](argParams: Seq[Set[Int]])(f: E => (E, Validation[NoType[T], U]))(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]): (E, Validation[NoType[T], U]) =
     envSt.withTypeLambdaArgsS(argParams) {
       env2 =>
-        val (env3, res) = mapToVectorValidationS(argParams) {
+        val (env3, res) = mapToVectorValidationMS(argParams) {
           (argParamSet, newEnv: E) =>
             val argParamSeq = argParamSet.toSeq
             argParamSeq.headOption.map {
               argParam =>
                 val (newEnv2, kindRes) = envSt.inferTypeValueTermKindS(TypeParamApp(argParam, Nil, 0))(newEnv)
-                foldLeftValidationS(argParamSeq)(kindRes.valueOr { _.toNoKind }.success[NoType[T]]) {
+                foldLeftValidationMS(argParamSeq)(kindRes.valueOr { _.toNoKind }.success[NoType[T]]) {
                   (kind1, param2, newEnv3: E) =>
                     val (newEnv4, kindRes2) = envSt.inferTypeValueTermKindS(TypeParamApp(param2, Nil, 0))(newEnv3)
                     envSt.unifyKindsS(kind1, kindRes2.valueOr { _.toNoKind })(newEnv4)
@@ -246,7 +246,7 @@ object TypeValueTermUnifier
   def appForGlobalTypeWithAllocatedTypeParamsS[T, U, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     (for {
       res <- State({
-        mapToVectorValidationS(argLambdas) {
+        mapToVectorValidationMS(argLambdas) {
           (argLambda, newEnv: E) =>
             val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
             (newEnv2, newRes.map { b => TypeValueLambda[T](argLambda.argParams, b) })
@@ -258,7 +258,7 @@ object TypeValueTermUnifier
     } yield res2).run(env)
     
   private def appForGlobalTypeWithOnlyAllocatedTypeParamsS[T, U, E](funLoc: T, argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
-    val (env2, res) = mapToVectorValidationS(0 until argCount) {
+    val (env2, res) = mapToVectorValidationMS(0 until argCount) {
       (_, newEnv: E) =>
         val (newEnv2, newRes) = unifier.allocateParamS(newEnv)
         newRes.map {
