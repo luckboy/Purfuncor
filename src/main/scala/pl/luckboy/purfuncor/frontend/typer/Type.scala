@@ -16,6 +16,7 @@ import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 import TypeValueTermUnifier._
 import TypeValueTermUtils._
 
@@ -41,15 +42,16 @@ sealed trait Type[T]
               val (typeValueTerm3, params2) = normalizeTypeParamsWithTypeParamsForParams(typeValueTerm2, (typeParamsFromTypeValueTerm(typeValueTerm2) | params.keySet).size)(params)
               State({
                 (env2: E) =>
-                  params2.foldLeft((env2, IntMap[InferredKind]().success[NoType[T]])) {
-                    case ((newEnv, Success(newKinds)), (param, param2)) => 
+                  stMapToIntMapValidationS(params2) {
+                    (tmpPair, newEnv: E) =>
+                      val (param, param2) = tmpPair
                       val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
                       newRes.map {
                         kind =>
                           val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
-                          (newEnv3, newRes2.map { k => newKinds + (param2 -> k) })
+                          (newEnv3, newRes2.map { param2 -> _ })
                       }.valueOr { nt => (newEnv2, nt.failure) }
-                  }
+                  } (env2)
               }).map {
                 _.flatMap { 
                   kinds =>

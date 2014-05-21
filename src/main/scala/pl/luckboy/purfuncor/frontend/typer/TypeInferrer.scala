@@ -16,6 +16,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 object TypeInferrer
 {
@@ -91,8 +92,9 @@ object TypeInferrer
   }
   
   private def argTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) = {
-    val (env2, res) = (0 until argCount).foldLeft((env, (term, List[TypeValueTerm[T]]()).success[NoType[T]])) {
-      case ((newEnv, Success((typeFun, newTypes))), _) =>
+    val (env2, res) = stFoldLeftValidationS(0 until argCount)((term, List[TypeValueTerm[T]]()).success[NoType[T]]) {
+      (tmpPair, _, newEnv: E) =>
+        val (typeFun, newTypes) = tmpPair
         val (newEnv2, newRes) = evaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(arg, ret)) =>
@@ -100,9 +102,7 @@ object TypeInferrer
           case _                                                   =>
             NoType.fromError[T](FatalError("type value term isn't function", none, NoPosition)).failure
         })
-      case ((newEnv, Failure(noType)), _)          =>
-        (newEnv, noType.failure)
-    }
+    } (env)
     (env2, res.map { _._2.reverse })
   }
     
@@ -121,8 +121,8 @@ object TypeInferrer
     }
   
   private def returnTypeValueTermFromTypeValueTermS1[T, E](term: TypeValueTerm[T], argCount: Int)(env: E)(evaluate: (TypeValueTerm[T], E) => (E, Validation[NoType[T], TypeValueTerm[T]])) =
-    (0 until argCount).foldLeft((env, term.success[NoType[T]])) {
-      case ((newEnv, Success(typeFun)), _)    =>
+    stFoldLeftValidationS(0 until argCount)(term.success[NoType[T]]) {
+      (typeFun, _, newEnv: E) =>
         val (newEnv2, newRes) = evaluate(typeFun, newEnv)
         (newEnv2, newRes.flatMap {
           case BuiltinType(TypeBuiltinFunction.Fun, Seq(_, ret)) =>
@@ -130,9 +130,7 @@ object TypeInferrer
           case _                                                 =>
             NoType.fromError[T](FatalError("type value term isn't function", none, NoPosition)).failure
         })
-      case ((newEnv, Failure(noType)), _) => 
-        (newEnv, noType.failure)
-    }
+    } (env)
   
   def returnTypeFromTypeS[T, U, E](typ: Type[T], argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     normalizeTypeS(typ)(env) match {
@@ -175,8 +173,9 @@ object TypeInferrer
       case UninferredType()                            =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }
-    argTypes.foldRight((env3, retTypeKindRes.map { (retType, _) })) {
-      case (argType, (newEnv, Success((newRetType, newRetTypeKind)))) =>
+    stFoldRightValidationS(argTypes)(retTypeKindRes.map { (retType, _) }) {
+      (argType, tmpPair, newEnv: E) =>
+        val (newRetType, newRetTypeKind) = tmpPair
         (argType, newRetType) match {
           case (InferredType(argTypeValueTerm, argArgKinds), InferredType(retTypeValueTerm, retArgKinds)) =>
             val argArgKindMap = argArgKinds.zipWithIndex.map { _.swap }.toMap
@@ -226,9 +225,7 @@ object TypeInferrer
           case (_, (typ @ (UninferredType() | _: NoType[T])))                                             =>
             (newEnv, noTypeFromType(typ).failure)
         }
-      case (_, (newEnv, Failure(noType))) =>
-        (newEnv, noType.failure)
-    }.mapElements(identity, _.map { _._1 }.valueOr(identity))
+    } (env3).mapElements(identity, _.map { _._1 }.valueOr(identity))
   }
   
   def instantiateTypeMapWithTypeParamsS[T, U, V, E](types: Map[T, Type[U]])(env: E)(implicit unifier: Unifier[NoType[U], TypeValueTerm[U], E, Int], envSt: TypeInferenceEnvironmentState[E, V, U]) =
@@ -243,15 +240,13 @@ object TypeInferrer
     instantiateTypeMapWithTypeParamsS(types)(env).mapElements(identity, _.map { _.mapValues { _._1 } })
   
   def instantiateTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    types.foldLeft((env, Vector[Type[T]]().success[NoType[T]])) {
-      case ((newEnv, Success(newTypes)), typ) =>
+    stMapToVectorValidationS(types) {
+      (typ, newEnv: E) =>
         typ.instantiatedTypeS(newEnv)  match {
           case (newEnv2, noType: NoType[T]) => (newEnv2, noType.failure)
-          case (newEnv2, type2)             => (newEnv2, (newTypes :+ type2).success)
+          case (newEnv2, type2)             => (newEnv2, type2.success)
         }
-      case ((newEnv, Failure(noType)), _)     =>
-        (newEnv, noType.failure)
-    }
+    } (env)
   
   def instantiateTypeOptionForParamsS[T, U, E](optType: Option[Type[T]])(params: Map[Int, Int])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     optType.map {

@@ -21,6 +21,7 @@ import pl.luckboy.purfuncor.frontend.kinder.UninferredKind
 import pl.luckboy.purfuncor.frontend.kinder.SymbolKindInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.frontend.kinder.InferredKindTable
+import pl.luckboy.purfuncor.util.CollectionUtils._
 import TypeValueTermUnifier._
 import TypeValueTermUtils._
 
@@ -133,8 +134,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
   }
 
   def withLocalVarTypesForCase(caseTypes: Map[LocalSymbol, Option[CaseType[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]], defaultType: Option[Type[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
-    val (env, res) = caseTypes.foldLeft((this, Map[LocalSymbol, Type[GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
-      case ((newEnv, Success(newTypes)), (sym, caseType)) =>
+    val (env, res) = stMapToMapValidationS(caseTypes) {
+      (tmpPair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+        val (sym, caseType) = tmpPair
         val (newEnv3, newRes2) = caseType.map {
           ct => newEnv.definedTypeFromTypeTerm(ct.term).mapElements(identity, _.map { dt => (if(ct.isDefinedCaseType) some(dt) else none, InferringType(dt.term)) })
         }.orElse(defaultType.map { t => (newEnv, (none, t).success) }).getOrElse {
@@ -142,11 +144,9 @@ case class SymbolTypeInferenceEnvironment[T, U](
           (newEnv2, newRes.map { f => (none, InferringType(f._4)) })
         }
         newRes2.map {
-          case (dt, t) => (dt.map(newEnv3.withDefinedType).getOrElse(newEnv3), (newTypes + (sym -> t)).success)
+          case (dt, t) => (dt.map(newEnv3.withDefinedType).getOrElse(newEnv3), (sym -> t).success)
         }.valueOr { nt => (newEnv3, nt.failure) }
-      case ((newEnv, Failure(noType)), _ )                =>
-        (newEnv, noType.failure)
-    }
+    } (this)
     res.map { env.withLocalVarTypesForLet(_)(f) }.valueOr { (env, _) }
   }
   
@@ -271,17 +271,17 @@ case class SymbolTypeInferenceEnvironment[T, U](
     }
   
   def typesFromArgs(args: List[Arg[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]) =
-    args.foldLeft((this, List[Type[GlobalSymbol]]())) {
-      case ((newEnv, newArgInfos), arg) =>
-        arg.name.map { s => (newEnv, newEnv.varType(LocalSymbol(s)) :: newArgInfos) }.getOrElse {
+    stMapToListS(args) {
+      (arg, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+        arg.name.map { s => (newEnv, newEnv.varType(LocalSymbol(s))) }.getOrElse {
           val (newEnv2, argInfo) = arg.typ.map { 
             newEnv.definedTypeFromTypeTerm(_).mapElements(identity, _.map { dt => InferringType(dt.term) }.valueOr(identity))
           }.getOrElse {
             (newEnv, InferredType[GlobalSymbol](TypeParamApp(0, Nil, 0), Vector(InferredKind(Star(KindType, NoPosition)))))
           }
-          (newEnv2, argInfo :: newArgInfos)
+          (newEnv2, argInfo)
         }
-    }.mapElements(identity, _.reverse)
+    } (this)
     
   def withEmptyTypeParamForest[V](f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], V)) = {
     val (env, res) = f(copy(

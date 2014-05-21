@@ -77,7 +77,7 @@ object RecursiveInitializer
     } (env)
   
   private def varDependencesS[E, L, C, I, N, F](comb: C)(env: F)(implicit recInit: RecursiveInitializer[E, L, C, N, F], init: Initializer[E, L, C, F]) =
-    flatMapToSetMS(init.usedGlobalVarsFromCombinator(comb)) {
+    stFlatMapToSetS(init.usedGlobalVarsFromCombinator(comb)) {
       (l, newEnv: F) => recInit.isUninitializedGlobalVarS(l)(newEnv).mapElements(identity, if(_) List(l) else Nil)
     } (env)
 }

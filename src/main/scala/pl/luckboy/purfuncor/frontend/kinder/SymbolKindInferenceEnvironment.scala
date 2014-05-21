@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 import KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.TypeCombinatorNode
 
@@ -76,16 +77,15 @@ case class SymbolKindInferenceEnvironment[T](
   def withLocalKindTables(kindTables: Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]) = copy(localKindTables = kindTables)
   
   def withLocalTypeVarKinds[U](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[U]]]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
-    val (env, res) = kindTerms.foldLeft((this, Map[LocalSymbol, Kind]().success[NoKind])) {
-      case ((newEnv, Success(newKinds)), (sym, kt)) =>
+    val (env, res) = stMapToMapValidationS(kindTerms) {
+      (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+        val (sym, kt) = tmpPair
         val kindTerm = kt.map(intKindTermFromKindTerm).getOrElse(Star(KindParam(0), NoPosition))
         val (newEnv2, newRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
         newRes.map {
-          p => (kt.map { _ => newEnv2.withDefinedKind(p._2) }.getOrElse(newEnv2), (newKinds + (sym -> InferringKind(p._2))).success)
+          p => (kt.map { _ => newEnv2.withDefinedKind(p._2) }.getOrElse(newEnv2), (sym -> InferringKind(p._2)).success)
         }.valueOr { nk => (newEnv2, nk.failure) }
-      case ((newEnv, Failure(nk)), _)               =>
-        (newEnv, nk.failure)
-    }
+    } (this)
     res.map {
       newKinds =>
         val (env2, kind) = f(env.pushLocalTypeVarKinds(newKinds).withCurrentLocalKindTable(KindTable(env.currentLocalKindTable.kinds ++ newKinds.filterKeys(kindTerms.keySet.contains))))

@@ -38,6 +38,7 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermKindInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 package object typer
 {
@@ -426,15 +427,14 @@ package object typer
     }
       
     override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
-      val (env2, res) = env.lambdaInfos.getOrElse(env.currentCombSym, IntMap()).foldLeft((env, IntMap[InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
-        case ((newEnv, Success(lis)), (i, li)) =>
+      val (env2, res) = stMapToIntMapValidationS(env.lambdaInfos.getOrElse(env.currentCombSym, IntMap())) {
+        (tmpPair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+          val (i, li) = tmpPair
           val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
           newRes.map {
-            ts => instantiateTypeOptionS(li.polyFunType)(newEnv).mapElements(identity, _.map { pft => lis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
+            ts => instantiateTypeOptionS(li.polyFunType)(newEnv).mapElements(identity, _.map { pft => i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft) })
           }.valueOr { nt => (newEnv, nt.failure) }
-        case ((newEnv, Failure(nt)), _)        =>
-          (newEnv, nt.failure)
-      }
+      } (env)
       res.map {
         lis => (env2.copy(lambdaInfos = env2.lambdaInfos + (env.currentCombSym -> lis)), ().success)
       }.valueOr { nt => (env, nt.failure) }
@@ -860,32 +860,31 @@ package object typer
       val (env2, res) = instantiateTypeMapWithTypeParamsS(syms.map { s => (s, env.varType(s)) }.toMap)(env)
       res.map {
         tswps =>
-          val (env3, res2) = syms.toList.flatMap { s => env2.lambdaInfos.get(some(s)).toList.flatMap { _.toList.flatMap { _._2.polyFunType.toList } } }.foldLeft((env2, Set[Int]().success[NoType[GlobalSymbol]])) {
-            case ((newEnv, Success(ps2)), InferringType(tvt)) =>
-              val (newEnv2, newRes) = instantiateS(tvt)(newEnv)
-              (newEnv2, newRes.map { tvt2 => ps2 | typeParamsFromTypeValueTerm(tvt2) })
-            case ((newEnv, Success(_)), _)                    =>
-              (newEnv, NoType.fromError[GlobalSymbol](FatalError("uninferring type", none, NoPosition)).failure)
-            case ((newEnv, Failure(nt)), _)                   =>
-              (newEnv, nt.failure)
-          }
+          val (env3, res2) = stFlatMapToSetValidationS(syms.toList.flatMap { s => env2.lambdaInfos.get(some(s)).toList.flatMap { _.toList.flatMap { _._2.polyFunType.toList } } }) {
+            (typ, newEnv:  SymbolTypeInferenceEnvironment[T, U]) =>
+              typ match {
+                case InferringType(tvt) =>
+                  val (newEnv2, newRes) = instantiateS(tvt)(newEnv)
+                  (newEnv2, newRes.map { tvt2 => typeParamsFromTypeValueTerm(tvt2) })
+                case _                  =>
+                  (newEnv, NoType.fromError[GlobalSymbol](FatalError("uninferring type", none, NoPosition)).failure)
+              }
+          } (env2)
           res2.map {
             tmpPs =>
               val ps1 = tmpPs.zipWithIndex.toMap
-              val (env4, res3) = syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }.foldLeft((env3, Map[Option[GlobalSymbol], Map[Int, InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]]().success[NoType[GlobalSymbol]])) {
-                case ((newEnv, Success(liMaps)), (s, lis)) =>
-                  lis.foldLeft((newEnv, IntMap[InferenceLambdaInfo[LocalSymbol, GlobalSymbol]]().success[NoType[GlobalSymbol]])) {
-                    case ((newEnv2, Success(newLis)), (i, li)) =>
+              val (env4, res3) = stMapToMapValidationS(syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }) {
+                (tmpPair, newEnv:  SymbolTypeInferenceEnvironment[T, U]) =>
+                  val (s, lis) = tmpPair
+                  stMapToIntMapValidationS(lis) {
+                    (tmpPair2, newEnv2:  SymbolTypeInferenceEnvironment[T, U]) =>
+                      val (i, li) = tmpPair2
                       val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                       newRes.map {
-                        ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps1)(newEnv3).mapElements(identity, _.map { pft => newLis + (i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft)) })
+                        ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps1)(newEnv3).mapElements(identity, _.map { pft => i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft) })
                       }.valueOr { nt => (newEnv2, nt.failure) }
-                    case ((newEnv2, Failure(nt)), _)           =>
-                      (newEnv2, nt.failure)
-                  }.mapElements(identity, _.map { lis2 => liMaps + (some(s) -> lis2) })
-                case ((newEnv, Failure(nt)), _)            =>
-                  (newEnv, nt.failure)
-              }
+                  } (newEnv).mapElements(identity, _.map { lis2 => some(s) -> lis2 })
+              } (env3)
               res3.map {
                 liMaps =>
                   val liMaps2 = liMaps.map {

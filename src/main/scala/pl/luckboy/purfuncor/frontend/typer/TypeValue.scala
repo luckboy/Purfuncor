@@ -20,6 +20,7 @@ import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
 import pl.luckboy.purfuncor.frontend.TypeLambda
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.common.Evaluator._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 sealed trait TypeValue[T, +U, +V, +W]
 {
@@ -355,10 +356,7 @@ object TypeValueTerm
     terms.headOption.map { t => if(terms.size === 1) t else TypeDisjunction(terms) }.getOrElse(TypeDisjunction(terms))
   
   def typeValueTermsFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
-    values.foldLeft((env, Vector[TypeValueTerm[T]]().success[NoTypeValue[T, U, V, W]])) {
-      case ((newEnv, Success(ts)), v)      => v.typeValueTermS(newEnv).mapElements(identity, _.map { ts :+ _ })
-      case ((newEnv, Failure(noValue)), _) => (newEnv, noValue.failure)
-    }
+    stMapToVectorValidationS(values) { _.typeValueTermS(_: E) } (env)
   
   def typeValueTermFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     State(typeValueTermsFromTypeValuesS[T, U, V, W, E](values))
@@ -421,10 +419,7 @@ case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 object TypeValueLambda
 {
   def typeValueLambdasFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
-    values.foldLeft((env, Seq[TypeValueLambda[T]]().success[NoTypeValue[T, U, V, W]])) {
-      case ((newEnv, Success(ls)), v)      => v.typeValueLambdaS(newEnv).mapElements(identity, _.map { ls :+ _ })
-      case ((newEnv, Failure(noValue)), _) => (newEnv, noValue.failure)
-    }
+    stMapToVectorValidationS(values) { _.typeValueLambdaS(_: E) } (env)
 
   def typeValueLambdasFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     State(typeValueLambdasFromTypeValuesS[T, U, V, W, E](values))

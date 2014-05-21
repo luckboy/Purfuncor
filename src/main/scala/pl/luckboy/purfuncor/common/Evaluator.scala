@@ -72,7 +72,7 @@ object Evaluator
     State(appS[T, E, V](funValue, argValues))
     
   def valuesFromTermsS[T, E, V](terms: List[Term[T]])(env: E)(implicit eval: Evaluator[T, E, V]) =
-    mapToVectorValidationMS(terms) {
+    stMapToVectorValidationS(terms) {
       (term, newEnv: E) =>
         val (newEnv2, value) = eval.valueFromTermS(term)(newEnv)
         (newEnv2, if(!eval.isNoValue(value)) value.success else value.failure)

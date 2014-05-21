@@ -91,7 +91,7 @@ object KindTermUnifier
     
   def checkDefinedKindTermS[E](term: KindTerm[StarKindTerm[Int]])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) = {
     val params = kindParamsFromKindTerm(term)
-    val (env2, res) = mapToSetValidationMS(params)(unifier.findRootParamS(_)(_: E))(env)
+    val (env2, res) = stMapToSetValidationS(params)(unifier.findRootParamS(_)(_: E))(env)
     (env2, res.map {
       rootParams => if(rootParams.size === params.size) ().success else NoKind.fromError(Error("parameters are distinct at defined kind " + intKindTermShowing.stringFrom(intKindTermFromKindTerm(term)), none, term.pos)).failure
     }.valueOr { _.failure })

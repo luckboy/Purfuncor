@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.util
-import scala.collection.TraversableLike
+import scala.collection.immutable.IntMap
 import scalaz._
 import scalaz.Scalaz._
 
@@ -41,40 +41,53 @@ object CollectionUtils
     xs.foldLeft(Map[U, V]().success[E]) {
       case (Success(ys), x) => f(x).map { ys + _ }
       case (res,  _)        => res
-    }  
+    }
   
-  def mapToReversedListMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
+  def mapToIntMapValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, (Int, U)]) =
+    xs.foldLeft(IntMap[U]().success[E]) {
+      case (Success(ys), x) => f(x).map { ys + _ }
+      case (res,  _)        => res
+    }
+
+  def stMapToReversedListS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
     xs.foldLeft((s, List[U]())) {
       case ((s2, ys), x) => 
         val (s3, y) = f(x, s2)
         (s3, y :: ys)
     }
   
-  def mapToListMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
-    mapToReversedListMS(xs)(f)(s).mapElements(identity, _.reverse)
+  def stMapToListS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
+    stMapToReversedListS(xs)(f)(s).mapElements(identity, _.reverse)
 
-  def mapToVectorMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
+  def stMapToVectorS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
     xs.foldLeft((s, Vector[U]())) {
       case ((s2, ys), x) => 
         val (s3, y) = f(x, s2)
         (s3, ys :+ y)
     }
 
-  def mapToSetMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
+  def stMapToSetS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, U))(s: S) =
     xs.foldLeft((s, Set[U]())) {
       case ((s2, ys), x) => 
         val (s3, y) = f(x, s2)
         (s3, ys + y)
     }
   
-  def mapToMapMS[T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, (U, V)))(s: S) =
+  def stMapToMapS[T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, (U, V)))(s: S) =
     xs.foldLeft((s, Map[U, V]())) {
       case ((s2, ys), x) => 
         val (s3, y) = f(x, s2)
         (s3, ys + y)
     }
   
-  def mapToReversedListValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
+  def stMapToIntMapS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, (Int, U)))(s: S) =
+    xs.foldLeft((s, IntMap[U]())) {
+      case ((s2, ys), x) => 
+        val (s3, y) = f(x, s2)
+        (s3, ys + y)
+    }
+  
+  def stMapToReversedListValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
     xs.foldLeft((s, List[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -83,10 +96,10 @@ object CollectionUtils
         t
     }
   
-  def mapToListValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
-    mapToReversedListValidationMS(xs)(f)(s).mapElements(identity, _.map { _.reverse })
+  def stMapToListValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
+    stMapToReversedListValidationS(xs)(f)(s).mapElements(identity, _.map { _.reverse })
   
-  def mapToVectorValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
+  def stMapToVectorValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
     xs.foldLeft((s, Vector[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -95,7 +108,7 @@ object CollectionUtils
         t
     }
   
-  def mapToSetValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
+  def stMapToSetValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, U]))(s: S) =
     xs.foldLeft((s, Set[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -104,7 +117,7 @@ object CollectionUtils
         t
     }
   
-  def mapToMapValidationMS[E, T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, (U, V)]))(s: S) =
+  def stMapToMapValidationS[E, T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, (U, V)]))(s: S) =
     xs.foldLeft((s, Map[U, V]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -113,35 +126,50 @@ object CollectionUtils
         t
     }
   
-  def mapToReversedListM[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
-    State(mapToReversedListMS(xs)({ f(_).run(_: S) }))
+  def stMapToIntMapValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, (Int, U)]))(s: S) =
+    xs.foldLeft((s, IntMap[U]().success[E])) {
+      case ((s2, Success(ys)), x) =>
+        val (s3, res) = f(x, s2)
+        (s3, res.map { ys + _ })
+      case (t, _)                 =>
+        t
+    }
+  
+  def stMapToReversedList[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
+    State(stMapToReversedListS(xs)({ f(_).run(_: S) }))
     
-  def mapToListM[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
-    State(mapToListMS(xs)({ f(_).run(_: S) }))
+  def stMapToList[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
+    State(stMapToListS(xs)({ f(_).run(_: S) }))
 
-  def mapToVectorM[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
-    State(mapToVectorMS(xs)({ f(_).run(_: S) }))
+  def stMapToVector[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
+    State(stMapToVectorS(xs)({ f(_).run(_: S) }))
 
-  def mapToSetM[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
-    State(mapToSetMS(xs)({ f(_).run(_: S) }))
+  def stMapToSet[T, U, S](xs: Iterable[T])(f: T => State[S, U]) =
+    State(stMapToSetS(xs)({ f(_).run(_: S) }))
 
-  def mapToMapM[T, U, V, S](xs: Iterable[T])(f: T => State[S, (U, V)]) =
-    State(mapToMapMS(xs)({ f(_).run(_: S) }))
-
-  def mapToReversedListValudationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
-    State(mapToReversedListValidationMS(xs)({ f(_).run(_: S) }))
+  def stMapToMap[T, U, V, S](xs: Iterable[T])(f: T => State[S, (U, V)]) =
+    State(stMapToMapS(xs)({ f(_).run(_: S) }))
     
-  def mapToListValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
-    State(mapToListValidationMS(xs)({ f(_).run(_: S) }))
+  def stMapToIntMap[T, U, S](xs: Iterable[T])(f: T => State[S, (Int, U)]) =
+    State(stMapToIntMapS(xs)({ f(_).run(_: S) }))
 
-  def mapToVectorValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
-    State(mapToVectorValidationMS(xs)({ f(_).run(_: S) }))
+  def stMapToReversedListValudation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
+    State(stMapToReversedListValidationS(xs)({ f(_).run(_: S) }))
+    
+  def stMapToListValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
+    State(stMapToListValidationS(xs)({ f(_).run(_: S) }))
 
-  def mapToSetValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
-    State(mapToSetValidationMS(xs)({ f(_).run(_: S) }))
+  def stMapToVectorValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
+    State(stMapToVectorValidationS(xs)({ f(_).run(_: S) }))
 
-  def mapToMapValidationM[E, T, U, V, S](xs: Iterable[T])(f: T => State[S, Validation[E,(U, V)]]) =
-    State(mapToMapValidationMS(xs)({ f(_).run(_: S) }))
+  def stMapToSetValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, U]]) =
+    State(stMapToSetValidationS(xs)({ f(_).run(_: S) }))
+
+  def stMapToMapValidation[E, T, U, V, S](xs: Iterable[T])(f: T => State[S, Validation[E, (U, V)]]) =
+    State(stMapToMapValidationS(xs)({ f(_).run(_: S) }))
+    
+  def stMapToIntMapValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, (Int, U)]]) =
+    State(stMapToIntMapValidationS(xs)({ f(_).run(_: S) }))
     
   // flatMap
         
@@ -169,35 +197,48 @@ object CollectionUtils
       case (res,  _)        => res
     }
   
-  def flatMapToListMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
+  def flatMapToIntMapValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, Iterable[(Int, U)]]) =
+    xs.foldLeft(IntMap[U]().success[E]) {
+      case (Success(ys), x) => f(x).map { ys ++ _ }
+      case (res,  _)        => res
+    }
+  
+  def stFlatMapToListS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
     xs.foldLeft((s, List[U]())) {
       case ((s2, ys), x) => 
         val (s3, zs) = f(x, s2)
         (s3, ys ++ zs)
     }
   
-  def flatMapToVectorMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
+  def stFlatMapToVectorS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
     xs.foldLeft((s, Vector[U]())) {
       case ((s2, ys), x) => 
         val (s3, zs) = f(x, s2)
         (s3, ys ++ zs)
     }
 
-  def flatMapToSetMS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
+  def stFlatMapToSetS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[U]))(s: S) =
     xs.foldLeft((s, Set[U]())) {
       case ((s2, ys), x) => 
         val (s3, zs) = f(x, s2)
         (s3, ys ++ zs)
     }
   
-  def flatMapToMapMS[T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[(U, V)]))(s: S) =
+  def stFlatMapToMapS[T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[(U, V)]))(s: S) =
     xs.foldLeft((s, Map[U, V]())) {
       case ((s2, ys), x) => 
         val (s3, zs) = f(x, s2)
         (s3, ys ++ zs)
     }
   
-  def flatMapToListValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
+  def stFlatMapToIntMapS[T, U, S](xs: Iterable[T])(f: (T, S) => (S, Iterable[(Int, U)]))(s: S) =
+    xs.foldLeft((s, IntMap[U]())) {
+      case ((s2, ys), x) => 
+        val (s3, zs) = f(x, s2)
+        (s3, ys ++ zs)
+    }
+  
+  def stFlatMapToListValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
     xs.foldLeft((s, List[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -206,8 +247,7 @@ object CollectionUtils
         t
     }
   
-  
-  def flatMapToVectorValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
+  def stFlatMapToVectorValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
     xs.foldLeft((s, Vector[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -216,7 +256,7 @@ object CollectionUtils
         t
     }
   
-  def flatMapToSetValidationMS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
+  def stFlatMapToSetValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[U]]))(s: S) =
     xs.foldLeft((s, Set[U]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -225,7 +265,7 @@ object CollectionUtils
         t
     }
   
-  def flatMapToMapValidationMS[E, T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[(U, V)]]))(s: S) =
+  def stFlatMapToMapValidationS[E, T, U, V, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[(U, V)]]))(s: S) =
     xs.foldLeft((s, Map[U, V]().success[E])) {
       case ((s2, Success(ys)), x) =>
         val (s3, res) = f(x, s2)
@@ -234,29 +274,44 @@ object CollectionUtils
         t
     }
   
-  def flatMapToListM[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
-    State(flatMapToListMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToIntMapValidationS[E, T, U, S](xs: Iterable[T])(f: (T, S) => (S, Validation[E, Iterable[(Int, U)]]))(s: S) =
+    xs.foldLeft((s, IntMap[U]().success[E])) {
+      case ((s2, Success(ys)), x) =>
+        val (s3, res) = f(x, s2)
+        (s3, res.map { ys ++ _ })
+      case (t, _)                 =>
+        t
+    }
+  
+  def stFlatMapToList[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
+    State(stFlatMapToListS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToVectorM[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
-    State(flatMapToVectorMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToVector[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
+    State(stFlatMapToVectorS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToSetM[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
-    State(mapToSetMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToSet[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[U]]) =
+    State(stFlatMapToSetS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToMapM[T, U, V, S](xs: Iterable[T])(f: T => State[S, Iterable[(U, V)]]) =
-    State(flatMapToMapMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToMap[T, U, V, S](xs: Iterable[T])(f: T => State[S, Iterable[(U, V)]]) =
+    State(stFlatMapToMapS(xs)({ f(_).run(_: S) }))
+    
+  def stFlatMapToIntMap[T, U, S](xs: Iterable[T])(f: T => State[S, Iterable[(Int, U)]]) =
+    State(stFlatMapToIntMapS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToListValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
-    State(flatMapToListValidationMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToListValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
+    State(stFlatMapToListValidationS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToVectorValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
-    State(flatMapToVectorValidationMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToVectorValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
+    State(stFlatMapToVectorValidationS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToSetValidationM[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
-    State(flatMapToSetValidationMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToSetValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[U]]]) =
+    State(stFlatMapToSetValidationS(xs)({ f(_).run(_: S) }))
 
-  def flatMapToMapValidationM[E, T, U, V, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[(U, V)]]]) =
-    State(flatMapToMapValidationMS(xs)({ f(_).run(_: S) }))
+  def stFlatMapToMapValidation[E, T, U, V, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[(U, V)]]]) =
+    State(stFlatMapToMapValidationS(xs)({ f(_).run(_: S) }))
+    
+  def stFlatMapToIntMapValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, Iterable[(Int, U)]]]) =
+    State(stFlatMapToIntMapValidationS(xs)({ f(_).run(_: S) }))
     
   //
   // foldLeft
@@ -268,20 +323,20 @@ object CollectionUtils
       case (yRes, _)       => yRes
     }
   
-  def foldLeftMS[T, U, S](xs: Iterable[T])(z: U)(f: (U, T, S) => (S, U))(s: S) =
+  def stFoldLeftS[T, U, S](xs: Iterable[T])(z: U)(f: (U, T, S) => (S, U))(s: S) =
     xs.foldLeft((s, z)) { case ((s2, y), x) => f(y, x, s2) }
   
-  def foldLeftValidationMS[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (U, T, S) => (S, Validation[E, U]))(s: S) =
+  def stFoldLeftValidationS[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (U, T, S) => (S, Validation[E, U]))(s: S) =
     xs.foldLeft((s, zRes)) {
       case ((s2, Success(y)), x) => f(y, x, s2)
       case (yRes, _)             => yRes
     }
   
-  def foldLeftM[T, U, S](xs: Iterable[T])(z: U)(f: (U, T) => State[S, U]) =
-    State(foldLeftMS(xs)(z) { f(_, _).run(_: S) })
+  def stFoldLeft[T, U, S](xs: Iterable[T])(z: U)(f: (U, T) => State[S, U]) =
+    State(stFoldLeftS(xs)(z) { f(_, _).run(_: S) })
     
-  def foldLeftValidationM[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (U, T) => State[S, Validation[E, U]]) =
-    State(foldLeftValidationMS(xs)(zRes) { f(_, _).run(_: S) })
+  def stFoldLeftValidation[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (U, T) => State[S, Validation[E, U]]) =
+    State(stFoldLeftValidationS(xs)(zRes) { f(_, _).run(_: S) })
   
   //
   // foldRight
@@ -293,18 +348,18 @@ object CollectionUtils
       case (_, yRes)       => yRes
     }
   
-  def foldRightMS[T, U, S](xs: Iterable[T])(z: U)(f: (T, U, S) => (S, U))(s: S) =
+  def stFoldRightS[T, U, S](xs: Iterable[T])(z: U)(f: (T, U, S) => (S, U))(s: S) =
     xs.foldRight((s, z)) { case (x, (s2, y)) => f(x, y, s2) }
   
-  def foldRightValidationMS[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (T, U, S) => (S, Validation[E, U]))(s: S) =
+  def stFoldRightValidationS[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (T, U, S) => (S, Validation[E, U]))(s: S) =
     xs.foldRight((s, zRes)) {
       case (x, (s2, Success(y))) => f(x, y, s2)
       case (_, yRes)             => yRes
     }
   
-  def foldRightM[T, U, S](xs: Iterable[T])(z: U)(f: (T, U) => State[S, U]) =
-    State(foldRightMS(xs)(z) { f(_, _).run(_: S) })
+  def stFoldRight[T, U, S](xs: Iterable[T])(z: U)(f: (T, U) => State[S, U]) =
+    State(stFoldRightS(xs)(z) { f(_, _).run(_: S) })
     
-  def foldRightValidationM[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (T, U) => State[S, Validation[E, U]]) =
-    State(foldRightValidationMS(xs)(zRes) { f(_, _).run(_: S) })
+  def stFoldRightValidation[E, T, U, S](xs: Iterable[T])(zRes: Validation[E, U])(f: (T, U) => State[S, Validation[E, U]]) =
+    State(stFoldRightValidationS(xs)(zRes) { f(_, _).run(_: S) })
 }

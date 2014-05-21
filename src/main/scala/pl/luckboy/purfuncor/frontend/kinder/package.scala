@@ -25,6 +25,7 @@ import pl.luckboy.purfuncor.frontend.KindTermUtils._
 import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 package object kinder
 {
@@ -186,17 +187,15 @@ package object kinder
       val (env2, res) = instantiateKindMapS(syms.map { s => (s, env.typeVarKind(s)) }.toMap)(env)
       res.map {
         ks =>
-          val (env3, res2) = syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }.foldLeft((env2, Map[Option[GlobalSymbol], Map[Int, KindTable[LocalSymbol]]]().success[NoKind])) {
-            case ((newEnv, Success(ktMaps)), (s, kts)) =>
-              kts.foldLeft((newEnv, IntMap[KindTable[LocalSymbol]]().success[NoKind])) {
-                case ((newEnv2, Success(newKts)), (i, kt)) =>
-                  instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => newKts + (i -> KindTable(ks)) })
-                case ((newEnv2, Failure(nk)), _)        =>
-                  (newEnv2, nk.failure)
-              }.mapElements(identity, _.map { kts2 => ktMaps + (some(s) -> kts2) })
-            case ((newEnv, Failure(nk)), _)            =>
-              (newEnv, nk.failure)
-          }
+          val (env3, res2) = stMapToMapValidationS(syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }) {
+            (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+              val (s, kts) = tmpPair
+              stMapToIntMapValidationS(kts) {
+                (tmpPair2, newEnv2: SymbolKindInferenceEnvironment[T]) =>
+                  val (i, kt) = tmpPair2
+                  instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => i -> KindTable(ks) })
+              } (newEnv).mapElements(identity, _.map { kts2 => some(s) -> kts2 })
+          } (env2)
           res2.map {
             kts => (env3.withGlobalTypeVarKinds(ks).withLocalKindTables(env3.localKindTables ++ kts), ().success)
           }.valueOr { nk => (env3, nk.failure) }
@@ -385,12 +384,11 @@ package object kinder
   
   implicit def symbolKindInferenceEnvironmentState[T]: KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
     override def instantiateLocalKindTablesS(env: SymbolKindInferenceEnvironment[T]) = {
-      val (env2, res) = env.localKindTables.getOrElse(env.currentTypeCombSym, IntMap()).foldLeft((env, IntMap[KindTable[LocalSymbol]]().success[NoKind])) {
-        case ((newEnv, Success(kts)), (i, kt)) =>
-          instantiateKindMapS(kt.kinds)(newEnv).mapElements(identity, _.map { ks => kts + (i -> KindTable(ks)) })
-        case ((newEnv, Failure(nk)), _)        =>
-          (newEnv, nk.failure)
-      }
+      val (env2, res) = stMapToIntMapValidationS(env.localKindTables.getOrElse(env.currentTypeCombSym, IntMap())) {
+        (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+          val (i, kt) = tmpPair
+          instantiateKindMapS(kt.kinds)(newEnv).mapElements(identity, _.map { ks => (i -> KindTable(ks)) })
+      } (env)
       res.map {
         kts => (env2.copy(localKindTables = env2.localKindTables + (env2.currentTypeCombSym -> kts)), ().success)
       }.valueOr { nk => (env2, nk.failure) }

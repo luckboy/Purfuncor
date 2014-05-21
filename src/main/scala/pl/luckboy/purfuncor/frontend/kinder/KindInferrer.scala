@@ -15,6 +15,7 @@ import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.common.Unifier._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 import KindTermUnifier._
 
 object KindInferrer
@@ -92,27 +93,31 @@ object KindInferrer
   def returnKindFromKindS[E](kind: Kind, argCount: Int)(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     kind match {
       case InferredKind(kindTerm) =>
-        val res = (0 until argCount).foldLeft(kindTerm.success[NoKind]) {
-          case (Success(Arrow(_, r, _)), _) => r.success
-          case (Success(Star(_, _)), _)     => NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure
-          case (Failure(nk), _)             => nk.failure
+        val res = foldLeftValidation(0 until argCount)(kindTerm.success[NoKind]) {
+          case (Arrow(_, r, _), _) => r.success
+          case (Star(_, _), _)     => NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure
         }
         (env, res.map{ InferredKind(_) }.valueOr(identity))
       case InferringKind(kindTerm) =>
-        val (env2, res) = (0 until argCount).foldLeft((env, kindTerm.success[NoKind])) {
-          case ((newEnv, Success(Arrow(_, r, _))), _)        =>
-            (newEnv, r.success)
-          case ((newEnv, Success(Star(KindParam(p), _))), _) =>
-            val (newEnv2, rootParamRes) = unifier.findRootParamS(p)(newEnv)
-            rootParamRes.map {
-              rootParam =>
-                val (newEnv3, optParamKindTerm) = unifier.getParamTermS(rootParam)(newEnv2)
-                optParamKindTerm.map {
-                  case Arrow(_, r, _) => (newEnv3, r.success)
-                  case _              => (newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure)
-                }.getOrElse((newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure))
-            }.valueOr { nk => (newEnv2, nk.failure) }
-        }
+        val (env2, res) = stFoldLeftValidationS(0 until argCount)(kindTerm.success[NoKind]) {
+          (kindTerm, _, newEnv: E) =>
+            kindTerm match {
+              case Arrow(_, r, _)        =>
+                (newEnv, r.success)
+              case Star(KindParam(p), _) =>
+                val (newEnv2, rootParamRes) = unifier.findRootParamS(p)(newEnv)
+                rootParamRes.map {
+                  rootParam =>
+                    val (newEnv3, optParamKindTerm) = unifier.getParamTermS(rootParam)(newEnv2)
+                      optParamKindTerm.map {
+                        case Arrow(_, r, _) => (newEnv3, r.success)
+                        case _              => (newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure)
+                      }.getOrElse((newEnv3, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure))
+                }.valueOr { nk => (newEnv2, nk.failure) }
+              case Star(_, _)            =>
+                (newEnv, NoKind.fromError(FatalError("kind term isn't arrow", none, NoPosition)).failure)
+            }
+        } (env)
         (env2, res.map(InferringKind).valueOr(identity))
       case UninferredKind =>
         (env, NoKind.fromError(FatalError("uninferred kind", none, NoPosition)))
@@ -152,15 +157,14 @@ object KindInferrer
     }
   
   def instantiateKindMapS[T, E](kinds: Map[T, Kind])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
-    kinds.foldLeft((env, Map[T, Kind]().success[NoKind])) {
-      case ((newEnv, Success(ks)), (l, k)) => 
+    stMapToMapValidationS(kinds) {
+      (tmpPair, newEnv: E) =>
+        val (l, k) = tmpPair
         k.instantiatedKindS(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
-          case (newEnv2, kind: Kind)     => (newEnv2, (ks + (l -> kind)).success)
+          case (newEnv2, kind: Kind)    => (newEnv2, (l -> kind).success)
         }
-      case ((newEnv, Failure(nk)), _)      =>
-        (newEnv, nk.failure)
-    }
+    } (env)
   
   @tailrec
   private def argCountFromInferredKindTerm(kindTerm: KindTerm[StarKindTerm[Int]])(argCount: Int): Int =

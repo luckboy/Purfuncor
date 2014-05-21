@@ -16,6 +16,7 @@ import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.common.Inferrer._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 object TypeValueTermKindInferrer
 {  
@@ -51,15 +52,13 @@ object TypeValueTermKindInferrer
     }
 
   def inferTypeValueTermKindsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) =
-    terms.foldLeft((env, Vector[Kind]().success[NoKind])) {
-      case ((newEnv, Success(kinds)), term) => 
+    stMapToVectorValidationS(terms) {
+      (term, newEnv: E) =>
         inferTypeValueTermKindS(term)(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
-          case (newEnv2, kind)           => (newEnv2, (kinds :+ kind).success)
+          case (newEnv2, kind)           => (newEnv2, kind.success)
         }
-      case ((newEnv, Failure(noKind)), _)     =>
-        (newEnv, noKind.failure)
-    }
+    } (env)
   
   def inferTypeValueLambdaKindS[T, U, E](lambda: TypeValueLambda[T])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) = {
     val (env2, kind) = inferTypeValueTermKindS(lambda.body)(env)
@@ -75,15 +74,13 @@ object TypeValueTermKindInferrer
   }
 
   def inferTypeValueLambdaKindsS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) =
-    lambdas.foldLeft((env, Vector[Kind]().success[NoKind])) {
-      case ((newEnv, Success(kinds)), lambda) =>
+    stMapToVectorValidationS(lambdas) {
+      (lambda, newEnv: E) =>
         inferTypeValueLambdaKindS(lambda)(newEnv) match {
           case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
-          case (newEnv2, kind)           => (newEnv2, (kinds :+ kind).success)
+          case (newEnv2, kind)           => (newEnv2, kind.success)
         }
-      case ((newEnv, Failure(noKind)), _)        =>
-        (newEnv, noKind.failure)
-    }
+    } (env)
  
   def appStarKindS[T, E](argKinds: Seq[Kind])(env: E)(implicit envSt: KindInferrenceEnvironmentState[E, T]) = {
     val (env2, res) = argKinds.foldLeft((env, ().success[NoKind])) {
