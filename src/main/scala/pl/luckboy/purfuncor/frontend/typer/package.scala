@@ -896,7 +896,7 @@ package object typer
                               case (_, ps2) =>
                                 val ps3 = ps1 ++ ((ps2.keySet &~ ps1.keySet).zipWithIndex.toMap.mapValues(ps1.size +))
                                 val ps4 = ps2 ++ ((ps1.keySet &~ ps2.keySet).zipWithIndex.toMap.mapValues(ps2.size +))
-                                // Type parameters of polynomial functions to type parameters of combinators. 
+                                // Type parameters of polymorphic functions to type parameters of combinators. 
                                 ps3.toList.flatMap { p => ps4.get(p._1).map(p._2 ->) }
                             }
                           }.toMap
