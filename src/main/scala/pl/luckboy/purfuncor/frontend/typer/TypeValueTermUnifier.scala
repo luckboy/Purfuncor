@@ -346,9 +346,7 @@ object TypeValueTermUnifier
               } (env4)
               res3.map {
                 case (y, kinds) =>
-                  val optKinds2 = (0 until (lambdas1.size + lambdas2.size)).foldLeft(some(Vector[Kind]())) {
-                    case (optKs, i) => optKs.flatMap { ks => kinds.lift(i).map { k => ks :+ k } }
-                  }
+                  val optKinds2 = mapToVectorOption(0 until (lambdas1.size + lambdas2.size))(kinds.lift)
                   optKinds2.map {
                     kinds2 =>
                       val (kinds21, kinds22) = kinds2.splitAt(lambdas1.size)

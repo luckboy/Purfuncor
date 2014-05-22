@@ -16,6 +16,39 @@ object CollectionUtils
   // map
   //
   
+  def mapToReversedListOption[T, U](xs: Iterable[T])(f: T => Option[U]) =
+    xs.foldLeft(some(List[U]())) {
+      case (Some(ys), x) => f(x).map { _ :: ys }
+      case (opt, _)      => opt
+    }
+  
+  def mapToListOption[T, U](xs: Iterable[T])(f: T => Option[U]) =
+    mapToReversedListOption(xs)(f).map { _.reverse }
+  
+  def mapToVectorOption[T, U](xs: Iterable[T])(f: T => Option[U]) =
+    xs.foldLeft(some(Vector[U]())) {
+      case (Some(ys), x) => f(x).map { ys :+ _ }
+      case (opt, _)      => opt
+    }
+  
+  def mapToSetOption[T, U](xs: Iterable[T])(f: T => Option[U]) =
+    xs.foldLeft(some(Set[U]())) {
+      case (Some(ys), x) => f(x).map(ys +)
+      case (opt, _)      => opt
+    }
+  
+  def mapToMapOption[T, U, V](xs: Iterable[T])(f: T => Option[(U, V)]) =
+    xs.foldLeft(some(Map[U, V]())) {
+      case (Some(ys), x) => f(x).map(ys +)
+      case (opt, _)      => opt
+    }
+
+  def mapToIntMapOption[T, U](xs: Iterable[T])(f: T => Option[(Int, U)]) =
+    xs.foldLeft(some(IntMap[U]())) {
+      case (Some(ys), x) => f(x).map(ys +)
+      case (opt, _)      => opt
+    }
+  
   def mapToReversedListValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, U]) =
     xs.foldLeft(List[U]().success[E]) {
       case (Success(ys), x) => f(x).map { _ :: ys }
@@ -33,19 +66,19 @@ object CollectionUtils
 
   def mapToSetValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, U]) =
     xs.foldLeft(Set[U]().success[E]) {
-      case (Success(ys), x) => f(x).map { ys + _ }
+      case (Success(ys), x) => f(x).map(ys +)
       case (res,  _)        => res
     }
   
   def mapToMapValidation[E, T, U, V](xs: Iterable[T])(f: T => Validation[E, (U, V)]) =
     xs.foldLeft(Map[U, V]().success[E]) {
-      case (Success(ys), x) => f(x).map { ys + _ }
+      case (Success(ys), x) => f(x).map(ys +)
       case (res,  _)        => res
     }
   
   def mapToIntMapValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, (Int, U)]) =
     xs.foldLeft(IntMap[U]().success[E]) {
-      case (Success(ys), x) => f(x).map { ys + _ }
+      case (Success(ys), x) => f(x).map(ys +)
       case (res,  _)        => res
     }
 
@@ -172,7 +205,37 @@ object CollectionUtils
     State(stMapToIntMapValidationS(xs)({ f(_).run(_: S) }))
     
   // flatMap
-        
+  
+  def flatMapToListOption[T, U](xs: Iterable[T])(f: T => Option[Iterable[U]]) =
+    xs.foldLeft(some(List[U]())) {
+      case (Some(ys), x) => f(x).map { ys ++ _ } 
+      case (opt, _)      => opt
+    }
+  
+  def flatMapToVectorOption[T, U](xs: Iterable[T])(f: T => Option[Iterable[U]]) =
+    xs.foldLeft(some(Vector[U]())) {
+      case (Some(ys), x) => f(x).map { ys ++ _ } 
+      case (opt, _)      => opt
+    }
+  
+  def flatMapToSetOption[T, U](xs: Iterable[T])(f: T => Option[Iterable[U]]) =
+    xs.foldLeft(some(Set[U]())) {
+      case (Some(ys), x) => f(x).map(ys ++)
+      case (opt, _)      => opt
+    }
+
+  def flatMapToMapOption[T, U, V](xs: Iterable[T])(f: T => Option[Iterable[(U, V)]]) =
+    xs.foldLeft(some(Map[U, V]())) {
+      case (Some(ys), x) => f(x).map(ys ++)
+      case (opt, _)      => opt
+    }
+
+  def flatMapToIntMapOption[T, U](xs: Iterable[T])(f: T => Option[Iterable[(Int, U)]]) =
+    xs.foldLeft(some(IntMap[U]())) {
+      case (Some(ys), x) => f(x).map { ys ++ _ }
+      case (opt, _)      => opt
+    }
+    
   def flatMapToListValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, Iterable[U]]) =
     xs.foldLeft(List[U]().success[E]) {
       case (Success(ys), x) => f(x).map { ys ++ _ }
@@ -187,13 +250,13 @@ object CollectionUtils
 
   def flatMapToSetValidation[E, T, U](xs: Iterable[T])(f: T => Validation[E, Iterable[U]]) =
     xs.foldLeft(Set[U]().success[E]) {
-      case (Success(ys), x) => f(x).map { ys ++ _ }
+      case (Success(ys), x) => f(x).map(ys ++)
       case (res,  _)        => res
     }
   
   def flatMapToMapValidation[E, T, U, V](xs: Iterable[T])(f: T => Validation[E, Iterable[(U, V)]]) =
     xs.foldLeft(Map[U, V]().success[E]) {
-      case (Success(ys), x) => f(x).map { ys ++ _ }
+      case (Success(ys), x) => f(x).map(ys ++)
       case (res,  _)        => res
     }
   
@@ -316,6 +379,12 @@ object CollectionUtils
   //
   // foldLeft
   //
+  
+  def foldLeftOption[T, U](xs: Iterable[T])(optZ: Option[U])(f: (U, T) => Option[U]) =
+    xs.foldLeft(optZ) {
+      case (Some(y), x) => f(y, x)
+      case (optY, _)    => optY
+    }
     
   def foldLeftValidation[E, T, U](xs: Iterable[T])(zRes: Validation[E, U])(f: (U, T) => Validation[E, U]) =
     xs.foldLeft(zRes) {
@@ -341,6 +410,12 @@ object CollectionUtils
   //
   // foldRight
   //
+ 
+  def foldRightOption[T, U](xs: Iterable[T])(optZ: Option[U])(f: (T, U) => Option[U]) =
+    xs.foldRight(optZ) {
+      case (x, Some(y)) => f(x, y)
+      case (_, optY)    => optY
+    }
     
   def foldRightValidation[E, T, U](xs: Iterable[T])(zRes: Validation[E, U])(f: (T, U) => Validation[E, U]) =
     xs.foldRight(zRes) {

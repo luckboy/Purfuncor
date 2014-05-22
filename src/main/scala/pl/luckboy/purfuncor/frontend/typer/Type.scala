@@ -55,9 +55,9 @@ sealed trait Type[T]
               }).map {
                 _.flatMap { 
                   kinds =>
-                    val res2 = (0 until kinds.size).foldLeft(some(Seq[InferredKind]())) { 
-                      (optKs, i) => optKs.flatMap { ks => kinds.get(i).map { ks :+ _ } }
-                    }.toSuccess(NoType.fromError[T](FatalError("index of out bounds", none, NoPosition)))
+                    val res2 = mapToVectorOption(0 until kinds.size)(kinds.get).toSuccess { 
+                      NoType.fromError[T](FatalError("index of out bounds", none, NoPosition))
+                    }
                     res2.map { (typeValueTerm3, _, params2) } 
                 }
              }
@@ -119,10 +119,7 @@ sealed trait Type[T]
 object Type
 {
   def uninstantiatedTypeValueTermFromTypesS[T, U, E](types: Seq[Type[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    types.foldLeft((env, Seq[TypeValueTerm[T]]().success[NoType[T]])) {
-      case ((newEnv, Success(tvts)), t) => t.uninstantiatedTypeValueTermS(newEnv).mapElements(identity, _.map { tvts :+ _ })
-      case ((newEnv, Failure(nt)), _)   => (newEnv, nt.failure)
-    }
+    stMapToVectorValidationS(types) { _.uninstantiatedTypeValueTermS(_: E) } (env)
 }
 
 case class NoType[T](prevErrs: List[AbstractError], currentErrs: List[AbstractError]) extends Type[T]

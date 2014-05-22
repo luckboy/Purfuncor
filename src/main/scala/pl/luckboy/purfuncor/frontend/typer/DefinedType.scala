@@ -16,6 +16,7 @@ import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.TypeLambdaInfo
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.KindTermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 import TypeValueTermUtils._
 
 case class DefinedType[T](args: List[DefinedTypeArg], term: TypeValueTerm[T], pos: Position)
@@ -48,15 +49,13 @@ object DefinedType
             val paramValues = (newParam1 until newParamN).map { i => EvaluatedTypeValue[T, U, TypeLambdaInfo[V, W], X](TypeParamApp(i, Nil, paramAppIdx)) }
             val definedKinds = lambdaValue.lambda.args.map { _.kind.map(intKindTermFromKindTerm) }.list
             val lambdaInfo = lambdaValue.lambda.lambdaInfo
-            val newRes = argTabular.getArgLocationsFromTable(lambdaValue.lambda).zip(definedKinds).foldLeft(Vector[InferredKind]().success[NoTypeValue[T, U, TypeLambdaInfo[V, W], X]]) {
-              case (Success(ks), (Some(l), _)) =>
-                lambdaInfo.kindTable.kinds.get(l).map { k => (ks :+ k).success }.getOrElse {
+            val newRes = mapToVectorValidation(argTabular.getArgLocationsFromTable(lambdaValue.lambda).zip(definedKinds)) {
+              case (Some(l), _) =>
+                lambdaInfo.kindTable.kinds.get(l).map { _.success }.getOrElse {
                   NoTypeValue.fromError[T, U, TypeLambdaInfo[V, W], X](FatalError("not found kind at local kind table", none, NoPosition)).failure
                 }
-              case (Success(ks), (None, kt))   =>
-                (ks :+ kt.map { InferredKind(_) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition)))).success
-              case (Failure(nv), _)            =>
-                nv.failure
+              case (None, kt)   =>
+                kt.map { InferredKind(_) }.getOrElse(InferredKind(Star(KindParam(0), NoPosition))).success
             }
             newRes.map {
               inferredKinds =>
