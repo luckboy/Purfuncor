@@ -30,9 +30,9 @@ object TypeValueTermUnifier
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(terms1.size === terms2.size) {
       val (env4, res) = stFoldLeftValidationS(terms1.zip(terms2))((z, Vector[Kind]()).success[NoType[T]]) {
-        (tmpPair1, tmpPair2, newEnv: E) =>
-          val (x, kinds) = tmpPair1
-          val (term1, term2) = tmpPair2
+        (pair1, pair2, newEnv: E) =>
+          val (x, kinds) = pair1
+          val (term1, term2) = pair2
           val (newEnv2, newRes) = matchesTypeValueTermsS(term1, term2)(x)(f)(newEnv: E)
           newRes.map {
             x2 => envSt.returnKindFromEnvironmentS(newEnv2).mapElements(identity, k => (x2, kinds :+ k).success)
@@ -53,9 +53,9 @@ object TypeValueTermUnifier
     val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.Types)(env2)
     val (env6, res2) = if(lambdas1.size === lambdas2.size) {
       val (env4, res) = stFoldLeftValidationS(lambdas1.zip(lambdas2))((z, Vector[Kind]()).success[NoType[T]]) {
-        (tmpPair1, tmpPair2, newEnv: E) =>
-          val (x, kinds) = tmpPair1
-          val (lambda1, lambda2) = tmpPair2
+        (pair1, pair2, newEnv: E) =>
+          val (x, kinds) = pair1
+          val (lambda1, lambda2) = pair2
           val (newEnv2, newRes) = matchesTypeValueLambdasS(lambda1, lambda2)(x)(f)(newEnv)
           newRes.map {
             x2 => envSt.returnKindFromEnvironmentS(newEnv2).mapElements(identity, k => (x2, kinds :+ k).success)
@@ -282,12 +282,12 @@ object TypeValueTermUnifier
               val (env4, nextParam) = envSt.nextTypeParamFromEnvironmentS(env3)
               val termParams2 = otherParams2 ++ (firstArgIdxs.keys ++ secondArgIdxs.keys).zipWithIndex.map { case (p1, p2) => (p1, p2 + nextParam) }
               val (env5, res3) = stFoldLeftValidationS(matchings)((z, IntMap[Kind]()).success[NoType[T]]) {
-                (tmpPair, matching, newEnv: E) =>
-                  val (x, kinds) = tmpPair
+                (pair, matching, newEnv: E) =>
+                  val (x, kinds) = pair
                   val TypeValueTermMatching(params, term, kind) = matching
                   val (newEnv5, newRes) = stFoldLeftValidationS(params)((x, kinds, none[(TypeValueLambda[T], Int)], none[Kind]).success[NoType[T]]) {
-                    (tmpTuple, param, newEnv2: E) =>
-                      val (x2, kinds2, optPair1, optRetKind) = tmpTuple
+                    (tuple, param, newEnv2: E) =>
+                      val (x2, kinds2, optPair1, optRetKind) = tuple
                       val optPair2 = firstArgIdxs.get(param).flatMap { 
                         i => lambdas1.lift(i).map { (_, i) }
                       }.orElse(secondArgIdxs.get(param).flatMap { 
@@ -676,8 +676,8 @@ object TypeValueTermUnifier
 
   private def evaluateLogicalTypeValueTermsS[T, U, V, E](terms: Set[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T]) =
     stFoldLeftValidationS(terms)((Set[TypeValueTerm[T]](), Set[Int]()).success[NoType[T]]) {
-      (tmpPair, term, newEnv: E) =>
-        val (newTerms, newInstantiatedParams) = tmpPair
+      (pair, term, newEnv: E) =>
+        val (newTerms, newInstantiatedParams) = pair
         evaluateLogicalTypeValueTermS(term)(newEnv).mapElements(identity, _.map { p => (newTerms + p._1, newInstantiatedParams ++ p._2) } )
     } (env)
   
@@ -1103,8 +1103,8 @@ object TypeValueTermUnifier
     lambda match {
       case TypeValueLambda(argParams, body) =>
         val (env2, res) = stFoldLeftValidationS(argParams)((IntMap[Int](), Vector[Int]()).success[NoType[T]]) {
-          (tmpPair, argParam, newEnv: E) =>
-            val (newAllocatedArgParams, newArgParams) = tmpPair
+          (pair, argParam, newEnv: E) =>
+            val (newAllocatedArgParams, newArgParams) = pair
             allocatedParams.get(argParam).map { argParam2 => (newEnv, (newAllocatedArgParams, newArgParams :+ argParam2).success) }.getOrElse {
               val (newEnv2, res) = unifier.allocateParamS(newEnv)
               res.map { argParam2 => (newEnv2, (newAllocatedArgParams + (argParam -> argParam2), newArgParams :+ argParam2).success) }.valueOr {
@@ -1191,8 +1191,8 @@ object TypeValueTermUnifier
           case (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2) =>
             st(for {
               inferringKinds <- steS(stFlatMapToIntMapValidationS(kinds) {
-                (tmpPair, newEnv: E) =>
-                  val (param, kind) = tmpPair
+                (pair, newEnv: E) =>
+                  val (param, kind) = pair
                   val (newEnv2, inferringKindRes) = envSt.inferringKindFromKindS(kind)(newEnv)
                     (newEnv2, inferringKindRes.map { 
                       inferringKind => allocatedParams.get(param).map { _ -> inferringKind }.toList
