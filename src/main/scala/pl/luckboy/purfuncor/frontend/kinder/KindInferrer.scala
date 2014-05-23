@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.common.Arrow
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.util.CollectionUtils._
 import KindTermUnifier._
+import KindResult._
 
 object KindInferrer
 {
@@ -158,12 +159,9 @@ object KindInferrer
   
   def instantiateKindMapS[T, E](kinds: Map[T, Kind])(env: E)(implicit unifier: Unifier[NoKind, KindTerm[StarKindTerm[Int]], E, Int]) =
     stMapToMapValidationS(kinds) {
-      (tmpPair, newEnv: E) =>
-        val (l, k) = tmpPair
-        k.instantiatedKindS(newEnv) match {
-          case (newEnv2, noKind: NoKind) => (newEnv2, noKind.failure)
-          case (newEnv2, kind: Kind)    => (newEnv2, (l -> kind).success)
-        }
+      (pair, newEnv: E) =>
+        val (l, k) = pair
+        k.instantiatedKindS(newEnv).mapElements(identity, kindResultFromKind(_).map(l ->))
     } (env)
   
   @tailrec

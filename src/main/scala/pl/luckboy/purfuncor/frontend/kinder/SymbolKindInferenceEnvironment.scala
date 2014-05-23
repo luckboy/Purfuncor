@@ -78,8 +78,8 @@ case class SymbolKindInferenceEnvironment[T](
   
   def withLocalTypeVarKinds[U](kindTerms: Map[LocalSymbol, Option[KindTerm[StarKindTerm[U]]]])(f: SymbolKindInferenceEnvironment[T] => (SymbolKindInferenceEnvironment[T], Kind)) = {
     val (env, res) = stMapToMapValidationS(kindTerms) {
-      (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
-        val (sym, kt) = tmpPair
+      (pair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+        val (sym, kt) = pair
         val kindTerm = kt.map(intKindTermFromKindTerm).getOrElse(Star(KindParam(0), NoPosition))
         val (newEnv2, newRes) = allocateKindTermParamsS(kindTerm)(Map())(newEnv)
         newRes.map {

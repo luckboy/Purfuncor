@@ -188,11 +188,11 @@ package object kinder
       res.map {
         ks =>
           val (env3, res2) = stMapToMapValidationS(syms.flatMap { s => env2.localKindTables.get(some(s)).map { (s, _) } }) {
-            (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
-              val (s, kts) = tmpPair
+            (pair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+              val (s, kts) = pair
               stMapToIntMapValidationS(kts) {
-                (tmpPair2, newEnv2: SymbolKindInferenceEnvironment[T]) =>
-                  val (i, kt) = tmpPair2
+                (pair2, newEnv2: SymbolKindInferenceEnvironment[T]) =>
+                  val (i, kt) = pair2
                   instantiateKindMapS(kt.kinds)(newEnv2).mapElements(identity, _.map { ks => i -> KindTable(ks) })
               } (newEnv).mapElements(identity, _.map { kts2 => some(s) -> kts2 })
           } (env2)
@@ -385,8 +385,8 @@ package object kinder
   implicit def symbolKindInferenceEnvironmentState[T]: KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] = new KindInferenceEnvironmentState[SymbolKindInferenceEnvironment[T], GlobalSymbol] {
     override def instantiateLocalKindTablesS(env: SymbolKindInferenceEnvironment[T]) = {
       val (env2, res) = stMapToIntMapValidationS(env.localKindTables.getOrElse(env.currentTypeCombSym, IntMap())) {
-        (tmpPair, newEnv: SymbolKindInferenceEnvironment[T]) =>
-          val (i, kt) = tmpPair
+        (pair, newEnv: SymbolKindInferenceEnvironment[T]) =>
+          val (i, kt) = pair
           instantiateKindMapS(kt.kinds)(newEnv).mapElements(identity, _.map { ks => (i -> KindTable(ks)) })
       } (env)
       res.map {

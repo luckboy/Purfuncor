@@ -39,6 +39,8 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import pl.luckboy.purfuncor.util.StateUtils._
+import pl.luckboy.purfuncor.util.EitherP
 
 package object typer
 {
@@ -428,8 +430,8 @@ package object typer
       
     override def instantiateTypesFromLambdaInfosS(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], Unit]) = {
       val (env2, res) = stMapToIntMapValidationS(env.lambdaInfos.getOrElse(env.currentCombSym, IntMap())) {
-        (tmpPair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
-          val (i, li) = tmpPair
+        (pair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+          val (i, li) = pair
           val (newEnv2, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv)
           newRes.map {
             ts => instantiateTypeOptionS(li.polyFunType)(newEnv).mapElements(identity, _.map { pft => i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft) })
@@ -874,11 +876,11 @@ package object typer
             tmpPs =>
               val ps1 = tmpPs.zipWithIndex.toMap
               val (env4, res3) = stMapToMapValidationS(syms.flatMap { s => env3.lambdaInfos.get(some(s)).map { (s, _) } }) {
-                (tmpPair, newEnv:  SymbolTypeInferenceEnvironment[T, U]) =>
-                  val (s, lis) = tmpPair
+                (pair, newEnv:  SymbolTypeInferenceEnvironment[T, U]) =>
+                  val (s, lis) = pair
                   stMapToIntMapValidationS(lis) {
-                    (tmpPair2, newEnv2:  SymbolTypeInferenceEnvironment[T, U]) =>
-                      val (i, li) = tmpPair2
+                    (pair2, newEnv2:  SymbolTypeInferenceEnvironment[T, U]) =>
+                      val (i, li) = pair2
                       val (newEnv3, newRes) = instantiateTypeMapS(li.typeTable.types)(newEnv2)
                       newRes.map {
                         ts => instantiateTypeOptionForParamsS(li.polyFunType)(ps1)(newEnv3).mapElements(identity, _.map { pft => i -> li.copy(typeTable = TypeTable(ts), polyFunType = pft) })

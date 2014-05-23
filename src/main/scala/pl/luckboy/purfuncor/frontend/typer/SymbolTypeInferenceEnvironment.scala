@@ -135,8 +135,8 @@ case class SymbolTypeInferenceEnvironment[T, U](
 
   def withLocalVarTypesForCase(caseTypes: Map[LocalSymbol, Option[CaseType[TypeSimpleTerm[Symbol, TypeLambdaInfo[U, LocalSymbol]]]]], defaultType: Option[Type[GlobalSymbol]])(f: SymbolTypeInferenceEnvironment[T, U] => (SymbolTypeInferenceEnvironment[T, U], Type[GlobalSymbol])) = {
     val (env, res) = stMapToMapValidationS(caseTypes) {
-      (tmpPair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
-        val (sym, caseType) = tmpPair
+      (pair, newEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+        val (sym, caseType) = pair
         val (newEnv3, newRes2) = caseType.map {
           ct => newEnv.definedTypeFromTypeTerm(ct.term).mapElements(identity, _.map { dt => (if(ct.isDefinedCaseType) some(dt) else none, InferringType(dt.term)) })
         }.orElse(defaultType.map { t => (newEnv, (none, t).success) }).getOrElse {
