@@ -20,6 +20,7 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.TypeMatching
 import pl.luckboy.purfuncor.frontend.typer.TypeInferrer._
 import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 case class InstanceTree[T, U, V](instGroupTables: Map[T, InstanceGroupTable[U, V]])
 {
@@ -219,14 +220,13 @@ case class InstanceGroup[T, U](pairs: Seq[(InstanceType[T], U)])
             val (newEnv3, newRes2) = instType.typ.uninstantiatedTypeValueTermWithTypeParamsS(newEnv2)
             (for(p <- newRes; ip <- newRes2) yield {
               val ((tvt, ps), (itvt, ips)) = (p, ip)
-              ps.foldLeft((newEnv3, ().success[NoType[T]])) {
-                case ((newEnv4, Success(_)), (param, param2)) => 
+              stFoldLeftValidationS(ps)(().success[NoType[T]]) {
+                (_, pair, newEnv4: E) =>
+                  val (param, param2) = pair
                   ips.get(param).map {
                     unifier.unionParamsS(param2, _)(newEnv4).mapElements(identity, _.map { _ => () })
                   }.getOrElse((newEnv4, ().success))
-                case ((newEnv4, Failure(noType)), _)          =>
-                  (newEnv4, noType.failure)
-              }.mapElements(identity, _.map { _ => (InferringType(tvt), InferringType(itvt)) })
+              } (newEnv3).mapElements(identity, _.map { _ => (InferringType(tvt), InferringType(itvt)) })
             }).valueOr { nt => (newEnv3, nt.failure) }
           case (_, _)                                             =>
             val (newEnv2, newRes) = typ.typ.uninstantiatedTypeValueTermS(newEnv)
@@ -251,13 +251,12 @@ case class InstanceGroup[T, U](pairs: Seq[(InstanceType[T], U)])
     } (env)
   
   private def findInstsWithIndexesS[V, E](typ: InstanceType[T], typeMatching: TypeMatching.Value)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
-    pairs.zipWithIndex.foldLeft((env, Vector[(U, Int)]().success[NoType[T]])) {
-      case ((newEnv, Success(newPairs)), ((instType, inst), i)) =>
+    stFlatMapToVectorValidationS(pairs.zipWithIndex) {
+      (pair, newEnv: E) =>
+        val  ((instType, inst), i) = pair
         val (newEnv2, newRes) = matchesInstTypesS(typ, instType, typeMatching)(newEnv)
-        (newEnv2, newRes.map { if(_) newPairs :+ (inst, i) else newPairs })
-      case ((newEnv, Failure(noType)), _)                       =>
-        (newEnv, noType.failure)
-    }
+        (newEnv2, newRes.map { if(_) List((inst, i)) else Nil })
+    } (env)
   
   def findInstsS[V, E](typ: InstanceType[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, V, T], envSt2: TypeInferenceEnvironmentState[E, V, T]) =
     findInstsWithIndexesS(typ, TypeMatching.SupertypeWithType)(env).mapElements(identity, _.map { _.map { _._1 } })

@@ -19,6 +19,7 @@ import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.frontend.TermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 import pl.luckboy.purfuncor.frontend.instant.LambdaInfoUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 package object interp
 {
@@ -47,12 +48,10 @@ package object interp
               case _                             => NoValue.fromString("incorrect instane value")
             }.getOrElse(NoValue.fromString("no local instance value")))
           case (_, insts) =>
-            val (env2, res) = insts.foldLeft((env, Vector[InstanceValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]]().success[NoValue[Symbol, instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, SymbolClosure[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U]]])) {
-              case ((newEnv, Success(instValues)), inst) =>
-                InstanceValue.fromInstanceS(inst)(newEnv).mapElements(identity, _.map { instValues :+ _ })
-              case ((newEnv, Failure(noValue)), _)       =>
-                (newEnv, noValue.failure)
-            }
+            val (env2, res) = stMapToVectorValidationS(insts) {
+              (inst, newEnv: SymbolEnvironment[instant.LambdaInfo[T, LocalSymbol, GlobalSymbol, GlobalSymbol], U, V]) =>
+                InstanceValue.fromInstanceS(inst)(newEnv)
+            } (env)
             res.map {
               instValues =>
                 value match {

@@ -8,6 +8,7 @@
 package pl.luckboy.purfuncor.frontend.instant
 import scalaz._
 import scalaz.Scalaz._
+import pl.luckboy.purfuncor.util.CollectionUtils._
 
 case class GroupIdentity[T](funIdent: GroupNodeIdentity[T], argIdents: Seq[GroupIdentity[T]])
 {
@@ -15,11 +16,8 @@ case class GroupIdentity[T](funIdent: GroupNodeIdentity[T], argIdents: Seq[Group
     (this, groupIdent) match {
       case (GroupIdentity(funIdent1, argIdents1), GroupIdentity(funIdent2, argIdents2))  =>
         if(funIdent1 === funIdent2 && argIdents1.size === argIdents2.size)
-          argIdents1.zip(argIdents2).foldLeft(some(Vector[GroupIdentity[T]]())) {
-            case (Some(newArgIdents), (argIdent1, argIdent2)) =>
-              argIdent1.unify(argIdent2).map { newArgIdents :+ _ }
-            case (None, _)                                    =>
-              none
+          mapToVectorOption(argIdents1.zip(argIdents2)) {
+            case (argIdent1, argIdent2) => argIdent1.unify(argIdent2)
           }.map { GroupIdentity(funIdent1, _) }
         else
           (funIdent1, funIdent2) match {

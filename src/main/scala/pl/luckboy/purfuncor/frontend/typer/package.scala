@@ -40,7 +40,6 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUtils._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 import pl.luckboy.purfuncor.util.CollectionUtils._
 import pl.luckboy.purfuncor.util.StateUtils._
-import pl.luckboy.purfuncor.util.EitherP
 
 package object typer
 {

@@ -35,6 +35,8 @@ import pl.luckboy.purfuncor.frontend.typer.TypeValueTermUnifier._
 import pl.luckboy.purfuncor.frontend.typer.TypeResult._
 import pl.luckboy.purfuncor.frontend.instant.PolyFunInstantiator._
 import pl.luckboy.purfuncor.frontend.instant.TermUtils._
+import pl.luckboy.purfuncor.util.CollectionUtils._
+import pl.luckboy.purfuncor.util.StateUtils._
 
 package object instant
 {  
@@ -155,7 +157,7 @@ package object instant
     override def addSelectConstructInstanceS(selectConstructInst: SelectConstructInstance[Symbol, TypeLambdaInfo[U, LocalSymbol]])(env: SymbolInstantiationEnvironment[T, U]) =
       selectConstructInst match {
         case SelectConstructInstance(supertype, types, file) =>
-          val (typeInferenceEnv5, res11) = env.typeInferenceEnv.withClear {
+          val (typeInferenceEnv5, res6) = env.typeInferenceEnv.withClear {
             typeInferenceEnv =>
               (for {
                 res <- State((_: SymbolTypeInferenceEnvironment[T, U]).definedTypeFromTypeTerm(supertype))
@@ -168,63 +170,61 @@ package object instant
                         (newTypeInferenceEnv2, (newRes |@| newRes2) { (ts, t) => t <:: ts })
                     }.mapElements(identity, _.map { _.reverse })
                 })
-                res10 <- (res |@| res3) {
+                res5 <- (res |@| res3) {
                   (definedSupertype, pairs) =>
                     val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
                     val tmpType = InferringType(tmpTypeValueTerm)
-                    for {
-                      _ <- State({
+                    st(for{
+                      _ <- ste1S({
                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
                           (pairs.foldLeft(typeInferenceEnv2) {
                             case (newTypeInferenceEnv, (dt, _)) => newTypeInferenceEnv.withDefinedType(dt)
                           }, ())
                       })
-                      unifiedSupertype <- State(symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(definedSupertype.term), tmpType)(_: SymbolTypeInferenceEnvironment[T, U]))
-                      res9 <- unifiedSupertype match {
+                      unifiedSupertype <- ste1S(symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(definedSupertype.term), tmpType)(_: SymbolTypeInferenceEnvironment[T, U]))
+                      selectInstPairWithConstructPairs2 <- unifiedSupertype match {
                         case noType: NoType[GlobalSymbol] =>
-                          State((_: SymbolTypeInferenceEnvironment[T, U], noType.withPos(definedSupertype.pos).failure))
+                          steS((_: SymbolTypeInferenceEnvironment[T, U], noType.withPos(definedSupertype.pos).failure))
                         case _                            =>
                           for {
-                            res4 <- State((typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) => checkDefinedTypesS(typeInferenceEnv2.definedTypes)(typeInferenceEnv2))
-                            res8 <- res4.swap.map { _.withPos(definedSupertype.pos) }.swap.map {
-                              _ =>
-                                for {
-                                  res5 <- State(InferringType(definedSupertype.term).instantiatedTypeValueTermWithKindsS(_: SymbolTypeInferenceEnvironment[T, U]))
-                                  res7 <- res5.map {
-                                    case (supertypeValueTerm, supertypeArgKinds) =>
-                                      val selectInstPair = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size, definedSupertype.pos, file))
-                                      State({
-                                        (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
-                                          val (typeInferenceEnv3, res6) = pairs.toList.zipWithIndex.foldLeft((typeInferenceEnv2, Vector[(InferredType[GlobalSymbol], ConstructInstance[GlobalSymbol])]().success[NoType[GlobalSymbol]])) {
-                                            case ((newTypeInfernceEnv, Success(newConstructInstPairs)), ((definedType, _), i)) =>
-                                              val (newTypeInfernceEnv2, newRes) = InferringType(definedType.term).instantiatedTypeValueTermWithKindsS(newTypeInfernceEnv)
-                                              (newTypeInfernceEnv2, newRes.map { 
-                                                case (typeValueTerm, argKinds) =>
-                                                  newConstructInstPairs :+ ((InferredType(typeValueTerm, argKinds), ConstructInstance[GlobalSymbol](i, definedType.pos, file)))
-                                              })
-                                          }
-                                          (typeInferenceEnv3, res6.map { (selectInstPair, _) })
-                                      })
-                                  }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
-                                } yield res7
-                            }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
-                          } yield res8
+                            _ <- steS({
+                              (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                                checkDefinedTypesS(typeInferenceEnv2.definedTypes)(typeInferenceEnv2).mapElements(identity, _.swap.map { _.withPos(definedSupertype.pos) }.swap)
+                            })
+                            selectInstPairWithConstructPairs <- steS(InferringType(definedSupertype.term).instantiatedTypeValueTermWithKindsS(_: SymbolTypeInferenceEnvironment[T, U])).flatMap {
+                              case (supertypeValueTerm, supertypeArgKinds) =>
+                                val selectInstPair = (InferredType(supertypeValueTerm, supertypeArgKinds), SelectInstance[GlobalSymbol](pairs.size, definedSupertype.pos, file))
+                                steS({
+                                  (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                                    val (typeInferenceEnv3, res4) = stMapToVectorValidationS(pairs.toList.zipWithIndex) {
+                                      (pair, newTypeInfernceEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+                                        val ((definedType, _), i) = pair
+                                        val (newTypeInfernceEnv2, newRes) = InferringType(definedType.term).instantiatedTypeValueTermWithKindsS(newTypeInfernceEnv)
+                                        (newTypeInfernceEnv2, newRes.map { 
+                                          case (typeValueTerm, argKinds) =>
+                                            (InferredType(typeValueTerm, argKinds), ConstructInstance[GlobalSymbol](i, definedType.pos, file))
+                                        })
+                                    } (typeInferenceEnv2)
+                                    (typeInferenceEnv3, res4.map { (selectInstPair, _) })
+                                })
+                            }
+                          } yield selectInstPairWithConstructPairs
                       }
-                    } yield res9
+                    } yield selectInstPairWithConstructPairs2)
                 }.valueOr { nt => State((_: SymbolTypeInferenceEnvironment[T, U], nt.failure)) }
-              } yield res10).run(typeInferenceEnv)
+              } yield res5).run(typeInferenceEnv)
           }
           val env2 = env.withTypeInferenceEnv(typeInferenceEnv5)
-          val (env4, res13) = resultFromTypeResult(res11.swap.map { _.withPos(NoPosition) }.swap).map {
-            case ((selectInstType, selectInst), constructInstTriples) =>
-              val (env3, res12) = addGlobalInstanceS(SelectFunction, selectInstType, selectInst)(env2)
-              constructInstTriples.foldLeft((env3, resultWithPos(res12, selectInst.pos))) {
+          val (env4, res8) = resultFromTypeResult(res6.swap.map { _.withPos(NoPosition) }.swap).map {
+            case ((selectInstType, selectInst), constructInstTuples) =>
+              val (env3, res7) = addGlobalInstanceS(SelectFunction, selectInstType, selectInst)(env2)
+              constructInstTuples.foldLeft((env3, resultWithPos(res7, selectInst.pos))) {
                 case ((newEnv, newRes), (constructInstType, constructInst)) =>
                   val (newEnv2, newRes2) = addGlobalInstanceS(ConstructFunction, constructInstType, constructInst)(newEnv)
                   (newEnv2, newRes |+| resultWithPos(newRes2, constructInst.pos))
               }
           }.valueOr { es => (env, es.failure) }
-          (env4, resultForFile(res13, file))
+          (env4, resultForFile(res8, file))
       }
     
     override def addPolyCombinatorsS(locs: Set[GlobalSymbol])(env: SymbolInstantiationEnvironment[T, U]) =
@@ -292,14 +292,12 @@ package object instant
               (some(loc), IntMap[PreinstantiationLambdaInfo[GlobalSymbol, GlobalSymbol]]())
           }
       }
-      val (env2, res4) = (for {
-        res2 <- State(instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(_: SymbolInstantiationEnvironment[T, U]))
-        res3 <- res2.map {
-          _ => State(instantiateRecursivePolyFunctionsS(oldNodes.keySet, lambdaInfos)(_: SymbolInstantiationEnvironment[T, U]))
-        }.valueOr { errs => State((_: SymbolInstantiationEnvironment[T, U], errs.failure)) }
-      } yield (res3)).run(env)
-      val (env3, res5) = (res |@| res4) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
-      res5.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_, oldNodes.keySet)(env3) }
+      val (env2, res2) = st(for {
+        _ <- steS(instantiatePolyFunctionsS(lambdaInfos)(some(InstanceTree.empty))(_: SymbolInstantiationEnvironment[T, U]))
+        _ <- steS(instantiateRecursivePolyFunctionsS(oldNodes.keySet, lambdaInfos)(_: SymbolInstantiationEnvironment[T, U]))
+      } yield ()).run(env)
+      val (env3, res3) = (res |@| res2) { (_, _) => (env2.withUninitializedCombSyms(env2.uninitializedCombSyms -- oldNodes.keySet), ().successNel) }.valueOr { es => (env2, es.failure) }
+      res3.map { u => (env3, u.successNel) }.valueOr { failInitializationS(_, oldNodes.keySet)(env3) }
     }
     
     override def nodesFromEnvironmentS(env: SymbolInstantiationEnvironment[T, U]) = (env, env.combNodes)
