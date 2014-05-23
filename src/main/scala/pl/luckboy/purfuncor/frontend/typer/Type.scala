@@ -17,6 +17,7 @@ import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.common.Unifier._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import pl.luckboy.purfuncor.util.StateUtils._
 import TypeValueTermUnifier._
 import TypeValueTermUtils._
 
@@ -35,34 +36,30 @@ sealed trait Type[T]
       case InferredType(typeValueTerm, argKinds) =>
         (env, (typeValueTerm, argKinds, IntMap[Int]()).success)
       case InferringType(typeValueTerm)          =>
-        (for {
-          res <- instantiate(typeValueTerm)
-          res3 <- res.map {
-            typeValueTerm2 =>
-              val (typeValueTerm3, params2) = normalizeTypeParamsWithTypeParamsForParams(typeValueTerm2, (typeParamsFromTypeValueTerm(typeValueTerm2) | params.keySet).size)(params)
-              State({
-                (env2: E) =>
-                  stMapToIntMapValidationS(params2) {
-                    (tmpPair, newEnv: E) =>
-                      val (param, param2) = tmpPair
-                      val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
-                      newRes.map {
-                        kind =>
-                          val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
-                          (newEnv3, newRes2.map { param2 -> _ })
-                      }.valueOr { nt => (newEnv2, nt.failure) }
-                  } (env2)
-              }).map {
-                _.flatMap { 
-                  kinds =>
-                    val res2 = mapToVectorOption(0 until kinds.size)(kinds.get).toSuccess { 
-                      NoType.fromError[T](FatalError("index of out bounds", none, NoPosition))
-                    }
-                    res2.map { (typeValueTerm3, _, params2) } 
-                }
-             }
-          }.valueOr { nt => State((_: E, nt.failure)) }
-        } yield res3).run(env)
+        st(for {
+          typeValueTerm2 <- ste(instantiate(typeValueTerm))
+          tuple <- {
+            val (typeValueTerm3, params2) = normalizeTypeParamsWithTypeParamsForParams(typeValueTerm2, (typeParamsFromTypeValueTerm(typeValueTerm2) | params.keySet).size)(params)
+            State(stMapToIntMapValidationS(params2) {
+              (pair, newEnv: E) =>
+                val (param, param2) = pair
+                val (newEnv2, newRes) = envSt.inferTypeValueTermKindS(TypeParamApp(param, Nil, 0))(newEnv)
+                newRes.map {
+                  kind =>
+                    val (newEnv3, newRes2) = envSt.inferredKindFromKindS(kind)(newEnv2)
+                    (newEnv3, newRes2.map { param2 -> _ })
+                }.valueOr { nt => (newEnv2, nt.failure) }
+            }).map {
+              _.flatMap { 
+                kinds =>
+                  val res2 = mapToVectorOption(0 until kinds.size)(kinds.get).toSuccess { 
+                    NoType.fromError[T](FatalError("index of out bounds", none, NoPosition))
+                  }
+                  res2.map { (typeValueTerm3, _, params2) } 
+              }
+            }
+          }
+        } yield tuple).run(env)
       case UninferredType()                      =>
         (env, NoType.fromError[T](FatalError("uninferred type", none, NoPosition)).failure)
     }

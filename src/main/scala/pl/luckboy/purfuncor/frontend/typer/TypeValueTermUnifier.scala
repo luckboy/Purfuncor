@@ -247,7 +247,7 @@ object TypeValueTermUnifier
           val (newEnv2, newRes) = instantiateS(argLambda.body)(newEnv)
           (newEnv2, newRes.map { b => TypeValueLambda[T](argLambda.argParams, b) })
       })
-      retTerm <- ste(appForGlobalTypeWithAllocatedTypeParamsWithoutInstantiaton(funLoc, argLambdas2))
+      retTerm <- appForGlobalTypeWithAllocatedTypeParamsWithoutInstantiaton(funLoc, argLambdas2)
     } yield retTerm).run(env)
     
   private def appForGlobalTypeWithOnlyAllocatedTypeParamsS[T, U, E](funLoc: T, argCount: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
