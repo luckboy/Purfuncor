@@ -224,16 +224,16 @@ object TypeValueTermUnifier
   
   private def appForGlobalTypeWithAllocatedTypeParamsWithoutInstantiatonS[T, U, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     st(for {
-      unallocatedParamAppIdx <- ste1S(envSt.nextTypeParamAppIdxFromEnvironmentS)
-      paramCount <- ste1S(envSt.nextTypeParamFromEnvironmentS)
+      unallocatedParamAppIdx <- strS(envSt.nextTypeParamAppIdxFromEnvironmentS)
+      paramCount <- strS(envSt.nextTypeParamFromEnvironmentS)
       retTerm <- steS(envSt.appForGlobalTypeS(funLoc, argLambdas, paramCount, unallocatedParamAppIdx))
-      allocatedParams <- ste1S(envSt.allocatedTypeParamsFromEnvironmentS)
+      allocatedParams <- strS(envSt.allocatedTypeParamsFromEnvironmentS)
       retTerm3 <- ste(allocateTypeValueTermParams(retTerm)(allocatedParams.map { p => p -> p }.toMap, unallocatedParamAppIdx)).flatMap {
         case (_, allocatedArgParams, _, retTerm2) =>
           if(!allocatedArgParams.isEmpty)
             steS(envSt.inferTypeValueTermKindS(retTerm)(_: E).mapElements(identity, _.map { _ => retTerm2 }))
           else
-            ste1S((_: E, retTerm2))
+            strS((_: E, retTerm2))
       }
     } yield retTerm3).run(env)
     
@@ -1198,12 +1198,12 @@ object TypeValueTermUnifier
                       inferringKind => allocatedParams.get(param).map { _ -> inferringKind }.toList
                   })
               })
-              _ <- ste1S(envSt.setTypeParamKindsS(inferringKinds)).flatMap {
+              _ <- strS(envSt.setTypeParamKindsS(inferringKinds)).flatMap {
                 _ =>
                   if(mustInferKinds || !allocatedArgParams.isEmpty)
                     steS(envSt.inferTypeValueTermKindS(term2)).map { _ => () }
                   else
-                    ste1S[NoType[T], E, Unit]((_: E, ()))
+                    strS[NoType[T], E, Unit]((_: E, ()))
               }
             } yield (allocatedParams, allocatedArgParams, allocatedParamAppIdxs, term2)).run(env3)
         }.valueOr { nt => (env3, nt.failure) }
@@ -1297,7 +1297,7 @@ object TypeValueTermUnifier
                 steS(envSt.inferTypeValueTermKindS(typeApp2)).map { _ => typeApp2 }
             }
           } else
-            ste1S((_: E, typeApp))
+            strS((_: E, typeApp))
       }
     } yield typeApp3).run(env)
   

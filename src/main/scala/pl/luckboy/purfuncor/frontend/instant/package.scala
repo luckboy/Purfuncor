@@ -175,13 +175,13 @@ package object instant
                     val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
                     val tmpType = InferringType(tmpTypeValueTerm)
                     st(for{
-                      _ <- ste1S({
+                      _ <- strS({
                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
                           (pairs.foldLeft(typeInferenceEnv2) {
                             case (newTypeInferenceEnv, (dt, _)) => newTypeInferenceEnv.withDefinedType(dt)
                           }, ())
                       })
-                      unifiedSupertype <- ste1S(symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(definedSupertype.term), tmpType)(_: SymbolTypeInferenceEnvironment[T, U]))
+                      unifiedSupertype <- strS(symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(definedSupertype.term), tmpType)(_: SymbolTypeInferenceEnvironment[T, U]))
                       selectInstPairWithConstructPairs2 <- unifiedSupertype match {
                         case noType: NoType[GlobalSymbol] =>
                           steS((_: SymbolTypeInferenceEnvironment[T, U], noType.withPos(definedSupertype.pos).failure))
