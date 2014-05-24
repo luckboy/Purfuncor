@@ -183,7 +183,7 @@ object PolyFunInstantiator {
         lambdaInfo.polyFunType.map {
           polyFunType =>
             st(for {
-              typ <- strS(envSt2.globalVarTypeFromEnvironmentS(polyFunLoc)(_: E))
+              typ <- rsteS(envSt2.globalVarTypeFromEnvironmentS(polyFunLoc)(_: E))
               instArgs5 <- steS(typ.uninstantiatedTypeValueTermWithTypeParamsS(_: E)).flatMap {
                 case (inferringTypeValueTerm, typeParams) =>
                   for {
@@ -204,8 +204,8 @@ object PolyFunInstantiator {
                     instArgs4 <- steS(polyFunType.uninstantiatedTypeValueTermWithTypeParamsS(_: E)).flatMap {
                       case (polyFunTypeValueTerm, polyFunTypeParams) =>
                         for {
-                          _ <- strS(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
-                          unifiedType <- strS(unifyTypesS(InferringType(inferringTypeValueTerm), InferringType(polyFunTypeValueTerm))(_: E))
+                          _ <- rsteS(envSt.setCurrentTypeMatchingS(TypeMatching.Types)(_: E))
+                          unifiedType <- rsteS(unifyTypesS(InferringType(inferringTypeValueTerm), InferringType(polyFunTypeValueTerm))(_: E))
                           instArgs3 <- (unifiedType match {
                             case noType: NoType[N] =>
                               steS((_: E, NoType.fromError[N](FatalError("mismatched types", none, NoPosition)).failure))

@@ -18,11 +18,15 @@ object StateUtils
   })
   
   implicit def ste[E, S, T](f: State[S, Validation[E, T]]) = steS[E, S, T](f.run)
+
+  def lsteS[E, S, T](f: S => (S, E)) = StateT[EitherP[(S, E)]#A, S, T]({ x => Left(f(x)) })
   
-  def strS[E, S, T](f: S => (S, T)) = StateT[EitherP[(S, E)]#A, S, T]({ x => Right(f(x)) })
+  implicit def lste[E, S, T](f: State[S, E]) = lsteS(f.run)
+
+  def rsteS[E, S, T](f: S => (S, T)) = StateT[EitherP[(S, E)]#A, S, T]({ x => Right(f(x)) })
   
-  implicit def str[E, S, T](f: State[S, T]) = strS(f.run)
-  
+  implicit def rste[E, S, T](f: State[S, T]) = rsteS(f.run)
+    
   implicit def st[E, S, T](f: StateT[EitherP[(S, E)]#A, S, T]) = State[S, Validation[E, T]]({
     s => f.run(s).fold({ case (s2, err) => (s2, err.failure) }, { case (s2, y) => (s2, y.success) })
   })
