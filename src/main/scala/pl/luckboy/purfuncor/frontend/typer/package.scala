@@ -954,31 +954,33 @@ package object typer
               })
             else
               State((_: SymbolTypeInferenceEnvironment[T, U], tmpCombType2))
-            // Checks the defined types.
-            res2 <- if(!isRecursive)
-              for {
-                definedTypes <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
-                res <- checkDefinedTypes(definedTypes)
-              } yield res
-            else
-              State((_: SymbolTypeInferenceEnvironment[T, U], ().success))
-            // Instantiates the inferred types.
-            res4 <- res2.map {
-              _ =>
-                tmpCombType3 match {
-                  case noType: NoType[GlobalSymbol] =>
-                    State(failInitializationS(noType, Set(loc)))
-                  case _                            =>
-                    for {
-                      _ <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType3), ()))
-                      res3 <- if(!isRecursive)
-                        State(instantiateTypesFromGlobalVarsS(Set(loc)))
-                      else
-                        State((_: SymbolTypeInferenceEnvironment[T, U], ().success))
-                    } yield res3
-                }
+            res <- st(for {
+              // Checks the defined types.
+              _ <- if(!isRecursive)
+                for {
+                  definedTypes <- rsteS((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
+                  _ <- ste(checkDefinedTypes(definedTypes))
+                } yield ()
+              else
+                rsteS[NoType[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Unit]((_, ()))
+              // Instantiates the inferred types.
+              _ <- tmpCombType3 match {
+                case noType: NoType[GlobalSymbol] =>
+                  lsteS((_: SymbolTypeInferenceEnvironment[T, U], noType))
+                case _                            =>
+                  for {
+                    _ <- rsteS((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, tmpCombType3), ()))
+                    _ <- if(!isRecursive)
+                      steS(instantiateTypesFromGlobalVarsS(Set(loc)))
+                    else
+                      rsteS[NoType[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Unit]((_, ()))
+                  } yield ()
+              }
+            } yield ())
+            res2 <- res.map {
+              _ => State((_: SymbolTypeInferenceEnvironment[T, U], ().success))
             }.valueOr { nt => State(failInitializationS(nt, Set(loc))) }
-          } yield res4).run(env)
+          } yield res2).run(env)
         case PolyCombinator(typ, file) =>
           (for {
             tmpPolyCombType <- allocateTypeValueTermParamsWithKinds(TypeParamApp(0, Nil, 0), IntMap(0 -> InferredKind(Star(KindType, NoPosition))))(IntMap(), 0).map { _.map { f => InferringType(f._4) }.valueOr(identity) }
@@ -996,20 +998,20 @@ package object typer
                 } yield tmpType
             }.getOrElse(State((_: SymbolTypeInferenceEnvironment[T, U], tmpPolyCombType)))
             definedTypes <- State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2, env2.definedTypes))
-            res <- checkDefinedTypes(definedTypes)
-            res3 <- res.map {
-              _ =>
-                for {
-                  polyCombType <- State(tmpPolyCombType2.instantiatedTypeS(_: SymbolTypeInferenceEnvironment[T, U]))
-                  res2 <- polyCombType match {
-                    case noType: NoType[GlobalSymbol] =>
-                      State(failInitializationS(noType, Set(loc)))
-                    case _                            =>
-                      State((env2: SymbolTypeInferenceEnvironment[T, U]) => (env2.withGlobalVarType(loc, polyCombType), ().success))
-                  }
-                } yield res2
+            res <- st(for {
+              _ <- ste(checkDefinedTypes(definedTypes))
+              polyCombType <- rsteS(tmpPolyCombType2.instantiatedTypeS(_: SymbolTypeInferenceEnvironment[T, U]))
+              _ <- polyCombType match {
+                case noType: NoType[GlobalSymbol] =>
+                  lsteS((_: SymbolTypeInferenceEnvironment[T, U], noType))
+                case _                            =>
+                  rsteS[NoType[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Unit](env2 => (env2.withGlobalVarType(loc, polyCombType), ()))
+              }
+            } yield ())
+            res2 <- res.map {
+              _ => State((_: SymbolTypeInferenceEnvironment[T, U], ().success))
             }.valueOr { nt => State(failInitializationS(nt, Set(loc))) }
-          } yield res3).run(env)
+          } yield res2).run(env)
       }
     }
     

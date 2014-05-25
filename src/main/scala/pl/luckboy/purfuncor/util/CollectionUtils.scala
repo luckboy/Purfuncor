@@ -13,7 +13,7 @@ import scalaz.Scalaz._
 object CollectionUtils
 {
   //
-  // map
+  // Map functions.
   //
   
   def mapToReversedListOption[T, U](xs: Iterable[T])(f: T => Option[U]) =
@@ -204,7 +204,7 @@ object CollectionUtils
   def stMapToIntMapValidation[E, T, U, S](xs: Iterable[T])(f: T => State[S, Validation[E, (Int, U)]]) =
     State(stMapToIntMapValidationS(xs)({ f(_).run(_: S) }))
     
-  // flatMap
+  // FlatMap functions.
   
   def flatMapToListOption[T, U](xs: Iterable[T])(f: T => Option[Iterable[U]]) =
     xs.foldLeft(some(List[U]())) {
@@ -377,7 +377,7 @@ object CollectionUtils
     State(stFlatMapToIntMapValidationS(xs)({ f(_).run(_: S) }))
     
   //
-  // foldLeft
+  // FoldLeft functions.
   //
   
   def foldLeftOption[T, U](xs: Iterable[T])(optZ: Option[U])(f: (U, T) => Option[U]) =
@@ -408,7 +408,7 @@ object CollectionUtils
     State(stFoldLeftValidationS(xs)(zRes) { f(_, _).run(_: S) })
   
   //
-  // foldRight
+  // FoldRight functions.
   //
  
   def foldRightOption[T, U](xs: Iterable[T])(optZ: Option[U])(f: (T, U) => Option[U]) =

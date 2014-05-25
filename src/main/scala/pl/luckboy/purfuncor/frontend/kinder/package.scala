@@ -26,6 +26,7 @@ import pl.luckboy.purfuncor.frontend.kinder.KindTermUnifier._
 import pl.luckboy.purfuncor.frontend.kinder.KindInferrer._
 import pl.luckboy.purfuncor.frontend.resolver.TermUtils._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import pl.luckboy.purfuncor.util.StateUtils._
 
 package object kinder
 {
@@ -224,21 +225,21 @@ package object kinder
               }.valueOr { nk => State((_: SymbolKindInferenceEnvironment[T], nk)) }
             } yield (tmpKind2.withPos(kt.pos))
         }.getOrElse(State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind)))
-          definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
-          res <- checkDefinedKindTerms(definedKindTerms)
-          res3 <- res.map {
-            _ =>
-              for {
-                typeCombKind <- State(tmpTypeCombKind2.instantiatedKindS(_: SymbolKindInferenceEnvironment[T]))
-                res2 <- typeCombKind match {
-                  case noKind: NoKind =>
-                    State((_: SymbolKindInferenceEnvironment[T], noKind.failure))
-                  case _              =>
-                    State((env2: SymbolKindInferenceEnvironment[T]) => ((env2.withGlobalTypeVarKind(loc, typeCombKind), ().success)))
-                 }
-               } yield res2
-          }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
-      } yield res3).run(env)
+        definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
+        res <- st(for {
+          _ <- ste(checkDefinedKindTerms(definedKindTerms))
+          typeCombKind <- rsteS(tmpTypeCombKind2.instantiatedKindS(_: SymbolKindInferenceEnvironment[T]))
+          _ <- typeCombKind match {
+            case noKind: NoKind =>
+              lsteS((_: SymbolKindInferenceEnvironment[T], noKind))
+            case _              =>
+              rsteS[NoKind, SymbolKindInferenceEnvironment[T], Unit]((env2) => ((env2.withGlobalTypeVarKind(loc, typeCombKind), ())))
+          }
+        } yield ())
+        res2 <- res.map {
+          _ => State((_: SymbolKindInferenceEnvironment[T], ().success))
+        }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
+      } yield res2).run(env)
     }
     
     override def nonRecursivelyInitializeGlobalVarS(loc: GlobalSymbol, comb: AbstractTypeCombinator[Symbol, lmbdindexer.TypeLambdaInfo[T]])(env: SymbolKindInferenceEnvironment[T]) =
@@ -279,31 +280,33 @@ package object kinder
               })
             else
               State((_: SymbolKindInferenceEnvironment[T], tmpTypeCombKind2))
-            // Checks the defined kinds.
-            res2 <- if(!isRecursive)
-              for {
-                definedKindTerms <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
-                res <- checkDefinedKindTerms(definedKindTerms)
-              } yield res
-            else
-              State((_: SymbolKindInferenceEnvironment[T], ().success))
-            // Instantiates the inferred kinds.
-            res4 <- res2.map {
-              _ =>
-                tmpTypeCombKind3 match {
-                  case noKind: NoKind =>
-                    State(failInitializationS(noKind, Set(loc)))
-                  case _              =>
-                    for {
-                      _ <- State((env2: SymbolKindInferenceEnvironment[T]) => (env2.withGlobalTypeVarKind(loc, tmpTypeCombKind3), ()))
-                      res3 <- if(!isRecursive)
-                        State(instantiateKindsFromGlobalVarsS(Set(loc)))
-                      else
-                        State((_: SymbolKindInferenceEnvironment[T], ().success))
-                    } yield res3
-                }
+            res <- st(for {
+              // Checks the defined kinds.
+              _ <- if(!isRecursive)
+                for {
+                  definedKindTerms <- rsteS((env2: SymbolKindInferenceEnvironment[T]) => (env2, env2.definedKindTerms))
+                  _ <- ste(checkDefinedKindTerms(definedKindTerms))
+                } yield ()
+              else
+                rsteS[NoKind, SymbolKindInferenceEnvironment[T], Unit]((_, ()))
+              // Instantiates the inferred kinds.
+              _ <- tmpTypeCombKind3 match {
+                case noKind: NoKind =>
+                  lsteS((_: SymbolKindInferenceEnvironment[T], noKind))
+                case _              =>
+                  for {
+                    _ <- rsteS((env2: SymbolKindInferenceEnvironment[T]) => (env2.withGlobalTypeVarKind(loc, tmpTypeCombKind3), ()))
+                    _ <- if(!isRecursive)
+                      steS(instantiateKindsFromGlobalVarsS(Set(loc)))
+                    else
+                      rsteS[NoKind, SymbolKindInferenceEnvironment[T], Unit]((_, ()))
+                  } yield ()
+              }
+            } yield ())
+            res2 <- res.map {
+              _ => State((_: SymbolKindInferenceEnvironment[T], ().success))
             }.valueOr { nk => State(failInitializationS(nk, Set(loc))) }
-          } yield res4).run(env)
+          } yield res2).run(env)
         case UnittypeCombinator(n, kind, file) =>
           initializerUnittypeOrGrouptype(loc, n, kind, file)(env)
         case GrouptypeCombinator(n, kind, file) =>
