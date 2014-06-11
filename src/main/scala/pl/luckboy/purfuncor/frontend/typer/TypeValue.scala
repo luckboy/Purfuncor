@@ -19,6 +19,7 @@ import pl.luckboy.purfuncor.frontend.GrouptypeCombinator
 import pl.luckboy.purfuncor.frontend.TypeSimpleTerm
 import pl.luckboy.purfuncor.frontend.TypeLambda
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
+import pl.luckboy.purfuncor.frontend.typer.range._
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.util.CollectionUtils._
 
@@ -408,6 +409,9 @@ case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppId
 }
 case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
+case class LogicalTypeValueTerm[T](
+    conjNode: TypeValueNode[T],
+    args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]]) extends TypeValueTerm[T]
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 {
