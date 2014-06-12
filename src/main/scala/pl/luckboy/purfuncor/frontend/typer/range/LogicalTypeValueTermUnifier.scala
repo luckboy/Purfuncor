@@ -239,6 +239,21 @@ object LogicalTypeValueTermUnifier
       case _ =>
         partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true)
     }
+  
+  private def matchesLocigalTypeValueTermsWithoutArgs[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E) =
+    typeMatching match {
+      case TypeMatching.Types             =>
+        for {
+          tuple1 <- matchesSupertypeValueTermWithTypeValueTerm(term1, term2)
+          tuple2 <- matchesSupertypeValueTermWithTypeValueTerm(term2, term1)
+        } yield {
+          (tuple1._1 | tuple2._1, tuple1._2 ++ tuple2._2, tuple1._3 ++ tuple2._3)
+        }
+      case TypeMatching.SupertypeWithType =>
+        matchesSupertypeValueTermWithTypeValueTerm(term1, term2)
+      case TypeMatching.TypeWithSupertype =>
+        matchesSupertypeValueTermWithTypeValueTerm(term2, term1)
+    }
     
   def unifyLocigalTypeValueTermsS[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E) =
     throw new UnsupportedOperationException
