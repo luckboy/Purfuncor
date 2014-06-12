@@ -17,7 +17,7 @@ sealed trait TypeValueNode[T]
   def withChild(child: TypeValueNode[T]): TypeValueNode[T] =
     throw new UnsupportedOperationException
   
-  def &| (node: TypeValueNode[T]): TypeValueNode[T] =
+  def conjOrDisjWithTupleTypes(node: TypeValueNode[T], tupleTypes: Seq[TupleType[T]]): TypeValueNode[T] =
     throw new UnsupportedOperationException
   
   def normalizedTypeValueNode: TypeValueNode[T] =

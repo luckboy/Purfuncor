@@ -411,7 +411,10 @@ case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTer
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
-    args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]]) extends TypeValueTerm[T]
+    args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]]) //extends TypeValueTerm[T]
+{
+  lazy val info: LogicalTypeValueTermInfo[T] = throw new UnsupportedOperationException
+}
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 {

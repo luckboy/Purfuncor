@@ -19,6 +19,12 @@ sealed trait UnionSet[T]
     }
   
   def union (set: UnionSet[T]) = this | set
+  
+  def toSet: Set[T] =
+    throw new UnsupportedOperationException
+  
+  def toSeq: Seq[T] =
+    throw new UnsupportedOperationException    
 }
 
 object UnionSet

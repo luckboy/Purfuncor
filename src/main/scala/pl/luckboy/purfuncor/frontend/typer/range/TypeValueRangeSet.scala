@@ -87,11 +87,13 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
     TypeValueRangeSet(newRanges4)
   }
   
-  def withConds(myRange: TypeValueRange, myTupleTypes: Seq[TupleType[T]]) =
-    TypeValueRangeSet(ranges.mapValues { _.withCond(myRange, myTupleTypes) })
+  def withConds(myRange: TypeValueRange, otherRanges: Iterable[TypeValueRange], myTupleTypes: Seq[TupleType[T]]) =
+    TypeValueRangeSet(ranges.mapValues { _.withCond(myRange, otherRanges, myTupleTypes) })
     
   def swapLeafIdxPairsWithMyLeafIdx(leafIdx: Int) =
     TypeValueRangeSet(ranges.mapValues { v => v.copy(myLeafIdxs = UnionSet(leafIdx), otherLeafIdxs = v.myLeafIdxs) })
+
+  def value = ranges.values.foldLeft(TypeValueRangeValue.empty[T]) { _ | _ }
 }
 
 object TypeValueRangeSet
@@ -112,7 +114,7 @@ case class TypeValueRangeValue[T](
     myLeafIdxs: UnionSet[Int],
     otherLeafIdxs: UnionSet[Int],
     otherTupleTypes: Option[List[TupleType[T]]], 
-    conds: UnionSet[(TypeValueRange, TypeValueRangeCondition[T])])
+    conds: UnionSet[((TypeValueRange, Iterable[TypeValueRange]), TypeValueRangeCondition[T])])
 {
   def | (value: TypeValueRangeValue[T]) =
     TypeValueRangeValue[T](
@@ -123,8 +125,8 @@ case class TypeValueRangeValue[T](
         }.orElse(otherTupleTypes).orElse(value.otherTupleTypes),
         conds = conds | value.conds)
         
-  def withCond(myRange: TypeValueRange, myTupleTypes: Seq[TupleType[T]]) =
-    copy(conds = otherTupleTypes.map { ott => UnionSet(myRange -> TypeValueRangeCondition(myTupleTypes, ott)) | conds }.getOrElse(conds))
+  def withCond(myRange: TypeValueRange, otherRanges: Iterable[TypeValueRange], myTupleTypes: Seq[TupleType[T]]) =
+    copy(conds = otherTupleTypes.map { ott => UnionSet((myRange, otherRanges) -> TypeValueRangeCondition(myTupleTypes, ott)) | conds }.getOrElse(conds))
 }
 
 object TypeValueRangeValue
