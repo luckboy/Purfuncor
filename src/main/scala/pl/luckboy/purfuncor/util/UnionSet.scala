@@ -20,11 +20,19 @@ sealed trait UnionSet[T]
   
   def union (set: UnionSet[T]) = this | set
   
-  def toSet: Set[T] =
-    throw new UnsupportedOperationException
+  def toSet = foldLeft(Set[T]()) { _ + _ }
   
-  def toSeq: Seq[T] =
-    throw new UnsupportedOperationException    
+  def toVector =  foldLeft(Vector[T]()) { _ :+ _  }
+  
+  def toList = foldLeft(List[T]()) { (xs, x) =>  x :: xs }
+  
+  def toSeq = toVector
+    
+  def foldLeft[U](z: U)(f: (U, T) => U): U =
+    this match {
+      case SingleUnionSet(x)  => f(z, x)
+      case ListUnionSet(sets) => sets.foldLeft(z) { (x, xs) => xs.foldLeft(x)(f) }
+    }
 }
 
 object UnionSet

@@ -14,14 +14,32 @@ sealed trait TypeValueNode[T]
 {
   def leafCount: Int
   
-  def withChild(child: TypeValueNode[T]): TypeValueNode[T] =
-    throw new UnsupportedOperationException
+  def withChildAndTupleTypes(child: TypeValueNode[T], tupleTypes: Seq[TupleType[T]]) =
+    this.conjOrDisjWithTupleTypes(TypeValueBranch(Vector(child), tupleTypes, child.leafCount), tupleTypes)
   
-  def conjOrDisjWithTupleTypes(node: TypeValueNode[T], tupleTypes: Seq[TupleType[T]]): TypeValueNode[T] =
-    throw new UnsupportedOperationException
+  def conjOrDisjWithTupleTypes(node: TypeValueNode[T], tupleTypes: Seq[TupleType[T]]) =
+    (this, node) match {
+      case (TypeValueBranch(childs1, _, leafCount1), TypeValueBranch(childs2, _, leafCount2)) => 
+        TypeValueBranch(childs1 ++ childs2, tupleTypes, leafCount1 + leafCount2)
+      case (TypeValueBranch(childs1, _, leafCount1), TypeValueLeaf(_))                        =>
+        TypeValueBranch(childs1 :+ node, tupleTypes, leafCount1 + 1)
+      case (TypeValueLeaf(_), TypeValueBranch(childs2, _, leafCount2))                        =>
+        TypeValueBranch(this +: childs2, tupleTypes, leafCount + 1)
+      case (TypeValueLeaf(_), TypeValueLeaf(_))                                               =>
+        TypeValueBranch(Vector(this, node), tupleTypes, 2)
+    }
   
   def normalizedTypeValueNode: TypeValueNode[T] =
-    throw new UnsupportedOperationException
+    this match {
+      case TypeValueBranch(Vector(child), tupleTypes, _) =>
+        child match {
+          case TypeValueBranch(Vector(child2), _, _) => child2.normalizedTypeValueNode
+          case TypeValueBranch(_, _, childLeafCount) => TypeValueBranch(Vector(child), tupleTypes, childLeafCount)
+          case TypeValueLeaf(_)                      => child
+        }
+      case _                                            =>
+        this
+    }
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T]) extends TypeValueNode[T]

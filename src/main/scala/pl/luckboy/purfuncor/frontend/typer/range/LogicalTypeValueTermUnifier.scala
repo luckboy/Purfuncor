@@ -27,7 +27,7 @@ object LogicalTypeValueTermUnifier
                     case ((pairs4, pairIdxs2), (pair2 @ (optRangeSet2, newChild2), pairIdx)) =>
                       val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ & _ }
                       if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
-                        (((optRangeSet3, newChild.withChild(newChild2))) :: pairs4, pairIdxs2 + pairIdx)
+                        (((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))) :: pairs4, pairIdxs2 + pairIdx)
                       else
                         (pair :: pairs4, pairIdxs2)
                   }
@@ -69,7 +69,7 @@ object LogicalTypeValueTermUnifier
                   pairs2.zipWithIndex.foldLeft(pairs3) {
                     case (pairs4, (pair2 @ (optRangeSet2, newChild2), pairIdx)) =>
                       val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ | _ }.orElse(optRangeSet).orElse(optRangeSet2)
-                      ((optRangeSet3, newChild.withChild(newChild2))) :: pairs4
+                      ((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))) :: pairs4
                   }
               }
             else
@@ -214,7 +214,7 @@ object LogicalTypeValueTermUnifier
           val disjOtherLeafIdxs = disjRangeSet.value.otherLeafIdxs.toSet
           val disjMyLeafIdxs = disjRangeSet.value.myLeafIdxs.toSet
           val conjOtherLeafIdxs = conjRangeSet.value.otherLeafIdxs.toSet
-          val pairs = conjRangeSet.value.conds.toSeq
+          val pairs = conjRangeSet.value.conds.toVector
           val conjMyCondIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueRange, Set[Int]]()) { 
             case (condIdxs, (((myRange, _), _), i)) => condIdxs |+| Map(myRange -> Set(i))
           }
