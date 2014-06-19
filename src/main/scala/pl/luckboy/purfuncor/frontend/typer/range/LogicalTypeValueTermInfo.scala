@@ -14,4 +14,7 @@ case class LogicalTypeValueTermInfo[T](
     conjRangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]],
     disjRangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]],
     conjDepthRangeSets: List[TypeValueRangeSet[T]],
-    disjDepthRangeSets: List[TypeValueRangeSet[T]])
+    disjDepthRangeSets: List[TypeValueRangeSet[T]],
+    conjParams: Map[TypeValueRange, List[Set[Int]]],
+    disjParams: Map[TypeValueRange, List[Set[Int]]],
+    allParams: Set[Int])
