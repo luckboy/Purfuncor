@@ -113,6 +113,7 @@ object TypeValueRange
 case class TypeValueRangeValue[T](
     myLeafIdxs: UnionSet[Int],
     otherLeafIdxs: UnionSet[Int],
+    myParams: UnionSet[(Int, Int)],
     otherTupleTypes: Option[List[TupleType[T]]], 
     conds: UnionSet[((TypeValueRange, Iterable[TypeValueRange]), TypeValueRangeCondition[T])])
 {
@@ -120,6 +121,7 @@ case class TypeValueRangeValue[T](
     TypeValueRangeValue[T](
         myLeafIdxs = myLeafIdxs | value.myLeafIdxs,
         otherLeafIdxs = otherLeafIdxs | value.otherLeafIdxs,
+        myParams = myParams | value.myParams,
         otherTupleTypes = (otherTupleTypes |@| value.otherTupleTypes) { 
           (ott1, ott2) => if(ott1.size < ott2.size) ott1 else ott2
         }.orElse(otherTupleTypes).orElse(value.otherTupleTypes),
@@ -131,7 +133,7 @@ case class TypeValueRangeValue[T](
 
 object TypeValueRangeValue
 {
-  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
+  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
 }
 
 case class TypeValueRangeCondition[T](myTupleTypes: Seq[TupleType[T]], otherTupleTypes: List[TupleType[T]])

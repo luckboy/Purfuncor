@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer.range
+import scala.collection.immutable.SortedSet
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.frontend.typer._
@@ -15,6 +16,6 @@ case class LogicalTypeValueTermInfo[T](
     disjRangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]],
     conjDepthRangeSets: List[TypeValueRangeSet[T]],
     disjDepthRangeSets: List[TypeValueRangeSet[T]],
-    conjParams: Map[TypeValueRange, List[Set[Int]]],
-    disjParams: Map[TypeValueRange, List[Set[Int]]],
-    allParams: Set[Int])
+    conjParams: Map[TypeValueRange, List[SortedSet[Int]]],
+    disjParams: Map[TypeValueRange, List[SortedSet[Int]]],
+    allParams: SortedSet[Int])
