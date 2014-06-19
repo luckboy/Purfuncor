@@ -93,6 +93,9 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
   def swapLeafIdxPairsWithMyLeafIdx(leafIdx: Int) =
     TypeValueRangeSet(ranges.mapValues { v => v.copy(myLeafIdxs = UnionSet(leafIdx), otherLeafIdxs = v.myLeafIdxs) })
 
+  def withMyParam(leafIdx: Int, param: Int) =
+    TypeValueRangeSet(ranges.mapValues { v => v.copy(myParams = UnionSet(leafIdx -> param)) })
+    
   def value = ranges.values.foldLeft(TypeValueRangeValue.empty[T]) { _ | _ }
 }
 
