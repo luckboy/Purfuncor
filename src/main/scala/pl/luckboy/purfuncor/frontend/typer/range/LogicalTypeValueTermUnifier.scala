@@ -299,21 +299,7 @@ object LogicalTypeValueTermUnifier
             disjTuple <- checkLeafIndexSetsForTypeDisjunction(disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, distributedTerm2.conjNode)(0, (Set(), Set(), Seq()))
           } yield {
             val conds = (conjTuple._2 | disjTuple._2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
-            val conjCondParams = conjTuple._3.map { _.param }.toSet
-            val anyParamConds = conjTuple._1.flatMap {
-              case TypeParamAppIdentity(param) if !conjCondParams.contains(param) =>
-                Vector(TypeParamCondition(param, BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil)))
-              case _                                                              =>
-                Vector()
-            }
-            val disjCondParams = disjTuple._3.map { _.param }.toSet
-            val nothingParamConds = disjTuple._1.flatMap {
-              case TypeParamAppIdentity(param) if !conjCondParams.contains(param) =>
-                Vector(TypeParamCondition(param, BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil)))
-              case _                                                              =>
-                Vector()
-            }
-            (conjTuple._1 | disjTuple._1, conds, conjTuple._3 ++ disjTuple._3 ++ anyParamConds ++ nothingParamConds)
+            (conjTuple._1 | disjTuple._1, conds, conjTuple._3 ++ disjTuple._3)
           }
         } else
           none
