@@ -105,7 +105,7 @@ object LogicalTypeValueTermUnifier
             if(!rangeSet3.isEmpty)
               ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs), rangeSet3)
             else
-              ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs ++ optNewLeaf), rangeSet3)
+              ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs ++ optNewLeaf), rangeSet)
         } ((prevParam, leafIdx, Vector[(Int, TypeValueLeaf[T])]()))
         // Check mismatched leafs.
         val (prevParam3, rangeSet5) = stFoldLeftS(leafs)(rangeSet4) {
