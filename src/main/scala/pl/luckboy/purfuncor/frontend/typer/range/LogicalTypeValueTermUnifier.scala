@@ -140,22 +140,33 @@ object LogicalTypeValueTermUnifier
   private def checkSupertypeDisjunctionLeaf[T](ranges: Iterable[TypeValueRange], leaf: TypeValueLeaf[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets2: List[TypeValueRangeSet[T]], isSupertype: Boolean)(leafIdx: Int)(prevParam: Int) = {
     val (rangeSets, params, allParams) = nodeTuple
     checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, isSupertype)(leafIdx).map { (prevParam, _) }.orElse {
-      ranges.foldLeft(none[(Int, TypeValueRangeSet[T])]) {
-        case (None, range) =>
-          params.get(range).flatMap {
-            paramSets =>
-              paramSets.foldLeft(none[Int]) {
-                case (None, paramSet) => paramSet.from(prevParam + 1).headOption.orElse { paramSet.headOption }
-                case (Some(param), _) => Some(param)
-              }.flatMap {
-                param =>
-                  checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param)), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
-                    (param, _)
-                  }
-              }
-          }
-        case (Some(pair), _) =>
-          Some(pair)
+      ranges.headOption.flatMap {
+        firstRange =>
+          if(ranges.size == 1 && firstRange.minIdx == 0 && firstRange.maxIdx == 1)
+            allParams.from(prevParam + 1).headOption.orElse { allParams.headOption }.flatMap {
+              param =>
+                checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param)), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
+                  (param, _)
+                }
+            }
+          else
+           ranges.foldLeft(none[(Int, TypeValueRangeSet[T])]) {
+             case (None, range) =>
+               params.get(range).flatMap {
+                 paramSets =>
+                   paramSets.foldLeft(none[Int]) {
+                     case (None, paramSet) => paramSet.from(prevParam + 1).headOption.orElse { paramSet.headOption }
+                     case (Some(param), _) => Some(param)
+                   }.flatMap {
+                     param =>
+                       checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param)), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
+                         (param, _)
+                       }
+                   }
+               }
+             case (Some(pair), _) =>
+               Some(pair)
+           }
       }
     }.getOrElse((prevParam, TypeValueRangeSet.empty[T]))
   }
