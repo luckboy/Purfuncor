@@ -142,7 +142,7 @@ object LogicalTypeValueTermUnifier
     checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, isSupertype)(leafIdx).map { (prevParam, _) }.orElse {
       ranges.headOption.flatMap {
         firstRange =>
-          if(ranges.size == 1 && firstRange.minIdx == 0 && firstRange.maxIdx == 1)
+          if(ranges.size == 1 && firstRange.minIdx == 0 && firstRange.maxIdx == Integer.MAX_VALUE)
             allParams.from(prevParam + 1).headOption.orElse { allParams.headOption }.flatMap {
               param =>
                 checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param)), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
