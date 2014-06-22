@@ -102,7 +102,7 @@ object LogicalTypeValueTermUnifier
             val (newPrevParam2, rangeSet2) = checkSupertypeDisjunctionNode(child, nodeTuple, depthRangeSets, isSupertype)(newLeafIdx)(newPrevParam)
             val rangeSet3 = rangeSet & rangeSet2
             val optNewLeaf = child.typeValueLeaf.map(newLeafIdx ->) 
-            if(!rangeSet3.isEmpty)
+            if(!rangeSet3.isEmpty && optNewLeaf.isEmpty)
               ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs), rangeSet3)
             else
               ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs ++ optNewLeaf), rangeSet)
