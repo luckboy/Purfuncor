@@ -198,10 +198,13 @@ object LogicalTypeValueTermUnifier
       case TypeValueLeaf(ident) =>
         ident match {
           case TypeParamAppIdentity(param) =>
-            if(otherLeafIdxs.contains(leafIdx))
+            if(otherLeafIdxs.contains(leafIdx)) {
               some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ myParams.get(leafIdx).map { TypeParamCondition(_, ident) }))
-            else
-              none
+            } else {
+              // If the parameter isn't assigned to the leaf, there adds a parameter condition with Any or Nothing.
+              val bf = if(isSupertype) TypeBuiltinFunction.Any else TypeBuiltinFunction.Nothing
+              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 :+ TypeParamCondition(param, BuiltinTypeIdentity[T](bf, Nil))))
+            }
           case _                           =>
             checkLeafIndexSetsForTypeDisjunction(myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, node, isSupertype)(leafIdx, tuple)
         }
