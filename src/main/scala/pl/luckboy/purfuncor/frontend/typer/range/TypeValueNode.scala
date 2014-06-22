@@ -40,6 +40,12 @@ sealed trait TypeValueNode[T]
       case _                                            =>
         this
     }
+  
+  def typeValueLeaf =
+    this match {
+      case leaf: TypeValueLeaf[T] => some(leaf)
+      case _                      => none
+    }
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T]) extends TypeValueNode[T]
