@@ -19,49 +19,90 @@ object LogicalTypeValueTermUnifier
     val depthRangeSet = depthRangeSets.headOption.getOrElse(TypeValueRangeSet.empty)
     (node match {
       case TypeValueBranch(childs, tupleTypes, _) =>
-        val ((prevParam2, _), pairs6) = stFoldLeftS(childs)(List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]()) {
+        val ((prevParam2, _), pairs7) = stFoldLeftS(childs)(List[((Option[TypeValueRangeSet[T]], TypeValueNode[T]), Vector[(Int, TypeValueLeaf[T])])]()) {
           (pairs, child, stPair: (Int, Int)) =>
             val (newPrevParam, newLeafIdx) = stPair
-            val ranges = pairs.flatMap { _._1.toIterable.flatMap { _.ranges.keys } }
-            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeDisjunctionNode(ranges, child, nodeTuple, depthRangeSets, isSupertype, isRoot)(newLeafIdx)(newPrevParam)
+            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeDisjunctionNode(child, nodeTuple, depthRangeSets, isSupertype, isRoot)(newLeafIdx)(newPrevParam).mapElements(identity, _.map { (_, Vector[(Int, TypeValueLeaf[T])]()) })
             if(!pairs.isEmpty) {
-              val (pairs5, pairIdxs3) = pairs.foldLeft((List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])](), Set[Int]())) {
-                case ((pairs3, pairIdxs), pair @ (optRangeSet, newChild)) =>
-                  pairs2.zipWithIndex.foldLeft((pairs3, pairIdxs)) {
-                    case ((pairs4, pairIdxs2), (pair2 @ (optRangeSet2, newChild2), pairIdx)) =>
-                      val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ & _ }
-                      if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
-                        (((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))) :: pairs4, pairIdxs2 + pairIdx)
-                      else
-                        (pair :: pairs4, pairIdxs2)
+              val (pairs6, pairIdxs4) = pairs.foldLeft((List[((Option[TypeValueRangeSet[T]], TypeValueNode[T]), Vector[(Int, TypeValueLeaf[T])])](), Set[Int]())) {
+                case ((pairs3, pairIdxs), pair @ ((optRangeSet, newChild), newLeafs)) =>
+                  val (pairs5, pairIdxs3, isIntersected2) = pairs2.zipWithIndex.foldLeft((pairs3, pairIdxs, false)) {
+                    case ((pairs4, pairIdxs2, isIntersected), (pair2 @ ((optRangeSet2, newChild2), newLeafs2), pairIdx)) =>
+                      newChild match {
+                        case newLeaf: TypeValueLeaf[T] if optRangeSet.map { _.isEmpty }.getOrElse(false) =>
+                          // If range set of previous child is empty.
+                          child match {
+                            case leaf: TypeValueLeaf[T] =>
+                              if(optRangeSet2.map { rs => !rs.isEmpty }.getOrElse(true))
+                                ((pair2._1, (newLeafs2 ++ newLeafs) :+ (leafIdx -> newLeaf)) :: pairs4, pairIdxs2, true)
+                              else
+                                ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
+                            case _ =>
+                              ((pair2._1, (newLeafs2 ++ newLeafs) :+ (leafIdx -> newLeaf)) :: pairs4, pairIdxs2, true)
+                          }
+                        case _ =>
+                          val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ & _ }
+                          child match {
+                            case leaf: TypeValueLeaf[T] =>
+                              if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
+                                ((((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))), newLeafs ++ newLeafs2) :: pairs4, pairIdxs2 + pairIdx, true)
+                              else
+                                ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
+                            case _ =>
+                              if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
+                                ((((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))), newLeafs ++ newLeafs2) :: pairs4, pairIdxs2 + pairIdx, true)
+                              else 
+                                (pairs4, pairIdxs2, isIntersected)
+                          }
+                      }
                   }
+                  (if(isIntersected2 || !child.isTypeValueLeaf) pairs5 else (pair :: pairs5), pairIdxs3)
               }
               ((newPrevParam2, newLeafIdx + child.leafCount), pairs2.zipWithIndex.flatMap {
-                case ((ors, n), pi) => if(!pairIdxs3.contains(pi)) List((ors, TypeValueBranch(Vector(n), tupleTypes, n.leafCount))) else Nil
-              } ++ pairs5)
-            } else
-              ((newPrevParam2, newLeafIdx + child.leafCount), pairs2.map { case (ors, n) => (ors, TypeValueBranch(Vector(n), tupleTypes, n.leafCount)) })
+                case (((ors, n), ls), pi) => if(!pairIdxs4.contains(pi)) List(((ors, TypeValueBranch[T](Vector(n), tupleTypes, n.leafCount)), ls)) else Nil
+              } ++ pairs6)
+            } else {
+              ((newPrevParam2, newLeafIdx + child.leafCount), pairs2.map { case ((ors, n), ls) => ((ors, TypeValueBranch(Vector(n), tupleTypes, n.leafCount)), ls) })
+            }
         } ((prevParam, leafIdx))
-        val pairs7 = pairs6.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + node.leafCount), rs.ranges.keys, tupleTypes) }, n) }
+        // Check mismatched leafs.
+        val (prevParam3, pairs8) = stFoldLeftS(pairs7)(List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]()) {
+          (pairs, tmpPair, newPrevParam: Int) =>
+            val (pair, leafs) = tmpPair
+            val (newPrevParam2, (pair2, pairs2)) = stFoldLeftS(leafs)((pair, List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]())) {
+              (tmpPair2, leafPair, newPrevParam2: Int) =>
+                val (newPair @ (optRangeSet, newChild), newPairs) = tmpPair2
+                val (leafIdx2, leaf2) = leafPair
+                val ranges = optRangeSet.map { _.ranges.keys }.getOrElse(Nil)
+                val (newPrevParam3, newPair2 @ (optRangeSet2, newChild2)) = checkOrDistributeSupertypeDisjunctionLeafForTypeParams(ranges, leaf2, nodeTuple, depthRangeSets, isSupertype)(leafIdx2)(newPrevParam2)
+                val newOptRangeSet3 = (optRangeSet |@| optRangeSet2) { _ & _ }
+                if(newOptRangeSet3.map { rs => !rs.isEmpty }.getOrElse(false))
+                  (newPrevParam3, ((newOptRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes)), newPairs))
+                else
+                  (newPrevParam3, (newPair, newPair2 :: newPairs))
+            } (newPrevParam)
+            (newPrevParam, (pair2 :: pairs2) ++ pairs)
+        } (prevParam2)
+        val pairs9 = pairs8.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + node.leafCount), rs.ranges.keys, tupleTypes) }, n) }
         if(isRoot)
-          (prevParam2, pairs7.headOption.map {
+          (prevParam2, pairs9.headOption.map {
             pair =>
-              if(pairs7.size > 1)
-                List(pairs7.foldLeft((some(TypeValueRangeSet.empty[T]), TypeValueBranch(Vector(), Nil, 0): TypeValueNode[T])) {
+              if(pairs9.size > 1)
+                List(pairs9.foldLeft((some(TypeValueRangeSet.empty[T]), TypeValueBranch(Vector(), Nil, 0): TypeValueNode[T])) {
                   case ((_, n), (_, n2)) => (none[TypeValueRangeSet[T]], n.conjOrDisjWithTupleTypes(n2, tupleTypes))
                 })
               else
                 List(pair)
           }.getOrElse(List((some(TypeValueRangeSet.empty[T]), TypeValueBranch[T](Vector(), Nil, 0)))))
         else
-          (prevParam2, pairs6)
+          (prevParam2, pairs8)
       case leaf: TypeValueLeaf[T] =>
         val (prevParam2, rangeSet) = checkSupertypeConjunctionLeaf(leaf, nodeTuple, depthRangeSets, isSupertype)(leafIdx)(prevParam)
         (prevParam2, List((if(!rangeSet.isEmpty) some(rangeSet) else none, node)))
     }).mapElements(identity, _.map { case (ors, n) => (ors.map { _.superset(depthRangeSet) }, n.normalizedTypeValueNode) })
   }
 
-  private def checkOrDistributeSupertypeDisjunctionNode[T](ranges: Iterable[TypeValueRange], node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean, isRoot: Boolean)(leafIdx: Int)(prevParam: Int): (Int, List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]) = {
+  private def checkOrDistributeSupertypeDisjunctionNode[T](node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean, isRoot: Boolean)(leafIdx: Int)(prevParam: Int): (Int, List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]) = {
     val (rangeSets, params, allParams) = nodeTuple
     val depthRangeSets2 = depthRangeSets.headOption.map { _ => depthRangeSets.tail }.getOrElse(Nil)
     (node match {
@@ -85,10 +126,14 @@ object LogicalTypeValueTermUnifier
         } ((prevParam, leafIdx))
         (prevParam2, pair3)
       case leaf: TypeValueLeaf[T] =>
-        //val (prevParam2, rangeSet) = checkSupertypeDisjunctionNode(ranges, leaf, nodeTuple, depthRangeSets2, isSupertype)(leafIdx)(prevParam)
-        //(prevParam2, List((if(!rangeSet.isEmpty) some(rangeSet) else none, node)))
-        throw new UnsupportedOperationException
+        val (prevParam2, rangeSet) = checkSupertypeDisjunctionNode(leaf, nodeTuple, depthRangeSets2, isSupertype)(leafIdx)(prevParam)
+        (prevParam2, List((if(!rangeSet.isEmpty) some(rangeSet) else none, node)))
     }).mapElements(identity, _.map { case (ors, n) => (ors, n.normalizedTypeValueNode) })
+  }
+
+  private def checkOrDistributeSupertypeDisjunctionLeafForTypeParams[T](ranges: Iterable[TypeValueRange], node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean)(leafIdx: Int)(prevParam: Int) = {
+    val (prevParam2, rangeSet) = checkSupertypeDisjunctionLeafForTypeParams(ranges, node, nodeTuple, depthRangeSets, isSupertype)(leafIdx)(prevParam)
+    (prevParam2, (if(!rangeSet.isEmpty) some(rangeSet) else none, node))
   }
   
   private def checkSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean)(leafIdx: Int)(prevParam: Int): (Int, TypeValueRangeSet[T]) = {
@@ -101,11 +146,15 @@ object LogicalTypeValueTermUnifier
             val (newPrevParam, newLeafIdx, newLeafs) = stTuple
             val (newPrevParam2, rangeSet2) = checkSupertypeDisjunctionNode(child, nodeTuple, depthRangeSets, isSupertype)(newLeafIdx)(newPrevParam)
             val rangeSet3 = rangeSet & rangeSet2
-            val optNewLeaf = child.typeValueLeaf.map(newLeafIdx ->) 
-            if(!rangeSet3.isEmpty || optNewLeaf.isEmpty)
-              ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs), rangeSet3)
-            else
-              ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs ++ optNewLeaf), rangeSet)
+            child match {
+              case leaf: TypeValueLeaf[T] =>
+                if(!rangeSet3.isEmpty)
+                  ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs), rangeSet3)
+                else
+                  ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs :+ (newLeafIdx -> leaf)), rangeSet)
+              case _                      =>
+                ((newPrevParam2, newLeafIdx + child.leafCount, newLeafs), rangeSet3)
+            }
         } ((prevParam, leafIdx, Vector[(Int, TypeValueLeaf[T])]()))
         // Check mismatched leafs.
         val (prevParam3, rangeSet5) = stFoldLeftS(leafs)(rangeSet4) {
@@ -264,8 +313,8 @@ object LogicalTypeValueTermUnifier
       case _                            => none
     }
   
-  private def fullyCheckOrDistributeSupertypeDisjunctionNode[T](ranges: Iterable[TypeValueRange], node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]], isSupertype: Boolean) =
-    checkOrDistributeSupertypeDisjunctionNode(ranges, node, nodeTuple, depthRangeSets, isSupertype, true)(0)(-1)._2 match {
+  private def fullyCheckOrDistributeSupertypeDisjunctionNode[T](node: TypeValueNode[T], nodeTuple: (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int]), depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]], isSupertype: Boolean) =
+    checkOrDistributeSupertypeDisjunctionNode(node, nodeTuple, depthRangeSets, isSupertype, true)(0)(-1)._2 match {
       case List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args)))
       case _                            => none
     }
@@ -280,7 +329,7 @@ object LogicalTypeValueTermUnifier
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: disjDepthRangeSet :: term1.info.conjDepthRangeSets
         for {
           pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(TypeValueBranch(Vector(TypeValueBranch(Vector(term1.conjNode), tupleTypes1, term1.conjNode.leafCount)), Nil, term1.conjNode.leafCount), nodeTuple2, conjDepthRangeSets, term1.args, isSupertype)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(List(TypeValueRange.full), term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
         } yield (pair1, pair2)
       case (TypeValueBranch(childs1, tupleTypes1, _), TypeValueBranch(childs2, tupleTypes2, _)) if childs1.size === 1 && childs2.size > 1 && isFirstTry =>
         val conjDepthRangeSet = term2.info.conjDepthRangeSets.headOption.getOrElse(TypeValueRangeSet.full)
@@ -290,14 +339,14 @@ object LogicalTypeValueTermUnifier
         val nodeTuple1 = (term1.info.disjRangeSets, term1.info.disjParams, term1.info.allParams)
         for {
           pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(term1.conjNode, nodeTuple2, conjDepthRangeSets, term1.args, isSupertype)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(List(TypeValueRange.full), TypeValueBranch(Vector(TypeValueBranch(Vector(term2.conjNode), tupleTypes2, term2.conjNode.leafCount)), Nil, term2.conjNode.leafCount), nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(TypeValueBranch(Vector(TypeValueBranch(Vector(term2.conjNode), tupleTypes2, term2.conjNode.leafCount)), Nil, term2.conjNode.leafCount), nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
         } yield (pair1, pair2)
       case _ =>
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: term2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: term1.info.disjDepthRangeSets
         for {
           pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(term1.conjNode, nodeTuple2, conjDepthRangeSets, term1.args, isSupertype)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(List(TypeValueRange.full), term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype)
         } yield (pair1, pair2)
     }
   }

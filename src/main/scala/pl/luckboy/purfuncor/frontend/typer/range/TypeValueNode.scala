@@ -46,6 +46,8 @@ sealed trait TypeValueNode[T]
       case leaf: TypeValueLeaf[T] => some(leaf)
       case _                      => none
     }
+  
+  def isTypeValueLeaf = isInstanceOf[TypeValueLeaf[T]]
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T]) extends TypeValueNode[T]
