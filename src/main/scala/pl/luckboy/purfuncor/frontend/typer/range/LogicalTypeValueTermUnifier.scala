@@ -29,11 +29,11 @@ object LogicalTypeValueTermUnifier
                   val (pairs5, pairIdxs3, isIntersected2) = pairs2.zipWithIndex.foldLeft((pairs3, pairIdxs, false)) {
                     case ((pairs4, pairIdxs2, isIntersected), (pair2 @ ((optRangeSet2, newChild2), newLeafs2), pairIdx)) =>
                       newChild match {
-                        case newLeaf: TypeValueLeaf[T] if optRangeSet.map { _.isEmpty }.getOrElse(false) =>
+                        case newLeaf: TypeValueLeaf[T] if optRangeSet.map { _.isEmpty }.getOrElse(true) =>
                           // If range set of previous child is empty.
                           child match {
                             case leaf: TypeValueLeaf[T] =>
-                              if(optRangeSet2.map { rs => !rs.isEmpty }.getOrElse(true))
+                              if(optRangeSet2.map { rs => !rs.isEmpty }.getOrElse(false))
                                 ((pair2._1, (newLeafs2 ++ newLeafs) :+ (leafIdx -> newLeaf)) :: pairs4, pairIdxs2, true)
                               else
                                 ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
@@ -44,7 +44,7 @@ object LogicalTypeValueTermUnifier
                           val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ & _ }
                           child match {
                             case leaf: TypeValueLeaf[T] =>
-                              if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
+                              if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(false))
                                 ((((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes))), newLeafs ++ newLeafs2) :: pairs4, pairIdxs2 + pairIdx, true)
                               else
                                 ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
