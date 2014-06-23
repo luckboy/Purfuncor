@@ -107,6 +107,9 @@ object TypeValueRangeSet
 }
 
 case class TypeValueRange(minIdx: Int, maxIdx: Int)
+{
+  def | (range: TypeValueRange): TypeValueRange = TypeValueRange(minIdx.min(range.minIdx), maxIdx.max(range.maxIdx))
+}
 
 object TypeValueRange
 {
