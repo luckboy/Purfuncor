@@ -53,11 +53,15 @@ object LogicalTypeValueTermInfo
         val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
         (tuple3.copy(_1 = conjRangeSets3, _3 = conjDepthRangeSet2 :: tuple3._3, _5 = tuple3._5 + (range -> conjParamSets2), _7 = tuple3._7 ++ params), Map(), optRange)
       case TypeValueLeaf(ident) =>
+        val params = ident match {
+          case TypeParamAppIdentity(param) => Set(param)
+          case _                           => Set()
+        }
         val range = TypeValueRange(leafIdx, leafIdx)
         val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
         val conjRangeSets2 = conjRangeSets + (ident -> (conjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | TypeValueRangeSet(SortedMap(range -> pair))))
         val conjDepthRangeSet2 = conjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
-        (tuple.copy(_1 = conjRangeSets2, _3 = conjDepthRangeSet2 :: nextConjDepthRangeSets), Map(ident -> Set(leafIdx)), some(range))
+        (tuple.copy(_1 = conjRangeSets2, _3 = conjDepthRangeSet2 :: nextConjDepthRangeSets, _7 = tuple._7 ++ params), Map(ident -> Set(leafIdx)), some(range))
     }
   }
   
@@ -89,11 +93,15 @@ object LogicalTypeValueTermInfo
         val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
         (tuple3.copy(_2 = disjRangeSets3, _4 = disjDepthRangeSet2 :: tuple3._4, _6 = tuple3._6 + (range -> disjParamSets2), _7 = tuple3._7 ++ params), Map(), optRange)
       case TypeValueLeaf(ident) =>
+        val params = ident match {
+          case TypeParamAppIdentity(param) => Set(param)
+          case _                           => Set()
+        }
         val range = TypeValueRange(leafIdx, leafIdx)
         val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
         val disjRangeSets2 = disjRangeSets + (ident -> (disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty[T]) | TypeValueRangeSet(SortedMap(range -> pair))))
         val disjDepthRangeSet2 = disjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
-        (tuple.copy(_2 = disjRangeSets2, _4 = disjDepthRangeSet2 :: nextDisjDepthRangeSets), Map(ident -> Set(leafIdx)), some(range))
+        (tuple.copy(_2 = disjRangeSets2, _4 = disjDepthRangeSet2 :: nextDisjDepthRangeSets, _7 = tuple._7 ++ params), Map(ident -> Set(leafIdx)), some(range))
     }
   }
   
