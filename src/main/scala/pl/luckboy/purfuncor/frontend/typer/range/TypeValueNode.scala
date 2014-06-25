@@ -41,16 +41,11 @@ sealed trait TypeValueNode[T]
         this
     }
   
-  def typeValueLeaf =
-    this match {
-      case leaf: TypeValueLeaf[T] => some(leaf)
-      case _                      => none
-    }
-  
   def isTypeValueLeaf = isInstanceOf[TypeValueLeaf[T]]
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T]) extends TypeValueNode[T]
 {
-  def leafCount = 1
+  override def leafCount = 1
 }
+case class GlobalTypeAppNode[T](loc: T, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
