@@ -35,8 +35,8 @@ object LogicalTypeValueTermInfo
       case TypeValueBranch(childs, tupleTypes, _) =>
         val tuple2 = tuple.copy(_3 = nextConjDepthRangeSets)
         val params = SortedSet[Int]() ++ childs.flatMap {
-          case TypeValueLeaf(TypeParamAppIdentity(param)) => Vector(param)
-          case _                                          => Vector()
+          case TypeValueLeaf(TypeParamAppIdentity(param), _) => Vector(param)
+          case _                                             => Vector()
         }
         val conjParamSets2 = params :: conjParamSets
         val (tuple3, _, leafIdxs, optRange) = childs.foldLeft((tuple2, leafIdx, Map[TypeValueIdentity[T], Set[Int]](), none[TypeValueRange])) {
@@ -54,19 +54,23 @@ object LogicalTypeValueTermInfo
         val conjDepthRangeSet2 = conjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
         val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
         (tuple3.copy(_1 = conjRangeSets3, _3 = conjDepthRangeSet2 :: tuple3._3, _5 = tuple3._5 + (range -> conjParamSets2), _7 = tuple3._7 ++ params), Map(), optRange)
-      case TypeValueLeaf(ident) =>
+      case TypeValueLeaf(ident, leafCount) =>
         val params = ident match {
           case TypeParamAppIdentity(param) => SortedSet(param)
           case _                           => SortedSet[Int]()
         }
         val conjParamSets2 = params :: conjParamSets
-        val range = TypeValueRange(leafIdx, leafIdx)
+        val range = TypeValueRange(leafIdx, leafIdx + leafCount)
         val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
         val conjRangeSets2 = conjRangeSets + (ident -> (conjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | TypeValueRangeSet(SortedMap(range -> pair))))
         val conjDepthRangeSet2 = conjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (tuple.copy(_1 = conjRangeSets2, _3 = conjDepthRangeSet2 :: nextConjDepthRangeSets, _5 = tuple._5 + (range -> conjParamSets2), _7 = tuple._7 ++ params), Map(ident -> Set(leafIdx)), some(range))
       case _ =>
-        throw new UnsupportedOperationException
+        val expandedNode = node.typeValueBranchOrTypeValueLeaf(true)
+        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false)
+        val (tuple2, leafIdxs, optRange) = rangeSetsFromTypeConjunctionNode(expandedNode, conjTupleTypes, conjParamSets, disjParamSets)(leafIdx)(tuple)
+        val (tuple3, leafIdxs2, optRange2) = rangeSetsFromTypeConjunctionNode(unexpandedNode, conjTupleTypes, conjParamSets, disjParamSets)(leafIdx)(tuple2)
+        (tuple3, leafIdxs2 |+| leafIdxs, (optRange |@| optRange2) { _ | _ })
     }
   }
   
@@ -79,8 +83,8 @@ object LogicalTypeValueTermInfo
       case TypeValueBranch(childs, _, _) =>
         val tuple2 = tuple.copy(_4 = nextDisjDepthRangeSets)
         val params = SortedSet[Int]() ++ childs.flatMap {
-          case TypeValueLeaf(TypeParamAppIdentity(param)) => Vector(param)
-          case _                                          => Vector()
+          case TypeValueLeaf(TypeParamAppIdentity(param), 1) => Vector(param)
+          case _                                             => Vector()
         }
         val disjParamSets2 = params :: disjParamSets
         val (tuple3, _, leafIdxs, optRange) = childs.foldLeft((tuple2, leafIdx, Map[TypeValueIdentity[T], Set[Int]](), none[TypeValueRange])) {
@@ -97,19 +101,23 @@ object LogicalTypeValueTermInfo
         val disjDepthRangeSet2 = disjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
         val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
         (tuple3.copy(_2 = disjRangeSets3, _4 = disjDepthRangeSet2 :: tuple3._4, _6 = tuple3._6 + (range -> disjParamSets2), _7 = tuple3._7 ++ params), Map(), optRange)
-      case TypeValueLeaf(ident) =>
+      case TypeValueLeaf(ident, leafCount) =>
         val params = ident match {
           case TypeParamAppIdentity(param) => SortedSet(param)
           case _                           => SortedSet[Int]()
         }
         val disjParamSets2 = params :: disjParamSets
-        val range = TypeValueRange(leafIdx, leafIdx)
+        val range = TypeValueRange(leafIdx, leafIdx + leafCount)
         val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
         val disjRangeSets2 = disjRangeSets + (ident -> (disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty[T]) | TypeValueRangeSet(SortedMap(range -> pair))))
         val disjDepthRangeSet2 = disjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (tuple.copy(_2 = disjRangeSets2, _4 = disjDepthRangeSet2 :: nextDisjDepthRangeSets, _6 = tuple._6 + (range -> disjParamSets2), _7 = tuple._7 ++ params), Map(ident -> Set(leafIdx)), some(range))
       case _ =>
-        throw new UnsupportedOperationException
+        val expandedNode = node.typeValueBranchOrTypeValueLeaf(true)
+        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false)
+        val (tuple2, leafIdxs, optRange) = rangeSetsFromTypeDisjunctionNode(expandedNode, conjTupleTypes, conjParamSets, disjParamSets)(leafIdx)(tuple)
+        val (tuple3, leafIdxs2, optRange2) = rangeSetsFromTypeDisjunctionNode(unexpandedNode, conjTupleTypes, conjParamSets, disjParamSets)(leafIdx)(tuple2)
+        (tuple3, leafIdxs2 |+| leafIdxs, (optRange |@| optRange2) { _ | _ })
     }
   }
   

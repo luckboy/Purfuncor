@@ -15,5 +15,6 @@ case class FieldTypeIdentity[+T](i: Int, ident: TypeValueIdentity[T]) extends Ty
 case class BuiltinTypeIdentity[+T](bf: TypeBuiltinFunction.Value, argIdents: Seq[TypeValueIdentity[T]]) extends TypeValueIdentity[T]
 case class UnittypeIdentity[+T](loc: T) extends TypeValueIdentity[T]
 case class GrouptypeIdentity[+T](loc: T) extends TypeValueIdentity[T]
-case class GlobalTypeAppIdentity[+T](loc: T) extends TypeValueIdentity[T]
+case class ExpandedGlobalTypeAppIdentity[+T](loc: T) extends TypeValueIdentity[T]
+case class UnexpandedGlobalTypeAppIdentity[+T](loc: T) extends TypeValueIdentity[T]
 case class TypeParamAppIdentity[+T](param: Int) extends TypeValueIdentity[T]
