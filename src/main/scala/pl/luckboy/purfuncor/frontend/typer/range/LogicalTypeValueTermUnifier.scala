@@ -348,7 +348,7 @@ object LogicalTypeValueTermUnifier
       case _                            => none
     }
   
-  private def checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean) = {
+  private def checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean, canExpandGlobalType: Boolean) = {
     val nodeTuple2 = (term2.info.conjRangeSets, term2.info.conjParams, term2.info.allParams)
     val nodeTuple1 = (term1.info.disjRangeSets, term1.info.disjParams, term1.info.allParams)
     (term1.conjNode, term2.conjNode) match {
@@ -378,8 +378,8 @@ object LogicalTypeValueTermUnifier
     }
   }
   
-  private def checkTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean) =
-    checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms(term1, term2, isSupertype, isFirstTry).map {
+  private def checkTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean, canExpandGlobalType: Boolean) =
+    checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms(term1, term2, isSupertype, isFirstTry, canExpandGlobalType: Boolean).map {
       case ((optRangeSet1, distributedTerm1), (optRangeSet2, distributedTerm2)) =>
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: distributedTerm2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: distributedTerm1.info.disjDepthRangeSets
@@ -387,16 +387,16 @@ object LogicalTypeValueTermUnifier
         val nodeTuple1 = (distributedTerm1.info.disjRangeSets, distributedTerm1.info.disjParams, distributedTerm1.info.allParams)
         val optRangeSetPair = (optRangeSet1 |@| optRangeSet2) { (_, _) }
         val conjRangeSet = optRangeSetPair.map { _._1 }.getOrElse {
-          checkSupertypeConjunctionNode(distributedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, isSupertype, true)(0)(-1)._2
+          checkSupertypeConjunctionNode(distributedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, isSupertype, canExpandGlobalType)(0)(-1)._2
         }
         val disjRangeSet = optRangeSetPair.map { _._2 }.getOrElse {
-          checkSupertypeDisjunctionNode(distributedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, !isSupertype, true)(0)(-1)._2
+          checkSupertypeDisjunctionNode(distributedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, !isSupertype, canExpandGlobalType)(0)(-1)._2
         }
         ((distributedTerm1, conjRangeSet), (distributedTerm2, disjRangeSet))
     }
     
-  private def partiallyMatchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isFirstTry: Boolean) =
-    checkTypeValueNodesFromLogicalTypeValueTerms(term1, term2, true, isFirstTry).flatMap {
+  private def morePartiallyMatchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isFirstTry: Boolean, canExpandGlobalType: Boolean) =
+    checkTypeValueNodesFromLogicalTypeValueTerms(term1, term2, true, isFirstTry, canExpandGlobalType).flatMap {
       case ((distributedTerm1, conjRangeSet), (distributedTerm2, disjRangeSet)) =>
         if(!conjRangeSet.isEmpty && !disjRangeSet.isEmpty) {
           val conjMyLeafIdxs = conjRangeSet.value.myLeafIdxs.toSet
@@ -413,8 +413,8 @@ object LogicalTypeValueTermUnifier
             case (condIdxs, (((_, otherRanges), _), i)) => condIdxs |+| otherRanges.map { _ -> i }.toMap
           }
           for {
-            conjTuple <- checkLeafIndexSetsForTypeConjunction(conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, distributedTerm1.conjNode, true, true)(0, (Set(), Set(), Seq()))
-            disjTuple <- checkLeafIndexSetsForTypeDisjunction(disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, distributedTerm2.conjNode, false, true)(0, (Set(), Set(), Seq()))
+            conjTuple <- checkLeafIndexSetsForTypeConjunction(conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, distributedTerm1.conjNode, true, canExpandGlobalType)(0, (Set(), Set(), Seq()))
+            disjTuple <- checkLeafIndexSetsForTypeDisjunction(disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, distributedTerm2.conjNode, false, canExpandGlobalType)(0, (Set(), Set(), Seq()))
           } yield {
             val conds = (conjTuple._2 | disjTuple._2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
             (conjTuple._1 | disjTuple._1, conds, conjTuple._3 ++ disjTuple._3)
@@ -422,6 +422,14 @@ object LogicalTypeValueTermUnifier
         } else
           none
     }
+
+  private def partiallyMatchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isFirstTry: Boolean) =
+    if(term1.info.unexpandedLeafCount * 2 > term1.info.expandedLeafCount && term2.info.unexpandedLeafCount * 2 > term2.info.expandedLeafCount)
+      morePartiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, isFirstTry, true)
+    else
+      morePartiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, isFirstTry, false).orElse {
+        morePartiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, isFirstTry, true)
+      }
 
   private def matchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T]) =
     (term1.conjNode, term2.conjNode) match {
