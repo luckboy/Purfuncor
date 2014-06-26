@@ -21,11 +21,11 @@ sealed trait TypeValueNode[T]
     (this, node) match {
       case (TypeValueBranch(childs1, _, leafCount1), TypeValueBranch(childs2, _, leafCount2)) => 
         TypeValueBranch(childs1 ++ childs2, tupleTypes, leafCount1 + leafCount2)
-      case (TypeValueBranch(childs1, _, leafCount1), TypeValueLeaf(_, leafCount2))            =>
+      case (TypeValueBranch(childs1, _, leafCount1), TypeValueLeaf(_, _, leafCount2))         =>
         TypeValueBranch(childs1 :+ node, tupleTypes, leafCount1 + leafCount2)
-      case (TypeValueLeaf(_, leafCount1), TypeValueBranch(childs2, _, leafCount2))            =>
+      case (TypeValueLeaf(_, _, leafCount1), TypeValueBranch(childs2, _, leafCount2))         =>
         TypeValueBranch(this +: childs2, tupleTypes, leafCount1 + leafCount2)
-      case (TypeValueLeaf(_, leafCount1), TypeValueLeaf(_, leafCount2))                       =>
+      case (TypeValueLeaf(_, _, leafCount1), TypeValueLeaf(_, _, leafCount2))                 =>
         TypeValueBranch(Vector(this, node), tupleTypes, leafCount1 + leafCount2)
       case (_, _)                                                                             =>
         val expandedNode = typeValueBranchOrTypeValueLeaf(canExpandGlobalType)
@@ -39,7 +39,7 @@ sealed trait TypeValueNode[T]
         child match {
           case TypeValueBranch(Vector(child2), _, _) => child2.normalizedTypeValueNode
           case TypeValueBranch(_, _, childLeafCount) => TypeValueBranch(Vector(child), tupleTypes, childLeafCount)
-          case TypeValueLeaf(_, _)                   => child
+          case TypeValueLeaf(_, _, _)                => child
         }
       case _                                            =>
         this
@@ -51,13 +51,13 @@ sealed trait TypeValueNode[T]
     this match {
       case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount) =>
         if(canExpandGlobalType)
-          TypeValueBranch(Seq(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc), 1), TypeValueBranch(childs, tupleTypes, leafCount)), Nil, leafCount - 1)
+          TypeValueBranch(Seq(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount)), Nil, leafCount - 1)
         else
-          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc), leafCount)
+          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc), 0, leafCount)
       case _ =>
         this
     }
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
-case class TypeValueLeaf[T](ident: TypeValueIdentity[T], leafCount: Int) extends TypeValueNode[T]
+case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]
 case class GlobalTypeAppNode[T](loc: T, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]

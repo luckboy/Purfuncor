@@ -7,4 +7,4 @@
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer.range
 
-case class TypeParamCondition[+T](param: Int, ident: TypeValueIdentity[T])
+case class TypeParamCondition[+T](param: Int, paramAppIdx: Int, ident: TypeValueIdentity[T])
