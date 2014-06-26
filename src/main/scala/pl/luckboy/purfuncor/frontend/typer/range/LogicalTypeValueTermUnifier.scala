@@ -16,7 +16,7 @@ object LogicalTypeValueTermUnifier
 {
   private type NodeTupleT[T] = (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], Map[TypeValueRange, List[SortedSet[Int]]], SortedSet[Int])
   
-  private type IndexTupleT[T] = (Set[Int], Set[Int], Map[TypeValueRange, Set[Int]], Map[TypeValueRange, Int], Map[Int, Int], Map[Int, Int])
+  private type IndexTupleT[T] = (Set[Int], Set[Int], Map[TypeValueRange, Set[Int]], Map[TypeValueRange, Int], Map[Int, Int], Map[Int, Int], Set[Int])
   
   private def checkOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean, canExpandGlobalType: Boolean, isRoot: Boolean)(leafIdx: Int)(prevParam: Int): (Int, List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]) = {
     val depthRangeSet = depthRangeSets.headOption.getOrElse(TypeValueRangeSet.empty)
@@ -219,7 +219,7 @@ object LogicalTypeValueTermUnifier
         if(ranges.size == 1 && firstRange.minIdx == 0 && firstRange.maxIdx == Integer.MAX_VALUE)
           allParams.from(prevParam + 1).headOption.orElse { allParams.headOption }.flatMap {
             param =>
-              checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
+              checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), false, isSupertype)(leafIdx).map {
                 (param, _)
               }
           }
@@ -233,7 +233,7 @@ object LogicalTypeValueTermUnifier
                    case (Some(param), _) => Some(param)
                  }.flatMap {
                    param =>
-                     checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
+                     checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), false, isSupertype)(leafIdx).map {
                        (param, _)
                      }
                  }
@@ -241,16 +241,24 @@ object LogicalTypeValueTermUnifier
            case (Some(pair), _) =>
              Some(pair)
          }
-    }.getOrElse((prevParam, TypeValueRangeSet.empty[T]))
+    }.getOrElse {
+      node match {
+        case TypeValueLeaf(TypeParamAppIdentity(_), _, _) =>
+          val bf = if(isSupertype) TypeBuiltinFunction.Any else TypeBuiltinFunction.Nothing
+          checkSupertypeValueLeaf(TypeValueLeaf(BuiltinTypeIdentity(bf, Nil), 0, 1), rangeSets, depthRangeSets2, none, true, isSupertype)(leafIdx).map { (prevParam, _) }.getOrElse((prevParam, TypeValueRangeSet.empty[T]))
+        case _ =>
+          (prevParam, TypeValueRangeSet.empty[T])
+      }
+    }
   }
   
   private def checkSupertypeConjunctionLeaf[T](leaf: TypeValueLeaf[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], isSupertype: Boolean)(leafIdx: Int)(prevParam: Int) = {
     val depthRangeSets2 = depthRangeSets.headOption.map { _ => depthRangeSets.tail }.getOrElse(Nil)
     val (rangeSets, params, allParams) = nodeTuple
-    checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, isSupertype)(leafIdx).map { (prevParam, _) }.orElse {
+    checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, false, isSupertype)(leafIdx).map { (prevParam, _) }.orElse {
       allParams.from(prevParam + 1).headOption.orElse { allParams.headOption }.flatMap {
         param =>
-          checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), isSupertype)(leafIdx).map {
+          checkSupertypeValueLeaf(TypeValueLeaf(TypeParamAppIdentity(param), 0, 1), rangeSets, depthRangeSets2, some(param), false, isSupertype)(leafIdx).map {
             (param, _)
           }
       }
@@ -259,22 +267,28 @@ object LogicalTypeValueTermUnifier
   
   private def checkSupertypeDisjunctionLeaf[T](leaf: TypeValueLeaf[T], nodeTuple: NodeTupleT[T], depthRangeSets2: List[TypeValueRangeSet[T]], isSupertype: Boolean)(leafIdx: Int)(prevParam: Int) = {
     val (rangeSets, params, allParams) = nodeTuple
-    checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, isSupertype)(leafIdx).map { (prevParam, _) }getOrElse((prevParam, TypeValueRangeSet.empty[T]))
+    checkSupertypeValueLeaf(leaf, rangeSets, depthRangeSets2, none, false, isSupertype)(leafIdx).orElse {
+      val bf = if(isSupertype) TypeBuiltinFunction.Nothing else TypeBuiltinFunction.Any
+      checkSupertypeValueLeaf(TypeValueLeaf(BuiltinTypeIdentity(bf, Nil), 0, 1), rangeSets, depthRangeSets2, none, true, isSupertype)(leafIdx)
+    }.map { (prevParam, _) }.getOrElse {
+      (prevParam, TypeValueRangeSet.empty[T])
+    }
   }
   
-  private def checkSupertypeValueLeaf[T](leaf: TypeValueLeaf[T], rangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]], depthRangeSets2: List[TypeValueRangeSet[T]], param: Option[Int], isSupertype: Boolean)(leafIdx: Int) = {
+  private def checkSupertypeValueLeaf[T](leaf: TypeValueLeaf[T], rangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]], depthRangeSets2: List[TypeValueRangeSet[T]], param: Option[Int], isNothing: Boolean, isSupertype: Boolean)(leafIdx: Int) = {
     leaf match {
       case TypeValueLeaf(ident, _, _) =>
         rangeSets.get(ident).map {
           rs =>
             val rangeSet = depthRangeSets2.headOption.map(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx).superset).getOrElse(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx))
-            param.map { rangeSet.withMyParam(leafIdx, _) }.getOrElse(rangeSet)
+            val rangeSet2 = param.map { rangeSet.withMyParam(leafIdx, _) }.getOrElse(rangeSet)
+            if(isNothing) rangeSet2.withMyNothingIdx(leafIdx) else rangeSet2
         }
     }
   }
   
   private def checkLeafIndexSetsForTypeConjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int, tuple: (Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]])): Option[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]])] = {
-    val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs) = indexTuple
+    val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myNothingIdxs) = indexTuple
     node match {
       case TypeValueBranch(childs, _, _) =>
         val optTuple3 = stFoldLeftS(childs)(some(tuple)) {
@@ -288,18 +302,7 @@ object LogicalTypeValueTermUnifier
           tuple3 => tuple3.copy(_2 = myCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount)).map(tuple3._2 |).getOrElse(tuple3._2))
         }
       case TypeValueLeaf(ident, paramAppIdx, _) =>
-        ident match {
-          case TypeParamAppIdentity(param) =>
-            if(otherLeafIdxs.contains(leafIdx)) {
-              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParams.get(leafIdx) |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, ident) }))
-            } else {
-              // If the parameter isn't assigned to the leaf, there adds a parameter condition with Any or Nothing.
-              val bf = if(isSupertype) TypeBuiltinFunction.Any else TypeBuiltinFunction.Nothing
-              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 :+ TypeParamCondition(param, paramAppIdx, BuiltinTypeIdentity[T](bf, Nil))))
-            }
-          case _                           =>
-            checkLeafIndexSetsForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx, tuple)
-        }
+        checkLeafIndexSetsForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx, tuple)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
         val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)
         checkLeafIndexSetsForTypeConjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
@@ -307,7 +310,7 @@ object LogicalTypeValueTermUnifier
   }
 
   private def checkLeafIndexSetsForTypeDisjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int, tuple: (Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]])): Option[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]])] = {
-    val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs) = indexTuple
+    val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myNothingIdxs) = indexTuple
     node match {
       case TypeValueBranch(childs, _, _) =>
         val optTuple3 = stFoldLeftS(childs)(some(tuple)) {
@@ -321,21 +324,11 @@ object LogicalTypeValueTermUnifier
           tuple3 => tuple3.copy(_2 = otherCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount)).map(tuple3._2 +).getOrElse(tuple3._2))
         }
       case TypeValueLeaf(ident, paramAppIdx, _) =>
-        ident match {
-          case TypeParamAppIdentity(param) =>
-            if(otherLeafIdxs.contains(leafIdx)) {
-              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParams.get(leafIdx) |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, ident) }))
-            } else {
-              // If the parameter isn't assigned to the leaf, there adds a parameter condition with Any or Nothing.
-              val bf = if(isSupertype) TypeBuiltinFunction.Any else TypeBuiltinFunction.Nothing
-              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 :+ TypeParamCondition(param, paramAppIdx, BuiltinTypeIdentity[T](bf, Nil))))
-            }
-          case _                           =>
-            if(myLeafIdxs.contains(leafIdx) && otherLeafIdxs.contains(leafIdx))
-              some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParams.get(leafIdx) |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, ident) }))
-            else
-              none
-        }
+        val myParam = myParams.get(leafIdx)
+        if(myLeafIdxs.contains(leafIdx) && (otherLeafIdxs.contains(leafIdx) || myParam.isDefined || myNothingIdxs.contains(leafIdx)))
+          some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, ident) }))
+        else
+          none
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
         val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)
         checkLeafIndexSetsForTypeDisjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
@@ -408,9 +401,11 @@ object LogicalTypeValueTermUnifier
           val conjMyLeafIdxs = conjRangeSet.value.myLeafIdxs.toSet
           val disjOtherLeafIdxs = disjRangeSet.value.otherLeafIdxs.toSet
           val conjMyParams = conjRangeSet.value.myParams.toSeq.toMap
+          val conjMyNothingIdxs = conjRangeSet.value.myNothingIdxs.toSet
           val disjMyLeafIdxs = disjRangeSet.value.myLeafIdxs.toSet
           val conjOtherLeafIdxs = conjRangeSet.value.otherLeafIdxs.toSet
           val disjMyParams = disjRangeSet.value.myParams.toSeq.toMap
+          val disjMyAnyIdxs = conjRangeSet.value.myNothingIdxs.toSet
           val pairs = conjRangeSet.value.conds.toVector
           val conjMyCondIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueRange, Set[Int]]()) { 
             case (condIdxs, (((myRange, _), _), i)) => condIdxs |+| Map(myRange -> Set(i))
@@ -419,8 +414,8 @@ object LogicalTypeValueTermUnifier
             case (condIdxs, (((_, otherRanges), _), i)) => condIdxs |+| otherRanges.map { _ -> i }.toMap
           }
           for {
-            conjTuple <- checkLeafIndexSetsForTypeConjunction((conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, distributedTerm2.info.paramAppIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0, (Set(), Set(), Seq()))
-            disjTuple <- checkLeafIndexSetsForTypeDisjunction((disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, distributedTerm1.info.paramAppIdxs), distributedTerm2.conjNode, false, canExpandGlobalType)(0, (Set(), Set(), Seq()))
+            conjTuple <- checkLeafIndexSetsForTypeConjunction((conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, distributedTerm2.info.paramAppIdxs, conjMyNothingIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0, (Set(), Set(), Seq()))
+            disjTuple <- checkLeafIndexSetsForTypeDisjunction((disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, distributedTerm1.info.paramAppIdxs, disjMyAnyIdxs), distributedTerm2.conjNode, false, canExpandGlobalType)(0, (Set(), Set(), Seq()))
           } yield {
             val conds = (conjTuple._2 | disjTuple._2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
             (conjTuple._1 | disjTuple._1, conds, conjTuple._3 ++ disjTuple._3)
@@ -459,7 +454,8 @@ object LogicalTypeValueTermUnifier
       case TypeMatching.TypeWithSupertype =>
         matchesSupertypeValueTermWithTypeValueTerm(term2, term1)
     }
-    
+  
+  // A & (B | C) ---> (A | #Nothing) & (B | C | #Nothing) & #Any & (#Any | #Nothing)
   def unifyLocigalTypeValueTermsS[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E) =
     throw new UnsupportedOperationException
 }

@@ -62,7 +62,7 @@ object LogicalTypeValueTermInfo
         val otherTupleTypes = some(tupleTypes.toList ++ conjTupleTypes)
         val conjRangeSets3 = conjRangeSets2 ++ leafIdxs.map { 
           case (ident, idxs) => 
-            val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), otherTupleTypes, UnionSet())
+            val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), UnionSet(), otherTupleTypes, UnionSet())
             ident -> (conjRangeSets2.getOrElse(ident, TypeValueRangeSet.empty) | optRange.map { r => TypeValueRangeSet(SortedMap(r -> value)) }.getOrElse(TypeValueRangeSet.empty))
         }
         val conjDepthRangeSet2 = conjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
@@ -75,7 +75,7 @@ object LogicalTypeValueTermInfo
         }
         val conjParamSets2 = params :: conjParamSets
         val range = TypeValueRange(leafIdx, leafIdx + leafCount)
-        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
+        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
         val conjRangeSets2 = conjRangeSets + (ident -> (conjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | TypeValueRangeSet(SortedMap(range -> pair))))
         val conjDepthRangeSet2 = conjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (tuple.copy(_1 = conjRangeSets2, _3 = conjDepthRangeSet2 :: nextConjDepthRangeSets, _5 = tuple._5 + (range -> conjParamSets2), _7 = tuple._7 ++ params, _8 = tuple._8 ++ paramAppIdxPair, _9 = tuple._9 + 1, _10 = tuple._10 + 1), Map(ident -> Set(leafIdx)), some(range))
@@ -119,7 +119,7 @@ object LogicalTypeValueTermInfo
         val disjRangeSets2 = tuple3._2
         val disjRangeSets3 = disjRangeSets2 ++ leafIdxs.map { 
           case (ident, idxs) => 
-            val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), none, UnionSet())
+            val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
             ident -> (disjRangeSets2.getOrElse(ident, TypeValueRangeSet.empty) | optRange.map { r => TypeValueRangeSet(SortedMap(r -> value)) }.getOrElse(TypeValueRangeSet.empty))
         }
         val disjDepthRangeSet2 = disjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
@@ -132,7 +132,7 @@ object LogicalTypeValueTermInfo
         }
         val disjParamSets2 = params :: disjParamSets
         val range = TypeValueRange(leafIdx, leafIdx + leafCount)
-        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), none, UnionSet())
+        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
         val disjRangeSets2 = disjRangeSets + (ident -> (disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty[T]) | TypeValueRangeSet(SortedMap(range -> pair))))
         val disjDepthRangeSet2 = disjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (tuple.copy(_2 = disjRangeSets2, _4 = disjDepthRangeSet2 :: nextDisjDepthRangeSets, _6 = tuple._6 + (range -> disjParamSets2), _7 = tuple._7 ++ params, _8 = tuple._8 ++ paramAppIdxPair, _9 = tuple._9 + 1, _10 = tuple._10 + 1), Map(ident -> Set(leafIdx)), some(range))
@@ -160,7 +160,7 @@ object LogicalTypeValueTermInfo
         unexpandedLeafCount) = tuple
     val disjRangeSets2 = tuple._2 ++ varIdxs.map { 
       case (ident, idxs) => 
-        val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), none, UnionSet())
+        val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
         ident -> (disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | optRange.map { r => TypeValueRangeSet(SortedMap(r -> value)) }.getOrElse(TypeValueRangeSet.empty))
     }
     tuple.copy(_2 = disjRangeSets2)

@@ -96,7 +96,10 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
   def withMyParam(leafIdx: Int, param: Int) =
     TypeValueRangeSet(ranges.mapValues { v => v.copy(myParams = UnionSet(leafIdx -> param)) })
     
-  def value = ranges.values.foldLeft(TypeValueRangeValue.empty[T]) { _ | _ }
+  def withMyNothingIdx(leafIdx: Int) =
+    TypeValueRangeSet(ranges.mapValues { v => v.copy(myNothingIdxs = UnionSet(leafIdx)) })
+    
+  def value = ranges.values.foldLeft(TypeValueRangeValue.empty[T]) { _ | _ }  
 }
 
 object TypeValueRangeSet
@@ -120,6 +123,7 @@ case class TypeValueRangeValue[T](
     myLeafIdxs: UnionSet[Int],
     otherLeafIdxs: UnionSet[Int],
     myParams: UnionSet[(Int, Int)],
+    myNothingIdxs: UnionSet[Int],
     otherTupleTypes: Option[List[TupleType[T]]], 
     conds: UnionSet[((TypeValueRange, Iterable[TypeValueRange]), TypeValueRangeCondition[T])])
 {
@@ -128,6 +132,7 @@ case class TypeValueRangeValue[T](
         myLeafIdxs = myLeafIdxs | value.myLeafIdxs,
         otherLeafIdxs = otherLeafIdxs | value.otherLeafIdxs,
         myParams = myParams | value.myParams,
+        myNothingIdxs = myNothingIdxs | value.myNothingIdxs,
         otherTupleTypes = (otherTupleTypes |@| value.otherTupleTypes) { 
           (ott1, ott2) => if(ott1.size < ott2.size) ott1 else ott2
         }.orElse(otherTupleTypes).orElse(value.otherTupleTypes),
@@ -139,7 +144,7 @@ case class TypeValueRangeValue[T](
 
 object TypeValueRangeValue
 {
-  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
+  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
 }
 
 case class TypeValueRangeCondition[T](myTupleTypes: Seq[TupleType[T]], otherTupleTypes: List[TupleType[T]])
