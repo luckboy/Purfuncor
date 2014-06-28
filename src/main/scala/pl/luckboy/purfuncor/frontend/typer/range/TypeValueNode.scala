@@ -57,6 +57,35 @@ sealed trait TypeValueNode[T]
       case _ =>
         this
     }
+  
+  private def normalizedTypeValueChildForChecking(canExpandGlobalType: Boolean): TypeValueNode[T] =
+    this match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) =>
+        TypeValueBranch[T](childs :+ TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1), tupleTypes, leafCount + 1)
+      case leaf: TypeValueLeaf[T] =>
+        TypeValueBranch[T](Vector(leaf, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1)), Vector(), leafCount + 1)
+      case globalTypeAppNode: GlobalTypeAppNode[T] =>
+        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)normalizedTypeValueChildForChecking(canExpandGlobalType)
+    }
+  
+  def normalizedTypeValueNodeForChecking(canExpandGlobalType: Boolean): TypeValueNode[T] =
+    this match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) =>
+        // A & (B | C) ---> (A | #Nothing) & (B | C | #Nothing) & #Any & (#Any | #Nothing)
+        val childs3 = childs.map { _.normalizedTypeValueChildForChecking(canExpandGlobalType) } ++ Vector(
+            // #Any
+            TypeValueLeaf(BuiltinTypeIdentity[T](TypeBuiltinFunction.Any, Nil), 0, 1),
+            // #Any | #Nothing
+            TypeValueBranch(Vector(
+                TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1),
+                TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1)
+                ), Vector(), 2))
+        TypeValueBranch(childs3, tupleTypes, leafCount + childs3.size + 2)
+      case leaf: TypeValueLeaf[T] =>
+        TypeValueBranch(Vector(leaf), Vector(), leaf.leafCount).normalizedTypeValueNodeForChecking(canExpandGlobalType)
+      case globalTypeAppNode: GlobalTypeAppNode[T] =>
+        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType).normalizedTypeValueNodeForChecking(canExpandGlobalType)
+    }
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]
