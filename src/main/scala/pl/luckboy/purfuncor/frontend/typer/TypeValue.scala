@@ -378,6 +378,12 @@ object TypeValueTerm
   
   def appForGlobalType[T, U, V, W, E](funLoc: T, argLambdas: Seq[TypeValueLambda[T]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     State(appForGlobalTypeS[T, U, V, W, E](funLoc, argLambdas))
+  
+  def typeValueTermsFromTypeValueLambdas[T](lambdas: Seq[TypeValueLambda[T]]) =
+    mapToVectorOption(lambdas) {
+      case TypeValueLambda(Seq(), body) => some(body)
+      case _                            => none
+    }    
 }
 
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
@@ -411,9 +417,9 @@ case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTer
 case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
-    args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]]) //extends TypeValueTerm[T]
+    args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) extends TypeValueTerm[T]
 {
-  lazy val info: LogicalTypeValueTermInfo[T] = throw new UnsupportedOperationException
+  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNode(conjNode)
 }
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])

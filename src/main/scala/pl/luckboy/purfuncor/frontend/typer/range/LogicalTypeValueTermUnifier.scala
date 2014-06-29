@@ -7,10 +7,13 @@
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer.range
 import scala.collection.immutable.SortedSet
+import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
+import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend.typer._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import pl.luckboy.purfuncor.util.StateUtils._
 
 object LogicalTypeValueTermUnifier
 {
@@ -323,10 +326,10 @@ object LogicalTypeValueTermUnifier
         optTuple3.map {
           tuple3 => tuple3.copy(_2 = otherCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount)).map(tuple3._2 +).getOrElse(tuple3._2))
         }
-      case TypeValueLeaf(ident, paramAppIdx, _) =>
+      case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx)
         if(myLeafIdxs.contains(leafIdx) && (otherLeafIdxs.contains(leafIdx) || myParam.isDefined || myNothingIdxs.contains(leafIdx)))
-          some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, ident) }))
+          some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }))
         else
           none
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
@@ -335,7 +338,7 @@ object LogicalTypeValueTermUnifier
     }  
   }
   
-  private def fullyCheckOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) = {
+  private def fullyCheckOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) = {
     val normalizedNode = node.normalizedTypeValueNodeForChecking(canExpandGlobalType)
     checkOrDistributeSupertypeConjunctionNode(normalizedNode, nodeTuple, depthRangeSets, isSupertype, true, canExpandGlobalType)(0)(-1)._2 match {
       case List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args)))
@@ -343,7 +346,7 @@ object LogicalTypeValueTermUnifier
     }
   }
   
-  private def fullyCheckOrDistributeSupertypeDisjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueTerm[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) = {
+  private def fullyCheckOrDistributeSupertypeDisjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) = {
     val normalizedNode = node.normalizedTypeValueNodeForChecking(canExpandGlobalType)
     checkOrDistributeSupertypeDisjunctionNode(normalizedNode, nodeTuple, depthRangeSets, isSupertype, true, canExpandGlobalType)(0)(-1)._2 match {
       case List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args)))
@@ -444,22 +447,108 @@ object LogicalTypeValueTermUnifier
         partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true)
     }
   
-  private def matchesLocigalTypeValueTermsWithoutArgs[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E) =
+  private def matchesLocigalTypeValueTermsWithoutArgs[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value) =
     typeMatching match {
       case TypeMatching.Types             =>
         for {
           tuple1 <- matchesSupertypeValueTermWithTypeValueTerm(term1, term2)
           tuple2 <- matchesSupertypeValueTermWithTypeValueTerm(term2, term1)
         } yield {
-          (tuple1._1 | tuple2._1, tuple1._2 ++ tuple2._2, tuple1._3 ++ tuple2._3)
+          (tuple1._1 | tuple2._1, tuple1._2 ++ tuple2._2, (tuple1._3, tuple2._3))
         }
       case TypeMatching.SupertypeWithType =>
-        matchesSupertypeValueTermWithTypeValueTerm(term1, term2)
+        matchesSupertypeValueTermWithTypeValueTerm(term1, term2).map { _.mapElements(identity, identity, (_, Nil)) }
       case TypeMatching.TypeWithSupertype =>
-        matchesSupertypeValueTermWithTypeValueTerm(term2, term1)
+        matchesSupertypeValueTermWithTypeValueTerm(term2, term1).map { _.mapElements(identity, identity, (Nil, _)) }
     }
+
+  private def checkTypeValueRangeConditionS[T, U, V, E](cond: TypeValueRangeCondition[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
+    stFoldLeftValidationS(cond.myTupleTypes)(z.success[NoType[T]]) {
+      (x, myTupleType, newEnv: E) =>
+        val (newEnv2, savedDelayedErrs) = envSt.delayedErrorsFromEnvironmentS(newEnv)
+        val (newEnv4, (newRes, _)) = (0 until cond.otherTupleTypes.size).foldLeft(unifier.mismatchedTermErrorS(newEnv2).mapElements(identity, nt => (nt.failure[U], false))) {
+          case ((newEnv3, (Failure(_), _) | (Success(_), false)), i) =>
+            val otherTupleType = cond.otherTupleTypes(i)
+            if(i < cond.otherTupleTypes.size - 1)
+               envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
+                 TypeValueTermUnifier.matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(_: E)
+               } (newEnv3)
+            else
+              // last other tuple type
+              TypeValueTermUnifier.matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(newEnv3).mapElements(identity, (_, true))
+           case ((newEnv3, (newRes2, areRestoredDelayedErrs)), _)      =>
+             (newEnv3, (newRes2, areRestoredDelayedErrs))
+        }
+        (newEnv4, newRes)
+    } (env)
   
-  // A & (B | C) ---> (A | #Nothing) & (B | C | #Nothing) & #Any & (#Any | #Nothing)
-  def unifyLocigalTypeValueTermsS[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E) =
-    throw new UnsupportedOperationException
+  private def checkTypeValueRangeConditionsS[T, U, V, E](conds: Seq[TypeValueRangeCondition[T]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
+    val (env2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
+    val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+    val (env4, res) = stFoldLeftValidationS(conds)(z.success[NoType[T]]) {
+      (x, cond, newEnv: E) => checkTypeValueRangeConditionS(cond)(x)(f)(newEnv)
+    } (env3)
+    val (env5, _) = envSt.setCurrentTypeMatchingS(savedTypeMatching)(env4)
+    (env5, res)
+  }
+  
+  private def checkTypeParamConditionsS[T, U, V, E](paramConds: Seq[TypeParamCondition[T]], supertypeArgs: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], typeArgs: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
+    val paramCondTuples = Set[(Int, Int, TypeMatching.Value)]()
+    stFoldLeftValidationS(paramConds)((z, paramCondTuples).success[NoType[T]]) {
+      (pair, paramCond, newEnv: E) =>
+        val (x, paramCondTuples) = pair
+        val (isChecked, optParamPair) = paramCond match {
+          case TypeParamCondition(param, _, TypeValueLeaf(TypeParamAppIdentity(param2), _, _), typeMatching) =>
+            val (tmpParam, tmpParam2) = if(param < param2) (param, param2) else (param2, param)
+            (paramCondTuples.contains((tmpParam, tmpParam2, typeMatching)), some((param, param2)))
+          case _                                                                        =>
+            (false, none)
+        }
+        if(!isChecked) {
+          val (newEnv2, savedTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(newEnv)
+          val (newEnv3, _) = envSt.setCurrentTypeMatchingS(paramCond.typeMatching)(newEnv2)
+          val (args1, args2) = paramCond.typeMatching match {
+            case TypeMatching.SupertypeWithType => (supertypeArgs, typeArgs)
+            case _                              => (typeArgs, supertypeArgs)
+          }
+          val (newEnv4, res) = (args1.get(TypeParamAppIdentity(paramCond.param)) |@| args2.get(paramCond.leaf.ident)) {
+            (paramArgs, leafArgs) =>
+              val typeParamApp = TypeParamApp(paramCond.param, paramArgs, paramCond.paramAppIdx)
+              paramCond.leaf.typeValueTerm(leafArgs).map {
+                TypeValueTermUnifier.matchesTypeValueTermsS(typeParamApp, _)(x)(f)(newEnv3)
+              }.getOrElse((newEnv3, NoType.fromError[T](FatalError("can't convert type value leaf to type value term", none, NoPosition)).failure))
+          }.getOrElse((newEnv3, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure))
+          val (newEnv5, _) = envSt.setCurrentTypeMatchingS(savedTypeMatching)(newEnv4)
+          (newEnv5, res.map { (_, paramCondTuples ++ optParamPair.map { case (p1, p2) => (p1, p2, paramCond.typeMatching) })})
+        } else
+          (newEnv, pair.success)
+    } (env).mapElements(identity, _.map { _._1 })
+  }
+  
+  def matchesLocigalTypeValueTermsS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value)(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
+    matchesLocigalTypeValueTermsWithoutArgs(term1, term2, typeMatching).map {
+      case (idents, conds, (paramConds1, paramConds2)) =>
+        st(for {
+          x2 <- steS({
+            stFoldLeftValidationS(idents)(z.success[NoType[T]]) {
+              (x, ident, newEnv: E) =>
+                (term1.args.get(ident) |@| term2.args.get(ident)) {
+                  (args1, args2) =>
+                    if(args1.size === args2.size) {
+                      stFoldLeftValidationS(args1.zip(args2))(x.success[NoType[T]]) {
+                        (x2, argPair, newEnv2: E) =>
+                          val (arg1, arg2) = argPair
+                          TypeValueTermUnifier.matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
+                      } (newEnv)
+                   } else
+                     unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+                  }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+                }
+          })
+          x3 <- steS(checkTypeValueRangeConditionsS(conds)(x2)(f)(_: E))
+          x4 <- steS(checkTypeParamConditionsS(paramConds1, term1.args, term2.args)(x3)(f)(_: E))
+          y <- steS(checkTypeParamConditionsS(paramConds2, term2.args, term1.args)(x4)(f)(_: E))
+        } yield y).run(env)
+    }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+  }
 }

@@ -6,5 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer.range
+import pl.luckboy.purfuncor.frontend.typer._
 
-case class TypeParamCondition[+T](param: Int, paramAppIdx: Int, ident: TypeValueIdentity[T])
+case class TypeParamCondition[T](param: Int, paramAppIdx: Int, leaf: TypeValueLeaf[T], typeMatching: TypeMatching.Value)

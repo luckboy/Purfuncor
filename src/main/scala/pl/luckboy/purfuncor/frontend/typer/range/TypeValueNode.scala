@@ -8,6 +8,7 @@
 package pl.luckboy.purfuncor.frontend.typer.range
 import scalaz._
 import scalaz.Scalaz._
+import pl.luckboy.purfuncor.frontend.resolver._
 import pl.luckboy.purfuncor.frontend.typer._
 
 sealed trait TypeValueNode[T]
@@ -49,11 +50,11 @@ sealed trait TypeValueNode[T]
   
   def typeValueBranchOrTypeValueLeaf[T](canExpandGlobalType: Boolean) =
     this match {
-      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount) =>
+      case GlobalTypeAppNode(loc, sym, childs, tupleTypes, leafCount) =>
         if(canExpandGlobalType)
-          TypeValueBranch(Seq(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount)), Nil, leafCount - 1)
+          TypeValueBranch(Seq(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount)), Nil, leafCount - 1)
         else
-          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc), 0, leafCount)
+          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
       case _ =>
         this
     }
@@ -89,4 +90,26 @@ sealed trait TypeValueNode[T]
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]
-case class GlobalTypeAppNode[T](loc: T, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
+{
+  def typeValueTerm(args: Seq[TypeValueLambda[T]]) = 
+    ident match {
+      case FieldTypeIdentity(i, _)                   =>
+        args match {
+          case Seq(TypeValueLambda(Seq(), term)) => some(FieldType(i, term))
+          case _                                 => none
+        }
+      case BuiltinTypeIdentity(bf, _)                =>
+        TypeValueTerm.typeValueTermsFromTypeValueLambdas(args).map { BuiltinType(bf, _) }
+      case UnittypeIdentity(loc, sym)                =>
+        some(Unittype(loc, args, sym))
+      case GrouptypeIdentity(loc, sym)               =>
+        some(Grouptype(loc, args, sym))
+      case ExpandedGlobalTypeAppIdentity(loc, sym)   =>
+        some(GlobalTypeApp(loc, args, sym))
+      case UnexpandedGlobalTypeAppIdentity(loc, sym) =>
+        some(GlobalTypeApp(loc, args, sym))
+      case TypeParamAppIdentity(param)               =>
+        some(TypeParamApp(param, args, paramAppIdx))
+    }
+}
+case class GlobalTypeAppNode[T](loc: T, sym: GlobalSymbol, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
