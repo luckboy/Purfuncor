@@ -87,6 +87,16 @@ sealed trait TypeValueNode[T]
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
         globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType).normalizedTypeValueNodeForChecking(canExpandGlobalType)
     }
+  
+  def idents: Set[TypeValueIdentity[T]] =
+    this match {
+      case TypeValueLeaf(ident, _, _)                =>
+        Set(ident)
+      case TypeValueBranch(childs, _, _)             =>
+        childs.flatMap { _.idents }.toSet
+      case GlobalTypeAppNode(loc, sym, childs, _, _) =>
+        Set(ExpandedGlobalTypeAppIdentity(loc, sym), UnexpandedGlobalTypeAppIdentity(loc, sym)) ++ childs.flatMap { _.idents }
+    }
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]

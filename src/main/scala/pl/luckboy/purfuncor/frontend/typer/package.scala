@@ -1097,4 +1097,16 @@ package object typer
   implicit val typeMatchingEqual: Equal[TypeMatching.Value] = new Equal[TypeMatching.Value] {
     override def equal(a1: TypeMatching.Value, a2: TypeMatching.Value) = a1 == a2
   }
+  
+  implicit def typeValueTermEqual[T]: Equal[TypeValueTerm[T]] = new Equal[TypeValueTerm[T]] {
+    override def equal(a1: TypeValueTerm[T], a2: TypeValueTerm[T]) =
+      (a1, a2) match {
+        case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+          val idents1 = conjNode1.idents
+          val idents2 = conjNode2.idents
+          conjNode1 == conjNode2 && idents1 == idents2 && args1.filterKeys(idents1.contains) == args2.filterKeys(idents2.contains)
+        case (_, _)                                                                           =>
+          a1 == a2
+      }
+  }
 }
