@@ -103,7 +103,7 @@ case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafC
 {
   def typeValueTerm(args: Seq[TypeValueLambda[T]]) = 
     ident match {
-      case FieldTypeIdentity(i, _)                   =>
+      case FieldTypeIdentity(i)                      =>
         args match {
           case Seq(TypeValueLambda(Seq(), term)) => some(FieldType(i, term))
           case _                                 => none

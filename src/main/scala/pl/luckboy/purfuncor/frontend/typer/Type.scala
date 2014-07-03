@@ -252,7 +252,9 @@ object InferredType
   }
   
   def fieldswithFunType[T](n: Int, is: List[Int]) = {
-    // \t1 ... tN u1 ... uN => ti1 #-> ... #-> tiM #-> (((#FieldSet1 () ()) #| (#FieldSet1 u1 ##1 t1) #| ... #| (#FieldSet1 uN ##N tN)) #& (#FieldSet2 ui1 ##i1 ti1) #& ... #& (#FieldSet2 uiM ##iM tiM)) #-> (((#FieldSet1 () ()) #| (#FieldSet1 ##1 () ##1 t1) #| ... #| (#FieldSet1 ##N () ##N tN)) #& (#FieldSet2 ##1 () ##1 t1) #& ... #& (#FieldSet2 ##N () ##N tN))
+    // \t1 ... tN u1 ... uN => ti1 #-> ... #-> tiM #-> (((#FieldSet1 () ()) #| (#FieldSet1 u1 ##1 t1) #| ... #| (#FieldSet1 uN ##N tN)) #& (#FieldSet2 uj1 ##j1 tj1) #& ... #& (#FieldSet2 ujP ##jP tjP)) #-> (((#FieldSet1 () ()) #| (#FieldSet1 ##1 () ##1 t1) #| ... #| (#FieldSet1 ##N () ##N tN)) #& (#FieldSet2 ##1 () ##1 t1) #& ... #& (#FieldSet2 ##N () ##N tN))
+    // where Set(i1, ..., iM) | Set(j1, ..., jP) = Set(1, ..., N)
+    // and   Set(i1, ..., iM) & Set(j1, ..., jP) = Set()
     val is2 = (0 until n).toList.filterNot(is.contains)
     val tmpTypeValueTerm1 = (0 until n).foldLeft(BuiltinType(TypeBuiltinFunction.FieldSet1, Seq(TupleType(Nil), TupleType(Nil))): TypeValueTerm[T]) {
       (tvt, p) => tvt | BuiltinType(TypeBuiltinFunction.FieldSet1, Seq(TypeParamApp(p + n, Nil, 0), FieldType(p, TypeParamApp(p, Nil, 0))))

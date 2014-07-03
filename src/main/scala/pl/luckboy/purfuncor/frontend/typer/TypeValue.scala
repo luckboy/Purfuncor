@@ -386,10 +386,11 @@ object TypeValueTerm
     }    
 }
 
+sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class FieldType[T](i: Int, term: TypeValueTerm[T]) extends TypeValueTerm[T]
-case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
-sealed trait GlobalType[T] extends TypeValueTerm[T]
+case class FieldType[T](i: Int, term: TypeValueTerm[T]) extends LeafTypeValueTerm[T]
+case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends LeafTypeValueTerm[T]
+sealed trait GlobalType[T] extends LeafTypeValueTerm[T]
 {
   def loc: T
   
@@ -409,7 +410,7 @@ case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalS
 {
   override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
 }
-case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeApp[T]
+case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeApp[T] with LeafTypeValueTerm[T]
 {
   override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
 }
