@@ -1109,4 +1109,12 @@ package object typer
           a1 == a2
       }
   }
+  
+  implicit def typeValueLambda[T]: Equal[TypeValueLambda[T]] = new Equal[TypeValueLambda[T]] {
+    override def equal(a1: TypeValueLambda[T], a2: TypeValueLambda[T]) =
+      (a1, a2) match {
+        case (TypeValueLambda(argParams1, body1), TypeValueLambda(argParams2, body2)) =>
+          argParams1.toVector === argParams2.toVector && body1 === body2
+      }
+  }
 }

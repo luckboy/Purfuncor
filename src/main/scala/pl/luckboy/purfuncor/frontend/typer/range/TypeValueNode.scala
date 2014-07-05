@@ -34,7 +34,7 @@ sealed trait TypeValueNode[T]
         expandedNode1.conjOrDisjWithTupleTypes(expandedNode2, tupleTypes, canExpandGlobalType)
     }
   
-  def &| (node: TypeValueNode[T]): TypeValueNode[T] =
+  def &| (node: TypeValueNode[T]): TypeValueBranch[T] =
     (this, node) match {
       case (TypeValueBranch(childs1, tupleTypes1, leafCount1), TypeValueBranch(childs2, tupleTypes2, leafCount2)) => 
         TypeValueBranch(childs1 ++ childs2, tupleTypes1 ++ tupleTypes2, leafCount1 + leafCount2)
@@ -52,6 +52,28 @@ sealed trait TypeValueNode[T]
         TypeValueBranch(Vector(TypeValueBranch(Vector(globalTypeApp1), Vector(), globalTypeApp1.leafCount)), Vector(), globalTypeApp1.leafCount) &| node2
       case (node1, globalTypeApp2: GlobalTypeAppNode[T])                                                          =>
         node1 &| TypeValueBranch(Vector(TypeValueBranch(Vector(globalTypeApp2), Vector(), globalTypeApp2.leafCount)), Vector(), globalTypeApp2.leafCount)
+    }
+  
+  def & (node: TypeValueNode[T]) =
+    (this &| node) match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) if childs.size > 1 =>
+        val childs2 = childs.filter { 
+          case TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Any, Seq()), _, _) => false
+          case _                                                                        => true
+        }
+        val leafCount2 = childs2.foldLeft(0) { _ + _.leafCount }
+        TypeValueBranch(childs2, tupleTypes, leafCount2)
+    }
+  
+  def | (node: TypeValueNode[T]) =
+    (this &| node) match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) if childs.size > 1 =>
+        val childs2 = childs.filter { 
+          case TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Seq()), _, _) => false
+          case _                                                                            => true
+        }
+        val leafCount2 = childs2.foldLeft(0) { _ + _.leafCount }
+        TypeValueBranch(childs2, tupleTypes, leafCount2)
     }
   
   def normalizedTypeValueNode: TypeValueNode[T] =
@@ -73,7 +95,7 @@ sealed trait TypeValueNode[T]
       case TypeValueBranch(Vector(globalTypeApp: GlobalTypeAppNode[T]), _, _) =>
         val child = globalTypeApp.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)
         TypeValueBranch(Vector(child), Vector(), child.leafCount)
-      case GlobalTypeAppNode(loc, sym, childs, tupleTypes, leafCount) =>
+      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
         if(canExpandGlobalType)
           TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount)), Nil, leafCount - 1)
         else
@@ -117,10 +139,9 @@ sealed trait TypeValueNode[T]
         Set(ident)
       case TypeValueBranch(childs, _, _)             =>
         childs.flatMap { _.idents }.toSet
-      case GlobalTypeAppNode(loc, sym, childs, _, _) =>
+      case GlobalTypeAppNode(loc, childs, _, _, sym) =>
         Set(ExpandedGlobalTypeAppIdentity(loc, sym), UnexpandedGlobalTypeAppIdentity(loc, sym)) ++ childs.flatMap { _.idents }
     }
-  
 }
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]
@@ -156,4 +177,4 @@ object TypeValueLeaf
         TypeValueLeaf(TypeValueIdentity.fromLeafTypeValueTerm(term), 0, 1)
     }
 }
-case class GlobalTypeAppNode[T](loc: T, sym: GlobalSymbol, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
+case class GlobalTypeAppNode[T](loc: T, childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int, sym: GlobalSymbol) extends TypeValueNode[T]

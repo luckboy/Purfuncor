@@ -46,13 +46,13 @@ sealed trait TypeValue[T, +U, +V, +W]
   
   def withPos(pos: Position): TypeValue[T, U, V, W] =
     this match {
-      case NoTypeValue(err, false) => NoTypeValue(err.copy(pos = pos), true)
+      case NoTypeValue(err, false) => NoTypeValue(err.withPos(pos), true)
       case _                       => this
     }
     
   def forFile(file: Option[java.io.File]): TypeValue[T, U, V, W] =
     this match {
-      case noValue @ NoTypeValue(err, _) => noValue.copy(err = err.copy(file = file))
+      case noValue @ NoTypeValue(err, _) => noValue.copy(err = err.withFile(file))
       case _                             => this
     }
     
@@ -155,11 +155,11 @@ object TypeValue
       (env, NoTypeValue.fromError[T, U, V, W](FatalError("illegal number of type arguments", none, NoPosition)))
 }
 
-case class NoTypeValue[T, +U, +V, +W](err: FatalError, hasPos: Boolean) extends TypeValue[T, U, V, W]
+case class NoTypeValue[T, +U, +V, +W](err: AbstractError, hasPos: Boolean) extends TypeValue[T, U, V, W]
 
 object NoTypeValue
 {
-  def fromError[T, U, V, W](err: FatalError) = NoTypeValue[T, U, V, W](err, false)
+  def fromError[T, U, V, W](err: AbstractError) = NoTypeValue[T, U, V, W](err, false)
 }
 
 case class EvaluatedTypeValue[T, +U, +V, +W](term: TypeValueTerm[T]) extends TypeValue[T, U, V, W]
@@ -202,8 +202,18 @@ case class TypeLazyValue[T, +U, +V, +W](term: Term[TypeSimpleTerm[U, V]], closur
 
 sealed trait TypeValueTerm[T]
 {
-  private def unsafeLogicalTypeValueTerm: LogicalTypeValueTerm[T] =
-    throw new UnsupportedOperationException
+  def unevaluatedLogicalTypeValueTerm: LogicalTypeValueTerm[T] =
+    this match {
+      case term: LogicalTypeValueTerm[T] =>
+        term
+      case term: LeafTypeValueTerm[T]    =>
+        val leaf = TypeValueLeaf.fromLeafTypeValueTerm(term)
+        LogicalTypeValueTerm(leaf, Map(leaf.ident -> term.argLambdas))
+      case tupleType: TupleType[T]       =>
+        val leaf = TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1)
+        val branch = TypeValueBranch(Vector(leaf), Vector(tupleType), 1)
+        LogicalTypeValueTerm(branch, Map(leaf.ident -> Nil))
+    }
   
   /*def & (term: TypeValueTerm[T]) =
     (this, term) match {
@@ -214,9 +224,9 @@ sealed trait TypeValueTerm[T]
     }*/
   
   def & (term: TypeValueTerm[T]) =
-    (unsafeLogicalTypeValueTerm, term.unsafeLogicalTypeValueTerm) match {
+    (unevaluatedLogicalTypeValueTerm, term.unevaluatedLogicalTypeValueTerm) match {
       case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
-        LogicalTypeValueTerm(conjNode1 &| conjNode2, args1 ++ args2)
+        LogicalTypeValueTerm(conjNode1 & conjNode2, args1 ++ args2)
     }
   
   /*def | (term: TypeValueTerm[T]) =
@@ -228,22 +238,72 @@ sealed trait TypeValueTerm[T]
     }*/
   
   def | (term: TypeValueTerm[T]): TypeValueTerm[T] =
-    (unsafeLogicalTypeValueTerm, term.unsafeLogicalTypeValueTerm) match {
-      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), _, _), args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), _, _), args2)) =>
-        val disjNode = disjNode1 &| disjNode2
+    (unevaluatedLogicalTypeValueTerm, term.unevaluatedLogicalTypeValueTerm) match {
+      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), Seq(), _), args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), Seq(), _), args2)) =>
+        val disjNode = disjNode1 | disjNode2
         LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
-      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), _, _), args1), LogicalTypeValueTerm(conjNode2, args2)) =>
-        val disjNode = disjNode1 &| TypeValueBranch(Vector(conjNode2), Nil, conjNode2.leafCount)
+      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), Seq(), _), args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+        val disjNode = disjNode1 | TypeValueBranch(Vector(conjNode2), Nil, conjNode2.leafCount)
         LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
-      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), _, _), args2)) =>
+      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), Seq(), _), args2)) =>
         val disjNode = TypeValueBranch(Vector(conjNode1), Nil, conjNode1.leafCount) &| disjNode2
         LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
       case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
         val disjNode1 = TypeValueBranch(Vector(conjNode1), Nil, conjNode1.leafCount)
         val disjNode2 = TypeValueBranch(Vector(conjNode2), Nil, conjNode2.leafCount)
-        val disjNode = disjNode1 &| disjNode2
+        val disjNode = disjNode1 | disjNode2
         LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1 &| disjNode2), Nil, disjNode.leafCount), args1 ++ args2)
     }
+  
+  def logicalTypeValueTermS[U, V, W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+    this match {
+      case GlobalTypeApp(loc, args, sym) =>
+        val (env2, res) = TypeValueTerm.appForGlobalTypeS(loc, args)(env)
+        (env2, res.map { 
+          _.unevaluatedLogicalTypeValueTerm match {
+            case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
+              LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args)
+            case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
+              val child2 = child match {
+                case leaf2: TypeValueLeaf[T]                        =>
+                  GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount, sym)
+                case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
+                  GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2, sym)
+                case _: GlobalTypeAppNode[T]                           =>
+                  child
+              }
+              LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args)
+            case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
+              LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
+            case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
+              term
+          }
+        })
+      case _                             =>
+        (env, unevaluatedLogicalTypeValueTerm.success)
+    }
+  
+  private def conjOrDisjS[U, V, W, E](term: TypeValueTerm[T])(f: (TypeValueTerm[T], TypeValueTerm[T]) => TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+    val (env2, termRes1) = this.logicalTypeValueTermS(env)
+    termRes1.map {
+      case term1 @ LogicalTypeValueTerm(conjNode1, args1) =>
+        val (env3, termRes2) = this.logicalTypeValueTermS(env2)
+        termRes2.map {
+          case term2 @ LogicalTypeValueTerm(conjNode2, args2) =>
+            val leafIdents = args1.keySet & args2.keySet
+            if(leafIdents.forall { i => (args1.get(i) |@| args2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+              (env3, f(term1, term2).success)
+            else
+              (env3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+        }.valueOr { nv => (env2, nv.failure) }
+    }.valueOr { nv => (env2, nv.failure) }
+  }
+
+  def conjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+    conjOrDisjS(term) { _ & _ } (env)
+
+  def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+    conjOrDisjS(term) { _ | _ } (env)
   
   def distributedTypeValueTerm =
     this match {
@@ -382,7 +442,7 @@ object TypeValueTerm
   
   def normalizedTypeDisjunction[T](terms: Set[TypeValueTerm[T]]) =
     terms.headOption.map { t => if(terms.size === 1) t else TypeDisjunction(terms) }.getOrElse(TypeDisjunction(terms))
-  
+
   def typeValueTermsFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     stMapToVectorValidationS(values) { _.typeValueTermS(_: E) } (env)
   
@@ -414,6 +474,15 @@ object TypeValueTerm
 }
 
 sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]
+{
+  def argLambdas =
+    this match {
+      case FieldType(_, term)        => Vector(TypeValueLambda(Nil, term))
+      case BuiltinType(_, args)      => args.map { TypeValueLambda(Nil, _) }
+      case globalType: GlobalType[T] => globalType.args
+      case typeApp: TypeApp[T]       => typeApp.args
+    }
+}
 case class TupleType[T](args: Seq[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class FieldType[T](i: Int, term: TypeValueTerm[T]) extends LeafTypeValueTerm[T]
 case class BuiltinType[T](bf: TypeBuiltinFunction.Value, args: Seq[TypeValueTerm[T]]) extends LeafTypeValueTerm[T]
