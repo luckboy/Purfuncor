@@ -32,6 +32,8 @@ object TypeValueIdentity
         UnittypeIdentity(loc, sym)
       case Grouptype(loc, _, sym) =>
         GrouptypeIdentity(loc, sym)
+      case GlobalTypeApp(loc, _, sym) =>
+        UnexpandedGlobalTypeAppIdentity(loc, sym)
       case TypeParamApp(param, _, _) =>
         TypeParamAppIdentity(param)
     }

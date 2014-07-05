@@ -1067,7 +1067,7 @@ object TypeValueTermUnifier
             (env2, noType.failure)
         }
       case TypeConjunction(terms) =>
-        val (env2, res) = stFoldLeftValidationS(terms)(TypeConjunction[T](Set()).success[NoType[T]]) {
+        /*val (env2, res) = stFoldLeftValidationS(terms)(TypeConjunction[T](Set()).success[NoType[T]]) {
           (newTypeConj, term2, newEnv: E) =>
             val (newEnv2, newRes) = replaceTypeValueTermParamsS(term2)(f)(newEnv)
             (newEnv2, newRes.map { newTypeConj & _ })
@@ -1077,9 +1077,10 @@ object TypeValueTermUnifier
             newTypeConj.terms.headOption.map {
               term2 => (if(newTypeConj.terms.size === 1) term2 else newTypeConj).success
             }.getOrElse(NoType.fromError[T](FatalError("type conjunction doesn't have type value terms", none, NoPosition)).failure)
-        })
+        })*/
+        throw new UnsupportedOperationException
       case TypeDisjunction(terms) =>
-        val (env2, res) = stFoldLeftValidationS(terms)(TypeDisjunction[T](Set()).success[NoType[T]]) {
+        /*val (env2, res) = stFoldLeftValidationS(terms)(TypeDisjunction[T](Set()).success[NoType[T]]) {
           (newTypeDisj, term2, newEnv: E) =>
             val (newEnv2, newRes) = replaceTypeValueTermParamsS(term2)(f)(newEnv)
             (newEnv2, newRes.map { newTypeDisj | _ })
@@ -1089,7 +1090,8 @@ object TypeValueTermUnifier
             newTypeDisj.terms.headOption.map {
               term2 => (if(newTypeDisj.terms.size === 1) term2 else newTypeDisj).success
             }.getOrElse(NoType.fromError[T](FatalError("type disjunction doesn't have type value terms", none, NoPosition)).failure)
-        })
+        })*/
+        throw new UnsupportedOperationException
     }
   
   private def unsafeAllocateTypeParamsFromTypeValueTermsS[T, U, E](terms: Iterable[TypeValueTerm[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =

@@ -202,20 +202,47 @@ case class TypeLazyValue[T, +U, +V, +W](term: Term[TypeSimpleTerm[U, V]], closur
 
 sealed trait TypeValueTerm[T]
 {
-  def & (term: TypeValueTerm[T]) =
+  private def unsafeLogicalTypeValueTerm: LogicalTypeValueTerm[T] =
+    throw new UnsupportedOperationException
+  
+  /*def & (term: TypeValueTerm[T]) =
     (this, term) match {
       case (TypeConjunction(terms1), TypeConjunction(terms2)) => TypeConjunction(terms1 | terms2)
       case (TypeConjunction(terms), _)                        => TypeConjunction(terms + term)
       case (_, TypeConjunction(terms))                        => TypeConjunction(terms + this)
       case (_, _)                                             => TypeConjunction(Set(this) | Set(term))
+    }*/
+  
+  def & (term: TypeValueTerm[T]) =
+    (unsafeLogicalTypeValueTerm, term.unsafeLogicalTypeValueTerm) match {
+      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+        LogicalTypeValueTerm(conjNode1 &| conjNode2, args1 ++ args2)
     }
   
-  def | (term: TypeValueTerm[T]) =
+  /*def | (term: TypeValueTerm[T]) =
     (this, term) match {
       case (TypeDisjunction(terms1), TypeDisjunction(terms2)) => TypeDisjunction(terms1 | terms2)
       case (TypeDisjunction(terms), _)                        => TypeDisjunction(terms + term)
       case (_, TypeDisjunction(terms))                        => TypeDisjunction(terms + this)
       case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
+    }*/
+  
+  def | (term: TypeValueTerm[T]): TypeValueTerm[T] =
+    (unsafeLogicalTypeValueTerm, term.unsafeLogicalTypeValueTerm) match {
+      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), _, _), args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), _, _), args2)) =>
+        val disjNode = disjNode1 &| disjNode2
+        LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
+      case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), _, _), args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+        val disjNode = disjNode1 &| TypeValueBranch(Vector(conjNode2), Nil, conjNode2.leafCount)
+        LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
+      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), _, _), args2)) =>
+        val disjNode = TypeValueBranch(Vector(conjNode1), Nil, conjNode1.leafCount) &| disjNode2
+        LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode), Nil, disjNode.leafCount), args1 ++ args2)
+      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+        val disjNode1 = TypeValueBranch(Vector(conjNode1), Nil, conjNode1.leafCount)
+        val disjNode2 = TypeValueBranch(Vector(conjNode2), Nil, conjNode2.leafCount)
+        val disjNode = disjNode1 &| disjNode2
+        LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1 &| disjNode2), Nil, disjNode.leafCount), args1 ++ args2)
     }
   
   def distributedTypeValueTerm =
@@ -400,7 +427,7 @@ sealed trait GlobalType[T] extends LeafTypeValueTerm[T]
 }
 case class Unittype[T](loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) extends GlobalType[T]
 case class Grouptype[T](loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) extends GlobalType[T]
-sealed trait TypeApp[T] extends TypeValueTerm[T]
+sealed trait TypeApp[T] extends TypeValueTerm[T] with LeafTypeValueTerm[T]
 {
   def args: Seq[TypeValueLambda[T]]
   
@@ -410,7 +437,7 @@ case class GlobalTypeApp[T](loc: T, args: Seq[TypeValueLambda[T]], sym : GlobalS
 {
   override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
 }
-case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeApp[T] with LeafTypeValueTerm[T]
+case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppIdx: Int) extends TypeApp[T]
 {
   override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
 }
