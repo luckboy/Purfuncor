@@ -258,7 +258,7 @@ sealed trait TypeValueTerm[T]
   def logicalTypeValueTermS[U, V, W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     this match {
       case GlobalTypeApp(loc, args, sym) =>
-        val (env2, res) = TypeValueTerm.appForGlobalTypeS(loc, args)(env)
+        val (env2, res) = envSt.withPartialEvaluationS(false) { TypeValueTerm.appForGlobalTypeS(loc, args)(_) } (env)
         (env2, res.map { 
           _.unevaluatedLogicalTypeValueTerm match {
             case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>

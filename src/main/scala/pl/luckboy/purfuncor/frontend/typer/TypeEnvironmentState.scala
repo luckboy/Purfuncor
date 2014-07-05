@@ -17,6 +17,8 @@ trait TypeEnvironmentState[E, L, V]
   
   def globalTypeVarValueFromEnvironmentS(loc: L)(env: E): (E, V)
   
+  def withPartialEvaluationS[T](isPartial: Boolean)(f: E => (E, T))(env: E): (E, T)
+  
   // This method for leaks of type closures.
   def withClearS[T](f: E => (E, T))(env: E): (E, T)
 }
