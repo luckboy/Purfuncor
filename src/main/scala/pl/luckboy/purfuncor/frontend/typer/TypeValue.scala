@@ -265,7 +265,7 @@ sealed trait TypeValueTerm[T]
               LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args)
             case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
               val child2 = child match {
-                case leaf2: TypeValueLeaf[T]                        =>
+                case leaf2: TypeValueLeaf[T]                           =>
                   GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount, sym)
                 case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
                   GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2, sym)

@@ -562,4 +562,92 @@ object LogicalTypeValueTermUnifier
         } yield y).run(env)
     }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
   }
+  
+  private def unsafeAllocateTypeParamsFromTypeValueNodesS[T, U, E](nodes: Iterable[TypeValueNode[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(nodes)((allocatedParams, Set[Int](), Set[Int](), Vector[TypeValueNode[T]]()).success[NoType[T]]) {
+      (tmpTuple, node, newEnv: E) =>
+        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newNodes) = tmpTuple
+        val (newEnv2, newRes) = unsafeAllocateTypeValueNodeParamsS(node)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+        (newEnv2, newRes.map { 
+          _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newNodes :+ _)
+        })
+    } (env)
+
+  private def unsafeAllocateTypeParamsFromTupleTypesS[T, U, E](tupleTypes: Iterable[TupleType[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(tupleTypes)((allocatedParams, Set[Int](), Set[Int](), Vector[TupleType[T]]()).success[NoType[T]]) {
+      (tmpTuple, tupleType, newEnv: E) =>
+        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTupleTypes) = tmpTuple
+        val (newEnv2, newRes) = TypeValueTermUnifier.unsafeAllocateTypeValueTermParamsS(tupleType)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+        (newEnv2, newRes.flatMap {
+          case tmpTuple2 @ (_, _, _, newTypeTuple: TupleType[T]) =>
+            tmpTuple2.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, _ => newTupleTypes :+ newTypeTuple).success
+          case _                                                 =>
+            NoType.fromError[T](FatalError("type value term isn't tuple type", none, NoPosition)).failure
+        })
+    } (env)
+  
+  def unsafeAllocateTypeValueNodeParamsS[T, U, E](node: TypeValueNode[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueNode[T])]) =
+    node match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) =>
+        val (env2, res) = unsafeAllocateTypeParamsFromTypeValueNodesS(childs)(allocatedParams, unallocatedParamAppIdx)(env)
+        res match {
+          case Success((allocatedParams2, allocatedArgParams2, allocatedParamAppIdxs, childs2)) =>
+            val (env3, res2) = unsafeAllocateTypeParamsFromTupleTypesS(tupleTypes)(allocatedParams2, unallocatedParamAppIdx)(env2)
+            (env3, res2.map { _.mapElements(identity, identity, identity, tts => TypeValueBranch(childs2, tts, leafCount))})        
+          case Failure(noType)                                                                  =>
+            (env2, noType.failure)
+        }
+      case TypeValueLeaf(TypeParamAppIdentity(param), paramAppIdx, leafCount) =>
+        val (env3, res2) = allocatedParams.get(param).map { param2 => (env, (allocatedParams, param2).success) }.getOrElse {
+          val (env2, res) = unifier.allocateParamS(env)
+          res.map { param2 => (env2, (allocatedParams + (param -> param2), param2).success) }.valueOr {
+            nt => (env2, nt.failure)
+          }
+        }
+        res2 match {
+          case Success((allocatedParams2, param2)) =>
+            val (env4, res3) = if(paramAppIdx === unallocatedParamAppIdx)
+              envSt.allocateTypeParamAppIdxS(env3)
+            else
+              (env3, paramAppIdx.success)
+            res3 match {
+              case Success(paramAppIdx2) =>
+                (env4, (allocatedParams2, Set[Int](), Set(paramAppIdx2), TypeValueLeaf[T](TypeParamAppIdentity(param2), paramAppIdx2, leafCount)).success)
+              case Failure(noType)       =>
+                (env4, noType.failure)
+            }
+          case Failure(noType)                     =>
+            (env3, noType.failure)
+        }
+      case _: TypeValueLeaf[T] =>
+        (env, (allocatedParams, Set[Int](), Set[Int](), node).success)
+      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
+        val (env2, res) = unsafeAllocateTypeParamsFromTypeValueNodesS(childs)(allocatedParams, unallocatedParamAppIdx)(env)
+        res match {
+          case Success((allocatedParams2, allocatedArgParams2, allocatedParamAppIdxs, childs2)) =>
+            val (env3, res2) = unsafeAllocateTypeParamsFromTupleTypesS(tupleTypes)(allocatedParams2, unallocatedParamAppIdx)(env2)
+            (env3, res2.map { _.mapElements(identity, identity, identity, tts => GlobalTypeAppNode(loc, childs2, tts, leafCount, sym))})        
+          case Failure(noType)                                                                  =>
+            (env2, noType.failure)
+        }
+    }
+    
+  def unsafeAllocateTypeParamsFromLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) = {
+    val (env2, res) = unsafeAllocateTypeValueNodeParamsS(term.conjNode)(allocatedParams, unallocatedParamAppIdx)(env)
+    res match {
+      case Success((allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, conjNode2)) =>
+        val (env3, res2) = stFoldLeftValidationS(term.args)((allocatedParams, Set[Int](), Set[Int](), Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]()).success[NoType[T]]) {
+          (tmpTuple, pair, newEnv: E) =>
+            val (ident, args) = pair
+            val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newArgs) = tmpTuple
+            val (newEnv2, newRes) = TypeValueTermUnifier.unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+            (newEnv2, newRes.map { 
+              _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, as => newArgs + (ident -> as))
+            })
+        } (env2)
+        (env3, res2.map { _.mapElements(identity, allocatedArgParams | _, allocatedParamAppIdxs | _, LogicalTypeValueTerm(conjNode2, _)) })
+      case Failure(noType) =>
+        (env2, noType.failure)
+    }
+  }
 }
