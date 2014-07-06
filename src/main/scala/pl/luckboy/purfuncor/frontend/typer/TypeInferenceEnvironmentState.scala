@@ -83,6 +83,8 @@ trait TypeInferenceEnvironmentState[E, L, M]
   def addTypeMatchingConditionS(typeMatching: GlobalTypeMatching.Value, loc1: M, loc2: M, cond: TypeMatchingCondition[M])(env: E): (E, Unit)
   
   def findTypeMatchingCondiationS(argParams1: Seq[Int], argParams2: Seq[Int])(env: E): (E, Validation[NoType[M], TypeMatchingCondition[M]])
+
+  def logicalTypeValueTermFromTypeValueTermS[T](term: TypeValueTerm[T])(env: E): (E, Validation[NoType[M], LogicalTypeValueTerm[T]])
 }
 
 object TypeInferenceEnvironmentState

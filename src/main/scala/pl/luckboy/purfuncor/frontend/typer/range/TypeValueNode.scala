@@ -143,6 +143,20 @@ sealed trait TypeValueNode[T]
         Set(ExpandedGlobalTypeAppIdentity(loc, sym), UnexpandedGlobalTypeAppIdentity(loc, sym)) ++ childs.flatMap { _.idents }
     }
 }
+
+object TypeValueNode
+{
+  def fromTypeValueTerm[T](term: TypeValueTerm[T]) =
+    term match {
+      case leafTerm: LeafTypeValueTerm[T] =>
+        TypeValueLeaf.fromLeafTypeValueTerm(leafTerm)
+      case tupleType: TupleType[T]        =>
+        TypeValueBranch[T](Vector(TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1)), Vector(tupleType), 0)
+      case _: LogicalTypeValueTerm[T]     =>
+        term
+    }
+}
+
 case class TypeValueBranch[T](childs: Seq[TypeValueNode[T]], tupleTypes: Seq[TupleType[T]], leafCount: Int) extends TypeValueNode[T]
 case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafCount: Int) extends TypeValueNode[T]
 {
