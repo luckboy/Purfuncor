@@ -471,9 +471,6 @@ package object typer
       env.typeParamForest.findParamUnionsWithTerms(argParams1.toSet | argParams2.toSet).map {
         TypeMatchingCondition.fromTypeParamUnionsWithTypeValueTermsS(_)(env).mapElements(identity, _.map { _.withFirstArgIdxs(argParams1.zipWithIndex.toMap).withSecondArgIdxs(argParams2.zipWithIndex.toMap) })
       }.getOrElse((env, NoType.fromError[GlobalSymbol](FatalError("not found type parameter", none, NoPosition)).failure))      
-  
-    override def logicalTypeValueTermFromTypeValueTermS[V](term: TypeValueTerm[V])(env: SymbolTypeInferenceEnvironment[T, U]): (SymbolTypeInferenceEnvironment[T, U], Validation[NoType[GlobalSymbol], LogicalTypeValueTerm[V]]) =
-      throw new UnsupportedOperationException
   }
   
   implicit def symbolTypeValueTermUnifier[T, U]: Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] = new Unifier[NoType[GlobalSymbol], TypeValueTerm[GlobalSymbol], SymbolTypeInferenceEnvironment[T, U], Int] {

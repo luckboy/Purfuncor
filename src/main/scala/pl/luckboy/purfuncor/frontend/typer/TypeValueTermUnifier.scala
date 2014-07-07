@@ -13,6 +13,7 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.typer.range._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
@@ -1321,5 +1322,14 @@ object TypeValueTermUnifier
       case (env2, Success((typeApp: TypeApp[T], _))) => normalizeTypeAppS(typeApp)(env2)
       case (env2, Success(_))                   => (env2, term.success)
       case (env2, Failure(noType))              => (env2, noType.failure)
+    }
+    
+  def logicalTypeValueTermFromTypeValueTermS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], LogicalTypeValueTerm[T]]) =
+    term match {
+      case GlobalTypeApp(loc, args, sym) =>
+        val (env2, res) = appForGlobalTypeWithAllocatedTypeParamsWithoutInstantiatonS(loc, args)(env)
+        (env2, res.map { _.unevaluatedLogicalTypeValueTerm.globalTypeAppForLogicalTypeValueTerm(loc, args, sym) })
+      case _                             =>
+        (env, term.unevaluatedLogicalTypeValueTerm.success)
     }
 }

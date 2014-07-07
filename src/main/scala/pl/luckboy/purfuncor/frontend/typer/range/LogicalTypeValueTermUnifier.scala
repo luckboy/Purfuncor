@@ -585,7 +585,7 @@ object LogicalTypeValueTermUnifier
                         val (env4, res) = TypeValueTermUnifier.partiallyInstantiateTypeValueTermForMarkedParamsS(term)(Set())(unifier.mismatchedTermErrorS)(env)
                         res match {
                           case Success((term2, optInstantiatedParam)) =>
-                            val (env5, res2) = envSt.logicalTypeValueTermFromTypeValueTermS(term2)(env4)
+                            val (env5, res2) = TypeValueTermUnifier.logicalTypeValueTermFromTypeValueTermS(term2)(env4)
                             res2 match {
                               case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
                                 (env5, (newOptNodes + (ident -> some(conjNode2)), argMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
@@ -738,7 +738,7 @@ object LogicalTypeValueTermUnifier
                 val (env2, res) = TypeValueTermUnifier.replaceTypeValueTermParamsS(term)(f)(env)
                 res match {
                   case Success(term2) =>
-                    val (env3, res2) = envSt.logicalTypeValueTermFromTypeValueTermS(term2)(env2)
+                    val (env3, res2) = TypeValueTermUnifier.logicalTypeValueTermFromTypeValueTermS(term2)(env2)
                     res2 match {
                       case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
                         (env3, (newNodes + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)

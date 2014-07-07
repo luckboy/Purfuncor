@@ -259,26 +259,7 @@ sealed trait TypeValueTerm[T]
     this match {
       case GlobalTypeApp(loc, args, sym) =>
         val (env2, res) = envSt.withPartialEvaluationS(false) { TypeValueTerm.appForGlobalTypeS(loc, args)(_) } (env)
-        (env2, res.map { 
-          _.unevaluatedLogicalTypeValueTerm match {
-            case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
-              LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args)
-            case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
-              val child2 = child match {
-                case leaf2: TypeValueLeaf[T]                           =>
-                  GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount, sym)
-                case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
-                  GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2, sym)
-                case _: GlobalTypeAppNode[T]                           =>
-                  child
-              }
-              LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args)
-            case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
-              LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
-            case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
-              term
-          }
-        })
+        (env2, res.map { _.unevaluatedLogicalTypeValueTerm.globalTypeAppForLogicalTypeValueTerm(loc, args, sym) })
       case _                             =>
         (env, unevaluatedLogicalTypeValueTerm.success)
     }
@@ -470,7 +451,7 @@ object TypeValueTerm
     mapToVectorOption(lambdas) {
       case TypeValueLambda(Seq(), body) => some(body)
       case _                            => none
-    }    
+    }  
 }
 
 sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]
@@ -516,7 +497,27 @@ case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
     args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) extends TypeValueTerm[T]
 {
-  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)
+  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)  
+
+  def globalTypeAppForLogicalTypeValueTerm(loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) =
+    this match {
+       case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args)
+       case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
+         val child2 = child match {
+           case leaf2: TypeValueLeaf[T]                           =>
+             GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount, sym)
+           case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
+             GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2, sym)
+           case _: GlobalTypeAppNode[T]                           =>
+             child
+         }
+         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args)
+       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
+       case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
+        term
+    }
 }
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
