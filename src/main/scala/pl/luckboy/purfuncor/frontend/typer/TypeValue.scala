@@ -516,7 +516,7 @@ case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
     args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) extends TypeValueTerm[T]
 {
-  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNode(conjNode)
+  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)
 }
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
