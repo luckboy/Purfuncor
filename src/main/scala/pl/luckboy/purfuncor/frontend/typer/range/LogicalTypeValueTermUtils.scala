@@ -49,7 +49,7 @@ object LogicalTypeValueTermUtils
         none
     }
   
-  def substituteTypeValueLambdasInTypeValueNode[T](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], paramLambdas: Map[Int, TypeValueLambda[T]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[(Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])] = {
+  private def substituteTypeValueLambdasInTypeValueNode[T](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], paramLambdas: Map[Int, TypeValueLambda[T]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[(Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])] = {
     node match {
       case TypeValueBranch(childs, tupleTypes, leafCount)             =>
         substituteTypeValueLambdasInTypeValueNodes(childs, argMap, paramLambdas, !isConj)(newNodeMap, newArgMap).flatMap {
