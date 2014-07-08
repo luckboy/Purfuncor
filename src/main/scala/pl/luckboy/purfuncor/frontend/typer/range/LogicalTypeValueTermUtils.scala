@@ -39,6 +39,70 @@ object LogicalTypeValueTermUtils
         args.values.flatMap { _.flatMap { _.argParams } }.toSet
     }
   
+  private def substituteTypeValueLambdasInTypeValueNodes[T](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], paramLambdas: Map[Int, TypeValueLambda[T]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) =
+    nodes.foldLeft(some((newNodeMap, newArgMap, Vector[TypeValueNode[T]]()))) {
+      case (Some((newNodeMap, newArgMap, newNodes)), node) =>
+        substituteTypeValueLambdasInTypeValueNode(node, argMap, paramLambdas, isConj)(newNodeMap, newArgMap).map {
+          _.mapElements(identity, identity, newNodes :+ _)
+        }
+      case (None, _)                                       =>
+        none
+    }
+  
+  def substituteTypeValueLambdasInTypeValueNode[T](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], paramLambdas: Map[Int, TypeValueLambda[T]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[(Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])] = {
+    node match {
+      case TypeValueBranch(childs, tupleTypes, leafCount)             =>
+        substituteTypeValueLambdasInTypeValueNodes(childs, argMap, paramLambdas, !isConj)(newNodeMap, newArgMap).flatMap {
+          case (newNodeMap, newArgMap, childs2) =>
+            substituteTypeValueLambdasInTupleTypes(tupleTypes, paramLambdas).map {
+              tts => (newNodeMap, newArgMap, TypeValueBranch(childs2, tts, childs2.foldLeft(0) { _ + _.leafCount }))
+            }
+        }
+      case leaf @ TypeValueLeaf(ident, paramAppIdx, leafCount)        =>
+        val optTuple = newNodeMap.get(ident) match {
+          case Some(node) =>
+            some((newNodeMap, newArgMap, node))
+          case None       =>
+            argMap.get(ident).flatMap(leaf.typeValueTerm) match {
+              case Some(term) =>
+                substituteTypeValueLambdasInTypeValueTerm(term, paramLambdas).map { 
+                  _.unevaluatedLogicalTypeValueTerm
+                }.flatMap {
+                  case LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2) =>
+                    some((newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2))
+                  case LogicalTypeValueTerm(conjNode2, argMap2)                               =>
+                    val leafIdents = argMap.keySet & argMap2.keySet
+                    if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                      some((newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2))
+                    else
+                      none
+                }
+              case None      =>
+                none
+            }
+        }
+        optTuple.map { 
+          case (newNodeMap2, newArgMap2, branch: TypeValueBranch[T]) if !isConj =>
+            (newNodeMap2, newArgMap2, TypeValueBranch(Vector(branch), Vector(), branch.leafCount).normalizedTypeValueNode)
+          case tuple                                                          =>
+            tuple
+        }
+      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
+        val optTuple = substituteTypeValueLambdasInTypeValueNode(TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount), argMap, paramLambdas, isConj)(newNodeMap, newArgMap)
+        optTuple match {
+          case Some((newNodeMap2, newArgMap2, TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(_, _), _, _))) =>
+            substituteTypeValueLambdasInTypeValueNode(TypeValueBranch(childs, tupleTypes, leafCount), argMap, paramLambdas, isConj)(newNodeMap, newArgMap)
+          case _                                                                                           =>
+            none
+        }
+    }
+  }
+  
+  def substituteTypeValueLambdasInLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueTerm[T]] =
+    substituteTypeValueLambdasInTypeValueNode(term.conjNode, term.args, paramLambdas, true)(Map(), Map()).map { 
+      t => LogicalTypeValueTerm(t._3, t._2)
+    }
+  
   private def normalizeTypeParamsInTypeValueNodesForParamsS[T](nodes: Seq[TypeValueNode[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     nodes.foldLeft((pair, Vector[TypeValueNode[T]]())) {
       case ((p, ts), n) => normalizeTypeParamsInTypeValueNodeForParamsS(n, nextArgParam)(lambdaParams)(p).mapElements(identity, ts :+ _)

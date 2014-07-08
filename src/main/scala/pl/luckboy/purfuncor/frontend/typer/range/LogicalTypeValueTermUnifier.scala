@@ -550,8 +550,8 @@ object LogicalTypeValueTermUnifier
   private def partiallyInstantiateTypeValueNodesS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodes: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stFoldLeftValidationS(nodes)((newOptNodes, newArgMap, Vector[TypeValueNode[T]](), Set[Int](), false).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
-        val (newOptNodes2, newArgMap2, newNodes, newInstantiatedParams, isInstantiation) = tuple
-        val (newEnv2, newRes) = partiallyInstantiateTypeValueNodeS(node, argMap, isConj)(markedParams)(newOptNodes2, newArgMap2)(newEnv)
+        val (newOptNodeMap2, newArgMap2, newNodes, newInstantiatedParams, isInstantiation) = tuple
+        val (newEnv2, newRes) = partiallyInstantiateTypeValueNodeS(node, argMap, isConj)(markedParams)(newOptNodeMap2, newArgMap2)(newEnv)
         (newEnv2, newRes.map { 
           _ match { 
             case (newOptNodes3, newArgMap3, Some((newNode, newInstantiatedParams2))) =>
@@ -699,11 +699,11 @@ object LogicalTypeValueTermUnifier
       })
     } yield y).run(env)
   
-  private def replaceTypeParamsFromLogicalTypeValueNodeS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodes: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
-    stFoldLeftValidationS(nodes)((newNodes, newArgMap, Vector[TypeValueNode[T]]()).success[NoType[T]]) {
+  private def replaceTypeParamsFromLogicalTypeValueNodeS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(nodes)((newNodeMap, newArgMap, Vector[TypeValueNode[T]]()).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
-        val (newNodes2, newArgMap2, newNodes) = tuple
-        val (newEnv2, newRes) = replaceLogicalTypeValueNodeParamsS(node, argMap, isConj)(newNodes2, newArgMap2)(f)(newEnv)
+        val (newNodeMap2, newArgMap2, newNodes) = tuple
+        val (newEnv2, newRes) = replaceLogicalTypeValueNodeParamsS(node, argMap, isConj)(newNodeMap2, newArgMap2)(f)(newEnv)
         (newEnv2, newRes.map { _.mapElements(identity, identity, newNodes :+ _) })
     } (env)
     
