@@ -54,13 +54,7 @@ object LogicalTypeValueTermUtils
   private def normalizeTypeParamInTypeValueIdenityS[T](ident: TypeValueIdentity[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     ident match {
       case TypeParamAppIdentity(param) =>
-        val (termParams, nextTermParam) = pair
-        val (termParams2, nextTermParam2) = if(termParams.contains(param) || lambdaParams.contains(param)) 
-          (termParams, nextTermParam)
-        else
-          (termParams + (param -> nextTermParam), nextTermParam + 1)
-        val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, nextTermParam))
-        ((termParams2, nextTermParam2), TypeParamAppIdentity(param2))
+        normalizeTypeParamForParamsS(param, nextArgParam)(lambdaParams)(pair).mapElements(identity, TypeParamAppIdentity(_))
       case _ =>
         (pair, ident)
     }

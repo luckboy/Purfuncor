@@ -123,6 +123,16 @@ object TypeValueTermUtils
     }
   }
     
+  def normalizeTypeParamForParamsS[T](param: Int, nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) = {
+    val (termParams, nextTermParam) = pair
+    val (termParams2, nextTermParam2) = if(termParams.contains(param) || lambdaParams.contains(param)) 
+      (termParams, nextTermParam)
+    else
+      (termParams + (param -> nextTermParam), nextTermParam + 1)
+    val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, nextTermParam))
+    ((termParams2, nextTermParam2), param2)
+  }
+  
   def normalizeTypeParamsInTypeValueTermsForParamsS[T](terms: Seq[TypeValueTerm[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     terms.foldLeft((pair, Vector[TypeValueTerm[T]]())) {
       case ((p, ts), t) => normalizeTypeParamsInTypeValyeTermForParamsS(t, nextArgParam)(lambdaParams)(p).mapElements(identity, ts :+ _)
@@ -163,14 +173,9 @@ object TypeValueTermUtils
         val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, GlobalTypeApp(loc, args2, sym))
       case TypeParamApp(param, args, _) =>
-        val (termParams, nextTermParam) = pair
-        val (termParams2, nextTermParam2) = if(termParams.contains(param) || lambdaParams.contains(param)) 
-          (termParams, nextTermParam)
-        else
-          (termParams + (param -> nextTermParam), nextTermParam + 1)
-        val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, nextTermParam))
-        val ((termParams3, nextTermParam3), args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)((termParams2, nextTermParam2))
-        ((termParams3, nextTermParam3), TypeParamApp(param2, args2, 0))
+        val (pair2, param2) = normalizeTypeParamForParamsS(param, nextArgParam)(lambdaParams)(pair)
+        val (pair3, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair2)
+        (pair3, TypeParamApp(param2, args2, 0))
       case term2: LogicalTypeValueTerm[T]          =>
         normalizeTypeParamsInLogicalTypeValyeTermForParamsS(term2, nextArgParam)(lambdaParams)(pair)
     }
