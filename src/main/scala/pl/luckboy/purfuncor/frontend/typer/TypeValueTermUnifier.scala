@@ -1020,6 +1020,9 @@ object TypeValueTermUnifier
   
   def replaceTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stMapToVectorValidationS(lambdas) { replaceTypeValueLambdaParamsS(_)(f)(_: E) } (env)
+    
+  def replaceTypeParamsFromTupleTypesS[T, U, E](tupleTypes: Seq[TupleType[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stMapToVectorValidationS(tupleTypes) { replaceTupleTypeParamsS(_)(f)(_: E) } (env)
   
   def replaceTypeValueLambdaParamsS[T, U, E](lambda: TypeValueLambda[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     lambda match {
@@ -1030,10 +1033,16 @@ object TypeValueTermUnifier
         }.valueOr { nt => (env2, nt.failure) }
     }
   
-  def replaceTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
-    term match {
+  def replaceTupleTypeParamsS[T, U, E](tupleType: TupleType[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    tupleType match {
       case TupleType(args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { TupleType(_) })
+    }
+    
+  def replaceTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+    term match {
+      case tupleType: TupleType[T] =>
+        replaceTupleTypeParamsS(tupleType)(f)(env)
       case FieldType(i, term2) =>
         replaceTypeValueTermParamsS(term2)(f)(env).mapElements(identity, _.map { FieldType(i, _) })
       case BuiltinType(bf, args) =>
@@ -1097,8 +1106,8 @@ object TypeValueTermUnifier
   
   def unsafeAllocateTypeParamsFromTypeValueTermsS[T, U, E](terms: Iterable[TypeValueTerm[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stFoldLeftValidationS(terms)((allocatedParams, Set[Int](), Set[Int](), Vector[TypeValueTerm[T]]()).success[NoType[T]]) {
-      (tmpTuple, term, newEnv: E) =>
-        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms) = tmpTuple
+      (tuple, term, newEnv: E) =>
+        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms) = tuple
         val (newEnv2, newRes) = unsafeAllocateTypeValueTermParamsS(term)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
         (newEnv2, newRes.map { 
           _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newTerms :+ _)
@@ -1107,14 +1116,24 @@ object TypeValueTermUnifier
     
   def unsafeAllocateTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Iterable[TypeValueLambda[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stFoldLeftValidationS(lambdas)((allocatedParams, Set[Int](), Set[Int](), Vector[TypeValueLambda[T]]()).success[NoType[T]]) {
-      (tmpTuple, lambda, newEnv: E) =>
-        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms) = tmpTuple
+      (tuple, lambda, newEnv: E) =>
+        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms) = tuple
         val (newEnv2, newRes) = unsafeAllocateTypeValueLambdaParamsS(lambda)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
         (newEnv2, newRes.map {
           _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newTerms :+ _)
         })
     } (env)
 
+  def unsafeAllocateTypeParamsFromTupleTypesS[T, U, E](tupleTypes: Iterable[TupleType[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(tupleTypes)((allocatedParams, Set[Int](), Set[Int](), Vector[TupleType[T]]()).success[NoType[T]]) {
+      (tuple, tupleType, newEnv: E) =>
+        val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newTerms) = tuple
+        val (newEnv2, newRes) = unsafeAllocateTupleTypeParamsS(tupleType)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+        (newEnv2, newRes.map { 
+          _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, newTerms :+ _)
+        })
+    } (env)
+    
   def unsafeAllocateTypeValueLambdaParamsS[T, U, E](lambda: TypeValueLambda[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     lambda match {
       case TypeValueLambda(argParams, body) =>
@@ -1138,11 +1157,17 @@ object TypeValueTermUnifier
         }
     }
 
-  def unsafeAllocateTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) =
-    term match {
+  def unsafeAllocateTupleTypeParamsS[T, U, E](tupleType: TupleType[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    tupleType match {
       case TupleType(args) =>
         val (env2, res) = unsafeAllocateTypeParamsFromTypeValueTermsS(args)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, TupleType(_)) })
+    }
+    
+  def unsafeAllocateTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[Int, Int], Set[Int], Set[Int], TypeValueTerm[T])]) =
+    term match {
+      case tupleType: TupleType[T] =>
+        unsafeAllocateTupleTypeParamsS(tupleType)(allocatedParams, unallocatedParamAppIdx)(env)
       case FieldType(i, term2) =>
         val (env2, res) = unsafeAllocateTypeValueTermParamsS(term2)(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.map { _.mapElements(identity, identity, identity, FieldType(i, _)) })
