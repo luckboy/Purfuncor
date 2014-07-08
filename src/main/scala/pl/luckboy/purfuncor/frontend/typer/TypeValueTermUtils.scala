@@ -40,6 +40,18 @@ object TypeValueTermUtils
       case term2: LogicalTypeValueTerm[T] => typeArgParamsFromLogicalTypeValueTerm(term2)
     }
   
+  def logicalTypeValueTermsFromTypeValueTerm[T](term: TypeValueTerm[T]): Iterable[LogicalTypeValueTerm[T]] =
+    term match {
+      case TupleType(args)                => args.flatMap(logicalTypeValueTermsFromTypeValueTerm)
+      case FieldType(_, term2)            => logicalTypeValueTermsFromTypeValueTerm(term2)
+      case BuiltinType(_, args)           => args.flatMap(logicalTypeValueTermsFromTypeValueTerm)
+      case Unittype(_, args, _)           => args.flatMap { a => logicalTypeValueTermsFromTypeValueTerm(a.body) }
+      case Grouptype(_, args, _)          => args.flatMap { a => logicalTypeValueTermsFromTypeValueTerm(a.body) }
+      case GlobalTypeApp(_, args, _)      => args.flatMap { a => logicalTypeValueTermsFromTypeValueTerm(a.body) }
+      case TypeParamApp(_, args, _)       => args.flatMap { a => logicalTypeValueTermsFromTypeValueTerm(a.body) }
+      case term2: LogicalTypeValueTerm[T] => Vector(term2)
+    }
+  
   private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
     terms.foldLeft(some(Vector[TypeValueTerm[T]]())) {
       (o, t) => for(ts <- o; t2 <- substituteTypeValueLambdasInTypeValueTerm(t, paramLambdas)) yield (ts :+ t2)

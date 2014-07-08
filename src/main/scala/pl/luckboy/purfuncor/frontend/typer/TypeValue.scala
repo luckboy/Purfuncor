@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  ******************************************************************************/
 package pl.luckboy.purfuncor.frontend.typer
+import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import scala.util.parsing.input.NoPosition
 import scalaz._
@@ -22,6 +23,7 @@ import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.typer.range._
 import pl.luckboy.purfuncor.common.Evaluator._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import TypeValueTermUtils._
 
 sealed trait TypeValue[T, +U, +V, +W]
 {
@@ -452,6 +454,37 @@ object TypeValueTerm
       case TypeValueLambda(Seq(), body) => some(body)
       case _                            => none
     }  
+  
+  def prepareTypeValueLambdasForSubstitutionS[T, U, V, W, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+    val logicalTerms = logicalTypeValueTermsFromTypeValueTerm(term)
+    val (env2, res) = stFoldLeftValidationS(logicalTerms)(IntMap[TypeValueLambda[T]]().success[NoTypeValue[T, U, V, W]]) {
+      (newLambdas, logicalTerm, newEnv: E) =>
+        stFoldLeftValidationS(logicalTerm.args.keys)(newLambdas.success[NoTypeValue[T, U, V, W]]) {
+          (newLambdas2, ident, newEnv2: E) =>
+            ident match {
+              case TypeParamAppIdentity(param) =>
+                lambdas.get(param).map {
+                  case TypeValueLambda(args, body) =>
+                    body.logicalTypeValueTermS(newEnv2).mapElements(identity, _.map { t => (TypeValueLambda(args, t), true) })
+                }.orElse {
+                  newLambdas.get(param).map { l => (newEnv2, (l, false).success) }
+                }.map {
+                  case (newEnv3, Success((lambda @ TypeValueLambda(args, body: LogicalTypeValueTerm[T]), isNewLambda))) =>
+                    val leafIdents = logicalTerm.args.keySet & body.args.keySet
+                    if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                      (newEnv3, (if(isNewLambda) newLambdas2 + (param -> lambda) else newLambdas2).success)
+                    else
+                      (newEnv3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                  case (newEnv3, Success(_)) =>
+                    (newEnv3, NoTypeValue.fromError[T, U, V, W](FatalError("incorrect body of type value lambda", none, NoPosition)).failure)
+                  case (newEnv3, Failure(noValue)) =>
+                    (newEnv3, noValue.failure)
+                }.getOrElse((newEnv2, newLambdas2.success))
+            }
+        } (newEnv)
+    } (env)
+    (env2, res.map { lambdas ++ _ })
+  }
 }
 
 sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]
