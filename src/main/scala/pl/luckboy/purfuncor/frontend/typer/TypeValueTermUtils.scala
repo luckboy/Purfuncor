@@ -143,6 +143,11 @@ object TypeValueTermUtils
       case ((p, ls), l) => normalizeTypeParamsInTypeValueLambdaForParamsS(l, nextArgParam)(lambdaParams)(p).mapElements(identity, ls :+ _)
     }
   
+  def normalizeTypeParamsInTupleTypesForParamsS[T](tupleTypes: Seq[TupleType[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
+    tupleTypes.foldLeft((pair, Vector[TupleType[T]]())) {
+      case ((p, tts), tt) => normalizeTypeParamsInTupleTypeForParamsS(tt, nextArgParam)(lambdaParams)(p).mapElements(identity, tts :+ _)
+    }
+  
   private def normalizeTypeParamsInTypeValueLambdaForParamsS[T](lambda: TypeValueLambda[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     lambda match {
       case TypeValueLambda(argParams, body) =>
@@ -152,11 +157,17 @@ object TypeValueTermUtils
         (pair2, TypeValueLambda(argParams2, body2))
     }
   
-  def normalizeTypeParamsInTypeValyeTermForParamsS[T](term: TypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)): ((Map[Int, Int], Int), TypeValueTerm[T]) =
-    term match {
-      case TupleType(args)                        => 
+  def normalizeTypeParamsInTupleTypeForParamsS[T](tupleType: TupleType[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
+    tupleType match {
+      case TupleType(args) => 
         val (pair2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, TupleType(args2))
+    }
+  
+  def normalizeTypeParamsInTypeValyeTermForParamsS[T](term: TypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)): ((Map[Int, Int], Int), TypeValueTerm[T]) =
+    term match {
+      case tupleType: TupleType[T]                =>
+        normalizeTypeParamsInTupleTypeForParamsS(tupleType, nextArgParam)(lambdaParams)(pair)
       case FieldType(i, term2)                    =>
         val (pair2, term3) = normalizeTypeParamsInTypeValyeTermForParamsS(term2, nextArgParam)(lambdaParams)(pair)
         (pair2, FieldType(i, term3))

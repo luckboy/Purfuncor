@@ -44,13 +44,6 @@ object LogicalTypeValueTermUtils
       case ((p, ts), n) => normalizeTypeParamsInTypeValueNodeForParamsS(n, nextArgParam)(lambdaParams)(p).mapElements(identity, ts :+ _)
     }
   
-  private def normalizeTypeParamsInTupleTypesForParamsS[T](terms: Seq[TupleType[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
-    terms.foldLeft((pair, Vector[TupleType[T]]())) {
-      case ((pair2, tupleTypes2), TupleType(args)) =>
-        val (pair3, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(pair2)
-        (pair3, tupleTypes2 :+ TupleType(args2))
-    }
-  
   private def normalizeTypeParamInTypeValueIdenityS[T](ident: TypeValueIdentity[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     ident match {
       case TypeParamAppIdentity(param) =>
