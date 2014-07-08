@@ -11,33 +11,33 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.typer.range._
+import LogicalTypeValueTermUtils._
 
 object TypeValueTermUtils
 {
   def typeParamsFromTypeValueTerm[T](term: TypeValueTerm[T]): Set[Int] =
     term match {
-      case TupleType(args)              => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case FieldType(_, term2)          => typeParamsFromTypeValueTerm(term2)
-      case BuiltinType(_, args)         => args.flatMap(typeParamsFromTypeValueTerm).toSet
-      case Unittype(_, args, _)         => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case Grouptype(_, args, _)        => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case GlobalTypeApp(_, args, _)    => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case TypeParamApp(param, args, _) => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
-      case TypeConjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
-      case TypeDisjunction(terms)       => terms.flatMap(typeParamsFromTypeValueTerm).toSet
+      case TupleType(args)                => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case FieldType(_, term2)            => typeParamsFromTypeValueTerm(term2)
+      case BuiltinType(_, args)           => args.flatMap(typeParamsFromTypeValueTerm).toSet
+      case Unittype(_, args, _)           => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case Grouptype(_, args, _)          => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case GlobalTypeApp(_, args, _)      => args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case TypeParamApp(param, args, _)   => Set(param) | args.flatMap { a => typeParamsFromTypeValueTerm(a.body) -- a.argParams }.toSet
+      case term2: LogicalTypeValueTerm[T] => typeParamsFromLogicalTypeValueTerm(term2)
     }
   
   def typeArgParamsFromTypeValueTerm[T](term: TypeValueTerm[T]): Set[Int] =
     term match {
-      case TupleType(args)              => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
-      case FieldType(_, term2)          => typeArgParamsFromTypeValueTerm(term2)
-      case BuiltinType(_, args)         => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
-      case Unittype(_, args, _)         => args.flatMap { _.argParams }.toSet
-      case Grouptype(_, args, _)        => args.flatMap { _.argParams }.toSet
-      case GlobalTypeApp(_, args, _)    => args.flatMap { _.argParams }.toSet
-      case TypeParamApp(param, args, _) => args.flatMap { _.argParams }.toSet
-      case TypeConjunction(terms)       => terms.flatMap(typeArgParamsFromTypeValueTerm).toSet
-      case TypeDisjunction(terms)       => terms.flatMap(typeArgParamsFromTypeValueTerm).toSet
+      case TupleType(args)                => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
+      case FieldType(_, term2)            => typeArgParamsFromTypeValueTerm(term2)
+      case BuiltinType(_, args)           => args.flatMap(typeArgParamsFromTypeValueTerm).toSet
+      case Unittype(_, args, _)           => args.flatMap { _.argParams }.toSet
+      case Grouptype(_, args, _)          => args.flatMap { _.argParams }.toSet
+      case GlobalTypeApp(_, args, _)      => args.flatMap { _.argParams }.toSet
+      case TypeParamApp(param, args, _)   => args.flatMap { _.argParams }.toSet
+      case term2: LogicalTypeValueTerm[T] => typeArgParamsFromLogicalTypeValueTerm(term2)
     }
   
   private def substituteTypeValueLambdasInTypeValueTerms[T](terms: Seq[TypeValueTerm[T]], paramLambdas: Map[Int, TypeValueLambda[T]]) =
@@ -123,12 +123,12 @@ object TypeValueTermUtils
     }
   }
     
-  private def normalizeTypeParamsInTypeValueTermsForParamsS[T](terms: Seq[TypeValueTerm[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
+  def normalizeTypeParamsInTypeValueTermsForParamsS[T](terms: Seq[TypeValueTerm[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     terms.foldLeft((pair, Vector[TypeValueTerm[T]]())) {
       case ((p, ts), t) => normalizeTypeParamsInTypeValyeTermForParamsS(t, nextArgParam)(lambdaParams)(p).mapElements(identity, ts :+ _)
     }
   
-  private def normalizeTypeParamsInTypeValueLambdasForParamsS[T](lambdas: Seq[TypeValueLambda[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
+  def normalizeTypeParamsInTypeValueLambdasForParamsS[T](lambdas: Seq[TypeValueLambda[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     lambdas.foldLeft((pair, Vector[TypeValueLambda[T]]())) {
       case ((p, ls), l) => normalizeTypeParamsInTypeValueLambdaForParamsS(l, nextArgParam)(lambdaParams)(p).mapElements(identity, ls :+ _)
     }
@@ -142,7 +142,7 @@ object TypeValueTermUtils
         (pair2, TypeValueLambda(argParams2, body2))
     }
   
-  private def normalizeTypeParamsInTypeValyeTermForParamsS[T](term: TypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)): ((Map[Int, Int], Int), TypeValueTerm[T]) =
+  def normalizeTypeParamsInTypeValyeTermForParamsS[T](term: TypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)): ((Map[Int, Int], Int), TypeValueTerm[T]) =
     term match {
       case TupleType(args)                        => 
         val (pair2, args2) = normalizeTypeParamsInTypeValueTermsForParamsS(args, nextArgParam)(lambdaParams)(pair)
@@ -159,7 +159,7 @@ object TypeValueTermUtils
       case Grouptype(loc, args, sym)               =>
         val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, Grouptype(loc, args2, sym))
-      case GlobalTypeApp(loc, args, sym)          =>
+      case GlobalTypeApp(loc, args, sym)           =>
         val (pair2, args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)(pair)
         (pair2, GlobalTypeApp(loc, args2, sym))
       case TypeParamApp(param, args, _) =>
@@ -171,12 +171,8 @@ object TypeValueTermUtils
         val param2 = lambdaParams.getOrElse(param, termParams.getOrElse(param, nextTermParam))
         val ((termParams3, nextTermParam3), args2) = normalizeTypeParamsInTypeValueLambdasForParamsS(args, nextArgParam)(lambdaParams)((termParams2, nextTermParam2))
         ((termParams3, nextTermParam3), TypeParamApp(param2, args2, 0))
-      case TypeConjunction(terms)                 =>
-        val (pair2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(pair)
-        (pair2, TypeValueTerm.normalizedTypeConjunction(terms2.toSet))
-      case TypeDisjunction(terms)                 =>
-        val (pair2, terms2) = normalizeTypeParamsInTypeValueTermsForParamsS(terms.toSeq, nextArgParam)(lambdaParams)(pair)
-        (pair2, TypeValueTerm.normalizedTypeDisjunction(terms2.toSet))
+      case term2: LogicalTypeValueTerm[T]          =>
+        normalizeTypeParamsInLogicalTypeValyeTermForParamsS(term2, nextArgParam)(lambdaParams)(pair)
     }
   
   def normalizeTypeParams[T](term: TypeValueTerm[T], nextArgParam: Int) =
