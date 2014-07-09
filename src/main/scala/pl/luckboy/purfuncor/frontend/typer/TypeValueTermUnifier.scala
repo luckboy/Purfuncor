@@ -1357,4 +1357,49 @@ object TypeValueTermUnifier
       case _                             =>
         (env, term.unevaluatedLogicalTypeValueTerm.success)
     }
+  
+  def prepareTypeValueLambdasForSubstitutionS[T, U, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
+    val logicalTerms = logicalTypeValueTermsFromTypeValueTerm(term)
+    st(for {
+      lambdas2 <- steS({
+        stMapToIntMapValidationS(lambdas) {
+          (pair, newEnv: E) =>
+            val (param, lambda) = pair
+            unifier.findRootParamS(param)(newEnv).mapElements(identity, _.map { _ -> (param -> lambda) })
+        }
+      })
+      lambdas3 <- steS({
+        stFoldLeftValidationS(logicalTerms)(IntMap[(Int, TypeValueLambda[T])]().success[NoType[T]]) {
+          (newLambdas, logicalTerm, newEnv: E) =>
+            stFoldLeftValidationS(logicalTerm.args.keys)(newLambdas.success[NoType[T]]) {
+              (newLambdas2, ident, newEnv2: E) =>
+                ident match {
+                  case TypeParamAppIdentity(param) =>
+                    val (newEnv3, newRes) = unifier.findRootParamS(param)(newEnv2)
+                    newRes.map {
+                      rootParam =>
+                        lambdas2.get(rootParam).map {
+                          case (lambdaParam, TypeValueLambda(args, body)) =>
+                            logicalTypeValueTermFromTypeValueTermS(body)(newEnv2).mapElements(identity, _.map { t => ((lambdaParam, TypeValueLambda(args, t)), true) })
+                        }.orElse {
+                          newLambdas.get(rootParam).map { case p => (newEnv2, (p, false).success) }
+                        }.map {
+                          case (newEnv4, Success(((lambdaParam, lambda @ TypeValueLambda(args, body: LogicalTypeValueTerm[T])), isNewLambda))) =>
+                            val leafIdents = logicalTerm.args.keySet & body.args.keySet
+                            if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                              (newEnv4, (if(isNewLambda) newLambdas2 + (rootParam -> (lambdaParam, lambda)) else newLambdas2).success)
+                            else
+                              (newEnv4, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                          case (newEnv4, Success(_)) =>
+                            (newEnv4, NoType.fromError[T](FatalError("incorrect body of type value lambda", none, NoPosition)).failure)
+                          case (newEnv4, Failure(noValue)) =>
+                            (newEnv4, noValue.failure)
+                        }.getOrElse((newEnv2, newLambdas2.success))
+                    }.valueOr { nt => (newEnv3, nt.failure) }
+                }
+            } (newEnv)
+        }  
+      })
+    } yield (lambdas ++ lambdas3.values)).run(env)
+  }
 }
