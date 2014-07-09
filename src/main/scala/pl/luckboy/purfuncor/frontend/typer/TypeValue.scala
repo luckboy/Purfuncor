@@ -287,6 +287,31 @@ sealed trait TypeValueTerm[T]
 
   def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     conjOrDisjS(term) { _ | _ } (env)
+    
+  private def leafTypeValueTermFromTypeValueNodeWithArgs(node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[TypeValueTerm[T]] =
+    node match {
+      case TypeValueBranch(Seq(child), Seq(), _) =>
+        leafTypeValueTermFromTypeValueNodeWithArgs(child, args)
+      case _: TypeValueBranch[T]                 =>
+        none
+      case leaf @ TypeValueLeaf(ident, _, _)     =>
+        args.get(ident).flatMap(leaf.typeValueTerm)
+      case GlobalTypeAppNode(loc, _, _, _, sym)  =>
+        args.get(UnexpandedGlobalTypeAppIdentity(loc, sym)).map { GlobalTypeApp(loc, _, sym) }
+    }
+  
+  def normalizedTypeValueTerm =
+    this match {
+      case LogicalTypeValueTerm(conjNode, args) =>
+        leafTypeValueTermFromTypeValueNodeWithArgs(conjNode, args).orElse {
+          conjNode match {
+            case _: TypeValueBranch[T] => some(this)
+            case _                     => none
+          }
+        }
+      case _                                    =>
+        this
+    }
   
   def distributedTypeValueTerm =
     this match {
@@ -480,6 +505,8 @@ object TypeValueTerm
                   case (newEnv3, Failure(noValue)) =>
                     (newEnv3, noValue.failure)
                 }.getOrElse((newEnv2, newLambdas2.success))
+              case _                           =>
+                (newEnv2, newLambdas2.success)
             }
         } (newEnv)
     } (env)
@@ -550,7 +577,7 @@ case class LogicalTypeValueTerm[T](
          LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
-    }
+    }  
 }
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])

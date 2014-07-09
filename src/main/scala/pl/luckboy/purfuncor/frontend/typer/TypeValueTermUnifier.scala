@@ -1396,6 +1396,8 @@ object TypeValueTermUnifier
                             (newEnv4, noValue.failure)
                         }.getOrElse((newEnv2, newLambdas2.success))
                     }.valueOr { nt => (newEnv3, nt.failure) }
+                  case _                           =>
+                   (newEnv2, newLambdas2.success)
                 }
             } (newEnv)
         }  
