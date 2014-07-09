@@ -216,29 +216,13 @@ sealed trait TypeValueTerm[T]
         val branch = TypeValueBranch(Vector(leaf), Vector(tupleType), 1)
         LogicalTypeValueTerm(branch, Map(leaf.ident -> Nil))
     }
-  
-  /*def & (term: TypeValueTerm[T]) =
-    (this, term) match {
-      case (TypeConjunction(terms1), TypeConjunction(terms2)) => TypeConjunction(terms1 | terms2)
-      case (TypeConjunction(terms), _)                        => TypeConjunction(terms + term)
-      case (_, TypeConjunction(terms))                        => TypeConjunction(terms + this)
-      case (_, _)                                             => TypeConjunction(Set(this) | Set(term))
-    }*/
-  
+    
   def & (term: TypeValueTerm[T]) =
     (unevaluatedLogicalTypeValueTerm, term.unevaluatedLogicalTypeValueTerm) match {
       case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
         LogicalTypeValueTerm(conjNode1 & conjNode2, args1 ++ args2)
     }
-  
-  /*def | (term: TypeValueTerm[T]) =
-    (this, term) match {
-      case (TypeDisjunction(terms1), TypeDisjunction(terms2)) => TypeDisjunction(terms1 | terms2)
-      case (TypeDisjunction(terms), _)                        => TypeDisjunction(terms + term)
-      case (_, TypeDisjunction(terms))                        => TypeDisjunction(terms + this)
-      case (_, _)                                             => TypeDisjunction(Set(this) | Set(term))
-    }*/
-  
+    
   def | (term: TypeValueTerm[T]): TypeValueTerm[T] =
     (unevaluatedLogicalTypeValueTerm, term.unevaluatedLogicalTypeValueTerm) match {
       case (LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode1), Seq(), _), args1), LogicalTypeValueTerm(TypeValueBranch(Seq(disjNode2), Seq(), _), args2)) =>
@@ -313,75 +297,7 @@ sealed trait TypeValueTerm[T]
         some(this)
     }
   
-  def distributedTypeValueTerm =
-    this match {
-      case TypeConjunction(terms) =>
-        val (typeDisjs, tmpOtherTerms) = terms.partition { 
-          case TypeDisjunction(ts) => ts.size > 1
-          case _                   => false
-        }
-        typeDisjs.headOption.flatMap {
-          case TypeDisjunction(terms2) =>
-            terms2.headOption.flatMap {
-              term2 =>
-                val typeConj2 = TypeConjunction(typeDisjs.tail | tmpOtherTerms)
-                terms2.tail.headOption.map {
-                  secondTerm2 =>
-                    val typeDisj2 = if(terms2.tail.size > 1) TypeDisjunction(terms2.tail) else secondTerm2
-                    (term2 & typeConj2) | (typeDisj2 & typeConj2)
-                }
-            }
-          case _ =>
-            none
-        }
-      case TypeDisjunction(terms) =>
-        val (typeConjs, tmpOtherTerms) = terms.partition { 
-          case TypeConjunction(ts) => ts.size > 1
-          case _                   => false
-        }
-        typeConjs.headOption.flatMap {
-          case TypeConjunction(terms2) =>
-            terms2.headOption.flatMap {
-              term2 =>
-                val typeDisj2 = TypeDisjunction(typeConjs.tail | tmpOtherTerms)
-                terms2.tail.headOption.map {
-                  secondTerm2 =>
-                    val typeConj2 = if(terms2.tail.size > 1) TypeConjunction(terms2.tail) else secondTerm2
-                    (term2 | typeDisj2) & (typeConj2 | typeDisj2)
-                } 
-            }
-          case _ =>
-            none
-        }
-      case _ =>
-        none
-    }
-  
   def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
-  
-  /*lazy val typeIdentities: Set[TypeIdentity[T]] =
-    this match {
-      case TupleType(_)           => Set(TupleTypeIdentity)
-      case FieldType(i, _)        => Set(FieldTypeIdentity[T](i))
-      case BuiltinType(bf, _)     => Set(BuiltinTypeIdentity[T](bf))
-      case Unittype(loc, _, _)    => Set(UnittypeIdentity(loc))
-      case TypeConjunction(terms) => terms.flatMap { _.typeIdentities }
-      case TypeDisjunction(terms) => terms.flatMap { _.typeIdentities }
-      case _                      => Set(NoTypeIdentity: TypeIdentity[T])
-    }*/
-  
-  /*lazy val supertypeIdentities: Set[TypeIdentity[T]] = 
-    this match { 
-      case _: TypeApp[T]          =>
-        Set()
-      case TypeConjunction(terms) =>
-        terms.flatMap { _.supertypeIdentities } - BuiltinTypeIdentity(TypeBuiltinFunction.Any)
-      case TypeDisjunction(terms) =>
-        val supertypeIdents = terms.map { _.supertypeIdentities }.toSeq
-        supertypeIdents.headOption.map { si => supertypeIdents.tail.foldLeft(si) { _ & _ } }.getOrElse(Set())
-      case _                      =>
-        typeIdentities
-    }*/
   
   def toArgString =
     this match {
@@ -445,12 +361,6 @@ sealed trait TypeValueTerm[T]
 
 object TypeValueTerm
 {
-  def normalizedTypeConjunction[T](terms: Set[TypeValueTerm[T]]) =
-    terms.headOption.map { t => if(terms.size === 1) t else TypeConjunction(terms) }.getOrElse(TypeConjunction(terms))
-  
-  def normalizedTypeDisjunction[T](terms: Set[TypeValueTerm[T]]) =
-    terms.headOption.map { t => if(terms.size === 1) t else TypeDisjunction(terms) }.getOrElse(TypeDisjunction(terms))
-
   def typeValueTermsFromTypeValuesS[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]]) =
     stMapToVectorValidationS(values) { _.typeValueTermS(_: E) } (env)
   
