@@ -485,7 +485,17 @@ case class LogicalTypeValueTerm[T](
          LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
-    }  
+    }
+
+  override def equals(that: Any) =
+    that match {
+      case LogicalTypeValueTerm(conjNode2, args2) =>
+        val idents = conjNode.idents
+        val idents2 = conjNode2.idents
+        conjNode == conjNode2 && idents == idents2 && args.filterKeys(idents.contains) == args2.filterKeys(idents2.contains)
+      case _                                                                           =>
+        false
+    }
 }
 
 object TypeConjunction
