@@ -833,4 +833,39 @@ object LogicalTypeValueTermUnifier
         (env2, noType.failure)
     }
   }
+  
+  private def checkTypeParamsFromTypeValueNodesS[T, U, E](nodes: Seq[TypeValueNode[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(nodes)(().success[NoType[T]]) {
+      (_, n, newEnv: E) => checkTypeParamsFromTypeValueNodeS(n)(newEnv)
+    } (env)
+
+  private def checkTypeParamsFromTypeValueNodeS[T, U, E](node: TypeValueNode[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
+    node match {
+      case TypeValueBranch(childs, tupleTypes, _) =>
+        val (env2, res) = checkTypeParamsFromTypeValueNodesS(childs)(env)
+        res.map { _ => checkTypeParamsFromTupleTypesS(tupleTypes)(env2) }.valueOr { nt => (env2, nt.failure) }
+      case TypeValueLeaf(TypeParamAppIdentity(param), _, _) =>
+        val (env2, isLambdaArgParam) = envSt.isTypeLambdaArgParamS(param)(env)
+        if(!isLambdaArgParam)
+          (env2, ().success)
+        else
+          unifier.mismatchedTermErrorS(env2).mapElements(identity, _.failure)
+      case _: TypeValueLeaf[T] =>
+        (env, ().success)
+      case GlobalTypeAppNode(_, childs, tupleTypes, _, _) =>
+        val (env2, res) = checkTypeParamsFromTypeValueNodesS(childs)(env)
+        res.map { _ => checkTypeParamsFromTupleTypesS(tupleTypes)(env2) }.valueOr { nt => (env2, nt.failure) }
+    }
+  
+  def checkTypeParamsFromLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
+    term match {
+      case LogicalTypeValueTerm(conjNode, args) =>
+        val (env2, res) = checkTypeParamsFromTypeValueNodeS(conjNode)(env)
+        res.map {
+          _ =>
+            stFoldLeftValidationS(args)(().success[NoType[T]]) {
+              (_, p, newEnv: E) => checkTypeParamsFromTypeValueLambdasS(p._2)(newEnv)
+            } (env)
+        }.valueOr { nt => (env2, nt.failure) }
+    }
 }

@@ -983,14 +983,33 @@ object TypeValueTermUnifier
   def checkDefinedTypes[T, U, E](definedTypes: Seq[DefinedType[T]])(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     checkDefinedTypes2[T, U, E](definedTypes)
 
-  private def checkTypeParamsFromTypeValueTermsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def checkTypeParamsFromTypeValueTermsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stFoldLeftValidationS(terms)(().success[NoType[T]]) {
       (_, t, newEnv: E) => checkTypeParamsFromTypeValueTermS(t)(newEnv)
     } (env)
-  
-  private def checkTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+      
+  def checkTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     stFoldLeftValidationS(lambdas)(().success[NoType[T]]) {
       (_, l, newEnv: E) => checkTypeParamsFromTypeValueTermS(l.body)(newEnv)
+    } (env)
+  
+  def checkTypeParamsFromTupleTypesS[T, U, E](terms: Seq[TupleType[T]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+    stFoldLeftValidationS(terms)(().success[NoType[T]]) {
+      (_, tupleType, newEnv: E) =>
+        partiallyInstantiateTypeValueTermS(tupleType)(unifier.mismatchedTermErrorS)(newEnv) match {
+          case (newEnv2, Success((instantiatedTerm, optInstantiatedParam))) =>
+            envSt.withInfinityCheckingS(optInstantiatedParam.toSet) {
+              newEnv3 =>
+                instantiatedTerm match {
+                  case TupleType(args) =>
+                    checkTypeParamsFromTypeValueTermsS(args)(newEnv3)
+                  case _               =>
+                    (newEnv3, NoType.fromError[T](FatalError("no tuple type", none, NoPosition)).failure)
+                }
+            } (newEnv2)
+          case (newEnv2, Failure(noType)) =>
+            (newEnv2, noType.failure)
+        }
     } (env)
     
   def checkTypeParamsFromTypeValueTermS[T, U, E](term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
@@ -1015,10 +1034,8 @@ object TypeValueTermUnifier
                   checkTypeParamsFromTypeValueLambdasS(args)(env4)
                 else
                   unifier.mismatchedTermErrorS(env4).mapElements(identity, _.failure)
-              case TypeConjunction(terms) =>
-                checkTypeParamsFromTypeValueTermsS(terms.toSeq)(env3)
-              case TypeDisjunction(terms) =>
-                checkTypeParamsFromTypeValueTermsS(terms.toSeq)(env3)
+              case logicalTerm: LogicalTypeValueTerm[T] =>
+                checkTypeParamsFromLogicalTypeValueTermS(logicalTerm)(env3)
             }
         } (env2)
       case (env2, Failure(noType)) =>
