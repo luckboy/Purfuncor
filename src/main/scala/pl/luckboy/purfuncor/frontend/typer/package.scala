@@ -148,13 +148,18 @@ package object typer
         case EvaluatedTypeLambdaValue(lambda) =>
           if(lambda.argParams.size === argValues.size) {
             val (env2, res) = TypeValueLambda.typeValueLambdasFromTypeValuesS(argValues)(env)
-            val retValue = res.map {
+            val (env4, retValue) = res.map {
               ls =>
-                substituteTypeValueLambdas(lambda.body, lambda.argParams.zip(ls).toMap, env2.typeParamCount).map {
-                  EvaluatedTypeValue(_)
-                }.getOrElse(NoTypeValue.fromError[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](FatalError("can't substitute type value lambdas", none, NoPosition)))
-            }.valueOr(identity)
-            (env2, retValue)
+                val paramLambdas = lambda.argParams.zip(ls).toMap
+                val (env3, res2) = TypeValueTerm.prepareTypeValueLambdasForSubstitutionS(lambda.argParams.zip(ls).toMap, lambda.body)(env2)
+                (env3, res2.map {
+                  paramLambdas2 =>
+                    substituteTypeValueLambdas(lambda.body, paramLambdas2, env2.typeParamCount).map {
+                      EvaluatedTypeValue(_)
+                    }.getOrElse(NoTypeValue.fromError[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]](FatalError("can't substitute type value lambdas", none, NoPosition)))
+                }.valueOr(identity))
+            }.valueOr { (env2, _) }
+            (env4, retValue)
           } else 
             (env, NoTypeValue.fromError(FatalError("illegal number of type arguments", none, NoPosition)))
         case _ =>

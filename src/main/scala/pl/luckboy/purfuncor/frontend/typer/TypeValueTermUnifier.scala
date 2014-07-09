@@ -330,17 +330,21 @@ object TypeValueTermUnifier
                                       case (term2, (lambda, _)) =>
                                         val term3 = normalizeTypeParamsForTermParamsAndLambdaParams(term2, nextParam + lambdas1.size + lambdas2.size)(termParams2, lambdaParams2)
                                         val lambdas = (lambdas1 ++ lambdas2).zipWithIndex.map { case (l, p) => (p + nextParam, l) }.toMap
-                                        substituteTypeValueLambdas(term3, lambdas, nextParam + lambdas1.size + lambdas2.size).map {
-                                          term4 =>
-                                            val (newEnv9, newRes2) = envSt.inferTypeValueTermKindS(term4)(newEnv8)
-                                            newRes2.map {
-                                              _ =>
-                                                matchesTypeValueLambdasS(lambda, TypeValueLambda(Seq(), term4))(x3)(f)(newEnv9) match {
-                                                  case (newEnv10, Success(y))      => (newEnv10, (y, kinds4).success)
-                                                  case (newEnv10, Failure(noType)) => (newEnv10, noType.failure)
-                                                }
-                                            }.valueOr { nt => (newEnv9, nt.failure) }
-                                        }.getOrElse(unifier.mismatchedTermErrorS(newEnv8).mapElements(identity, _.failure))
+                                        val (newEnv9, lambdaMapRes) = prepareTypeValueLambdasForSubstitutionS(lambdas, term3)(newEnv8)
+                                        lambdaMapRes.map {
+                                          lambdas2 =>
+                                            substituteTypeValueLambdas(term3, lambdas, nextParam + lambdas1.size + lambdas2.size).map {
+                                              term4 =>
+                                                val (newEnv10, newRes2) = envSt.inferTypeValueTermKindS(term4)(newEnv9)
+                                                newRes2.map {
+                                                  _ =>
+                                                    matchesTypeValueLambdasS(lambda, TypeValueLambda(Seq(), term4))(x3)(f)(newEnv10) match {
+                                                      case (newEnv11, Success(y))      => (newEnv11, (y, kinds4).success)
+                                                      case (newEnv11, Failure(noType)) => (newEnv11, noType.failure)
+                                                    }
+                                                }.valueOr { nt => (newEnv10, nt.failure) }
+                                            }.getOrElse(unifier.mismatchedTermErrorS(newEnv8).mapElements(identity, _.failure))
+                                        }.valueOr { nt => (newEnv9, nt.failure) }
                                     }.getOrElse((newEnv8, (x3, kinds4).success))
                                   case (newEnv8, Failure(noType)) =>
                                     (newEnv8, noType.failure)
