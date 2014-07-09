@@ -11,12 +11,14 @@ import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
+import pl.luckboy.purfuncor.frontend.typer.range._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
 import pl.luckboy.purfuncor.frontend.kinder.InferredKind
 import pl.luckboy.purfuncor.frontend.kinder.InferringKind
 import pl.luckboy.purfuncor.common.Inferrer._
 import pl.luckboy.purfuncor.util.CollectionUtils._
+import LogicalTypeValueTermKindInferrer._
 
 object TypeValueTermKindInferrer
 {  
@@ -43,12 +45,8 @@ object TypeValueTermKindInferrer
         val (env2, funKind) = envSt.typeParamKindFromEnvironmentS(param)(env)
         val (env3, res) = inferTypeValueLambdaKindsS(args)(env2)
         res.map { appInfoS(funKind, _)(env3) }.valueOr { (env3, _) }
-      case TypeConjunction(terms) =>
-        val (env2, res) = inferTypeValueTermKindsS(terms.toSeq)(env)
-        res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
-      case TypeDisjunction(terms) =>
-        val (env2, res) = inferTypeValueTermKindsS(terms.toSeq)(env)
-        res.map { appStarKindS(_)(env2) }.valueOr { (env2, _) }
+      case logicalTerm: LogicalTypeValueTerm[T] =>
+        inferLogicalTypeValueTermKindS(logicalTerm)(env)
     }
 
   def inferTypeValueTermKindsS[T, U, E](terms: Seq[TypeValueTerm[T]])(env: E)(implicit inferrer: Inferrer[U, E, Kind], envSt: KindInferrenceEnvironmentState[E, T]) =
