@@ -461,8 +461,6 @@ case class TypeParamApp[T](param: Int, args: Seq[TypeValueLambda[T]], paramAppId
 {
   override def withArgs(args: Seq[TypeValueLambda[T]]) = copy(args = args)
 }
-case class TypeConjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
-case class TypeDisjunction[T](terms: Set[TypeValueTerm[T]]) extends TypeValueTerm[T]
 case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
     args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) extends TypeValueTerm[T]
@@ -488,6 +486,40 @@ case class LogicalTypeValueTerm[T](
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
     }  
+}
+
+object TypeConjunction
+{
+  def unapply[T](term: TypeValueTerm[T]) =
+    term match {
+      case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, _), args) =>
+        mapToSetOption(childs) { 
+          c => LogicalTypeValueTerm(TypeValueBranch(Vector(c), Vector(), c.leafCount), args).normalizedTypeValueTerm
+        }.map { _ ++ tupleTypes }
+      case _ =>
+        none
+    }
+}
+
+object TypeDisjunction
+{
+  def unapply[T](term: TypeValueTerm[T]) =
+    term match {
+      case LogicalTypeValueTerm(conjNode, args) =>
+        conjNode match {
+          case TypeValueBranch(Seq(child), Seq(), _) =>
+            child match {
+              case TypeValueBranch(childs2, _, _) =>
+                mapToSetOption(childs2) { LogicalTypeValueTerm(_, args).normalizedTypeValueTerm }
+              case _                              =>
+                none
+            }
+          case _                                     =>
+            none
+        }
+      case _ =>
+        none
+    }
 }
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
