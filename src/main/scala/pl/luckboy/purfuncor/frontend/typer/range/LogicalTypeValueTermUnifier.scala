@@ -493,11 +493,11 @@ object LogicalTypeValueTermUnifier
             val otherTupleType = cond.otherTupleTypes(i)
             if(i < cond.otherTupleTypes.size - 1)
                envSt.withDelayedErrorRestoringOrSavingS(savedDelayedErrs) {
-                 TypeValueTermUnifier.matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(_: E)
+                 matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(_: E)
                } (newEnv3)
             else
               // last other tuple type
-              TypeValueTermUnifier.matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(newEnv3).mapElements(identity, (_, true))
+              matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(newEnv3).mapElements(identity, (_, true))
            case ((newEnv3, (newRes2, areRestoredDelayedErrs)), _)      =>
              (newEnv3, (newRes2, areRestoredDelayedErrs))
         }
@@ -537,7 +537,7 @@ object LogicalTypeValueTermUnifier
             (paramArgs, leafArgs) =>
               val typeParamApp = TypeParamApp(paramCond.param, paramArgs, paramCond.paramAppIdx)
               paramCond.leaf.typeValueTerm(leafArgs).map {
-                TypeValueTermUnifier.matchesTypeValueTermsS(typeParamApp, _)(x)(f)(newEnv3)
+                matchesTypeValueTermsS(typeParamApp, _)(x)(f)(newEnv3)
               }.getOrElse((newEnv3, NoType.fromError[T](FatalError("can't convert type value leaf to type value term", none, NoPosition)).failure))
           }.getOrElse((newEnv3, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure))
           val (newEnv5, _) = envSt.setCurrentTypeMatchingS(savedTypeMatching)(newEnv4)
@@ -583,10 +583,10 @@ object LogicalTypeValueTermUnifier
                   case Some(paramTerm) =>
                     argMap.get(ident).flatMap(leaf.typeValueTerm) match {
                       case Some(term) =>
-                        val (env4, res) = TypeValueTermUnifier.partiallyInstantiateTypeValueTermForMarkedParamsS(term)(Set())(unifier.mismatchedTermErrorS)(env)
+                        val (env4, res) = partiallyInstantiateTypeValueTermForMarkedParamsS(term)(Set())(unifier.mismatchedTermErrorS)(env)
                         res match {
                           case Success((term2, optInstantiatedParam)) =>
-                            val (env5, res2) = TypeValueTermUnifier.logicalTypeValueTermFromTypeValueTermS(term2)(env4)
+                            val (env5, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env4)
                             res2 match {
                               case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
                                 (env5, (newOptNodeMap + (ident -> some(conjNode2)), argMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
@@ -671,7 +671,7 @@ object LogicalTypeValueTermUnifier
                       stFoldLeftValidationS(args1.zip(args2))(x.success[NoType[T]]) {
                         (x2, argPair, newEnv2: E) =>
                           val (arg1, arg2) = argPair
-                          TypeValueTermUnifier.matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
+                          matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
                       } (newEnv)
                    } else
                      unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
@@ -725,10 +725,10 @@ object LogicalTypeValueTermUnifier
           case None       =>
             argMap.get(ident).flatMap(leaf.typeValueTerm) match {
               case Some(term) =>
-                val (env2, res) = TypeValueTermUnifier.replaceTypeValueTermParamsS(term)(f)(env)
+                val (env2, res) = replaceTypeValueTermParamsS(term)(f)(env)
                 res match {
                   case Success(term2) =>
-                    val (env3, res2) = TypeValueTermUnifier.logicalTypeValueTermFromTypeValueTermS(term2)(env2)
+                    val (env3, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env2)
                     res2 match {
                       case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
                         (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
@@ -793,7 +793,7 @@ object LogicalTypeValueTermUnifier
             (env2, noType.failure)
         }
       case TypeValueLeaf(TypeParamAppIdentity(param), paramAppIdx, leafCount) =>
-        val (env2, res) = TypeValueTermUnifier.unsafeAllocateTypeValueTermParamsS(TypeParamApp(param, Nil, paramAppIdx))(allocatedParams, unallocatedParamAppIdx)(env)
+        val (env2, res) = unsafeAllocateTypeValueTermParamsS(TypeParamApp(param, Nil, paramAppIdx))(allocatedParams, unallocatedParamAppIdx)(env)
         (env2, res.flatMap {
           case (allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, TypeParamApp(param2, _, paramAppIdx2)) =>
             (allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, TypeValueLeaf[T](TypeParamAppIdentity(param2), paramAppIdx2, leafCount)).success
@@ -821,7 +821,7 @@ object LogicalTypeValueTermUnifier
           (tmpTuple, pair, newEnv: E) =>
             val (ident, args) = pair
             val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newArgs) = tmpTuple
-            val (newEnv2, newRes) = TypeValueTermUnifier.unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+            val (newEnv2, newRes) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
             (newEnv2, newRes.map { 
               _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, as => newArgs + (ident -> as))
             })
