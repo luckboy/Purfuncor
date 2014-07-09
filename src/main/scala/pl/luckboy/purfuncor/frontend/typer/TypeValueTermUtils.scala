@@ -93,26 +93,31 @@ object TypeValueTermUtils
     }
   
   def substituteTypeValueLambdasInTypeValueTerm[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueTerm[T]] =
-    term match {
-      case tupleType: TupleType[T]        => 
-        substituteTypeValueLambdasInTupleType(tupleType, paramLambdas)
-      case FieldType(i, term2)            =>
-        substituteTypeValueLambdasInTypeValueTerm(term2, paramLambdas).map { FieldType(i, _) }
-      case BuiltinType(bf, args)          =>
-        substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
-      case Unittype(loc, args, sym)       =>
-        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Unittype(loc, _, sym) }
-      case Grouptype(loc, args, sym)      =>
-        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Grouptype(loc, _, sym) }
-      case GlobalTypeApp(loc, args, sym)  =>
-        substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { GlobalTypeApp(loc, _, sym) }
-      case typeParamApp: TypeParamApp[T]  =>
-        substituteTypeValueLambdasInTypeValueLambda(TypeValueLambda(Nil, typeParamApp), paramLambdas).flatMap {
-          case TypeValueLambda(Seq(), body) => some(body)
-          case _                            => none
+    term.normalizedTypeValueTerm match {
+      case Some(noramlizedTerm) =>
+        term match {
+          case tupleType: TupleType[T]        => 
+            substituteTypeValueLambdasInTupleType(tupleType, paramLambdas)
+          case FieldType(i, term2)            =>
+            substituteTypeValueLambdasInTypeValueTerm(term2, paramLambdas).map { FieldType(i, _) }
+          case BuiltinType(bf, args)          =>
+            substituteTypeValueLambdasInTypeValueTerms(args, paramLambdas).map { BuiltinType(bf, _) }
+          case Unittype(loc, args, sym)       =>
+            substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Unittype(loc, _, sym) }
+          case Grouptype(loc, args, sym)      =>
+            substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { Grouptype(loc, _, sym) }
+          case GlobalTypeApp(loc, args, sym)  =>
+            substituteTypeValueLambdasInTypeValueLambdas(args, paramLambdas).map { GlobalTypeApp(loc, _, sym) }
+          case typeParamApp: TypeParamApp[T]  =>
+            substituteTypeValueLambdasInTypeValueLambda(TypeValueLambda(Nil, typeParamApp), paramLambdas).flatMap {
+              case TypeValueLambda(Seq(), body) => some(body)
+              case _                            => none
+            }
+          case term2: LogicalTypeValueTerm[T] =>
+            substituteTypeValueLambdasInLogicalTypeValueTerm(term2, paramLambdas)
         }
-      case term2: LogicalTypeValueTerm[T] =>
-        substituteTypeValueLambdasInLogicalTypeValueTerm(term2, paramLambdas)
+      case None =>
+        none
     }
   
   def substituteTypeValueLambdas[T](term: TypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]], nextArgParam: Int) = {

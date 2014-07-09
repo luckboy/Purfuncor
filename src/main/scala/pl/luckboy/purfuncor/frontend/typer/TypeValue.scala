@@ -310,7 +310,7 @@ sealed trait TypeValueTerm[T]
           }
         }
       case _                                    =>
-        this
+        some(this)
     }
   
   def distributedTypeValueTerm =

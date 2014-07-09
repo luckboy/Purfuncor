@@ -1060,19 +1060,21 @@ object TypeValueTermUnifier
             val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args)(f)(env2)
             (env3, res2.map { TypeParamApp(param2, _, paramAppIdx) })
           case Success(Right(paramTerm)) =>
-            paramTerm match {
-              case TypeParamApp(param2, args2, _)   =>
-                val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
-                (env3, res2.map { TypeParamApp(param2, _, paramAppIdx) })
-              case GlobalTypeApp(loc2, args2, sym2) =>
-                val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
-                (env3, res2.map { GlobalTypeApp(loc2, _, sym2) })
-              case _                                =>
-                if(args.isEmpty)
-                  (env2, paramTerm.success)
-                else
-                  (env2, NoType.fromError[T](FatalError("type value term isn't type application", none, NoPosition)).failure)
-            }
+            paramTerm.normalizedTypeValueTerm.map {
+              _ match {
+                case TypeParamApp(param2, args2, _)   =>
+                  val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
+                  (env3, res2.map { TypeParamApp(param2, _, paramAppIdx) })
+                case GlobalTypeApp(loc2, args2, sym2) =>
+                  val (env3, res2) = replaceTypeParamsFromTypeValueLambdasS(args2 ++ args)(f)(env2)
+                  (env3, res2.map { GlobalTypeApp(loc2, _, sym2) })
+                case _                                =>
+                  if(args.isEmpty)
+                    (env2, paramTerm.success)
+                  else
+                    (env2, NoType.fromError[T](FatalError("type value term isn't type application", none, NoPosition)).failure)
+              }
+            }.getOrElse((env2, NoType.fromError[T](FatalError("can't normalized type value term", none, NoPosition)).failure))
           case Failure(noType)           =>
             (env2, noType.failure)
         }
