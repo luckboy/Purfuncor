@@ -660,35 +660,41 @@ object LogicalTypeValueTermUnifier
   
   private def matchesLocigalTypeValueTermsWithoutInstantationS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
-    matchesLocigalTypeValueTermsWithoutArgs(term1, term2, typeMatching).map {
-      case (idents, conds, (paramConds1, paramConds2)) =>
-        st(for {
-          x2 <- steS({
-            stFoldLeftValidationS(idents)(z.success[NoType[T]]) {
-              (x, ident, newEnv: E) =>
-                (term1.args.get(ident) |@| term2.args.get(ident)) {
-                  (args1, args2) =>
-                    if(args1.size === args2.size) {
-                      stFoldLeftValidationS(args1.zip(args2))(x.success[NoType[T]]) {
-                        (x2, argPair, newEnv2: E) =>
-                          val (arg1, arg2) = argPair
-                          matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
-                      } (newEnv)
-                   } else
-                     unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
-                  }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
-                }
-          })
-          x3 <- steS(checkTypeValueRangeConditionsS(conds)(x2)(f)(_: E))
-          x4 <- steS(checkTypeParamConditionsS(paramConds1, term1.args, term2.args)(x3)(f)(_: E))
-          y <- steS(checkTypeParamConditionsS(paramConds2, term2.args, term1.args)(x4)(f)(_: E))
-        } yield y).run(env2)
-    }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+    val (env3, termKindRes1) = envSt.inferTypeValueTermKindS(term1)(env2)
+    val (env4, termKindRes2) = envSt.inferTypeValueTermKindS(term2)(env3)
+    val (env5, retKindRes) = envSt.unifyKindsS(termKindRes1.valueOr { _.toNoKind }, termKindRes2.valueOr { _.toNoKind })(env4)
+    retKindRes.map {
+      retKind =>
+        matchesLocigalTypeValueTermsWithoutArgs(term1, term2, typeMatching).map {
+          case (idents, conds, (paramConds1, paramConds2)) =>
+            st(for {
+              x2 <- steS({
+                stFoldLeftValidationS(idents)(z.success[NoType[T]]) {
+                  (x, ident, newEnv: E) =>
+                    (term1.args.get(ident) |@| term2.args.get(ident)) {
+                      (args1, args2) =>
+                        if(args1.size === args2.size) {
+                          stFoldLeftValidationS(args1.zip(args2))(x.success[NoType[T]]) {
+                            (x2, argPair, newEnv2: E) =>
+                              val (arg1, arg2) = argPair
+                              matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
+                          } (newEnv)
+                       } else
+                         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
+                      }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+                    }
+              })
+              x3 <- steS(checkTypeValueRangeConditionsS(conds)(x2)(f)(_: E))
+              x4 <- steS(checkTypeParamConditionsS(paramConds1, term1.args, term2.args)(x3)(f)(_: E))
+              y <- steS(checkTypeParamConditionsS(paramConds2, term2.args, term1.args)(x4)(f)(_: E))
+              _ <- rsteS(envSt.setReturnKindS(retKind)(_: E))
+            } yield y).run(env5)
+        }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+    }.valueOr { nt => (env5, nt.failure) }
   }
 
   def matchesLocigalTypeValueTermsS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
     st(for {
-      
       pair1 <- steS(partiallyInstantiateLogicalTypeValueTermS(term1)(_: E))
       pair2 <- steS(partiallyInstantiateLogicalTypeValueTermS(term2)(_: E))
       y <- steS({
