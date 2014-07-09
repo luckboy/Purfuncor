@@ -270,6 +270,9 @@ package object typer
   implicit def symbolTypeEnvironmental[T] = new TypeEnvironmental[SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {
     override def globalTypeVarValueFromEnvironment(env: SymbolTypeEnvironment[T])(sym: GlobalSymbol) =
       env.typeVarValue(sym)
+      
+    override def withPartialEvaluation[U](env: SymbolTypeEnvironment[T])(isPartial: Boolean)(f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U)) =
+      env.withPartialEvaluation(isPartial)(f)
   }
   
   implicit def symbolTypeEnvironmentGlobalSymbolTabular[T] = new GlobalSymbolTabular[SymbolTypeEnvironment[T], GlobalSymbol] {

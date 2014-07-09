@@ -490,6 +490,11 @@ case class LogicalTypeValueTerm[T](
 
 object TypeConjunction
 {
+  def apply[T](terms: Set[TypeValueTerm[T]]) =
+    terms.headOption.map { terms.tail.foldLeft(_) { _ & _ } }.getOrElse {
+      LogicalTypeValueTerm[T](TypeValueBranch(Nil, Nil, 0), Map())
+    }
+  
   def unapply[T](term: TypeValueTerm[T]) =
     term match {
       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, _), args) =>
@@ -503,6 +508,11 @@ object TypeConjunction
 
 object TypeDisjunction
 {
+  def apply[T](terms: Set[TypeValueTerm[T]]) =
+    terms.headOption.map { terms.tail.foldLeft(_) { _ | _ } }.getOrElse {
+      LogicalTypeValueTerm[T](TypeValueBranch(Nil, Nil, 0), Map())
+    }
+  
   def unapply[T](term: TypeValueTerm[T]) =
     term match {
       case LogicalTypeValueTerm(conjNode, args) =>
