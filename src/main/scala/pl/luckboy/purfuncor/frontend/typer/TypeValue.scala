@@ -507,6 +507,8 @@ object TypeConjunction
   
   def unapply[T](term: TypeValueTerm[T]) =
     term match {
+      case LogicalTypeValueTerm(TypeValueBranch(Seq(TypeValueBranch(_, _, _)), Seq(), _), _) =>
+        none
       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, _), args) =>
         mapToSetOption(childs) { 
           c => LogicalTypeValueTerm(TypeValueBranch(Vector(c), Vector(), c.leafCount), args).normalizedTypeValueTerm
@@ -525,18 +527,8 @@ object TypeDisjunction
   
   def unapply[T](term: TypeValueTerm[T]) =
     term match {
-      case LogicalTypeValueTerm(conjNode, args) =>
-        conjNode match {
-          case TypeValueBranch(Seq(child), Seq(), _) =>
-            child match {
-              case TypeValueBranch(childs2, _, _) =>
-                mapToSetOption(childs2) { LogicalTypeValueTerm(_, args).normalizedTypeValueTerm }
-              case _                              =>
-                none
-            }
-          case _                                     =>
-            none
-        }
+      case LogicalTypeValueTerm(TypeValueBranch(Seq(TypeValueBranch(childs, _, _)), Seq(), _), args) =>
+        mapToSetOption(childs) { LogicalTypeValueTerm(_, args).normalizedTypeValueTerm }
       case _ =>
         none
     }
