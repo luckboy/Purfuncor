@@ -369,30 +369,46 @@ object LogicalTypeValueTermUnifier
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: term2.info.conjDepthRangeSets
         val disjDepthRangeSet = term2.info.conjDepthRangeSets.headOption.getOrElse(TypeValueRangeSet.full)
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: disjDepthRangeSet :: term1.info.conjDepthRangeSets
+        val tmpTerm1 = LogicalTypeValueTerm(TypeValueBranch(Vector(TypeValueBranch(Vector(term1.conjNode), tupleTypes1, term1.conjNode.leafCount)), Nil, term1.conjNode.leafCount), term1.args)
+        val tmpTerm2 = term2
+        val normalizedTerm1 = tmpTerm1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val normalizedTerm2 = tmpTerm2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val nodeTuple2 = (normalizedTerm2.info.conjRangeSets, normalizedTerm2.info.conjParams, normalizedTerm2.info.allParams, normalizedTerm2.info.fieldSetTypeIdents)
+        val nodeTuple1 = (normalizedTerm1.info.disjRangeSets, normalizedTerm1.info.disjParams, normalizedTerm1.info.allParams, normalizedTerm1.info.fieldSetTypeIdents)
         for {
-          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(TypeValueBranch(Vector(TypeValueBranch(Vector(term1.conjNode), tupleTypes1, term1.conjNode.leafCount)), Nil, term1.conjNode.leafCount), nodeTuple2, conjDepthRangeSets, term1.args, isSupertype, canExpandGlobalType)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype, canExpandGlobalType)
+          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(normalizedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, normalizedTerm1.args, isSupertype, canExpandGlobalType)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
         } yield (pair1, pair2)
       case (TypeValueBranch(childs1, tupleTypes1, _), TypeValueBranch(childs2, tupleTypes2, _)) if childs1.size === 1 && childs2.size > 1 && isFirstTry =>
         val conjDepthRangeSet = term2.info.conjDepthRangeSets.headOption.getOrElse(TypeValueRangeSet.full)
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: conjDepthRangeSet :: term2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: term1.info.disjDepthRangeSets
+        val tmpTerm1 = term1
+        val tmpTerm2 = LogicalTypeValueTerm(TypeValueBranch(Vector(TypeValueBranch(Vector(term2.conjNode), tupleTypes2, term2.conjNode.leafCount)), Nil, term2.conjNode.leafCount), term2.args)
+        val normalizedTerm1 = tmpTerm1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val normalizedTerm2 = tmpTerm2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val nodeTuple2 = (normalizedTerm2.info.conjRangeSets, normalizedTerm2.info.conjParams, normalizedTerm2.info.allParams, normalizedTerm2.info.fieldSetTypeIdents)
+        val nodeTuple1 = (normalizedTerm1.info.disjRangeSets, normalizedTerm1.info.disjParams, normalizedTerm1.info.allParams, normalizedTerm1.info.fieldSetTypeIdents)
         for {
-          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(term1.conjNode, nodeTuple2, conjDepthRangeSets, term1.args, isSupertype, canExpandGlobalType)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(TypeValueBranch(Vector(TypeValueBranch(Vector(term2.conjNode), tupleTypes2, term2.conjNode.leafCount)), Nil, term2.conjNode.leafCount), nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype, canExpandGlobalType)
+          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(normalizedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, normalizedTerm1.args, isSupertype, canExpandGlobalType)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
         } yield (pair1, pair2)
       case _ =>
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: term2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: term1.info.disjDepthRangeSets
+        val normalizedTerm1 = term1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val normalizedTerm2 = term2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val nodeTuple2 = (normalizedTerm2.info.conjRangeSets, normalizedTerm2.info.conjParams, normalizedTerm2.info.allParams, normalizedTerm2.info.fieldSetTypeIdents)
+        val nodeTuple1 = (normalizedTerm1.info.disjRangeSets, normalizedTerm1.info.disjParams, normalizedTerm1.info.allParams, normalizedTerm1.info.fieldSetTypeIdents)
         for {
-          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(term1.conjNode, nodeTuple2, conjDepthRangeSets, term1.args, isSupertype, canExpandGlobalType)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(term2.conjNode, nodeTuple1, disjDepthRangeSets, term2.args, !isSupertype, canExpandGlobalType)
+          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(normalizedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, normalizedTerm1.args, isSupertype, canExpandGlobalType)
+          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
         } yield (pair1, pair2)
     }
   }
   
   private def checkTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean, canExpandGlobalType: Boolean) =
-    checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms(term1.normalizedTypeValueNodeForChecking(canExpandGlobalType), term2.normalizedTypeValueNodeForChecking(canExpandGlobalType), isSupertype, isFirstTry, canExpandGlobalType: Boolean).map {
+    checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms(term1, term2, isSupertype, isFirstTry, canExpandGlobalType: Boolean).map {
       case ((optRangeSet1, distributedTerm1), (optRangeSet2, distributedTerm2)) =>
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: distributedTerm2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: distributedTerm1.info.disjDepthRangeSets
