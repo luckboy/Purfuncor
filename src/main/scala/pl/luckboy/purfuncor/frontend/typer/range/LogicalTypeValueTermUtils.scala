@@ -122,9 +122,9 @@ object LogicalTypeValueTermUtils
         val (pair2, childs2) = normalizeTypeParamsInTypeValueNodesForParamsS(childs, nextArgParam)(lambdaParams)(pair)
         val (pair3, tupleTypes2) = normalizeTypeParamsInTupleTypesForParamsS(tupleTypes, nextArgParam)(lambdaParams)(pair2)
         (pair3, TypeValueBranch(childs2, tupleTypes2, leafCount))
-      case TypeValueLeaf(ident, paramAppIdx, leafCount)               =>
+      case TypeValueLeaf(ident, _, leafCount)                         =>
         val (pair2, ident2) = normalizeTypeParamInTypeValueIdenityS(ident, nextArgParam)(lambdaParams)(pair)
-        (pair2, TypeValueLeaf(ident2, paramAppIdx, leafCount))
+        (pair2, TypeValueLeaf(ident2, 0, leafCount))
       case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
         val (pair2, childs2) = normalizeTypeParamsInTypeValueNodesForParamsS(childs, nextArgParam)(lambdaParams)(pair)
         val (pair3, tupleTypes2) = normalizeTypeParamsInTupleTypesForParamsS(tupleTypes, nextArgParam)(lambdaParams)(pair2)
