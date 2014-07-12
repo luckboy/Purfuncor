@@ -325,7 +325,7 @@ object LogicalTypeValueTermUnifier
     val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myNothingIdxs) = indexTuple
     node match {
       case TypeValueBranch(childs, _, _) =>
-        val optTuple3 = stFoldLeftS(childs)(some(tuple)) {
+        val optTuple3 = stFoldLeftS(childs)(none[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]])]) {
           (optTuple2, child, newLeafIdx: Int) =>
             optTuple2 match {
               case None => (newLeafIdx + child.leafCount, checkLeafIndexSetsForTypeConjunction(indexTuple, child, isSupertype, canExpandGlobalType)(newLeafIdx, tuple))
@@ -651,13 +651,12 @@ object LogicalTypeValueTermUnifier
         }
     }
     
-  private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
+  private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
     if(term.args.keys.exists { _.isInstanceOf[TypeParamAppIdentity[T]] }) {
       val (env2, res) = partiallyInstantiateTypeValueNodeS(term.conjNode, term.args, true)(Set())(Map(), Map())(env)
       (env2, res.map { t => t._3.map { case (n, ips) => (LogicalTypeValueTerm(n, t._2), ips) }.getOrElse((term, Set[Int]())) })
     } else
       (env, (term, Set[Int]()).success)
-  }
   
   private def matchesLocigalTypeValueTermsWithoutInstantationS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
@@ -668,9 +667,10 @@ object LogicalTypeValueTermUnifier
       retKind =>
         matchesLocigalTypeValueTermsWithoutArgs(term1, term2, typeMatching).map {
           case (idents, conds, (paramConds1, paramConds2)) =>
+            val idents2 = (idents - BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil)) - BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil)
             st(for {
               x2 <- steS({
-                stFoldLeftValidationS(idents)(z.success[NoType[T]]) {
+                stFoldLeftValidationS(idents2)(z.success[NoType[T]]) {
                   (x, ident, newEnv: E) =>
                     (term1.args.get(ident) |@| term2.args.get(ident)) {
                       (args1, args2) =>
@@ -682,8 +682,8 @@ object LogicalTypeValueTermUnifier
                           } (newEnv)
                         } else
                           unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
-                      }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
-                    }
+                    }.getOrElse(unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure))
+                }
               })
               x3 <- steS(checkTypeValueRangeConditionsS(conds)(x2)(f)(_: E))
               x4 <- steS(checkTypeParamConditionsS(paramConds1, term1.args, term2.args)(x3)(f)(_: E))
