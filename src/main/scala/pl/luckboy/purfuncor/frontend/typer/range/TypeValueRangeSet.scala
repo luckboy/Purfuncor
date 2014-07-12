@@ -45,7 +45,7 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
           case (range2, value2) =>
             if(range.minIdx <= range2.minIdx && range.maxIdx >= range2.maxIdx)
               newRanges + (range -> ranges2.values.foldLeft(value) { _ | _ })
-            else if(range.minIdx <= range2.minIdx && range.maxIdx >= range2.maxIdx)
+            else if(range.minIdx >= range2.minIdx && range.maxIdx <= range2.maxIdx)
               newRanges + (range2 -> newRanges.get(range).map(value | value2 |).getOrElse(value | value2))
             else
               newRanges
@@ -54,7 +54,7 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
     val newRanges4 = ranges.foldLeft(newRanges2) {
       case (newRanges3, pair @ (range, _)) => if(newRanges2.contains(range)) newRanges3 else newRanges3 + pair 
     }
-    val newRanges6 = ranges.foldLeft(newRanges2) {
+    val newRanges6 = rangeSet.ranges.foldLeft(newRanges4) {
       case (newRanges5, pair @ (range, _)) => if(newRanges2.contains(range)) newRanges5 else newRanges5 + pair 
     }
     TypeValueRangeSet(newRanges6)
@@ -75,7 +75,7 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
           case (sepRange, sepValue) =>
             if(range.minIdx <= sepRange.minIdx && range.maxIdx >= sepRange.maxIdx)
               newRanges + (range -> sepRanges.values.foldLeft(value) { _ | _ })
-            else if(range.minIdx <= sepRange.minIdx && range.maxIdx >= sepRange.maxIdx)
+            else if(range.minIdx >= sepRange.minIdx && range.maxIdx <= sepRange.maxIdx)
               newRanges + (sepRange -> newRanges.get(range).map(value | sepValue |).getOrElse(value | sepValue))
             else
               newRanges

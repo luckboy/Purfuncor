@@ -524,26 +524,17 @@ object TypeValueTermUnifier
       case (TypeParamApp(param1, Seq(), paramAppIdx1), _: LogicalTypeValueTerm[T]) =>
         term2.normalizedTypeValueTerm match {
           case Some(normalizedTerm2: LogicalTypeValueTerm[T]) =>
-            val (env4, res2) = unifier.withSaveS {
-              env2 =>
-                val (env3, res) = f(param1, Right(normalizedTerm2), z, env2)
-                res match {
-                  case Success(x)      =>
-                    matchesTypeValueTermsS(typeParamApp1, normalizedTerm2)(x)(f)(env3)
-                  case Failure(noType) =>
-                    (env3, noType.failure)
-                }
-            } (env)
-            val (env6, res3) = res2 match {
+            val (env2, res2) = unifier.withSaveS { f(param1, Right(normalizedTerm2), z, _) } (env)
+            val (env3, res3) = res2 match {
               case Success(x) =>
-                (env4, x.success)
+                (env2, x.success)
               case Failure(_) =>
-                logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env4) match {
-                  case (env5, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env5)
-                  case (env5, Failure(noType))       => (env5, noType.failure)
+                logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env2) match {
+                  case (env4, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env4)
+                  case (env4, Failure(noType))       => (env4, noType.failure)
                 }
             }
-            addDelayedErrorsFromResultS(res3, Set(paramAppIdx1))(z)(env6)
+            addDelayedErrorsFromResultS(res3, Set(paramAppIdx1))(z)(env3)
           case Some(normalizedTerm2) =>
             val (env2, res) = f(param1, Right(normalizedTerm2), z, env)
             addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env2)
@@ -570,8 +561,10 @@ object TypeValueTermUnifier
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, typeParamApp1)(z)(f)(env2)
       case (TypeParamApp(_, args1, _), logicalTerm2: LogicalTypeValueTerm[T]) if !args1.isEmpty =>
         logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env) match {
-          case (env2, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
-          case (env2, Failure(noType))       => (env2, noType.failure)
+          case (env2, Success(logicalTerm1)) => 
+            matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+          case (env2, Failure(noType))       => 
+            (env2, noType.failure)
         }
       case (TypeParamApp(param1, args1, paramAppIdx1), _) =>
         val (env2, noType) = mismatchedTypeValueTermNoTypeWithReturnKindS(typeParamApp1, term2)(env)

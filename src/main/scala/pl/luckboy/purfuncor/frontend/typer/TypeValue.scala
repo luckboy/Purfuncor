@@ -465,7 +465,7 @@ case class LogicalTypeValueTerm[T](
     conjNode: TypeValueNode[T],
     args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) extends TypeValueTerm[T]
 {
-  lazy val info: LogicalTypeValueTermInfo[T] = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)  
+  lazy val info = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)  
 
   def globalTypeAppForLogicalTypeValueTerm(loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) =
     this match {
@@ -486,6 +486,9 @@ case class LogicalTypeValueTerm[T](
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
     }
+  
+  def normalizedTypeValueNodeForChecking(canExpandGlobalType: Boolean) =
+    LogicalTypeValueTerm(conjNode.normalizedTypeValueNodeForChecking(canExpandGlobalType), args + (BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil) -> Nil) + (BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil) -> Nil))
 
   override def equals(that: Any) =
     that match {
