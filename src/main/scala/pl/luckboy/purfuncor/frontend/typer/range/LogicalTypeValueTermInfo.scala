@@ -74,7 +74,7 @@ object LogicalTypeValueTermInfo
             ident -> (conjRangeSets2.getOrElse(ident, TypeValueRangeSet.empty) | optRange.map { r => TypeValueRangeSet(SortedMap(r -> value)) }.getOrElse(TypeValueRangeSet.empty))
         }
         val conjDepthRangeSet2 = conjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
-        val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
+        val range = TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)
         (info3.copy(
             conjRangeSets = conjRangeSets3, conjDepthRangeSets = conjDepthRangeSet2 :: info3.conjDepthRangeSets,
             conjParams = info3.conjParams + (range -> conjParamSets2), allParams = info3.allParams ++ params.values.flatten), Map(), optRange)
@@ -134,7 +134,7 @@ object LogicalTypeValueTermInfo
             ident -> (disjRangeSets2.getOrElse(ident, TypeValueRangeSet.empty) | optRange.map { r => TypeValueRangeSet(SortedMap(r -> value)) }.getOrElse(TypeValueRangeSet.empty))
         }
         val disjDepthRangeSet2 = disjDepthRangeSet | optRange.map { r => TypeValueRangeSet(SortedMap(r -> TypeValueRangeValue.empty[T])) }.getOrElse(TypeValueRangeSet.empty)
-        val range = TypeValueRange(leafIdx, leafIdx + node.leafCount)
+        val range = TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)
         (info3.copy(
             disjRangeSets = disjRangeSets3, disjDepthRangeSets = disjDepthRangeSet2 :: info3.disjDepthRangeSets,
             disjParams = info3.disjParams + (range -> disjParamSets2), allParams = info3.allParams ++ params.values.flatten), Map(), optRange)

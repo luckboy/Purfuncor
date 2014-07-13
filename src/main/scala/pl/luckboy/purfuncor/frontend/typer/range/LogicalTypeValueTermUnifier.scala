@@ -90,7 +90,7 @@ object LogicalTypeValueTermUnifier
             } (newPrevParam)
             (newPrevParam, (pair2 :: pairs2) ++ pairs)
         } (prevParam2)
-        val pairs9 = pairs8.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + leafCount), rs.ranges.keys, tupleTypes) }, n) }
+        val pairs9 = pairs8.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + leafCount - 1), rs.ranges.keys, tupleTypes) }, n) }
         if(isRoot)
           (prevParam3, pairs9.headOption.map {
             pair =>
@@ -174,7 +174,7 @@ object LogicalTypeValueTermUnifier
             val (newPrevParam2, rangeSet2) = checkSupertypeDisjunctionLeafForTypeParams(rangeSet.ranges.keys, leaf2, nodeTuple, depthRangeSets, args, isSupertype)(leafIdx2)(newPrevParam)
             (newPrevParam2, rangeSet & rangeSet2)
         } (prevParam2)
-        (prevParam2, rangeSet4.withConds(TypeValueRange(leafIdx, leafIdx + leafCount), rangeSet4.ranges.keys, tupleTypes))
+        (prevParam2, rangeSet4.withConds(TypeValueRange(leafIdx, leafIdx + leafCount - 1), rangeSet4.ranges.keys, tupleTypes))
       case leaf: TypeValueLeaf[T] =>
         checkSupertypeConjunctionLeaf(leaf, nodeTuple, depthRangeSets, isSupertype)(leafIdx)(prevParam)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
@@ -311,7 +311,7 @@ object LogicalTypeValueTermUnifier
             }
         } (leafIdx)._2
         optTuple3.map {
-          tuple3 => tuple3.copy(_2 = myCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount)).map(tuple3._2 |).getOrElse(tuple3._2))
+          tuple3 => tuple3.copy(_2 = myCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)).map(tuple3._2 |).getOrElse(tuple3._2))
         }
       case TypeValueLeaf(ident, paramAppIdx, _) =>
         checkLeafIndexSetsForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx, tuple)
@@ -333,7 +333,7 @@ object LogicalTypeValueTermUnifier
             }
         } (leafIdx)._2
         optTuple3.map {
-          tuple3 => tuple3.copy(_2 = otherCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount)).map(tuple3._2 +).getOrElse(tuple3._2))
+          tuple3 => tuple3.copy(_2 = otherCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)).map(tuple3._2 +).getOrElse(tuple3._2))
         }
       case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx)
