@@ -45,7 +45,7 @@ object LogicalTypeValueTermKindInferrer
           case Failure(noKind)              =>
             (env2, noKind.failure)
         }
-      case leaf @ TypeValueLeaf(ident, paramAppIdx, _) =>
+      case leaf @ TypeValueLeaf(ident, _, _) =>
         newKindMap.get(ident) match {
           case Some(kind) =>
             (env, (newKindMap, kind).success)

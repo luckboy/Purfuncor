@@ -314,10 +314,10 @@ sealed trait TypeValueTerm[T]
   
   override def toString =
     this match {
-      case TupleType(Seq(arg))          => "tuple 1 " + arg.toArgString
-      case TupleType(args)              => "(" + args.mkString(", ") + ")"
-      case FieldType(i, term)           => "##" + (i + 1) + " " + term.toArgString 
-      case BuiltinType(bf, args)        => 
+      case TupleType(Seq(arg))                  => "tuple 1 " + arg.toArgString
+      case TupleType(args)                      => "(" + args.mkString(", ") + ")"
+      case FieldType(i, term)                   => "##" + (i + 1) + " " + term.toArgString 
+      case BuiltinType(bf, args)                => 
         bf match {
           case TypeBuiltinFunction.Fun => 
             args.headOption.map { 
@@ -340,12 +340,12 @@ sealed trait TypeValueTerm[T]
             (if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf) +
             args.map { " " + _.toArgString }.mkString("")
         }
-      case Unittype(_, args, sym)       => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case Grouptype(_, args, sym)      => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case GlobalTypeApp(_, args, sym)  => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case TypeParamApp(param, args, _) => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
-      case TypeConjunction(terms)       => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #& ") else "<type conjunction without terms>"
-      case TypeDisjunction(terms)       =>
+      case Unittype(_, args, sym)               => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case Grouptype(_, args, sym)              => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case GlobalTypeApp(_, args, sym)          => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case TypeParamApp(param, args, _)         => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
+      case TypeConjunction(terms)               => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #& ") else "<type conjunction without terms>"
+      case TypeDisjunction(terms)               =>
         if(!terms.isEmpty)
           terms.map { 
             term => 
@@ -356,6 +356,8 @@ sealed trait TypeValueTerm[T]
           }.mkString(" #| ")
         else
           "<type disjunction without terms>"
+      case logicalTerm: LogicalTypeValueTerm[T] =>
+        logicalTerm.normalizedTypeValueTerm.map { _.toString }.getOrElse("<incorrect logical type value term>")
     }
 }
 
@@ -467,10 +469,13 @@ case class LogicalTypeValueTerm[T](
 {
   lazy val info = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args)  
 
-  def globalTypeAppForLogicalTypeValueTerm(loc: T, args: Seq[TypeValueLambda[T]], sym: GlobalSymbol) =
+  def globalTypeAppForLogicalTypeValueTerm(loc: T, argLambdas: Seq[TypeValueLambda[T]], sym: GlobalSymbol) = {
+    val globalTypeAppArgs = Map(
+        ExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,
+        UnexpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas)
     this match {
        case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args ++ globalTypeAppArgs)
        case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
          val child2 = child match {
            case leaf2: TypeValueLeaf[T]                           =>
@@ -480,12 +485,13 @@ case class LogicalTypeValueTerm[T](
            case _: GlobalTypeAppNode[T]                           =>
              child
          }
-         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args)
+         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args ++ globalTypeAppArgs)
        case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args ++ globalTypeAppArgs)
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
     }
+  }
   
   def normalizedTypeValueNodeForChecking(canExpandGlobalType: Boolean) =
     LogicalTypeValueTerm(conjNode.normalizedTypeValueNodeForChecking(canExpandGlobalType), args + (BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil) -> Nil) + (BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil) -> Nil))
