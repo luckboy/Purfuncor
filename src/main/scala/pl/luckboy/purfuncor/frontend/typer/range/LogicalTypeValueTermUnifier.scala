@@ -829,11 +829,18 @@ object LogicalTypeValueTermUnifier
         val (env3, res2) = stFoldLeftValidationS(term.args)((allocatedParams, Set[Int](), Set[Int](), Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]()).success[NoType[T]]) {
           (tmpTuple, pair, newEnv: E) =>
             val (ident, args) = pair
-            val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newArgs) = tmpTuple
-            val (newEnv2, newRes) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
-            (newEnv2, newRes.map { 
-              _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, as => newArgs + (ident -> as))
-            })
+            val optIdent2 = ident match {
+              case TypeParamAppIdentity(param) => allocatedParams2.get(param).map { TypeParamAppIdentity(_) }
+              case _                           => some(ident)
+            }
+            optIdent2.map {
+              ident2 =>
+                val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newArgs) = tmpTuple
+                val (newEnv2, newRes) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
+                  (newEnv2, newRes.map { 
+                    _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, as => newArgs + (ident2 -> as))
+                })
+            }.getOrElse((newEnv, NoType.fromError[T](FatalError("unallocated parameter", none, NoPosition)).failure))
         } (env2)
         (env3, res2.map { _.mapElements(identity, allocatedArgParams | _, allocatedParamAppIdxs | _, LogicalTypeValueTerm(conjNode2, _)) })
       case Failure(noType) =>

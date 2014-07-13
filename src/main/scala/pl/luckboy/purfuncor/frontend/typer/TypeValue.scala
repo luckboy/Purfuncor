@@ -272,25 +272,27 @@ sealed trait TypeValueTerm[T]
   def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     conjOrDisjS(term) { _ | _ } (env)
     
-  private def leafTypeValueTermFromTypeValueNodeWithArgs(node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[TypeValueTerm[T]] =
+  private def leafTypeValueTermFromTypeValueNodeWithArgs(node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[Option[TypeValueTerm[T]]] =
     node match {
       case TypeValueBranch(Seq(child), Seq(), _) =>
         leafTypeValueTermFromTypeValueNodeWithArgs(child, args)
       case _: TypeValueBranch[T]                 =>
-        none
+        some(none)
       case leaf @ TypeValueLeaf(ident, _, _)     =>
-        args.get(ident).flatMap(leaf.typeValueTerm)
+        args.get(ident).flatMap { as => some(leaf.typeValueTerm(as)) }
       case GlobalTypeAppNode(loc, _, _, _, sym)  =>
-        args.get(UnexpandedGlobalTypeAppIdentity(loc, sym)).map { GlobalTypeApp(loc, _, sym) }
+        args.get(UnexpandedGlobalTypeAppIdentity(loc, sym)).map { as => some(GlobalTypeApp(loc, as, sym)) }
     }
   
   def normalizedTypeValueTerm =
     this match {
       case LogicalTypeValueTerm(conjNode, args) =>
-        leafTypeValueTermFromTypeValueNodeWithArgs(conjNode, args).orElse {
-          conjNode match {
-            case _: TypeValueBranch[T] => some(this)
-            case _                     => none
+        leafTypeValueTermFromTypeValueNodeWithArgs(conjNode, args).flatMap {
+          _.orElse {
+            conjNode match {
+              case _: TypeValueBranch[T] => some(this)
+              case _                     => none
+            }
           }
         }
       case _                                    =>
@@ -314,10 +316,10 @@ sealed trait TypeValueTerm[T]
   
   override def toString =
     this match {
-      case TupleType(Seq(arg))                  => "tuple 1 " + arg.toArgString
-      case TupleType(args)                      => "(" + args.mkString(", ") + ")"
-      case FieldType(i, term)                   => "##" + (i + 1) + " " + term.toArgString 
-      case BuiltinType(bf, args)                => 
+      case TupleType(Seq(arg))           => "tuple 1 " + arg.toArgString
+      case TupleType(args)               => "(" + args.mkString(", ") + ")"
+      case FieldType(i, term)            => "##" + (i + 1) + " " + term.toArgString 
+      case BuiltinType(bf, args)         => 
         bf match {
           case TypeBuiltinFunction.Fun => 
             args.headOption.map { 
@@ -340,14 +342,14 @@ sealed trait TypeValueTerm[T]
             (if(bf.toString.headOption.map { c => c.isLetter || c === '_' }.getOrElse(false)) "#" + bf else "##" + bf) +
             args.map { " " + _.toArgString }.mkString("")
         }
-      case Unittype(_, args, sym)               => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case Grouptype(_, args, sym)              => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case GlobalTypeApp(_, args, sym)          => sym.toString + args.map { " " + _.toArgString }.mkString("")
-      case TypeParamApp(param, args, _)         => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
-      case TypeConjunction(terms)               => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #& ") else "<type conjunction without terms>"
-      case TypeDisjunction(terms)               =>
+      case Unittype(_, args, sym)        => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case Grouptype(_, args, sym)       => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case GlobalTypeApp(_, args, sym)   => sym.toString + args.map { " " + _.toArgString }.mkString("")
+      case TypeParamApp(param, args, _)  => "t" + (param + 1) + args.map { " " + _.toArgString }.mkString("")
+      case TypeConjunction(terms)        => if(!terms.isEmpty) terms.map { _.toArgString }.mkString(" #& ") else "<type conjunction without terms>"
+      case TypeDisjunction(terms)        =>
         if(!terms.isEmpty)
-          terms.map { 
+          terms.map {
             term => 
               term match {
                 case TypeConjunction(_) => term.toString
@@ -356,8 +358,11 @@ sealed trait TypeValueTerm[T]
           }.mkString(" #| ")
         else
           "<type disjunction without terms>"
-      case logicalTerm: LogicalTypeValueTerm[T] =>
-        logicalTerm.normalizedTypeValueTerm.map { _.toString }.getOrElse("<incorrect logical type value term>")
+      case term: LogicalTypeValueTerm[T] =>
+        term.normalizedTypeValueTerm.map { 
+          case term2: LogicalTypeValueTerm[T] => "<logical type value term>"
+          case term2                          => term2.toString
+        }.getOrElse("<incorrect logical type value term>")
     }
 }
 
