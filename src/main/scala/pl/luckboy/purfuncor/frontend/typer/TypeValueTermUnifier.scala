@@ -331,7 +331,7 @@ object TypeValueTermUnifier
                                       case (term2, (lambda, _)) =>
                                         val term3 = normalizeTypeParamsForTermParamsAndLambdaParams(term2, nextParam + lambdas1.size + lambdas2.size)(termParams2, lambdaParams2)
                                         val lambdas = (lambdas1 ++ lambdas2).zipWithIndex.map { case (l, p) => (p + nextParam, l) }.toMap
-                                        val (newEnv9, lambdaMapRes) = prepareTypeValueLambdasForSubstitutionS(lambdas, term3)(newEnv8)
+                                        val (newEnv9, lambdaMapRes) = prepareTypeValueLambdasForSubstitutionS(lambdas, term3, nextParam)(newEnv8)
                                         lambdaMapRes.map {
                                           lambdas2 =>
                                             substituteTypeValueLambdas(term3, lambdas, nextParam + lambdas1.size + lambdas2.size).map {
@@ -1047,14 +1047,17 @@ object TypeValueTermUnifier
         (env, term.unevaluatedLogicalTypeValueTerm.success)
     }
   
-  def prepareTypeValueLambdasForSubstitutionS[T, U, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
+  def prepareTypeValueLambdasForSubstitutionS[T, U, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T], nextParam: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
     val logicalTerms = logicalTypeValueTermsFromTypeValueTerm(term)
     st(for {
       lambdas2 <- steS({
         stMapToIntMapValidationS(lambdas) {
           (pair, newEnv: E) =>
             val (param, lambda) = pair
-            unifier.findRootParamS(param)(newEnv).mapElements(identity, _.map { _ -> (param -> lambda) })
+            if(param < nextParam)
+              unifier.findRootParamS(param)(newEnv).mapElements(identity, _.map { _ -> (param -> lambda) })
+            else
+              (newEnv, (param -> (param -> lambda)).success)
         }
       })
       lambdas3 <- steS({
@@ -1064,7 +1067,10 @@ object TypeValueTermUnifier
               (newLambdas2, ident, newEnv2: E) =>
                 ident match {
                   case TypeParamAppIdentity(param) =>
-                    val (newEnv3, newRes) = unifier.findRootParamS(param)(newEnv2)
+                    val (newEnv3, newRes) = if(param < nextParam)
+                      unifier.findRootParamS(param)(newEnv2)
+                    else
+                      (newEnv2, param.success)
                     newRes.map {
                       rootParam =>
                         lambdas2.get(rootParam).map {
