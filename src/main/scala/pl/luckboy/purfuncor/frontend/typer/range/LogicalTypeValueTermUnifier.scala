@@ -732,29 +732,42 @@ object LogicalTypeValueTermUnifier
           case Some(node) =>
             (env, (newNodeMap, newArgMap, node).success)
           case None       =>
-            argMap.get(ident).flatMap(leaf.typeValueTerm) match {
-              case Some(term) =>
-                val (env2, res) = replaceTypeValueTermParamsS(term)(f)(env)
-                res match {
-                  case Success(term2) =>
-                    val (env3, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env2)
-                    res2 match {
-                      case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
-                        (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
-                      case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
-                        val leafIdents = argMap.keySet & argMap2.keySet
-                        if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
-                          (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
-                        else
-                          (env3, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
-                      case Failure(noType) =>
-                        (env3, noType.failure)
-                    }
-                  case Failure(noType) =>
-                    (env2, noType.failure)
+            ident match {
+              case _: UnexpandedGlobalTypeAppIdentity[T] =>
+                argMap.get(ident) match {
+                  case Some(args) =>
+                    val (env2, res) = replaceTypeParamsFromTypeValueLambdasS(args)(f)(env)
+                    (env2, res.map {
+                      args2 => (newNodeMap + (ident -> leaf), newArgMap + (ident -> args2), leaf)
+                    })
+                  case None       =>
+                    (env, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
                 }
-              case None =>
-                (env, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
+              case _                                     =>
+                argMap.get(ident).flatMap(leaf.typeValueTerm) match {
+                  case Some(term) =>
+                    val (env2, res) = replaceTypeValueTermParamsS(term)(f)(env)
+                    res match {
+                      case Success(term2) =>
+                        val (env3, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env2)
+                        res2 match {
+                          case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
+                            (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
+                          case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
+                            val leafIdents = argMap.keySet & argMap2.keySet
+                            if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
+                              (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
+                            else
+                              (env3, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                          case Failure(noType) =>
+                            (env3, noType.failure)
+                        }
+                      case Failure(noType) =>
+                        (env2, noType.failure)
+                    }
+                  case None =>
+                    (env, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
+                }
             }
         }
         (env4, res3.map { 
