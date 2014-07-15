@@ -713,16 +713,16 @@ object TypeValueTermUnifier
     envSt.setCurrentTypeMatchingS(typeMatching)(env6).mapElements(identity, _ => res)
   }
   
-  def replaceTypeParamsFromTypeValueTermsS[T, U, E](terms: Seq[TypeValueTerm[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def replaceTypeParamsFromTypeValueTermsS[T, U, E](terms: Seq[TypeValueTerm[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     stMapToVectorValidationS(terms) { replaceTypeValueTermParamsS(_)(f)(_: E) } (env)
   
-  def replaceTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def replaceTypeParamsFromTypeValueLambdasS[T, U, E](lambdas: Seq[TypeValueLambda[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     stMapToVectorValidationS(lambdas) { replaceTypeValueLambdaParamsS(_)(f)(_: E) } (env)
     
-  def replaceTypeParamsFromTupleTypesS[T, U, E](tupleTypes: Seq[TupleType[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def replaceTypeParamsFromTupleTypesS[T, U, E](tupleTypes: Seq[TupleType[T]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     stMapToVectorValidationS(tupleTypes) { replaceTupleTypeParamsS(_)(f)(_: E) } (env)
   
-  def replaceTypeValueLambdaParamsS[T, U, E](lambda: TypeValueLambda[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def replaceTypeValueLambdaParamsS[T, U, E](lambda: TypeValueLambda[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     lambda match {
       case TypeValueLambda(argParams, body) =>
         val (env2, res) = stMapToVectorValidationS(argParams) { unifier.findRootParamS(_)(_: E) } (env)
@@ -731,13 +731,13 @@ object TypeValueTermUnifier
         }.valueOr { nt => (env2, nt.failure) }
     }
   
-  def replaceTupleTypeParamsS[T, U, E](tupleType: TupleType[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  def replaceTupleTypeParamsS[T, U, E](tupleType: TupleType[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     tupleType match {
       case TupleType(args) =>
         replaceTypeParamsFromTypeValueTermsS(args)(f)(env).mapElements(identity, _.map { TupleType(_) })
     }
     
-  def replaceTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
+  def replaceTypeValueTermParamsS[T, U, E](term: TypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], TypeValueTerm[T]]) =
     term match {
       case tupleType: TupleType[T] =>
         replaceTupleTypeParamsS(tupleType)(f)(env)
@@ -1047,7 +1047,7 @@ object TypeValueTermUnifier
         (env, term.unevaluatedLogicalTypeValueTerm.success)
     }
   
-  def prepareTypeValueLambdasForSubstitutionS[T, U, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T], nextParam: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) = {
+  def prepareTypeValueLambdasForSubstitutionS[T, U, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T], nextParam: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) = {
     val logicalTerms = logicalTypeValueTermsFromTypeValueTerm(term)
     st(for {
       lambdas2 <- steS({
@@ -1081,7 +1081,7 @@ object TypeValueTermUnifier
                         }.map {
                           case (newEnv4, Success(((lambdaParam, lambda @ TypeValueLambda(args, body: LogicalTypeValueTerm[T])), isNewLambda))) =>
                             val leafIdents = logicalTerm.args.keySet & body.args.keySet
-                            if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                            if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                               (newEnv4, (if(isNewLambda) newLambdas2 + (rootParam -> (lambdaParam, lambda)) else newLambdas2).success)
                             else
                               (newEnv4, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)

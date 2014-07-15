@@ -548,7 +548,7 @@ object LogicalTypeValueTermUnifier
     } (env).mapElements(identity, _.map { _._1 })
   }
   
-  private def partiallyInstantiateTypeValueNodesS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodes: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  private def partiallyInstantiateTypeValueNodesS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodes: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     stFoldLeftValidationS(nodes)((newOptNodes, newArgMap, Vector[TypeValueNode[T]](), Set[Int](), false).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
         val (newOptNodeMap2, newArgMap2, newNodes, newInstantiatedParams, isInstantiation) = tuple
@@ -563,7 +563,7 @@ object LogicalTypeValueTermUnifier
         })
     } (env)
   
-  private def partiallyInstantiateTypeValueNodeS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodeMap: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], Option[(TypeValueNode[T], Set[Int])])]) =
+  private def partiallyInstantiateTypeValueNodeS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodeMap: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], Option[(TypeValueNode[T], Set[Int])])]) =
     node match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         val (env2, res) = partiallyInstantiateTypeValueNodesS(childs, argMap, !isConj)(markedParams)(newOptNodeMap, newArgMap)(env)
@@ -593,7 +593,7 @@ object LogicalTypeValueTermUnifier
                                 (env5, (newOptNodeMap + (ident -> some(conjNode2)), argMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
                               case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
                                 val leafIdents = argMap.keySet & argMap2.keySet
-                                if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                                if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                                   (env5, (newOptNodeMap + (ident -> some(conjNode2)), argMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
                                 else
                                   (env5, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
@@ -651,7 +651,7 @@ object LogicalTypeValueTermUnifier
         }
     }
     
-  private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     if(term.args.keys.exists { _.isInstanceOf[TypeParamAppIdentity[T]] }) {
       val (env2, res) = partiallyInstantiateTypeValueNodeS(term.conjNode, term.args, true)(Set())(Map(), Map())(env)
       (env2, res.map { t => t._3.map { case (n, ips) => (LogicalTypeValueTerm(n, t._2), ips) }.getOrElse((term, Set[Int]())) })
@@ -708,7 +708,7 @@ object LogicalTypeValueTermUnifier
       })
     } yield y).run(env)
   
-  private def replaceTypeParamsFromLogicalTypeValueNodeS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
+  private def replaceTypeParamsFromLogicalTypeValueNodeS[T, U, E](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     stFoldLeftValidationS(nodes)((newNodeMap, newArgMap, Vector[TypeValueNode[T]]()).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
         val (newNodeMap2, newArgMap2, newNodes) = tuple
@@ -716,7 +716,7 @@ object LogicalTypeValueTermUnifier
         (newEnv2, newRes.map { _.mapElements(identity, identity, newNodes :+ _) })
     } (env)
     
-  def replaceLogicalTypeValueNodeParamsS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])]) =
+  def replaceLogicalTypeValueNodeParamsS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])]) =
     node match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         val (env2, res) = replaceTypeParamsFromLogicalTypeValueNodeS(childs, argMap, !isConj)(newNodeMap, newArgMap)(f)(env)
@@ -743,7 +743,7 @@ object LogicalTypeValueTermUnifier
                         (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
                       case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
                         val leafIdents = argMap.keySet & argMap2.keySet
-                        if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                        if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                           (env3, (newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2).success)
                         else
                           (env3, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
@@ -775,7 +775,7 @@ object LogicalTypeValueTermUnifier
         }
     }
   
-  def replaceLogicalTypeValueTermParamsS[T, U, E](term: LogicalTypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], TypeValueTerm[T]]) = {
+  def replaceLogicalTypeValueTermParamsS[T, U, E](term: LogicalTypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], TypeValueTerm[T]]) = {
     val (env2, res) = replaceLogicalTypeValueNodeParamsS(term.conjNode, term.args, true)(Map(), Map())(f)(env)
     (env2, res.map { case (_, args2, conjNode2) => LogicalTypeValueTerm(conjNode2, args2) })
   }

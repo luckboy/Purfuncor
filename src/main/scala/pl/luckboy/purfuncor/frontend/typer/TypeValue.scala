@@ -250,7 +250,7 @@ sealed trait TypeValueTerm[T]
         (env, unevaluatedLogicalTypeValueTerm.success)
     }
   
-  private def conjOrDisjS[U, V, W, E](term: TypeValueTerm[T])(f: (TypeValueTerm[T], TypeValueTerm[T]) => TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+  private def conjOrDisjS[U, V, W, E](term: TypeValueTerm[T])(f: (TypeValueTerm[T], TypeValueTerm[T]) => TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) = {
     val (env2, termRes1) = this.logicalTypeValueTermS(env)
     termRes1.map {
       case term1 @ LogicalTypeValueTerm(conjNode1, args1) =>
@@ -258,7 +258,7 @@ sealed trait TypeValueTerm[T]
         termRes2.map {
           case term2 @ LogicalTypeValueTerm(conjNode2, args2) =>
             val leafIdents = args1.keySet & args2.keySet
-            if(leafIdents.forall { i => (args1.get(i) |@| args2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+            if(leafIdents.forall { i => (args1.get(i) |@| args2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
               (env3, f(term1, term2).success)
             else
               (env3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
@@ -266,10 +266,10 @@ sealed trait TypeValueTerm[T]
     }.valueOr { nv => (env2, nv.failure) }
   }
 
-  def conjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+  def conjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
     conjOrDisjS(term) { _ & _ } (env)
 
-  def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
+  def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
     conjOrDisjS(term) { _ | _ } (env)
     
   private def leafTypeValueTermFromTypeValueNodeWithArgs(node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[Option[TypeValueTerm[T]]] =
@@ -300,6 +300,30 @@ sealed trait TypeValueTerm[T]
     }
   
   def isTypeParamApp = isInstanceOf[TypeParamApp[T]]
+  
+  def simplyMatches(term: TypeValueTerm[T])(implicit locEqual: Equal[T]): Boolean =
+    (this, term) match {
+      case (TupleType(args1), TupleType(args2))                                             =>
+        TypeValueTerm.simplyMatchesTypeValueTermLists(args1, args2)
+      case (FieldType(i1, term1), FieldType(i2, term2))                                     =>
+        i1 === i2 && term1.simplyMatches(term2)
+      case (BuiltinType(bf1, args1), BuiltinType(bf2, args2))                               =>
+        bf1 === bf2 && TypeValueTerm.simplyMatchesTypeValueTermLists(args1, args2)
+      case (Unittype(loc1, args1, _), Unittype(loc2, args2, _))                             =>
+        loc1 === loc2 && TypeValueLambda.simplyMatchesTypeValueLambdaLists(args1, args2)
+      case (Grouptype(loc1, args1, _), Grouptype(loc2, args2, _))                           =>
+        loc1 === loc2 && TypeValueLambda.simplyMatchesTypeValueLambdaLists(args1, args2)
+      case (GlobalTypeApp(loc1, args1, _), GlobalTypeApp(loc2, args2, _))                   =>
+        loc1 === loc2 && TypeValueLambda.simplyMatchesTypeValueLambdaLists(args1, args2)
+      case (TypeParamApp(param1, args1, _), TypeParamApp(param2, args2, _))                 =>
+        param1 === param2 && TypeValueLambda.simplyMatchesTypeValueLambdaLists(args1, args2)
+      case (LogicalTypeValueTerm(conjNode1, args1), LogicalTypeValueTerm(conjNode2, args2)) =>
+        val idents1 = conjNode1.idents
+        val idents2 = conjNode2.idents
+        conjNode1 == conjNode2 && idents1 == idents2 && idents1 == idents2 && idents1.forall { i => (args1.get(i) |@| args2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) }
+      case _                                                                                =>
+        false
+    }
   
   def toArgString =
     this match {
@@ -397,7 +421,7 @@ object TypeValueTerm
       case _                            => none
     }  
   
-  def prepareTypeValueLambdasForSubstitutionS[T, U, V, W, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) = {
+  def prepareTypeValueLambdasForSubstitutionS[T, U, V, W, E](lambdas: Map[Int, TypeValueLambda[T]], term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) = {
     val logicalTerms = logicalTypeValueTermsFromTypeValueTerm(term)
     val (env2, res) = stFoldLeftValidationS(logicalTerms)(IntMap[TypeValueLambda[T]]().success[NoTypeValue[T, U, V, W]]) {
       (newLambdas, logicalTerm, newEnv: E) =>
@@ -413,7 +437,7 @@ object TypeValueTerm
                 }.map {
                   case (newEnv3, Success((lambda @ TypeValueLambda(args, body: LogicalTypeValueTerm[T]), isNewLambda))) =>
                     val leafIdents = logicalTerm.args.keySet & body.args.keySet
-                    if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
+                    if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                       (newEnv3, (if(isNewLambda) newLambdas2 + (param -> lambda) else newLambdas2).success)
                     else
                       (newEnv3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
@@ -429,6 +453,12 @@ object TypeValueTerm
     } (env)
     (env2, res.map { lambdas ++ _ })
   }
+  
+  def simplyMatchesTypeValueTermLists[T](terms1: Seq[TypeValueTerm[T]], terms2: Seq[TypeValueTerm[T]])(implicit locEqual: Equal[T]): Boolean =
+    if(terms1.size === terms2.size)
+      terms1.zip(terms2).forall { case (t1, t2) => t1.simplyMatches(t2) }
+    else
+      false
 }
 
 sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]
@@ -550,6 +580,9 @@ object TypeDisjunction
 
 case class TypeValueLambda[T](argParams: Seq[Int], body: TypeValueTerm[T])
 {
+  def simplyMatches(lambda: TypeValueLambda[T])(implicit locEqual: Equal[T]): Boolean =
+    argParams.toVector === lambda.argParams.toVector && body.simplyMatches(lambda.body)
+  
   def toArgString = if(!argParams.isEmpty) "(" + this + ")" else body.toArgString
   
   override def toString = if(!argParams.isEmpty) "\\" + argParams.map { p => "t" + (p + 1) }.mkString(" ") + " => " + body else body.toString
@@ -562,4 +595,10 @@ object TypeValueLambda
 
   def typeValueLambdasFromTypeValues[T, U, V, W, E](values: Seq[TypeValue[T, U, V, W]])(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     State(typeValueLambdasFromTypeValuesS[T, U, V, W, E](values))
+    
+  def simplyMatchesTypeValueLambdaLists[T](lambdas1: Seq[TypeValueLambda[T]], lambdas2: Seq[TypeValueLambda[T]])(implicit locEqual: Equal[T]) =
+    if(lambdas1.size === lambdas2.size)
+      lambdas1.zip(lambdas2).forall { case (l1, l2) => l1.simplyMatches(l2) }
+    else
+      false
 }
