@@ -254,7 +254,7 @@ sealed trait TypeValueTerm[T]
     val (env2, termRes1) = this.logicalTypeValueTermS(env)
     termRes1.map {
       case term1 @ LogicalTypeValueTerm(conjNode1, args1) =>
-        val (env3, termRes2) = this.logicalTypeValueTermS(env2)
+        val (env3, termRes2) = term.logicalTypeValueTermS(env2)
         termRes2.map {
           case term2 @ LogicalTypeValueTerm(conjNode2, args2) =>
             val leafIdents = args1.keySet & args2.keySet
@@ -510,19 +510,19 @@ case class LogicalTypeValueTerm[T](
         UnexpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas)
     this match {
        case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount, sym), args ++ globalTypeAppArgs)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount + 1, sym), args ++ globalTypeAppArgs)
        case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
          val child2 = child match {
            case leaf2: TypeValueLeaf[T]                           =>
-             GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount, sym)
+             GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount + 1, sym)
            case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
-             GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2, sym)
+             GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2 + 1, sym)
            case _: GlobalTypeAppNode[T]                           =>
              child
          }
-         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), leafCount), args ++ globalTypeAppArgs)
+         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), child2.leafCount), args ++ globalTypeAppArgs)
        case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym), args ++ globalTypeAppArgs)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount + 1, sym), args ++ globalTypeAppArgs)
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
         term
     }

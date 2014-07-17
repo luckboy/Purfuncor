@@ -111,7 +111,7 @@ sealed trait TypeValueNode[T]
       case leaf: TypeValueLeaf[T] =>
         TypeValueBranch[T](Vector(leaf, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1)), Vector(), leafCount + 1)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)normalizedTypeValueChildForChecking(canExpandGlobalType)
+        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType).normalizedTypeValueChildForChecking(canExpandGlobalType)
     }
   
   def normalizedTypeValueNodeForChecking(canExpandGlobalType: Boolean): TypeValueNode[T] =
