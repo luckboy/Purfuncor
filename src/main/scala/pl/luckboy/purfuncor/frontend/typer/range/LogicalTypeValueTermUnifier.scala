@@ -701,7 +701,7 @@ object LogicalTypeValueTermUnifier
       y <- steS({
         (env2: E) =>
           val (instantiatedTerm1, instantiatedParams1) = pair1
-          val (instantiatedTerm2, instantiatedParams2) = pair1
+          val (instantiatedTerm2, instantiatedParams2) = pair2
           envSt.withInfinityCheckingS(instantiatedParams1 ++ instantiatedParams2) {
             matchesLocigalTypeValueTermsWithoutInstantationS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_: E)
           } (env2)
