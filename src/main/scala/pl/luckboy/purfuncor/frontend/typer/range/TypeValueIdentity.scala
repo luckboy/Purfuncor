@@ -12,6 +12,9 @@ import pl.luckboy.purfuncor.frontend.resolver._
 import pl.luckboy.purfuncor.frontend.typer._
 
 sealed trait TypeValueIdentity[+T]
+{
+  def isTypeParamAppIdentity = isInstanceOf[TypeParamAppIdentity[T]]
+}
 
 object TypeValueIdentity
 {

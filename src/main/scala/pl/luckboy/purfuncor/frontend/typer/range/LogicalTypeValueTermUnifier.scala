@@ -293,8 +293,14 @@ object LogicalTypeValueTermUnifier
       case TypeValueLeaf(ident, _, _) =>
         rangeSets.get(ident).map {
           rs =>
+            val param2 = param.orElse {
+              ident match {
+                case TypeParamAppIdentity(identParam) => some(identParam)
+                case _                                => none
+              }
+            }
             val rangeSet = depthRangeSets2.headOption.map(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx).superset).getOrElse(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx))
-            val rangeSet2 = param.map { rangeSet.withMyParam(leafIdx, _) }.getOrElse(rangeSet)
+            val rangeSet2 = param2.map { rangeSet.withMyParam(leafIdx, _) }.getOrElse(rangeSet)
             if(isNothing) rangeSet2.withMyNothingIdx(leafIdx) else rangeSet2
         }
     }
@@ -337,9 +343,11 @@ object LogicalTypeValueTermUnifier
         }
       case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx)
-        if(myLeafIdxs.contains(leafIdx) && (otherLeafIdxs.contains(leafIdx) || myParam.isDefined || myNothingIdxs.contains(leafIdx)))
-          some(tuple.copy(_1 = tuple._1 + ident, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }))
-        else
+        val isOtherLeaf = otherLeafIdxs.contains(leafIdx)
+        if(myLeafIdxs.contains(leafIdx) && (isOtherLeaf || myParam.isDefined || myNothingIdxs.contains(leafIdx))) {
+          val canAddIdent = isOtherLeaf && (!ident.isTypeParamAppIdentity || myParam.isDefined)
+          some(tuple.copy(_1 = if(canAddIdent) tuple._1 + ident else tuple._1, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }))
+        } else
           none
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
         val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(canExpandGlobalType)
