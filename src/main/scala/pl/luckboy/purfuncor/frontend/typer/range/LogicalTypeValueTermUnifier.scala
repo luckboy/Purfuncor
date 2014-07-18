@@ -631,7 +631,7 @@ object LogicalTypeValueTermUnifier
             }
             res4 match {
               case Success((newNodeMap2, newArgMap2, Some((node2, optInstantiatedParam)))) =>
-                val (env7, res5) = partiallyInstantiateTypeValueNodeS(node2, argMap, isConj)(markedParams ++ optInstantiatedParam)(newNodeMap2, newArgMap2)(env6)
+                val (env7, res5) = partiallyInstantiateTypeValueNodeS(node2, newArgMap2, isConj)(markedParams ++ optInstantiatedParam)(newNodeMap2, newArgMap2)(env6)
                 (env7, res5.map {
                   case (newNodes3, newArgMap3, optPair) =>
                     (newNodes3, newArgMap3, optPair.orElse(some((node2, optInstantiatedParam.toSet))))
