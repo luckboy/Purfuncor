@@ -560,7 +560,7 @@ object LogicalTypeValueTermUnifier
     stFoldLeftValidationS(nodes)((newOptNodes, newArgMap, Vector[TypeValueNode[T]](), Set[Int](), false).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
         val (newOptNodeMap2, newArgMap2, newNodes, newInstantiatedParams, isInstantiation) = tuple
-        val (newEnv2, newRes) = partiallyInstantiateTypeValueNodeS(node, argMap, isConj)(markedParams)(newOptNodeMap2, newArgMap2)(newEnv)
+        val (newEnv2, newRes) = partiallyInstantiateTypeValueNodeS(node, argMap, isConj, false)(markedParams)(newOptNodeMap2, newArgMap2)(newEnv)
         (newEnv2, newRes.map { 
           _ match { 
             case (newOptNodes3, newArgMap3, Some((newNode, newInstantiatedParams2))) =>
@@ -571,7 +571,7 @@ object LogicalTypeValueTermUnifier
         })
     } (env)
   
-  private def partiallyInstantiateTypeValueNodeS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(markedParams: Set[Int])(newOptNodeMap: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], Option[(TypeValueNode[T], Set[Int])])]) =
+  private def partiallyInstantiateTypeValueNodeS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean, isExpandedGlobalAppIdent: Boolean)(markedParams: Set[Int])(newOptNodeMap: Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], Option[TypeValueNode[T]]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], Option[(TypeValueNode[T], Set[Int])])]) =
     node match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         val (env2, res) = partiallyInstantiateTypeValueNodesS(childs, argMap, !isConj)(markedParams)(newOptNodeMap, newArgMap)(env)
@@ -631,7 +631,7 @@ object LogicalTypeValueTermUnifier
             }
             res4 match {
               case Success((newNodeMap2, newArgMap2, Some((node2, optInstantiatedParam)))) =>
-                val (env7, res5) = partiallyInstantiateTypeValueNodeS(node2, newArgMap2, isConj)(markedParams ++ optInstantiatedParam)(newNodeMap2, newArgMap2)(env6)
+                val (env7, res5) = partiallyInstantiateTypeValueNodeS(node2, newArgMap2, isConj, false)(markedParams ++ optInstantiatedParam)(newNodeMap2, newArgMap2)(env6)
                 (env7, res5.map {
                   case (newNodes3, newArgMap3, optPair) =>
                     (newNodes3, newArgMap3, optPair.orElse(some((node2, optInstantiatedParam.toSet))))
@@ -643,25 +643,49 @@ object LogicalTypeValueTermUnifier
             }
         }
       case TypeValueLeaf(ident, _, _) =>
+        val optIdent2 = ident match {
+          case UnexpandedGlobalTypeAppIdentity(loc, sym) if isExpandedGlobalAppIdent =>
+            some(ExpandedGlobalTypeAppIdentity(loc, sym))
+          case _                                                                     =>
+            none
+        }
         (env, argMap.get(ident).map {
           args =>
-            (newOptNodeMap + (ident -> none), newArgMap + (ident -> args), none).success
+            (newOptNodeMap + (ident -> none), (newArgMap + (ident -> args)) ++ optIdent2.map { _ -> args }, none).success
         }.getOrElse(NoType.fromError[T](FatalError("no type arguments", none, NoPosition)).failure))
       case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
-        val (env2, res) = partiallyInstantiateTypeValueNodeS(TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount), argMap, isConj)(markedParams)(newOptNodeMap, newArgMap)(env)
+        val (env2, res) = partiallyInstantiateTypeValueNodeS(TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount), argMap, isConj, true)(markedParams)(newOptNodeMap, newArgMap)(env)
         res match {
-          case Success((newOptNodeMap2, newArgMap2, optPair @ (Some((TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(_, _), _, _), _)) | None))) =>
-            partiallyInstantiateTypeValueNodeS(TypeValueBranch(childs, tupleTypes, leafCount), argMap, isConj)(markedParams ++ optPair.map { _._2 }.getOrElse(Set()))(newOptNodeMap2, newArgMap2)(env2)
-          case Success(_)                                                                                                                      =>
+          case Success((newOptNodeMap2, newArgMap2, Some((TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc2, sym2), _, _), instantiatedParams2)))) =>
+            val (env3, res2) = partiallyInstantiateTypeValueNodeS(TypeValueBranch(childs, tupleTypes, leafCount - 1), argMap, isConj, false)(markedParams ++ instantiatedParams2)(newOptNodeMap2, newArgMap2)(env2)
+            (env3, res2.flatMap {
+              case (newOptNodeMap3, newArgMap3, Some((TypeValueBranch(childs2, tupleTypes2, leafCount2), instantiatedParams3))) =>
+                (newOptNodeMap3, newArgMap3, some((GlobalTypeAppNode(loc2, childs2, tupleTypes2, leafCount2 + 1, sym2), instantiatedParams3))).success
+              case tuple @ (newOptNodeMap3, newArgMap3, None)                                                                   =>
+                tuple.success
+              case _                                                                                                            =>
+                NoType.fromError(FatalError("incorrect type value node", none, NoPosition)).failure
+            })
+          case Success((newOptNodeMap2, newArgMap2, optPair @ None)) =>
+            val (env3, res2) = partiallyInstantiateTypeValueNodeS(TypeValueBranch(childs, tupleTypes, leafCount - 1), argMap, isConj, false)(markedParams)(newOptNodeMap2, newArgMap2)(env2)
+            (env3, res2.flatMap {
+              case (newOptNodeMap3, newArgMap3, Some((TypeValueBranch(childs2, tupleTypes2, leafCount2), instantiatedParams2))) =>
+                (newOptNodeMap3, newArgMap3, some((GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2 + 1, sym), instantiatedParams2))).success
+              case tuple @ (newOptNodeMap3, newArgMap3, None)                                                                   =>
+                tuple.success
+              case _                                                                                                            =>
+                NoType.fromError(FatalError("incorrect type value node", none, NoPosition)).failure
+            })
+          case Success(_)                                                                                                                           =>
             (env2, NoType.fromError(FatalError("incorrect type value node", none, NoPosition)).failure)
-          case Failure(noType)                                                                                                                 =>
+          case Failure(noType)                                                                                                                      =>
             (env2, noType.failure)
         }
     }
     
   private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     if(term.args.keys.exists { _.isInstanceOf[TypeParamAppIdentity[T]] }) {
-      val (env2, res) = partiallyInstantiateTypeValueNodeS(term.conjNode, term.args, true)(Set())(Map(), Map())(env)
+      val (env2, res) = partiallyInstantiateTypeValueNodeS(term.conjNode, term.args, true, false)(Set())(Map(), Map())(env)
       (env2, res.map { t => t._3.map { case (n, ips) => (LogicalTypeValueTerm(n, t._2), ips) }.getOrElse((term, Set[Int]())) })
     } else
       (env, (term, Set[Int]()).success)
@@ -720,11 +744,11 @@ object LogicalTypeValueTermUnifier
     stFoldLeftValidationS(nodes)((newNodeMap, newArgMap, Vector[TypeValueNode[T]]()).success[NoType[T]]) {
       (tuple, node, newEnv: E) =>
         val (newNodeMap2, newArgMap2, newNodes) = tuple
-        val (newEnv2, newRes) = replaceTypeValueNodeParamsS(node, argMap, isConj)(newNodeMap2, newArgMap2)(f)(newEnv)
+        val (newEnv2, newRes) = replaceTypeValueNodeParamsS(node, argMap, isConj, false)(newNodeMap2, newArgMap2)(f)(newEnv)
         (newEnv2, newRes.map { _.mapElements(identity, identity, newNodes :+ _) })
     } (env)
     
-  def replaceTypeValueNodeParamsS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])]) =
+  def replaceTypeValueNodeParamsS[T, U, E](node: TypeValueNode[T], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isConj: Boolean, isExpandedGlobalAppIdent: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], (Map[TypeValueIdentity[T], TypeValueNode[T]], Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], TypeValueNode[T])]) =
     node match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         val (env2, res) = replaceTypeParamsFromTypeValueNodesS(childs, argMap, !isConj)(newNodeMap, newArgMap)(f)(env)
@@ -741,12 +765,13 @@ object LogicalTypeValueTermUnifier
             (env, (newNodeMap, newArgMap, node).success)
           case None       =>
             ident match {
-              case _: UnexpandedGlobalTypeAppIdentity[T] =>
+              case UnexpandedGlobalTypeAppIdentity(loc, sym) =>
                 argMap.get(ident) match {
                   case Some(args) =>
                     val (env2, res) = replaceTypeParamsFromTypeValueLambdasS(args)(f)(env)
+                    val optIdent2 = if(isExpandedGlobalAppIdent) some(ExpandedGlobalTypeAppIdentity(loc, sym)) else none
                     (env2, res.map {
-                      args2 => (newNodeMap + (ident -> leaf), newArgMap + (ident -> args2), leaf)
+                      args2 => (newNodeMap + (ident -> leaf), (newArgMap + (ident -> args2)) ++ optIdent2.map { _ -> args2 }, leaf)
                     })
                   case None       =>
                     (env, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
@@ -785,19 +810,25 @@ object LogicalTypeValueTermUnifier
             tuple
         })
       case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
-        val (env2, res) = replaceTypeValueNodeParamsS(TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount), argMap, isConj)(newNodeMap, newArgMap)(f)(env)
+        val (env2, res) = replaceTypeValueNodeParamsS(TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount), argMap, isConj, true)(newNodeMap, newArgMap)(f)(env)
         res match {
-          case Success((newNodeMap2, newArgMap2, TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(_, _), _, _))) =>
-            replaceTypeValueNodeParamsS(TypeValueBranch(childs, tupleTypes, leafCount), argMap, isConj)(newNodeMap2, newArgMap2)(f)(env2)
-          case Success(_)                                                                                     =>
+          case Success((newNodeMap2, newArgMap2, TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc2, sym2), _, _))) =>
+            val (env3, res2) = replaceTypeValueNodeParamsS(TypeValueBranch(childs, tupleTypes, leafCount - 1), argMap, isConj, false)(newNodeMap2, newArgMap2)(f)(env2)
+            (env3, res2.flatMap { 
+              case (newNodeMap3, newArgMap3, TypeValueBranch(childs2, tupleTypes2, leafCount2)) =>
+                (newNodeMap3, newArgMap3, GlobalTypeAppNode(loc2, childs2, tupleTypes2, leafCount2 + 1, sym2)).success
+              case _                                                                            =>
+                NoType.fromError(FatalError("incorrect type value node", none, NoPosition)).failure
+            })
+          case Success(_)                                                                                        =>
             (env2, NoType.fromError(FatalError("incorrect type value node", none, NoPosition)).failure)
-          case Failure(noType)                                                                                =>
+          case Failure(noType)                                                                                   =>
             (env2, noType.failure)
         }
     }
   
   def replaceLogicalTypeValueTermParamsS[T, U, E](term: LogicalTypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], TypeValueTerm[T]]) = {
-    val (env2, res) = replaceTypeValueNodeParamsS(term.conjNode, term.args, true)(Map(), Map())(f)(env)
+    val (env2, res) = replaceTypeValueNodeParamsS(term.conjNode, term.args, true, false)(Map(), Map())(f)(env)
     (env2, res.map { case (_, args2, conjNode2) => LogicalTypeValueTerm(conjNode2, args2) })
   }
   
