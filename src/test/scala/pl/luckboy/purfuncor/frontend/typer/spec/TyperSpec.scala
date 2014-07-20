@@ -2172,7 +2172,7 @@ h = g f
     }
 
     it should "unify the two types which are the different logical expressions" in {
-      // Unifies \t1 t2 => TWI ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t2) #& #Empty) #| (V #& (W #| #Empty)))
+      // Unifies \t1 => TWI ((T #& (W #| #Empty)) #| ((U t1) #& W) #| ((U t1) #& #Empty) #| (V #& (W #| #Empty)))
       // with    \t1 => TWI ((T #| (U t1) #| V) #& (W #| #Empty)) 
       // for unittype 1 TWI and unittype 0 T and unittype 1 U and unittype 0 V and unittype 0 W.
       val s = """
@@ -2181,7 +2181,7 @@ unittype 0 T
 unittype 1 U
 unittype 0 V
 unittype 0 W
-f = construct 0: \t1 t2 => TWI (##| (##| (##| (##& T (##| W #Empty)) (##& (U t1) W)) (##& (U t2) #Empty)) (##& V (##| W #Empty)))
+f = construct 0: \t1 => TWI (##| (##| (##| (##& T (##| W #Empty)) (##& (U t1) W)) (##& (U t1) #Empty)) (##& V (##| W #Empty)))
 g (x: \t1 => TWI (##& (##| (##| T (U t1)) V) (##| W #Empty))) = x
 h = g f
 """
@@ -2204,7 +2204,7 @@ h = g f
               inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
                 case List(twiLoc, tLoc, uLoc, vLoc, wLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
-                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_, _)) =>
+                    case InferredType(GlobalTypeApp(_, Seq(_), _), Seq(_)) =>
                       ()
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("g")))) {
