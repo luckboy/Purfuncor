@@ -61,14 +61,16 @@ sealed trait TypeValue[T, +U, +V, +W]
   def typeValueTermS[U2 >: U, V2 >: V, W2 >: W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
     val term = evaluatedValue match {
-      case EvaluatedTypeValue(term)         =>
+      case noValue: NoTypeValue[T, U2, V2, W] =>
+        noValue.failure
+      case EvaluatedTypeValue(term)           =>
         term.success
-      case EvaluatedTypeLambdaValue(lambda) =>
+      case EvaluatedTypeLambdaValue(lambda)   =>
         lambda match {
           case TypeValueLambda(Seq(), body) => body.success
           case _                            => NoTypeValue.fromError[T, U, V, W](FatalError("type lambda value has arguments", none, NoPosition)).failure
         }
-      case _                                =>
+      case value                              =>
         NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure
     }
     (env2, term)
@@ -77,6 +79,8 @@ sealed trait TypeValue[T, +U, +V, +W]
   def typeValueLambdaWithParamsS[U2 >: U, V2 >: V, W2 >: W, E](param1: Int, paramN: Int)(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U2, V2], E, TypeValue[T, U2, V2, W2]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U2, V2, W2]]): (E, Validation[NoTypeValue[T, U2, V2, W2], TypeValueLambda[T]]) = {
     val (env2, evaluatedValue) = eval.forceS(this)(env)
     evaluatedValue match {
+      case noValue: NoTypeValue[T, U2, V2, W2] =>
+        (env2, noValue.failure)
       case EvaluatedTypeValue(term) =>
         (env2, TypeValueLambda(param1 until paramN, term).success)
       case EvaluatedTypeLambdaValue(TypeValueLambda(argParams, body)) =>
@@ -408,7 +412,7 @@ object TypeValueTerm
       case (env4, noType: NoTypeValue[T, U, V, W])                        => (env4, noType.failure)
       case (env4, EvaluatedTypeValue(term))                               => (env4, term.success)
       case (env4, EvaluatedTypeLambdaValue(TypeValueLambda(Seq(), body))) => (env4, body.success)
-      case (env4, _)                                                      => (env4, NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure)
+      case (env4, value)                                                  => (env4, NoTypeValue.fromError[T, U, V, W](FatalError("unevaluated type value", none, NoPosition)).failure)
     }
   }
   
