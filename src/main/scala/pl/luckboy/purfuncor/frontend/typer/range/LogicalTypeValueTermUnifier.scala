@@ -44,7 +44,7 @@ object LogicalTypeValueTermUnifier
                                 ((pair2._1, (newLeafs2 ++ newLeafs) :+ (leafIdx -> newLeaf)) :: pairs4, pairIdxs2, true)
                               else
                                 ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
-                            case _ =>
+                            case _                      =>
                               ((pair2._1, (newLeafs2 ++ newLeafs) :+ (leafIdx -> newLeaf)) :: pairs4, pairIdxs2, true)
                           }
                         case _ =>
@@ -55,7 +55,7 @@ object LogicalTypeValueTermUnifier
                                 ((((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes, canExpandGlobalType))), newLeafs ++ newLeafs2) :: pairs4, pairIdxs2 + pairIdx, true)
                               else
                                 ((pair._1, newLeafs :+ (newLeafIdx -> leaf)) :: pairs4, pairIdxs2, true)
-                            case _ =>
+                            case _                      =>
                               if(optRangeSet3.map { rs => !rs.isEmpty }.getOrElse(true))
                                 ((((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes, canExpandGlobalType))), newLeafs ++ newLeafs2) :: pairs4, pairIdxs2 + pairIdx, true)
                               else 
@@ -387,20 +387,6 @@ object LogicalTypeValueTermUnifier
           pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(normalizedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, normalizedTerm1.args, isSupertype, canExpandGlobalType)
           pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
         } yield (pair1, pair2)
-      case (TypeValueBranch(childs1, tupleTypes1, _), TypeValueBranch(childs2, tupleTypes2, _)) if childs1.size === 1 && childs2.size > 1 && isFirstTry =>
-        val conjDepthRangeSet = term2.info.conjDepthRangeSets.headOption.getOrElse(TypeValueRangeSet.full)
-        val conjDepthRangeSets = TypeValueRangeSet.full[T] :: conjDepthRangeSet :: term2.info.conjDepthRangeSets
-        val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: term1.info.disjDepthRangeSets
-        val tmpTerm1 = term1
-        val tmpTerm2 = LogicalTypeValueTerm(TypeValueBranch(Vector(TypeValueBranch(Vector(term2.conjNode), tupleTypes2, term2.conjNode.leafCount)), Nil, term2.conjNode.leafCount), term2.args)
-        val normalizedTerm1 = tmpTerm1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
-        val normalizedTerm2 = tmpTerm2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
-        val nodeTuple2 = (normalizedTerm2.info.conjRangeSets, normalizedTerm2.info.conjParams, normalizedTerm2.info.allParams, normalizedTerm2.info.fieldSetTypeIdents)
-        val nodeTuple1 = (normalizedTerm1.info.disjRangeSets, normalizedTerm1.info.disjParams, normalizedTerm1.info.allParams, normalizedTerm1.info.fieldSetTypeIdents)
-        for {
-          pair1 <- fullyCheckOrDistributeSupertypeConjunctionNode(normalizedTerm1.conjNode, nodeTuple2, conjDepthRangeSets, normalizedTerm1.args, isSupertype, canExpandGlobalType)
-          pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
-        } yield (pair1, pair2)
       case _ =>
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: term2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: term1.info.disjDepthRangeSets
@@ -472,6 +458,18 @@ object LogicalTypeValueTermUnifier
 
   private def matchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T]) =
     (term1.conjNode, term2.conjNode) match {
+      case (leaf1 @ TypeValueLeaf(ident1 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _), TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param2, paramAppIdx2, leaf1, TypeMatching.TypeWithSupertype))))
+      case (leaf1 @ TypeValueLeaf(ident1 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param2, paramAppIdx2, leaf1, TypeMatching.TypeWithSupertype))))
+      case (TypeValueBranch(Seq(leaf1 @ TypeValueLeaf(ident1 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _)), tupleTypes1, _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes2, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(TypeValueRangeCondition(tupleTypes1, tupleTypes2.toList)), Seq(TypeParamCondition(param2, paramAppIdx2, leaf1, TypeMatching.TypeWithSupertype))))
+      case (TypeValueLeaf(ident1 @ TypeParamAppIdentity(param1), paramAppIdx1, _), leaf2 @ TypeValueLeaf(ident2 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param1, paramAppIdx1, leaf2, TypeMatching.SupertypeWithType))))
+      case (TypeValueLeaf(ident1 @ TypeParamAppIdentity(param1), paramAppIdx1, _), TypeValueBranch(Seq(leaf2 @ TypeValueLeaf(ident2 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _)), _, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param1, paramAppIdx1, leaf2, TypeMatching.SupertypeWithType))))
+      case (TypeValueBranch(Seq(TypeValueLeaf(ident1 @ TypeParamAppIdentity(param1), paramAppIdx1, _)), tupleTypes1, _), TypeValueBranch(Seq(leaf2 @ TypeValueLeaf(ident2 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _)), tupleTypes2, _)) =>
+        some((Set[TypeValueIdentity[T]](), Seq(TypeValueRangeCondition(tupleTypes1, tupleTypes2.toList)), Seq(TypeParamCondition(param1, paramAppIdx1, leaf2, TypeMatching.SupertypeWithType))))
       case (TypeValueBranch(childs1, _, _), TypeValueBranch(childs2, _, _)) if (childs1.size > 1 && childs2.size === 1) || (childs1.size === 1 && childs2.size > 1) =>
         partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true).orElse(partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, false))
       case _ =>
