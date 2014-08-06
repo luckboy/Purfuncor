@@ -99,8 +99,8 @@ object LogicalTypeValueTermInfo
             fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair,
             expandedLeafCount = info.expandedLeafCount + 1, unexpandedLeafCount = info.unexpandedLeafCount + 1), Map(ident -> Set(leafIdx)), some(range))
       case _ =>
-        val expandedNode = node.typeValueBranchOrTypeValueLeaf(true)
-        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false)
+        val expandedNode = node.typeValueBranchOrTypeValueLeaf(true, true)
+        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(true, false)
         val (info2, leafIdxs, optRange) = fromTypeConjunctionNode(expandedNode, conjTupleTypes, conjParamSets, disjParamSets, args)(leafIdx)(info)
         val (info3, leafIdxs2, optRange2) = fromTypeConjunctionNode(unexpandedNode, conjTupleTypes, conjParamSets, disjParamSets, args)(leafIdx)(info2.copy(expandedLeafCount = info.expandedLeafCount, unexpandedLeafCount = info.unexpandedLeafCount))
         (info3.copy(expandedLeafCount = info2.expandedLeafCount), leafIdxs2 |+| leafIdxs, (optRange |@| optRange2) { _ | _ })
@@ -158,8 +158,8 @@ object LogicalTypeValueTermInfo
             fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair,
             expandedLeafCount = info.expandedLeafCount + 1, unexpandedLeafCount = info.unexpandedLeafCount + 1), Map(ident -> Set(leafIdx)), some(range))
       case _ =>
-        val expandedNode = node.typeValueBranchOrTypeValueLeaf(true)
-        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false)
+        val expandedNode = node.typeValueBranchOrTypeValueLeaf(false, true)
+        val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false, false)
         val (info2, leafIdxs, optRange) = fromTypeDisjunctionNode(expandedNode, conjTupleTypes, conjParamSets, disjParamSets, args)(leafIdx)(info)
         val (info3, leafIdxs2, optRange2) = fromTypeDisjunctionNode(unexpandedNode, conjTupleTypes, conjParamSets, disjParamSets, args)(leafIdx)(info2.copy(expandedLeafCount = info.expandedLeafCount, unexpandedLeafCount = info.unexpandedLeafCount))
         (info3.copy(expandedLeafCount = info2.expandedLeafCount), leafIdxs2 |+| leafIdxs, (optRange |@| optRange2) { _ | _ })

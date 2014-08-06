@@ -14,6 +14,12 @@ import pl.luckboy.purfuncor.frontend.typer._
 sealed trait TypeValueIdentity[+T]
 {
   def isTypeParamAppIdentity = isInstanceOf[TypeParamAppIdentity[T]]
+  
+  def isTupleTypeIdentity =
+    this match {
+      case TupleTypeIdentity => true
+      case _                 => false
+    }
 }
 
 object TypeValueIdentity
@@ -42,6 +48,7 @@ object TypeValueIdentity
     }
 }
 
+case object TupleTypeIdentity extends TypeValueIdentity[Nothing]
 case class FieldTypeIdentity[+T](i: Int) extends TypeValueIdentity[T]
 case class BuiltinTypeIdentity[+T](bf: TypeBuiltinFunction.Value, argIdents: Seq[FieldSetTypeArgIdentity]) extends TypeValueIdentity[T]
 case class UnittypeIdentity[+T](loc: T, sym: GlobalSymbol) extends TypeValueIdentity[T]

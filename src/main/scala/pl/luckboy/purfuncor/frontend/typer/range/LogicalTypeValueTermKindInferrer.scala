@@ -10,6 +10,7 @@ import scala.util.parsing.input.NoPosition
 import scalaz._
 import scalaz.Scalaz._
 import pl.luckboy.purfuncor.common._
+import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.typer._
 import pl.luckboy.purfuncor.frontend.kinder.Kind
 import pl.luckboy.purfuncor.frontend.kinder.NoKind
@@ -51,12 +52,14 @@ object LogicalTypeValueTermKindInferrer
             (env, (newKindMap, kind).success)
           case None       =>
             argMap.get(ident).flatMap(leaf.typeValueTerm) match {
-              case Some(term) =>
+              case Some(Some(term)) =>
                 inferTypeValueTermKindS(term)(env) match {
                   case (env2, noKind: NoKind) => (env2, noKind.failure)
                   case (env2, kind)           => (env2, (newKindMap + (ident -> kind), kind).success)
                 }
-              case None       =>
+              case Some(None)       =>
+                (env, (newKindMap, InferredKind(Star(KindType, NoPosition))).success)
+              case None             =>
                 (env, NoKind.fromError(FatalError("not found arguments", none, NoPosition)).failure)
             }
         }

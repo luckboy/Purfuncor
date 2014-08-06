@@ -64,7 +64,7 @@ object LogicalTypeValueTermUtils
             some((newNodeMap, newArgMap, node))
           case None       =>
             argMap.get(ident).flatMap(leaf.typeValueTerm) match {
-              case Some(term) =>
+              case Some(Some(term)) =>
                 substituteTypeValueLambdasInTypeValueTerm(term, paramLambdas).map { 
                   _.unevaluatedLogicalTypeValueTerm
                 }.flatMap {
@@ -77,7 +77,9 @@ object LogicalTypeValueTermUtils
                     else
                       none
                 }
-              case None      =>
+              case Some(None)       =>
+                some((newNodeMap + (ident -> node), argMap + (ident -> Vector()), node))
+              case None             =>
                 none
             }
         }

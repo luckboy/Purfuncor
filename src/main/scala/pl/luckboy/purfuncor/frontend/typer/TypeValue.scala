@@ -216,7 +216,7 @@ sealed trait TypeValueTerm[T]
         val leaf = TypeValueLeaf.fromLeafTypeValueTerm(term)
         LogicalTypeValueTerm(leaf, Map(leaf.ident -> term.argLambdas))
       case tupleType: TupleType[T]       =>
-        val leaf = TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1)
+        val leaf = TypeValueLeaf[T](TupleTypeIdentity, 0, 1)
         val branch = TypeValueBranch(Vector(leaf), Vector(tupleType), 1)
         LogicalTypeValueTerm(branch, Map(leaf.ident -> Nil))
     }
@@ -283,7 +283,7 @@ sealed trait TypeValueTerm[T]
       case _: TypeValueBranch[T]                 =>
         some(none)
       case leaf @ TypeValueLeaf(ident, _, _)     =>
-        args.get(ident).flatMap { as => some(leaf.typeValueTerm(as)) }
+        args.get(ident).flatMap { as => leaf.typeValueTerm(as) }
       case GlobalTypeAppNode(loc, _, _, _, sym)  =>
         args.get(UnexpandedGlobalTypeAppIdentity(loc, sym)).map { as => some(GlobalTypeApp(loc, as, sym)) }
     }
@@ -329,7 +329,7 @@ sealed trait TypeValueTerm[T]
         false
     }
   
-  def toArgString =
+  def toArgString: String =
     this match {
       case TupleType(args) if args.size === 1         => "(" + this + ")"
       case FieldType(_, _)                            => "(" + this + ")"
@@ -513,22 +513,12 @@ case class LogicalTypeValueTerm[T](
         ExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,
         UnexpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas)
     this match {
-       case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                             =>
+       case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                         =>
          LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount + 1, sym), args ++ globalTypeAppArgs)
-       case LogicalTypeValueTerm(TypeValueBranch(Seq(child), Seq(), leafCount), args) =>
-         val child2 = child match {
-           case leaf2: TypeValueLeaf[T]                           =>
-             GlobalTypeAppNode(loc, Vector(leaf2), Vector(), leaf2.leafCount + 1, sym)
-           case TypeValueBranch(childs2, tupleTypes2, leafCount2) =>
-             GlobalTypeAppNode(loc, childs2, tupleTypes2, leafCount2 + 1, sym)
-           case _: GlobalTypeAppNode[T]                           =>
-             child
-         }
-         LogicalTypeValueTerm(TypeValueBranch(Vector(child2), Vector(), child2.leafCount), args ++ globalTypeAppArgs)
-       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args)     =>
+       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args) =>
          LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount + 1, sym), args ++ globalTypeAppArgs)
-       case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                        =>
-        term
+       case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                    =>
+         term
     }
   }
   
@@ -558,8 +548,11 @@ object TypeConjunction
       case LogicalTypeValueTerm(TypeValueBranch(Seq(TypeValueBranch(_, _, _)), Seq(), _), _) =>
         none
       case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, _), args) =>
-        mapToSetOption(childs) { 
-          c => LogicalTypeValueTerm(TypeValueBranch(Vector(c), Vector(), c.leafCount), args).normalizedTypeValueTerm
+        flatMapToSetOption(childs) {
+          case TypeValueLeaf(TupleTypeIdentity, _, _) =>
+            some(Set[TypeValueTerm[T]]())
+          case child =>
+            LogicalTypeValueTerm(TypeValueBranch(Vector(child), Vector(), child.leafCount), args).normalizedTypeValueTerm.map { Set(_) }
         }.map { _ ++ tupleTypes }
       case _ =>
         none
@@ -576,7 +569,12 @@ object TypeDisjunction
   def unapply[T](term: TypeValueTerm[T]) =
     term match {
       case LogicalTypeValueTerm(TypeValueBranch(Seq(TypeValueBranch(childs, _, _)), Seq(), _), args) =>
-        mapToSetOption(childs) { LogicalTypeValueTerm(_, args).normalizedTypeValueTerm }
+        flatMapToSetOption(childs) {
+          case TypeValueLeaf(TupleTypeIdentity, _, _) =>
+            some(Set[TypeValueTerm[T]]())
+          case child =>
+            LogicalTypeValueTerm(child, args).normalizedTypeValueTerm.map { Set(_) }
+        }
       case _ =>
         none
     }
