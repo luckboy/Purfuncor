@@ -148,7 +148,7 @@ sealed trait TypeValueNode[T]
                 TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1),
                 TypeValueLeaf[T](BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1)
                 ), Vector(), 2))
-        TypeValueBranch(childs3, tupleTypes, leafCount + childs3.size + 2)
+        TypeValueBranch(childs3, tupleTypes, childs3.foldLeft(0) { _ + _.leafCount })
       case leaf: TypeValueLeaf[T] =>
         TypeValueBranch(Vector(leaf), Vector(), leaf.leafCount).normalizedTypeValueNodeForChecking(canExpandGlobalType)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
