@@ -89,8 +89,8 @@ object LogicalTypeValueTermInfo
         val fieldSetTypeIdentPair = fieldSetTypeIdentityPairFromTypeValueIdentity(ident)
         val conjParamSets2 = conjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
         val range = TypeValueRange(leafIdx, leafIdx + leafCount - 1)
-        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
-        val conjRangeSets2 = info.conjRangeSets + (ident -> (info.conjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | TypeValueRangeSet(SortedMap(range -> pair))))
+        val value = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
+        val conjRangeSets2 = info.conjRangeSets + (ident -> (info.conjRangeSets.getOrElse(ident, TypeValueRangeSet.empty) | TypeValueRangeSet(SortedMap(range -> value))))
         val conjDepthRangeSet2 = conjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (info.copy(
             conjRangeSets = conjRangeSets2, conjDepthRangeSets = conjDepthRangeSet2 :: nextConjDepthRangeSets,
@@ -149,8 +149,8 @@ object LogicalTypeValueTermInfo
         val fieldSetTypeIdentPair = fieldSetTypeIdentityPairFromTypeValueIdentity(ident)
         val disjParamSets2 = disjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
         val range = TypeValueRange(leafIdx, leafIdx + leafCount - 1)
-        val pair = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
-        val disjRangeSets2 = info.disjRangeSets + (ident -> (info.disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty[T]) | TypeValueRangeSet(SortedMap(range -> pair))))
+        val value = TypeValueRangeValue[T](UnionSet(leafIdx), UnionSet(), UnionSet(), UnionSet(), none, UnionSet())
+        val disjRangeSets2 = info.disjRangeSets + (ident -> (info.disjRangeSets.getOrElse(ident, TypeValueRangeSet.empty[T]) | TypeValueRangeSet(SortedMap(range -> value))))
         val disjDepthRangeSet2 = disjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (info.copy(disjRangeSets = disjRangeSets2, disjDepthRangeSets = disjDepthRangeSet2 :: nextDisjDepthRangeSets,
             disjParams = info.disjParams + (range -> disjParamSets2), allParams = info.allParams ++ params.values.flatten,
