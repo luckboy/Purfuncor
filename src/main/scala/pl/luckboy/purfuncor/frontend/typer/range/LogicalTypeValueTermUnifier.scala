@@ -455,7 +455,7 @@ object LogicalTypeValueTermUnifier
       }
 
   private def matchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T]) =
-    (term1.conjNode, term2.conjNode) match {
+    (term1.conjNode.typeValueNodeWithoutTupleTypeValueLeaf, term2.conjNode.typeValueNodeWithoutTupleTypeValueLeaf) match {
       case (leaf1 @ TypeValueLeaf(ident1 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _), TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)) =>
         some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param2, paramAppIdx2, leaf1, TypeMatching.TypeWithSupertype))))
       case (leaf1 @ TypeValueLeaf(ident1 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
@@ -468,10 +468,13 @@ object LogicalTypeValueTermUnifier
         some((Set[TypeValueIdentity[T]](), Seq(), Seq(TypeParamCondition(param1, paramAppIdx1, leaf2, TypeMatching.SupertypeWithType))))
       case (TypeValueBranch(Seq(TypeValueLeaf(ident1 @ TypeParamAppIdentity(param1), paramAppIdx1, _)), tupleTypes1, _), TypeValueBranch(Seq(leaf2 @ TypeValueLeaf(ident2 @ BuiltinTypeIdentity(TypeBuiltinFunction.Any | TypeBuiltinFunction.Nothing, _), _, _)), tupleTypes2, _)) =>
         some((Set[TypeValueIdentity[T]](), Seq(TypeValueRangeCondition(tupleTypes1, tupleTypes2.toList)), Seq(TypeParamCondition(param1, paramAppIdx1, leaf2, TypeMatching.SupertypeWithType))))
-      case (TypeValueBranch(childs1, _, _), TypeValueBranch(childs2, _, _)) if (childs1.size > 1 && childs2.size === 1) || (childs1.size === 1 && childs2.size > 1) =>
-        partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true).orElse(partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, false))
       case _ =>
-        partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true)
+        (term1.conjNode, term2.conjNode) match {
+          case (TypeValueBranch(childs1, _, _), TypeValueBranch(childs2, _, _)) if (childs1.size > 1 && childs2.size === 1) || (childs1.size === 1 && childs2.size > 1) =>
+            partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true).orElse(partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, false))
+          case _ =>
+            partiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, true)
+        }
     }
   
   private def matchesLocigalTypeValueTermsWithoutArgs[T, U, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], typeMatching: TypeMatching.Value) =

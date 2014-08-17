@@ -101,6 +101,21 @@ sealed trait TypeValueNode[T]
     }
   
   def isTypeValueLeaf = isInstanceOf[TypeValueLeaf[T]]
+  
+  def isTupleTypeValueLeaf =
+    this match {
+      case TypeValueLeaf(TupleTypeIdentity, _, _) => true
+      case _                                      => false
+    }
+  
+  def typeValueNodeWithoutTupleTypeValueLeaf =
+    this match {
+      case TypeValueBranch(childs, tupleTypes, leafCount) =>
+        val childs2 = childs.filterNot { _.isTupleTypeValueLeaf }
+        TypeValueBranch(childs2, tupleTypes, childs2.foldLeft(0) { _ + _.leafCount })
+      case _                                              =>
+        this
+    }
     
   private def typeValueBranchOrTypeValueLeafForTypeConjunction(canExpandGlobalType: Boolean) = {
     val node = typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType)
