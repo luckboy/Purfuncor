@@ -572,34 +572,7 @@ object TypeValueTermUnifier
       case (_, _) =>
         unifier.mismatchedTermErrorS(env).mapElements(identity, _.failure)
     }  
-  
-  private def matchesTypeValueTermsForLogicalTypeValueTermsS[T, U, V, E](term1: TypeValueTerm[T], term2: TypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
-    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
-    val (env7, res) = partiallyInstantiateTypeValueTermS(term1)(unifier.mismatchedTermErrorS)(env) match {
-      case (env3, Success((instantiatedTerm1, optInstantiatedParam1))) =>
-        partiallyInstantiateTypeValueTermS(term2)(unifier.mismatchedTermErrorS)(env3) match {
-          case (env4, Success((instantiatedTerm2, optInstantiatedParam2))) =>
-            envSt.withInfinityCheckingS(optInstantiatedParam1.toSet ++ optInstantiatedParam2) {
-              env5 =>
-                (instantiatedTerm1, instantiatedTerm2) match {
-                  case (globalTypeApp1: GlobalTypeApp[T], _: LogicalTypeValueTerm[T]) =>
-                    matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, instantiatedTerm2)(z)(f)(env5)
-                  case (_: LogicalTypeValueTerm[T], globalTypeApp2: GlobalTypeApp[T]) =>
-                    val (env6, _) = reverseTypeMatchingS(env5)
-                    matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, instantiatedTerm1)(z)(f)(env6)
-                  case _ =>
-                    matchesTypeValueTermsWithoutPartiallyInstantiationS(instantiatedTerm1, instantiatedTerm2, typeMatching)(z)(f)(env5)
-                }
-            } (env4)
-          case (env4, Failure(noType)) =>
-            (env4, noType.failure)
-        }
-      case (env3, Failure(noType)) =>
-        (env3, noType.failure)
-    }
-    envSt.setCurrentTypeMatchingS(typeMatching)(env7).mapElements(identity, _ => res)
-  }
-    
+      
   private def matchesBuiltinTypeWithTypeValueTermS[T, U, V, E](term: TypeValueTerm[T])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
     (for {
       retKindRes <- State(envSt.inferTypeValueTermKindS(term))
