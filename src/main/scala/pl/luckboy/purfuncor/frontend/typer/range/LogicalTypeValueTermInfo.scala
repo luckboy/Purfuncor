@@ -61,13 +61,14 @@ object LogicalTypeValueTermInfo
             newParams
         }
         val conjParamSets2 = conjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
+        val conjTupleTypes2 = tupleTypes.toList ++ conjTupleTypes
         val (info3, _, leafIdxs, optRange) = childs.foldLeft((info2, leafIdx, Map[TypeValueIdentity[T], Set[Int]](), none[TypeValueRange])) {
           case ((newInfo, newLeafIdx, newLeafIdxs, optNewRange), child) =>
-            val (newInfo2, newLeafIdxs2, optNewRange2) = fromTypeDisjunctionNode(child, conjTupleTypes, conjParamSets2, disjParamSets, args)(newLeafIdx)(newInfo)
+            val (newInfo2, newLeafIdxs2, optNewRange2) = fromTypeDisjunctionNode(child, conjTupleTypes2, conjParamSets2, disjParamSets, args)(newLeafIdx)(newInfo)
             (newInfo2, newLeafIdx + child.leafCount, newLeafIdxs |+| newLeafIdxs2, (optNewRange |@| optNewRange2) { _ | _ }.orElse(optNewRange2))
         }
         val conjRangeSets2 = info3.conjRangeSets
-        val otherTupleTypes = some(tupleTypes.toList ++ conjTupleTypes)
+        val otherTupleTypes = some(conjTupleTypes2)
         val conjRangeSets3 = conjRangeSets2 ++ leafIdxs.map { 
           case (ident, idxs) => 
             val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs), UnionSet(), UnionSet(), UnionSet(), otherTupleTypes, UnionSet())

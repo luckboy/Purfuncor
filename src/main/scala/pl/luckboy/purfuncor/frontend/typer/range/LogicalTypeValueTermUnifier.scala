@@ -860,7 +860,7 @@ object LogicalTypeValueTermUnifier
           case (allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, TypeParamApp(param2, _, paramAppIdx2)) =>
             (allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, TypeValueLeaf[T](TypeParamAppIdentity(param2), paramAppIdx2, leafCount)).success
           case _ =>
-            NoType.fromError(FatalError("no type param application", none, NoPosition)).failure
+            NoType.fromError(FatalError("no type parameter application", none, NoPosition)).failure
         })
       case _: TypeValueLeaf[T] =>
         (env, (allocatedParams, Set[Int](), Set[Int](), node).success)
@@ -879,19 +879,19 @@ object LogicalTypeValueTermUnifier
     val (env2, res) = unsafeAllocateTypeValueNodeParamsS(term.conjNode)(allocatedParams, unallocatedParamAppIdx)(env)
     res match {
       case Success((allocatedParams2, allocatedArgParams, allocatedParamAppIdxs, conjNode2)) =>
-        val (env3, res2) = stFoldLeftValidationS(term.args)((allocatedParams, Set[Int](), Set[Int](), Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]()).success[NoType[T]]) {
+        val (env3, res2) = stFoldLeftValidationS(term.args)((allocatedParams2, Set[Int](), Set[Int](), Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]()).success[NoType[T]]) {
           (tmpTuple, pair, newEnv: E) =>
+            val (newAllocatedParams, newAllocatedArgParams, newAllocatedParamAppIdxs, newArgs) = tmpTuple
             val (ident, args) = pair
             val optIdent2 = ident match {
-              case TypeParamAppIdentity(param) => allocatedParams2.get(param).map { TypeParamAppIdentity(_) }
+              case TypeParamAppIdentity(param) => newAllocatedParams.get(param).map { TypeParamAppIdentity(_) }
               case _                           => some(ident)
             }
             optIdent2.map {
               ident2 =>
-                val (newAllocatedParams, newAllocatedArgParams, allocatedParamAppIdxs, newArgs) = tmpTuple
                 val (newEnv2, newRes) = unsafeAllocateTypeParamsFromTypeValueLambdasS(args)(newAllocatedParams, unallocatedParamAppIdx)(newEnv)
-                  (newEnv2, newRes.map { 
-                    _.mapElements(identity, newAllocatedArgParams | _, allocatedParamAppIdxs | _, as => newArgs + (ident2 -> as))
+                (newEnv2, newRes.map { 
+                  _.mapElements(identity, newAllocatedArgParams | _, newAllocatedParamAppIdxs | _, as => newArgs + (ident2 -> as))
                 })
             }.getOrElse((newEnv, NoType.fromError[T](FatalError("unallocated parameter", none, NoPosition)).failure))
         } (env2)
