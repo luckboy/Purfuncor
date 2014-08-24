@@ -525,16 +525,16 @@ object TypeValueTermUnifier
         term2.normalizedTypeValueTerm match {
           case Some(normalizedTerm2: LogicalTypeValueTerm[T]) =>
             val (env2, res2) = unifier.withSaveS { f(param1, Right(normalizedTerm2), z, _) } (env)
-            val (env3, res3) = res2 match {
+            val (env4, res3) = res2 match {
               case Success(x) =>
                 (env2, x.success)
               case Failure(_) =>
                 logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env2) match {
-                  case (env4, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env4)
-                  case (env4, Failure(noType))       => (env4, noType.failure)
+                  case (env3, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env3)
+                  case (env3, Failure(noType))       => (env3, noType.failure)
                 }
             }
-            addDelayedErrorsFromResultS(res3, Set(paramAppIdx1))(z)(env3)
+            addDelayedErrorsFromResultS(res3, Set(paramAppIdx1))(z)(env4)
           case Some(normalizedTerm2) =>
             val (env2, res) = f(param1, Right(normalizedTerm2), z, env)
             addDelayedErrorsFromResultS(res, Set(paramAppIdx1))(z)(env2)

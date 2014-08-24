@@ -60,7 +60,7 @@ object LogicalTypeValueTermInfo
           case (newParams, _)                                                        =>
             newParams
         }
-        val conjParamSets2 = conjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
+        val conjParamSets2 = params.mapValues { List(_) } ++ conjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
         val conjTupleTypes2 = tupleTypes.toList ++ conjTupleTypes
         val (info3, _, leafIdxs, optRange) = childs.foldLeft((info2, leafIdx, Map[TypeValueIdentity[T], Set[Int]](), none[TypeValueRange])) {
           case ((newInfo, newLeafIdx, newLeafIdxs, optNewRange), child) =>
@@ -122,7 +122,7 @@ object LogicalTypeValueTermInfo
           case (newParams, _)                                                        =>
             newParams
         }
-        val disjParamSets2 = disjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
+        val disjParamSets2 = params.mapValues { List(_) } ++ disjParamSets.map { case (n, ps) => n -> params.get(n).map { _ :: ps }.getOrElse(ps) }
         val (info3, _, leafIdxs, optRange) = childs.foldLeft((info2, leafIdx, Map[TypeValueIdentity[T], Set[Int]](), none[TypeValueRange])) {
           case ((newInfo, newLeafIdx, newLeafIdxs, optNewRange), child) =>
             val (newInfo2, newLeafIdxs2, optNewRange2) = fromTypeConjunctionNode(child, conjTupleTypes, conjParamSets, disjParamSets2, args)(newLeafIdx)(newInfo)

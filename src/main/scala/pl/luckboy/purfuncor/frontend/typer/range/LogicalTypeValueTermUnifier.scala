@@ -36,7 +36,7 @@ object LogicalTypeValueTermUnifier
                   val (pairs5, pairIdxs3, isIntersected2) = pairs2.zipWithIndex.foldLeft((pairs3, pairIdxs, false)) {
                     case ((pairs4, pairIdxs2, isIntersected), (pair2 @ ((optRangeSet2, newChild2), newLeafs2), pairIdx)) =>
                       newChild match {
-                        case newLeaf: TypeValueLeaf[T] if optRangeSet.map { _.isEmpty }.getOrElse(true) =>
+                        case TypeValueBranch(Seq(newLeaf: TypeValueLeaf[T]), _, _) if optRangeSet.map { _.isEmpty }.getOrElse(true) =>
                           // If range set of previous child is empty.
                           child match {
                             case leaf @ TypeValueLeaf(ident, _, _) if !ident.isTupleTypeIdentity =>
@@ -88,7 +88,7 @@ object LogicalTypeValueTermUnifier
                 else
                   (newPrevParam3, (newPair, newPair2 :: newPairs))
             } (newPrevParam)
-            (newPrevParam, (pair2 :: pairs2) ++ pairs)
+            (newPrevParam, pair2 :: pairs2)
         } (prevParam2)
         val pairs9 = pairs8.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + leafCount - 1), rs.ranges.keys, tupleTypes) }, n) }
         if(isRoot)
@@ -214,7 +214,7 @@ object LogicalTypeValueTermUnifier
                 (param, _)
               }
           }
-        else {
+        else
           args.get(leaf.ident).flatMap {
             leafArgs =>
               val leafArgCount = leafArgs.size 
@@ -238,7 +238,6 @@ object LogicalTypeValueTermUnifier
                   Some(pair)
               }
           }
-       }
     }.getOrElse {
       args.get(leaf.ident).map {
         leafArgs =>
@@ -346,7 +345,7 @@ object LogicalTypeValueTermUnifier
         val myParam = myParams.get(leafIdx)
         val isOtherLeaf = otherLeafIdxs.contains(leafIdx)
         if(myLeafIdxs.contains(leafIdx) && (isOtherLeaf || myParam.isDefined || myNothingIdxs.contains(leafIdx))) {
-          val canAddIdent = isOtherLeaf && (!ident.isTypeParamAppIdentity || myParam.isDefined)
+          val canAddIdent = isOtherLeaf && (!ident.isTypeParamAppIdentity/* || myParam.isDefined*/)
           some(tuple.copy(_1 = if(canAddIdent) tuple._1 + ident else tuple._1, _3 = tuple._3 ++ (myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }))
         } else
           none
