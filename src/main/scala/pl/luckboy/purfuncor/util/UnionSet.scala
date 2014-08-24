@@ -34,7 +34,7 @@ sealed trait UnionSet[T]
       case ListUnionSet(sets) => sets.foldLeft(z) { (x, xs) => xs.foldLeft(x)(f) }
     }
   
-  override def toString = "UnionSet(" + toSet.mkString(", ") + ")"
+  override def toString = "UnionSet(" + toSeq.mkString(", ") + ")"
 }
 
 object UnionSet
