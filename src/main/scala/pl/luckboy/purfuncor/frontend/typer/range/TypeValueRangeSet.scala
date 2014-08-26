@@ -91,7 +91,7 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
     TypeValueRangeSet(ranges.mapValues { _.withCond(myRange, otherRanges, myTupleTypes) })
     
   def swapLeafIdxPairsWithMyLeafIdx(leafIdx: Int) =
-    TypeValueRangeSet(ranges.mapValues { v => v.copy(myLeafIdxs = UnionSet(leafIdx), otherLeafIdxs = v.myLeafIdxs) })
+    TypeValueRangeSet(ranges.mapValues { v => v.copy(myLeafIdxs = UnionSet(leafIdx), otherLeafIdxs = v.myLeafIdxs, myParamAppIdxs = v.myParamAppIdxs.map { p => (leafIdx, p._2) }) })
 
   def withMyParam(leafIdx: Int, param: Int) =
     TypeValueRangeSet(ranges.mapValues { v => v.copy(myParams = UnionSet(leafIdx -> param)) })
@@ -122,6 +122,7 @@ object TypeValueRange
 case class TypeValueRangeValue[T](
     myLeafIdxs: UnionSet[Int],
     otherLeafIdxs: UnionSet[Int],
+    myParamAppIdxs: UnionSet[(Int, Int)],
     myParams: UnionSet[(Int, Int)],
     myLeafParams: UnionSet[Int],
     otherTupleTypes: Option[List[TupleType[T]]], 
@@ -131,6 +132,7 @@ case class TypeValueRangeValue[T](
     TypeValueRangeValue[T](
         myLeafIdxs = myLeafIdxs | value.myLeafIdxs,
         otherLeafIdxs = otherLeafIdxs | value.otherLeafIdxs,
+        myParamAppIdxs = myParamAppIdxs | value.myParamAppIdxs,
         myParams = myParams | value.myParams,
         myLeafParams = myLeafParams | value.myLeafParams,
         otherTupleTypes = (otherTupleTypes |@| value.otherTupleTypes) { 
@@ -144,7 +146,7 @@ case class TypeValueRangeValue[T](
 
 object TypeValueRangeValue
 {
-  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
+  def empty[T] = TypeValueRangeValue[T](UnionSet.empty, UnionSet.empty, UnionSet.empty, UnionSet.empty, UnionSet.empty, none, UnionSet.empty)
 }
 
 case class TypeValueRangeCondition[T](myTupleTypes: Seq[TupleType[T]], otherTupleTypes: List[TupleType[T]])
