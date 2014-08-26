@@ -708,7 +708,7 @@ object LogicalTypeValueTermUnifier
     } else
       (env, (term, Set[Int]()).success)
   
-  private def matchesLocigalTypeValueTermsWithoutInstantationS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
+  private def matchesLogicalTypeValueTermsWithoutInstantationS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) = {
     val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val (env3, termKindRes1) = envSt.inferTypeValueTermKindS(term1)(env2)
     val (env4, termKindRes2) = envSt.inferTypeValueTermKindS(term2)(env3)
@@ -743,8 +743,52 @@ object LogicalTypeValueTermUnifier
         }.getOrElse(unifier.mismatchedTermErrorS(env5).mapElements(identity, _.failure))
     }.valueOr { nt => (env5, nt.failure) }
   }
+  
+  private def matchesLogicalTypeValueTermsWithoutInstantationForTypeParamAppWithTupleTypesS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]): (E, Validation[NoType[T], U]) = {
+    val (env2, typeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env) 
+    typeMatching match {
+      case TypeMatching.Types             =>
+        val (env3, _) = envSt.setCurrentTypeMatchingS(TypeMatching.SupertypeWithType)(env2)
+        matchesLogicalTypeValueTermsWithoutInstantationForTypeParamAppWithTupleTypesS(term1, term2)(z)(f)(env3) match {
+          case (env4, Success(x))      =>
+            val (env5, _) = envSt.setCurrentTypeMatchingS(TypeMatching.TypeWithSupertype)(env4)
+            matchesLogicalTypeValueTermsWithoutInstantationForTypeParamAppWithTupleTypesS(term1, term2)(x)(f)(env5)
+          case (env4, Failure(noType)) =>
+            (env4, noType.failure)
+        }
+      case TypeMatching.SupertypeWithType =>
+        (term1, term2) match {
+          case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, _)) =>
+            (conjNode1.typeValueNodeWithoutTupleTypeValueLeaf, conjNode2.typeValueNodeWithoutTupleTypeValueLeaf) match {
+              case (TypeValueLeaf(TypeParamAppIdentity(param1), paramAppIdx1, _), TypeValueBranch(Seq(TypeValueLeaf(TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
+                val (env3, res) = unifier.withSaveS { f(param2, Left(param1), z, _) } (env2)
+                val (env4, res2) = res match {
+                  case Success(x) =>
+                    (env3, x.success)
+                  case Failure(_) =>
+                    matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env3)
+                }
+                addDelayedErrorsFromResultS(res2, Set(paramAppIdx1, paramAppIdx2))(z)(env4)
+              case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
+                val (env3, res) = unifier.withSaveS { f(param2, Right(term1), z, _) } (env2)
+                val (env4, res2) = res match {
+                  case Success(x) =>
+                    (env3, x.success)
+                  case Failure(_) =>
+                    matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env3)
+                }
+                addDelayedErrorsFromResultS(res2, Set(paramAppIdx2))(z)(env4)
+              case _ =>
+                matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env2)
+            }
+        }
+      case TypeMatching.TypeWithSupertype =>
+        val (env3, _) = reverseTypeMatchingS(env2)
+        matchesLogicalTypeValueTermsWithoutInstantationForTypeParamAppWithTupleTypesS(term2, term1)(z)(f)(env3)
+    }
+  }
 
-  def matchesLocigalTypeValueTermsS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
+  def matchesLogicalTypeValueTermsS[T, U, V, E](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T])(z: U)(f: (Int, Either[Int, TypeValueTerm[T]], U, E) => (E, Validation[NoType[T], U]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, V, T], locEqual: Equal[T]) =
     st(for {
       pair1 <- steS(partiallyInstantiateLogicalTypeValueTermS(term1)(_: E))
       pair2 <- steS(partiallyInstantiateLogicalTypeValueTermS(term2)(_: E))
@@ -753,7 +797,7 @@ object LogicalTypeValueTermUnifier
           val (instantiatedTerm1, instantiatedParams1) = pair1
           val (instantiatedTerm2, instantiatedParams2) = pair2
           envSt.withInfinityCheckingS(instantiatedParams1 ++ instantiatedParams2) {
-            matchesLocigalTypeValueTermsWithoutInstantationS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_: E)
+            matchesLogicalTypeValueTermsWithoutInstantationForTypeParamAppWithTupleTypesS(instantiatedTerm1, instantiatedTerm2)(z)(f)(_: E)
           } (env2)
       })
     } yield y).run(env)

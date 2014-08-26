@@ -198,7 +198,7 @@ object TypeValueTermUnifier
       noType <- State(unifier.mismatchedTermErrorS)
     } yield noType).run(env)
 
-  private def addDelayedErrorsFromResultS[T, U, V, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
+  def addDelayedErrorsFromResultS[T, U, V, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
     res.map { x => (env, x.success) }.valueOr {
       nt => 
         envSt.returnKindFromEnvironmentS(env) match {
@@ -214,7 +214,7 @@ object TypeValueTermUnifier
         }
     }
     
-  private def reverseTypeMatchingS[T, U, E](env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T, U]) = {
+  def reverseTypeMatchingS[T, U, E](env: E)(implicit envSt: TypeInferenceEnvironmentState[E, T, U]) = {
     val (env2, oldTypeMatching) = envSt.currentTypeMatchingFromEnvironmentS(env)
     val newTypeMatching = oldTypeMatching match {
       case TypeMatching.Types             => TypeMatching.Types
@@ -530,7 +530,7 @@ object TypeValueTermUnifier
                 (env2, x.success)
               case Failure(_) =>
                 logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env2) match {
-                  case (env3, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env3)
+                  case (env3, Success(logicalTerm1)) => matchesLogicalTypeValueTermsS(logicalTerm1, normalizedTerm2)(z)(f)(env3)
                   case (env3, Failure(noType))       => (env3, noType.failure)
                 }
             }
@@ -562,7 +562,7 @@ object TypeValueTermUnifier
       case (TypeParamApp(_, args1, _), logicalTerm2: LogicalTypeValueTerm[T]) if !args1.isEmpty =>
         logicalTypeValueTermFromTypeValueTermS(typeParamApp1)(env) match {
           case (env2, Success(logicalTerm1)) => 
-            matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+            matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => 
             (env2, noType.failure)
         }
@@ -638,12 +638,12 @@ object TypeValueTermUnifier
         matchesBuiltinTypeWithTypeValueTermS(term2)(z)(env)
       case (globalTypeApp1: GlobalTypeApp[T], logicalTerm2: LogicalTypeValueTerm[T]) =>
         logicalTypeValueTermFromTypeValueTermS(globalTypeApp1)(env) match {
-          case (env2, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+          case (env2, Success(logicalTerm1)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
         }
       case (logicalTerm1: LogicalTypeValueTerm[T], globalTypeApp2: GlobalTypeApp[T]) =>
         logicalTypeValueTermFromTypeValueTermS(globalTypeApp2)(env) match {
-          case (env2, Success(logicalTerm2)) => matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+          case (env2, Success(logicalTerm2)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
         }
       case (globalTypeApp1: GlobalTypeApp[T], _) =>
@@ -652,15 +652,15 @@ object TypeValueTermUnifier
         val (env2, _) = reverseTypeMatchingS(env)
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp2, term1)(z)(f)(env2)
       case (logicalTerm1: LogicalTypeValueTerm[T], logicalTerm2: LogicalTypeValueTerm[T]) =>
-        matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env)
+        matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env)
       case (logicalTerm1: LogicalTypeValueTerm[T], _) =>
         logicalTypeValueTermFromTypeValueTermS(term2)(env) match {
-          case (env2, Success(logicalTerm2)) => matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+          case (env2, Success(logicalTerm2)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
         }
       case (_, logicalTerm2: LogicalTypeValueTerm[T]) =>
         logicalTypeValueTermFromTypeValueTermS(term1)(env) match {
-          case (env2, Success(logicalTerm1)) => matchesLocigalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
+          case (env2, Success(logicalTerm1)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
         }
       case (_, _) =>
