@@ -767,26 +767,13 @@ object LogicalTypeValueTermUnifier
         }
       case TypeMatching.SupertypeWithType =>
         (term1, term2) match {
-          case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, _)) =>
+          case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, args2)) =>
             (conjNode1.typeValueNodeWithoutTupleTypeValueLeaf, conjNode2.typeValueNodeWithoutTupleTypeValueLeaf) match {
-              case (TypeValueLeaf(TypeParamAppIdentity(param1), paramAppIdx1, _), TypeValueBranch(Seq(TypeValueLeaf(TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
-                val (env3, res) = unifier.withSaveS { f(param2, Left(param1), z, _) } (env2)
-                val (env4, res2) = res match {
-                  case Success(x) =>
-                    (env3, x.success)
-                  case Failure(_) =>
-                    matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env3)
-                }
-                addDelayedErrorsFromResultS(res2, Set(paramAppIdx1, paramAppIdx2))(z)(env4)
-              case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(TypeParamAppIdentity(param2), paramAppIdx2, _)), _, _)) =>
-                val (env3, res) = unifier.withSaveS { f(param2, Right(term1), z, _) } (env2)
-                val (env4, res2) = res match {
-                  case Success(x) =>
-                    (env3, x.success)
-                  case Failure(_) =>
-                    matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env3)
-                }
-                addDelayedErrorsFromResultS(res2, Set(paramAppIdx2))(z)(env4)
+              case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes, _)) if !tupleTypes.isEmpty =>
+                args2.get(ident2).map {
+                  argLambdas =>
+                    matchesTypeValueTermsS(term1, TypeParamApp(param2, argLambdas, paramAppIdx2))(z)(f)(env2)
+                }.getOrElse((env2, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure))
               case _ =>
                 matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env2)
             }

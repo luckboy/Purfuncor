@@ -198,7 +198,7 @@ object TypeValueTermUnifier
       noType <- State(unifier.mismatchedTermErrorS)
     } yield noType).run(env)
 
-  def addDelayedErrorsFromResultS[T, U, V, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
+  private def addDelayedErrorsFromResultS[T, U, V, E](res: Validation[NoType[T], U], paramAppIdxs: Set[Int])(z: U)(env: E)(implicit envSt: TypeInferenceEnvironmentState[E, V, T]) =
     res.map { x => (env, x.success) }.valueOr {
       nt => 
         envSt.returnKindFromEnvironmentS(env) match {
