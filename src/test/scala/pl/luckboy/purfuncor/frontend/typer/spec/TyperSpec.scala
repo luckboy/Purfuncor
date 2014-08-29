@@ -3381,7 +3381,7 @@ g x = x select {
                               // \t1 t2 => (T t1 t2) #& (t1, t2)
                               types1 should have size(2)
                               inside(for {
-                                x1 <- types1.collectFirst { case Unittype(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
+                                x1 <- types1.collectFirst { case GlobalTypeApp(loc11, Seq(arg11, arg12), GlobalSymbol(NonEmptyList("T"))) => (loc11, arg11, arg12) }
                                 x2 <- types1.collectFirst { case TupleType(Seq(type13, type14)) => (type13, type14) }
                               } yield (x1, x2)) {
                                 case Some(((loc11, arg11, arg12), (type13, type14))) =>
@@ -4250,7 +4250,7 @@ poly g
       val (env, res) = Typer.inferTypesFromTreeString("""
 f = 1: \t1 => t1
 """)(NameTree.empty)(f).run(emptyEnv)
-     inside(res) {
+      inside(res) {
         case Success(Failure(noType)) =>
           noType.errs.map { _.msg } should be ===(List(
               "couldn't instantiate parameter at defined type \\t1 => t1"))
@@ -4261,7 +4261,7 @@ f = 1: \t1 => t1
       val (env, res) = Typer.inferTypesFromTreeString("""
 f = #iAdd: \t1 => ##-> t1 (##-> t1 t1)
 """)(NameTree.empty)(f).run(emptyEnv)
-     inside(res) {
+      inside(res) {
         case Success(Failure(noType)) =>
           noType.errs.map { _.msg } should be ===(List(
               "couldn't instantiate parameter at defined type \\t1 => t1 #-> t1 #-> t1"))
