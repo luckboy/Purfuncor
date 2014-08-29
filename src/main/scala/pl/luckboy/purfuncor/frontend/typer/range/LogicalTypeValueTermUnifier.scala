@@ -360,7 +360,7 @@ object LogicalTypeValueTermUnifier
         val myParam = myParams.get(leafIdx).filter { p => myParamAppIdxs.get(leafIdx).map { pai => myLeafParamAppIdxs.getOrElse(p, Set()).contains(pai) }.getOrElse(false) }
         val isOtherLeaf = otherLeafIdxs.contains(leafIdx)
         if(myLeafIdxs.contains(leafIdx) && (isOtherLeaf || myParam.isDefined || ident.isTypeParamAppIdentity)) {
-          val canAddIdent = isOtherLeaf && (!ident.isTypeParamAppIdentity || myParam.isDefined)
+          val canAddIdent = isOtherLeaf && !ident.isTypeParamAppIdentity && !myParam.isDefined
           some(tuple.copy(_1 = if(canAddIdent) tuple._1 + ident else tuple._1, _3 = tuple._3 ++ ((myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) })))
         } else
           none
@@ -457,10 +457,14 @@ object LogicalTypeValueTermUnifier
           } yield {
             val conds = (conjTuple._2 | disjTuple._2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
             val paramConds1 = conjTuple._3 ++ disjTuple._3
-            val conjParamConds = (disjMyLeafParamAppIdxs -- (conjTuple._3 ++ disjTuple._3).map { _.param }).flatMap {
+            val params1 = paramConds1.flatMap {
+              case TypeParamCondition(param1, _, TypeValueLeaf(TypeParamAppIdentity(param2), _, _), _) => Set(param1, param2) 
+              case TypeParamCondition(param1, _, _, _) => Set(param1)               
+            }
+            val conjParamConds = (disjMyLeafParamAppIdxs -- params1).flatMap {
               case (p, pais) => pais.headOption.map { TypeParamCondition[T](p, _, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1), TypeMatching.SupertypeWithType) }
             }
-            val disjParamConds = (conjMyLeafParamAppIdxs -- (conjTuple._3 ++ disjTuple._3).map { _.param }).flatMap {
+            val disjParamConds = (conjMyLeafParamAppIdxs -- params1).flatMap {
               case (p, pais) => pais.headOption.map { TypeParamCondition[T](p, _, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1), TypeMatching.TypeWithSupertype) }
             }
             val paramConds2 = (conjParamConds ++ disjParamConds).toSeq
@@ -733,13 +737,13 @@ object LogicalTypeValueTermUnifier
                   (x, ident, newEnv: E) =>
                     (term1.args.get(ident) |@| term2.args.get(ident)) {
                       (args1, args2) =>
-                        if(args1.size === args2.size) {
+                        if(args1.size === args2.size)
                           stFoldLeftValidationS(args1.zip(args2))(x.success[NoType[T]]) {
                             (x2, argPair, newEnv2: E) =>
                               val (arg1, arg2) = argPair
                               matchesTypeValueLambdasS(arg1, arg2)(x2)(f)(newEnv2)
                           } (newEnv)
-                        } else
+                        else
                           unifier.mismatchedTermErrorS(newEnv).mapElements(identity, _.failure)
                     }.getOrElse(unifier.mismatchedTermErrorS(newEnv).mapElements(identity, _.failure))
                 }
@@ -770,10 +774,17 @@ object LogicalTypeValueTermUnifier
           case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, args2)) =>
             (conjNode1.typeValueNodeWithoutTupleTypeValueLeaf, conjNode2.typeValueNodeWithoutTupleTypeValueLeaf) match {
               case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes, _)) if !tupleTypes.isEmpty =>
-                args2.get(ident2).map {
-                  argLambdas =>
-                    matchesTypeValueTermsS(term1, TypeParamApp(param2, argLambdas, paramAppIdx2))(z)(f)(env2)
-                }.getOrElse((env2, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure))
+                term1.normalizedTypeValueTerm match {
+                  case Some(normalizedTerm1) =>
+                    args2.get(ident2) match {
+                      case Some(argLambdas) =>
+                        matchesTypeValueTermsS(normalizedTerm1, TypeParamApp(param2, argLambdas, paramAppIdx2))(z)(f)(env2)
+                      case None             =>
+                        (env2, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
+                    }
+                  case None                  =>
+                    (env2, NoType.fromError(FatalError("can't normalize type value term", none, NoPosition)).failure)
+                }
               case _ =>
                 matchesLogicalTypeValueTermsWithoutInstantationS(term1, term2)(z)(f)(env2)
             }
