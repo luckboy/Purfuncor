@@ -265,7 +265,7 @@ sealed trait TypeValueTerm[T]
             if(leafIdents.forall { i => (args1.get(i) |@| args2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
               (env3, f(term1, term2).success)
             else
-              (env3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+              (env3, NoTypeValue.fromError[T, U, V, W](Error("same type functions don't have same arguments at logical type expression", none, NoPosition)).failure)
         }.valueOr { nv => (env2, nv.failure) }
     }.valueOr { nv => (env2, nv.failure) }
   }
@@ -444,7 +444,7 @@ object TypeValueTerm
                     if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                       (newEnv3, (if(isNewLambda) newLambdas2 + (param -> lambda) else newLambdas2).success)
                     else
-                      (newEnv3, NoTypeValue.fromError[T, U, V, W](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                      (newEnv3, NoTypeValue.fromError[T, U, V, W](Error("same type functions don't have same arguments at logical type expression", none, NoPosition)).failure)
                   case (newEnv3, Success(_)) =>
                     (newEnv3, NoTypeValue.fromError[T, U, V, W](FatalError("incorrect body of type value lambda", none, NoPosition)).failure)
                   case (newEnv3, Failure(noValue)) =>

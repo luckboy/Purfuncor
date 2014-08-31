@@ -661,7 +661,7 @@ object LogicalTypeValueTermUnifier
                                 if(leafIdents.forall { i => (newArgMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                                   (env5, (newOptNodeMap + (ident -> some(conjNode2)), newArgMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
                                 else
-                                  (env5, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                                  (env5, NoType.fromError[T](Error("same type functions don't have same arguments at logical type expression", none, NoPosition)).failure)
                               case Failure(noType) =>
                                 (env5, noType.failure)
                             }
@@ -886,7 +886,7 @@ object LogicalTypeValueTermUnifier
                             if(leafIdents.forall { i => (newArgMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                               (env3, (newNodeMap + (ident -> conjNode2), newArgMap ++ argMap2, conjNode2).success)
                             else
-                              (env3, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                              (env3, NoType.fromError[T](Error("same type functions don't have same arguments at logical type expression", none, NoPosition)).failure)
                           case Failure(noType) =>
                             (env3, noType.failure)
                         }

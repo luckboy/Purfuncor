@@ -1057,7 +1057,7 @@ object TypeValueTermUnifier
                             if(leafIdents.forall { i => (logicalTerm.args.get(i) |@| body.args.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                               (newEnv4, (if(isNewLambda) newLambdas2 + (rootParam -> (lambdaParam, lambda)) else newLambdas2).success)
                             else
-                              (newEnv4, NoType.fromError[T](Error("same type functions haven't same arguments at logical type expression", none, NoPosition)).failure)
+                              (newEnv4, NoType.fromError[T](Error("same type functions don't have same arguments at logical type expression", none, NoPosition)).failure)
                           case (newEnv4, Success(_)) =>
                             (newEnv4, NoType.fromError[T](FatalError("incorrect body of type value lambda", none, NoPosition)).failure)
                           case (newEnv4, Failure(noValue)) =>
