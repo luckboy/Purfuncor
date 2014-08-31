@@ -2358,25 +2358,18 @@ h = g f
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("h")))) {
                     case InferredType(GlobalTypeApp(loc1, Seq(TypeValueLambda(Seq(), TypeConjunction(types1))), GlobalSymbol(NonEmptyList("TWI"))), argKinds) =>
-                      // \t1 t2 t3 => TWI (t1 #& (t2 #Char) #& T)
+                      // \t1 t2 => TWI ((t1 #Char) #& T)
                       loc1 should be ===(twiLoc)
-                      types1 should have size(3)
+                      types1 should have size(2)
                       inside(for {
-                        x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
-                        x2 <- types1.collectFirst { case TypeParamApp(param12, Seq(arg12), 0 ) => (param12, arg12) }
-                        x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc13 }
-                      } yield (x1, x2, x3)) {
-                        case Some((param11, (param12, arg12), loc13)) =>
-                          loc13 should be ===(tLoc)
-                          inside(arg12) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
-                          List(param11, param12).toSet should have size(2)
-                          argKinds should have size(2)
+                        x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(arg11), 0 ) => (param11, arg11) }
+                        x2 <- types1.collectFirst { case GlobalTypeApp(loc12, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc12 }
+                      } yield (x1, x2)) {
+                        case Some(((param11, arg11), loc12)) =>
+                          loc12 should be ===(tLoc)
+                          inside(arg11) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
+                          argKinds should have size(1)
                           inside(argKinds.lift(param11)) {
-                            case Some(InferredKind(Star(KindType, _))) =>
-                              // *
-                              ()
-                          }
-                          inside(argKinds.lift(param12)) {
                             case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) =>
                               // * -> *
                               ()
@@ -2672,7 +2665,7 @@ i = h g
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("i")))) {
                     case InferredType(TypeConjunction(types1), argKinds) =>
-                      // \t1 t2 => t #& (t2 #Char) #& T
+                      // \t1 t2 => t1 #& (t2 #Char) #& T
                       types1 should have size(3)
                       inside(for { 
                         x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
