@@ -120,7 +120,7 @@ object LogicalTypeValueTermUnifier
         val ((prevParam2, _), pairs6) = stFoldLeftS(childs)(List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]()) {
           (pairs, child, stPair: (Int, Int)) =>
             val (newPrevParam, newLeafIdx) = stPair
-            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeConjunctionNode(child, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType, isRoot)(newLeafIdx)(newPrevParam)
+            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeConjunctionNode(child, nodeTuple, depthRangeSets2, args, isSupertype, canExpandGlobalType, isRoot)(newLeafIdx)(newPrevParam)
             val pairs5 = if(!pairs.isEmpty)
               pairs.foldLeft(List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]()) {
                 case (pairs3, pair @ (optRangeSet, newChild)) =>
@@ -473,7 +473,7 @@ object LogicalTypeValueTermUnifier
             case (condIdxs, (((myRange, _), _), i)) => condIdxs |+| Map(myRange -> Set(i))
           }
           val conjOtherCondIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueRange, Int]()) {
-            case (condIdxs, (((_, otherRanges), _), i)) => condIdxs |+| otherRanges.map { _ -> i }.toMap
+            case (condIdxs, (((_, otherRanges), _), i)) => condIdxs ++ otherRanges.map { _ -> i }.toMap
           }
           for {
             conjTuple <- checkLeafIndexSetsForTypeConjunction((conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, conjMyParamAppIdxs, disjMyLeafParamAppIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0, (Set(), Set(), Seq(), Set()))
