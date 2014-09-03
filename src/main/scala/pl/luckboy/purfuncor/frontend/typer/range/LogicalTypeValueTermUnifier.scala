@@ -89,7 +89,7 @@ object LogicalTypeValueTermUnifier
                 else
                   (newPrevParam3, (newPair, newPair2 :: newPairs))
             } (newPrevParam)
-            (newPrevParam, pair2 :: pairs2)
+            (newPrevParam, (pair2 :: pairs2) ++ pairs)
         } (prevParam2)
         val pairs9 = pairs8.map { case (ors, n) => (ors.map { rs => rs.withConds(TypeValueRange(leafIdx, leafIdx + leafCount - 1), rs.ranges.keys, tupleTypes) }, n) }
         if(isRoot)
@@ -126,7 +126,10 @@ object LogicalTypeValueTermUnifier
                 case (pairs3, pair @ (optRangeSet, newChild)) =>
                   pairs2.zipWithIndex.foldLeft(pairs3) {
                     case (pairs4, (pair2 @ (optRangeSet2, newChild2), pairIdx)) =>
-                      val optRangeSet3 = (optRangeSet |@| optRangeSet2) { _ | _ }.orElse(optRangeSet).orElse(optRangeSet2)
+                      val optRangeSet3 = if(!isRoot)
+                        (optRangeSet |@| optRangeSet2) { _ | _ }.orElse(optRangeSet).orElse(optRangeSet2)
+                      else
+                        (optRangeSet |@| optRangeSet2) { _ | _ }
                       ((optRangeSet3, newChild.withChildAndTupleTypes(newChild2, tupleTypes, !isSupertype, canExpandGlobalType))) :: pairs4
                   }
               }
@@ -330,7 +333,7 @@ object LogicalTypeValueTermUnifier
     }
   }
   
-  private def checkSupertypeValueLeaf[T](leaf: TypeValueLeaf[T], rangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]], depthRangeSets2: List[TypeValueRangeSet[T]], myLeafParamPair: Option[(Int, Int)], isSupertype: Boolean)(leafIdx: Int) =
+  private def checkSupertypeValueLeaf[T](leaf: TypeValueLeaf[T], rangeSets: Map[TypeValueIdentity[T], TypeValueRangeSet[T]], depthRangeSets2: List[TypeValueRangeSet[T]], myLeafParamPair: Option[(Int, Int)], isSupertype: Boolean)(leafIdx: Int) = {
     leaf match {
       case TypeValueLeaf(ident, _, _) =>
         rangeSets.get(ident).map {
@@ -343,6 +346,7 @@ object LogicalTypeValueTermUnifier
             myLeafParamPair.map { p => rangeSet2.withMyLeafParamAppIdx(p._1, p._2) }.getOrElse(rangeSet2)
         }
     }
+  }
   
   private def checkLeafIndexSetsForTypeConjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int, tuple: (Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])): Option[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])] = {
     val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myLeafParams) = indexTuple
