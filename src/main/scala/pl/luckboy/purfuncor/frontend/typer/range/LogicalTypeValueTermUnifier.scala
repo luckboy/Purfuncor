@@ -130,7 +130,7 @@ object LogicalTypeValueTermUnifier
     val depthRangeSets2 = depthRangeSets.headOption.map { _ => depthRangeSets.tail }.getOrElse(Nil)
     node match {
       case TypeValueBranch(childs, _, _) =>
-        val ((prevParam2, _), rangeSet3) = stFoldLeftS(childs)(TypeValueRangeSet.full[T]) {
+        val ((prevParam2, _), rangeSet3) = stFoldLeftS(childs)(TypeValueRangeSet.empty[T]) {
           (rangeSet, child, stPair: (Int, Int)) =>
             val (newPrevParam, newLeafIdx) = stPair
             val (newPrevParam2, rangeSet2) = checkSupertypeConjunctionNode(child, nodeTuple, depthRangeSets2, args, isSupertype, canExpandGlobalType)(newLeafIdx)(newPrevParam)
