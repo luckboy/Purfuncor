@@ -195,7 +195,7 @@ object Instantiator
           res <- f(tree, kindTable, typeTable)
           res2 <- res.map {
             tree2 => transform(tree2)(kindTable, typeTable, instTree, instArgTable)(g)
-          }.getOrElse { println("transformStringS res=" + res); State((_: TE, FatalError("result is failure", none, NoPosition).failureNel)) }
+          }.getOrElse(State((_: TE, FatalError("result is failure", none, NoPosition).failureNel)))
         } yield res2).run(typeEnv)
     }.valueOr { errs => (typeEnv, errs.failure) }
   
