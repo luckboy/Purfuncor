@@ -68,7 +68,7 @@ object LogicalTypeValueTermUnifier
         val (prevParam2, rangeSet) = checkSupertypeConjunctionLeaf(leaf, nodeTuple, depthRangeSets, args, isSupertype)(leafIdx)(prevParam)
         (prevParam2, List((if(!rangeSet.isEmpty) some(rangeSet) else none, node)))
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
         checkOrDistributeSupertypeConjunctionNode(node2, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType, isRoot)(leafIdx)(prevParam)
     }).mapElements(identity, _.map { case (ors, n) => (ors.map { _.superset(depthRangeSet) }, n.normalizedTypeValueNode) })
   }
@@ -102,7 +102,7 @@ object LogicalTypeValueTermUnifier
         val (prevParam2, rangeSet) = checkSupertypeDisjunctionNode(leaf, nodeTuple, depthRangeSets2, args, isSupertype, canExpandGlobalType)(leafIdx)(prevParam)
         (prevParam2, List((if(!rangeSet.isEmpty) some(rangeSet) else none, node)))
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, isSupertype, canExpandGlobalType)
         checkOrDistributeSupertypeDisjunctionNode(node2, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType, isRoot)(leafIdx)(prevParam)
     }).mapElements(identity, _.map { case (ors, n) => (ors, n.normalizedTypeValueNode) })
   }
@@ -121,7 +121,7 @@ object LogicalTypeValueTermUnifier
       case leaf: TypeValueLeaf[T] =>
         checkSupertypeConjunctionLeaf(leaf, nodeTuple, depthRangeSets, args, isSupertype)(leafIdx)(prevParam)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
         checkSupertypeDisjunctionNode(node2, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType)(leafIdx)(prevParam)
     }).mapElements(identity, _.superset(depthRangeSet))
   }
@@ -140,7 +140,7 @@ object LogicalTypeValueTermUnifier
       case leaf: TypeValueLeaf[T] =>
         checkSupertypeDisjunctionLeaf(leaf, nodeTuple, depthRangeSets2, args, isSupertype)(leafIdx)(prevParam)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, isSupertype, canExpandGlobalType)
         checkSupertypeDisjunctionNode(node2, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType)(leafIdx)(prevParam)
     }
   }
@@ -259,7 +259,7 @@ object LogicalTypeValueTermUnifier
       case TypeValueLeaf(ident, paramAppIdx, _) =>
         checkLeafIndexSetsForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx, tuple)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
         checkLeafIndexSetsForTypeConjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
     }
   }
@@ -287,28 +287,28 @@ object LogicalTypeValueTermUnifier
         } else
           none
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, canExpandGlobalType)
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, isSupertype, canExpandGlobalType)
         checkLeafIndexSetsForTypeDisjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
     }  
   }
   
   private def fullyCheckOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) =
     checkOrDistributeSupertypeConjunctionNode(node, nodeTuple, depthRangeSets, args, isSupertype, true, canExpandGlobalType)(0)(-1)._2 match {
-      case pairs @ List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args)))
+      case pairs @ List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args, isSupertype)))
       case _                                    => none
     }
   
   private def fullyCheckOrDistributeSupertypeDisjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) =
     checkOrDistributeSupertypeDisjunctionNode(node, nodeTuple, depthRangeSets, args, isSupertype, true, canExpandGlobalType)(0)(-1)._2 match {
-      case pairs @ List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args)))
+      case pairs @ List((optRangeSet, newNode)) => some((optRangeSet, LogicalTypeValueTerm(newNode, args, !isSupertype)))
       case _                                    => none
     }
   
   private def checkOrDistributeTypeValueNodesFromLogicalTypeValueTerms[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isSupertype: Boolean, isFirstTry: Boolean, canExpandGlobalType: Boolean) =
     (term1.conjNode, term2.conjNode) match {
       case (TypeValueBranch(childs1, tupleTypes1, _), TypeValueBranch(childs2, tupleTypes2, _)) if childs1.size > 1 && childs2.size === 1 && !isFirstTry =>
-        val tmpTerm1 = LogicalTypeValueTerm(TypeValueBranch(Vector(TypeValueBranch(Vector(term1.conjNode), tupleTypes1, term1.conjNode.leafCount)), Nil, term1.conjNode.leafCount), term1.args)
-        val tmpTerm2 = term2
+        val tmpTerm1 = LogicalTypeValueTerm(TypeValueBranch(Vector(TypeValueBranch(Vector(term1.conjNode), tupleTypes1, term1.conjNode.leafCount)), Nil, term1.conjNode.leafCount), term1.args, isSupertype)
+        val tmpTerm2 = term2.withSupertype(!isSupertype)
         val normalizedTerm1 = tmpTerm1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
         val normalizedTerm2 = tmpTerm2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: normalizedTerm2.info.conjDepthRangeSets
@@ -320,6 +320,8 @@ object LogicalTypeValueTermUnifier
           pair2 <- fullyCheckOrDistributeSupertypeDisjunctionNode(normalizedTerm2.conjNode, nodeTuple1, disjDepthRangeSets, normalizedTerm2.args, !isSupertype, canExpandGlobalType)
         } yield ((pair1, normalizedTerm1), (pair2, normalizedTerm2))
       case _ =>
+        val tmpTerm1 = term1.withSupertype(isSupertype)
+        val tmpTerm2 = term2.withSupertype(!isSupertype)
         val normalizedTerm1 = term1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
         val normalizedTerm2 = term2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: normalizedTerm2.info.conjDepthRangeSets
@@ -549,9 +551,9 @@ object LogicalTypeValueTermUnifier
                           case Success((term2, optInstantiatedParam)) =>
                             val (env5, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env4)
                             res2 match {
-                              case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
+                              case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2, _)) =>
                                 (env5, (newOptNodeMap + (ident -> some(conjNode2)), newArgMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
-                              case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
+                              case Success(LogicalTypeValueTerm(conjNode2, argMap2, _))                               =>
                                 val leafIdents = newArgMap.keySet & argMap2.keySet
                                 if(leafIdents.forall { i => (newArgMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                                   (env5, (newOptNodeMap + (ident -> some(conjNode2)), newArgMap ++ argMap2, some((conjNode2, optInstantiatedParam))).success)
@@ -638,7 +640,7 @@ object LogicalTypeValueTermUnifier
   private def partiallyInstantiateLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]) =
     if(term.args.keys.exists { _.isInstanceOf[TypeParamAppIdentity[T]] }) {
       val (env2, res) = partiallyInstantiateTypeValueNodeS(term.conjNode, term.args, true, false)(Set())(Map(), Map())(env)
-      (env2, res.map { t => t._3.map { case (n, ips) => (LogicalTypeValueTerm(n, t._2), ips) }.getOrElse((term, Set[Int]())) })
+      (env2, res.map { t => t._3.map { case (n, ips) => (LogicalTypeValueTerm(n, t._2, term.isSupertype), ips) }.getOrElse((term, Set[Int]())) })
     } else
       (env, (term, Set[Int]()).success)
   
@@ -692,7 +694,7 @@ object LogicalTypeValueTermUnifier
         }
       case TypeMatching.SupertypeWithType =>
         (term1, term2) match {
-          case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, args2)) =>
+          case (LogicalTypeValueTerm(conjNode1, _, _), LogicalTypeValueTerm(conjNode2, args2, _)) =>
             (conjNode1.typeValueNodeWithoutTupleTypeValueLeaf, conjNode2.typeValueNodeWithoutTupleTypeValueLeaf) match {
               case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes, _)) if !tupleTypes.isEmpty =>
                 term1.normalizedTypeValueTerm match {
@@ -774,9 +776,9 @@ object LogicalTypeValueTermUnifier
                       case Success(term2) =>
                         val (env3, res2) = logicalTypeValueTermFromTypeValueTermS(term2)(env2)
                         res2 match {
-                          case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2)) =>
+                          case Success(LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2, _)) =>
                             (env3, (newNodeMap + (ident -> conjNode2), newArgMap ++ argMap2, conjNode2).success)
-                          case Success(LogicalTypeValueTerm(conjNode2, argMap2))                               =>
+                          case Success(LogicalTypeValueTerm(conjNode2, argMap2, _))                               =>
                             val leafIdents = newArgMap.keySet & argMap2.keySet
                             if(leafIdents.forall { i => (newArgMap.get(i) |@| argMap2.get(i)) { TypeValueLambda.simplyMatchesTypeValueLambdaLists(_, _) }.getOrElse(false) })
                               (env3, (newNodeMap + (ident -> conjNode2), newArgMap ++ argMap2, conjNode2).success)
@@ -821,7 +823,7 @@ object LogicalTypeValueTermUnifier
   
   def replaceLogicalTypeValueTermParamsS[T, U, E](term: LogicalTypeValueTerm[T])(f: (Int, E) => (E, Validation[NoType[T], Either[Int, TypeValueTerm[T]]]))(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T], locEqual: Equal[T]): (E, Validation[NoType[T], TypeValueTerm[T]]) = {
     val (env2, res) = replaceTypeValueNodeParamsS(term.conjNode, term.args, true, false)(Map(), Map())(f)(env)
-    (env2, res.map { case (_, args2, conjNode2) => LogicalTypeValueTerm(conjNode2, args2) })
+    (env2, res.map { case (_, args2, conjNode2) => LogicalTypeValueTerm(conjNode2, args2, term.isSupertype) })
   }
   
   private def unsafeAllocateTypeParamsFromTypeValueNodesS[T, U, E](nodes: Iterable[TypeValueNode[T]])(allocatedParams: Map[Int, Int], unallocatedParamAppIdx: Int)(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]) =
@@ -886,7 +888,7 @@ object LogicalTypeValueTermUnifier
                 })
             }.getOrElse((newEnv, NoType.fromError[T](FatalError("unallocated parameter", none, NoPosition)).failure))
         } (env2)
-        (env3, res2.map { _.mapElements(identity, allocatedArgParams | _, allocatedParamAppIdxs | _, LogicalTypeValueTerm(conjNode2, _)) })
+        (env3, res2.map { _.mapElements(identity, allocatedArgParams | _, allocatedParamAppIdxs | _, LogicalTypeValueTerm(conjNode2, _, term.isSupertype)) })
       case Failure(noType) =>
         (env2, noType.failure)
     }
@@ -917,7 +919,7 @@ object LogicalTypeValueTermUnifier
   
   def checkTypeParamsFromLogicalTypeValueTermS[T, U, E](term: LogicalTypeValueTerm[T])(env: E)(implicit unifier: Unifier[NoType[T], TypeValueTerm[T], E, Int], envSt: TypeInferenceEnvironmentState[E, U, T]): (E, Validation[NoType[T], Unit]) =
     term match {
-      case LogicalTypeValueTerm(conjNode, args) =>
+      case LogicalTypeValueTerm(conjNode, args, _) =>
         val (env2, res) = checkTypeParamsFromTypeValueNodeS(conjNode)(env)
         res.map {
           _ =>

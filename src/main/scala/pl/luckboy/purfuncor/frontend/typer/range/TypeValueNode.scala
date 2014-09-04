@@ -29,8 +29,8 @@ sealed trait TypeValueNode[T]
       case (TypeValueLeaf(_, _, leafCount1), TypeValueLeaf(_, _, leafCount2))                 =>
         TypeValueBranch(Vector(this, node), tupleTypes, leafCount1 + leafCount2)
       case (_, _)                                                                             =>
-        val expandedNode1 = typeValueBranchOrTypeValueLeaf(isSupertype, canExpandGlobalType).normalizedTypeValueNode
-        val expandedNode2 = node.typeValueBranchOrTypeValueLeaf(isSupertype, canExpandGlobalType).normalizedTypeValueNode
+        val expandedNode1 = typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType).normalizedTypeValueNode
+        val expandedNode2 = node.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType).normalizedTypeValueNode
         expandedNode1.conjOrDisjWithTupleTypes(expandedNode2, tupleTypes, isSupertype, canExpandGlobalType)
     }
   
@@ -117,29 +117,44 @@ sealed trait TypeValueNode[T]
         this
     }
     
-  private def typeValueBranchOrTypeValueLeafForTypeConjunction(canExpandGlobalType: Boolean) = {
-    val node = typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType)
-    TypeValueBranch(Vector(node), Vector(), node.leafCount).normalizedTypeValueNode
-  }
+  private def typeValueBranchOrTypeValueLeafForTypeConjunction(isSupertype: Boolean, canExpandGlobalType: Boolean): TypeValueNode[T] = 
+    if(isSupertype) {
+      val node = typeValueBranchOrTypeValueLeafForTypeDisjunction(isSupertype, canExpandGlobalType)
+      TypeValueBranch(Vector(node), Vector(), node.leafCount).normalizedTypeValueNode
+    } else
+      this match {
+        case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
+          if(canExpandGlobalType)
+            TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount)
+          else
+            TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
+        case _ =>
+          this
+      }
   
-  private def typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType: Boolean): TypeValueNode[T] =
-    this match {
-      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
-        if(canExpandGlobalType)
-          TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount)
-        else
-          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
-      case _ =>
-        this
+  private def typeValueBranchOrTypeValueLeafForTypeDisjunction(isSupertype: Boolean, canExpandGlobalType: Boolean): TypeValueNode[T] =
+    if(isSupertype)
+      this match {
+        case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
+          if(canExpandGlobalType)
+            TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount)
+          else
+            TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
+        case _ =>
+          this
+      }
+    else {
+      val node = typeValueBranchOrTypeValueLeafForTypeConjunction(isSupertype, canExpandGlobalType)
+      TypeValueBranch(Vector(node), Vector(), node.leafCount).normalizedTypeValueNode
     }
 
-  def typeValueBranchOrTypeValueLeaf(isSupertype: Boolean, canExpandGlobalType: Boolean) =
-    if(isSupertype)
-      typeValueBranchOrTypeValueLeafForTypeConjunction(canExpandGlobalType)
+  def typeValueBranchOrTypeValueLeaf(isConj: Boolean, isSupertype: Boolean, canExpandGlobalType: Boolean) =
+    if(isConj)
+      typeValueBranchOrTypeValueLeafForTypeConjunction(isSupertype, canExpandGlobalType)
     else
-      typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType)
+      typeValueBranchOrTypeValueLeafForTypeDisjunction(isSupertype, canExpandGlobalType)
 
-  private def normalizedTypeValueChildForChecking(canExpandGlobalType: Boolean): TypeValueNode[T] =
+  private def normalizedTypeValueChildForChecking(isSupertype: Boolean, canExpandGlobalType: Boolean): TypeValueNode[T] =
     this match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         TypeValueBranch[T](childs :+ TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1), tupleTypes, leafCount + 1)
@@ -148,14 +163,14 @@ sealed trait TypeValueNode[T]
       case leaf: TypeValueLeaf[T] =>
         TypeValueBranch[T](Vector(leaf, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1)), Vector(), leafCount + 1)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(false, canExpandGlobalType).normalizedTypeValueChildForChecking(canExpandGlobalType)
+        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(false, isSupertype, canExpandGlobalType).normalizedTypeValueChildForChecking(isSupertype, canExpandGlobalType)
     }
   
-  def normalizedTypeValueNodeForChecking(canExpandGlobalType: Boolean): TypeValueNode[T] =
+  def normalizedTypeValueNodeForChecking(isSupertype: Boolean, canExpandGlobalType: Boolean): TypeValueNode[T] =
     this match {
       case TypeValueBranch(childs, tupleTypes, leafCount) =>
         // A & (B | C) ---> (A | #Nothing) & (B | C | #Nothing) & #Any & (#Any | #Nothing)
-        val childs3 = childs.map { _.normalizedTypeValueChildForChecking(canExpandGlobalType) } ++ Vector(
+        val childs3 = childs.map { _.normalizedTypeValueChildForChecking(isSupertype, canExpandGlobalType) } ++ Vector(
             // #Any
             TypeValueLeaf(BuiltinTypeIdentity[T](TypeBuiltinFunction.Any, Nil), 0, 1),
             // #Any | #Nothing
@@ -165,9 +180,9 @@ sealed trait TypeValueNode[T]
                 ), Vector(), 2))
         TypeValueBranch(childs3, tupleTypes, childs3.foldLeft(0) { _ + _.leafCount })
       case leaf: TypeValueLeaf[T] =>
-        TypeValueBranch(Vector(leaf), Vector(), leaf.leafCount).normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        TypeValueBranch(Vector(leaf), Vector(), leaf.leafCount).normalizedTypeValueNodeForChecking(isSupertype, canExpandGlobalType)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(true, canExpandGlobalType).normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        globalTypeAppNode.typeValueBranchOrTypeValueLeaf(true, isSupertype, canExpandGlobalType).normalizedTypeValueNodeForChecking(isSupertype, canExpandGlobalType)
     }
   
   def idents: Set[TypeValueIdentity[T]] =

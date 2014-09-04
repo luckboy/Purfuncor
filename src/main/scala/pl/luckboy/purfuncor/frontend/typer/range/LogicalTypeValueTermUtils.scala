@@ -29,13 +29,13 @@ object LogicalTypeValueTermUtils
   
   def typeParamsFromLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T]) =
     term match {
-      case LogicalTypeValueTerm(conjNode, args) =>
+      case LogicalTypeValueTerm(conjNode, args, _) =>
         typeParamsFromLogicalValueNode(conjNode) ++ args.values.flatMap { _.flatMap {  a => typeParamsFromTypeValueTerm(a.body) -- a.argParams } }
     }
   
   def typeArgParamsFromLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T]) =
     term match {
-      case LogicalTypeValueTerm(conjNode, args) =>
+      case LogicalTypeValueTerm(conjNode, args, _) =>
         args.values.flatMap { _.flatMap { _.argParams } }.toSet
     }
   
@@ -68,9 +68,9 @@ object LogicalTypeValueTermUtils
                 substituteTypeValueLambdasInTypeValueTerm(term, paramLambdas).map { 
                   _.unevaluatedLogicalTypeValueTerm
                 }.flatMap {
-                  case LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2) =>
+                  case LogicalTypeValueTerm(conjNode2 @ TypeValueLeaf(ident2, _, _), argMap2, _) =>
                     some((newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2))
-                  case LogicalTypeValueTerm(conjNode2, argMap2)                               =>
+                  case LogicalTypeValueTerm(conjNode2, argMap2, _)                               =>
                     val leafIdents = argMap.keySet & argMap2.keySet
                     if(leafIdents.forall { i => (argMap.get(i) |@| argMap2.get(i)) { (as1, as2) => as1.toVector === as2.toVector }.getOrElse(false) })
                       some((newNodeMap + (ident -> conjNode2), argMap ++ argMap2, conjNode2))
@@ -102,7 +102,7 @@ object LogicalTypeValueTermUtils
   
   def substituteTypeValueLambdasInLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T], paramLambdas: Map[Int, TypeValueLambda[T]]): Option[TypeValueTerm[T]] =
     substituteTypeValueLambdasInTypeValueNode(term.conjNode, term.args, paramLambdas, true)(Map(), Map()).map { 
-      t => LogicalTypeValueTerm(t._3, t._2)
+      t => LogicalTypeValueTerm(t._3, t._2, term.isSupertype)
     }
   
   private def normalizeTypeParamsInTypeValueNodesForParamsS[T](nodes: Seq[TypeValueNode[T]], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
@@ -135,7 +135,7 @@ object LogicalTypeValueTermUtils
   
   def normalizeTypeParamsInLogicalTypeValyeTermForParamsS[T](term: LogicalTypeValueTerm[T], nextArgParam: Int)(lambdaParams: Map[Int, Int])(pair: (Map[Int, Int], Int)) =
     term match {
-      case LogicalTypeValueTerm(conjNode, args) =>
+      case LogicalTypeValueTerm(conjNode, args, isSupertype) =>
         val (pair2, conjNode2) = normalizeTypeParamsInTypeValueNodeForParamsS(conjNode, nextArgParam)(lambdaParams)(pair)
         val (pair3, args2) = args.foldLeft((pair2, Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]())) {
           case ((newPair, newArgs), (ident, argLambdas)) =>
@@ -143,6 +143,6 @@ object LogicalTypeValueTermUtils
             val (newPair3, argLambdas2) = normalizeTypeParamsInTypeValueLambdasForParamsS(argLambdas, nextArgParam)(lambdaParams)(newPair)
             (newPair3, newArgs + (ident2 -> argLambdas2))
         }
-        (pair3, LogicalTypeValueTerm(conjNode2, args2))
+        (pair3, LogicalTypeValueTerm(conjNode2, args2, isSupertype))
     }
 }
