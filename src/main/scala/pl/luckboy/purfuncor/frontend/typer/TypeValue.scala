@@ -510,13 +510,14 @@ case class LogicalTypeValueTerm[T](
 
   def globalTypeAppForLogicalTypeValueTerm(loc: T, argLambdas: Seq[TypeValueLambda[T]], sym: GlobalSymbol) = {
     val globalTypeAppArgs = Map(
-        ExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,
+        SupertypeExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,
+        TypeExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,
         UnexpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas)
     this match {
        case LogicalTypeValueTerm(leaf: TypeValueLeaf[T], args)                         =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount + 1, sym), args ++ globalTypeAppArgs)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, Vector(leaf), Vector(), leaf.leafCount + 2, sym), args ++ globalTypeAppArgs)
        case LogicalTypeValueTerm(TypeValueBranch(childs, tupleTypes, leafCount), args) =>
-         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount + 1, sym), args ++ globalTypeAppArgs)
+         LogicalTypeValueTerm(GlobalTypeAppNode(loc, childs, tupleTypes, leafCount + 2, sym), args ++ globalTypeAppArgs)
        case term @ LogicalTypeValueTerm(_: GlobalTypeAppNode[T], _)                    =>
          term
     }

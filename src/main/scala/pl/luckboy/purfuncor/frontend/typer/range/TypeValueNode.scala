@@ -117,16 +117,24 @@ sealed trait TypeValueNode[T]
         this
     }
     
-  private def typeValueBranchOrTypeValueLeafForTypeConjunction(canExpandGlobalType: Boolean) = {
-    val node = typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType)
-    TypeValueBranch(Vector(node), Vector(), node.leafCount).normalizedTypeValueNode
-  }
+  private def typeValueBranchOrTypeValueLeafForTypeConjunction(canExpandGlobalType: Boolean) =
+    this match {
+      case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
+        if(canExpandGlobalType)
+          // TEGTAI & (SEGTAI | childs)
+          TypeValueBranch(Vector(TypeValueLeaf(TypeExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(Vector(TypeValueLeaf(SupertypeExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 2)), Nil, leafCount - 1)), Nil, leafCount)
+        else
+          TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
+      case _ =>
+        this
+    }
   
   private def typeValueBranchOrTypeValueLeafForTypeDisjunction(canExpandGlobalType: Boolean): TypeValueNode[T] =
     this match {
       case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
         if(canExpandGlobalType)
-          TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount)
+          // SEGTAI | (TEGTAI & childs)
+          TypeValueBranch(Vector(TypeValueLeaf(SupertypeExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(TypeValueLeaf(TypeExpandedGlobalTypeAppIdentity(loc, sym), 0, 1) +: childs, tupleTypes, leafCount - 1)), Nil, leafCount)
         else
           TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
       case _ =>
@@ -177,7 +185,7 @@ sealed trait TypeValueNode[T]
       case TypeValueBranch(childs, _, _)             =>
         childs.flatMap { _.idents }.toSet
       case GlobalTypeAppNode(loc, childs, _, _, sym) =>
-        Set(ExpandedGlobalTypeAppIdentity(loc, sym), UnexpandedGlobalTypeAppIdentity(loc, sym)) ++ childs.flatMap { _.idents }
+        Set(SupertypeExpandedGlobalTypeAppIdentity(loc, sym), TypeExpandedGlobalTypeAppIdentity(loc, sym), UnexpandedGlobalTypeAppIdentity(loc, sym)) ++ childs.flatMap { _.idents }
     }
 }
 
@@ -199,24 +207,26 @@ case class TypeValueLeaf[T](ident: TypeValueIdentity[T], paramAppIdx: Int, leafC
 {
   def typeValueTerm(args: Seq[TypeValueLambda[T]]) = 
     ident match {
-      case TupleTypeIdentity                         =>
+      case TupleTypeIdentity                                =>
         some(none)
-      case FieldTypeIdentity(i)                      =>
+      case FieldTypeIdentity(i)                             =>
         args match {
           case Seq(TypeValueLambda(Seq(), term)) => some(some(FieldType(i, term)))
           case _                                 => none
         }
-      case BuiltinTypeIdentity(bf, _)                =>
+      case BuiltinTypeIdentity(bf, _)                       =>
         TypeValueTerm.typeValueTermsFromTypeValueLambdas(args).map { ts => some(BuiltinType(bf, ts)) }
-      case UnittypeIdentity(loc, sym)                =>
+      case UnittypeIdentity(loc, sym)                       =>
         some(some(Unittype(loc, args, sym)))
-      case GrouptypeIdentity(loc, sym)               =>
+      case GrouptypeIdentity(loc, sym)                      =>
         some(some(Grouptype(loc, args, sym)))
-      case ExpandedGlobalTypeAppIdentity(loc, sym)   =>
+      case SupertypeExpandedGlobalTypeAppIdentity(loc, sym) =>
         some(some(GlobalTypeApp(loc, args, sym)))
-      case UnexpandedGlobalTypeAppIdentity(loc, sym) =>
+      case TypeExpandedGlobalTypeAppIdentity(loc, sym)      =>
         some(some(GlobalTypeApp(loc, args, sym)))
-      case TypeParamAppIdentity(param)               =>
+      case UnexpandedGlobalTypeAppIdentity(loc, sym)        =>
+        some(some(GlobalTypeApp(loc, args, sym)))
+      case TypeParamAppIdentity(param)                      =>
         some(some(TypeParamApp(param, args, paramAppIdx)))
     }
 }
