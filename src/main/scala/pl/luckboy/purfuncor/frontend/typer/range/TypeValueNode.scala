@@ -125,7 +125,7 @@ sealed trait TypeValueNode[T]
       this match {
         case GlobalTypeAppNode(loc, childs, tupleTypes, leafCount, sym) =>
           if(canExpandGlobalType)
-            TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount)
+            TypeValueBranch(Vector(TypeValueLeaf(ExpandedGlobalTypeAppIdentity(loc, sym), 0, 1), TypeValueBranch(Vector(TypeValueBranch(childs, tupleTypes, leafCount - 1)), Nil, leafCount - 1)), Nil, leafCount)
           else
             TypeValueLeaf(UnexpandedGlobalTypeAppIdentity(loc, sym), 0, leafCount)
         case _ =>

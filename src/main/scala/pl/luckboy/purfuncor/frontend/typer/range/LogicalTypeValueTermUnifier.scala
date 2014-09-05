@@ -322,8 +322,8 @@ object LogicalTypeValueTermUnifier
       case _ =>
         val tmpTerm1 = term1.withSupertype(isSupertype)
         val tmpTerm2 = term2.withSupertype(!isSupertype)
-        val normalizedTerm1 = term1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
-        val normalizedTerm2 = term2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val normalizedTerm1 = tmpTerm1.normalizedTypeValueNodeForChecking(canExpandGlobalType)
+        val normalizedTerm2 = tmpTerm2.normalizedTypeValueNodeForChecking(canExpandGlobalType)
         val conjDepthRangeSets = TypeValueRangeSet.full[T] :: normalizedTerm2.info.conjDepthRangeSets
         val disjDepthRangeSets = TypeValueRangeSet.full[T] :: TypeValueRangeSet.full[T] :: normalizedTerm1.info.disjDepthRangeSets
         val nodeTuple2 = (normalizedTerm2.info.conjRangeSets, normalizedTerm2.info.allParams, normalizedTerm2.info.fieldSetTypeIdents)
