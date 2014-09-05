@@ -510,6 +510,8 @@ case class LogicalTypeValueTerm[T](
   
   lazy val typeInfo = LogicalTypeValueTermInfo.fromTypeValueNodeWithArgs(conjNode, args, false)
   
+  lazy val statistics = LogicalTypeValueTermStatistics.fromLogicalTypeValueTerm(this)
+  
   def globalTypeAppForLogicalTypeValueTerm(loc: T, argLambdas: Seq[TypeValueLambda[T]], sym: GlobalSymbol) = {
     val globalTypeAppArgs = Map(
         ExpandedGlobalTypeAppIdentity(loc, sym) -> argLambdas,

@@ -39,6 +39,26 @@ object LogicalTypeValueTermUtils
         args.values.flatMap { _.flatMap { _.argParams } }.toSet
     }
   
+  private def expandedTypeValueLeafCountFromTypeValueNode[T](node: TypeValueNode[T]): Int =
+    node match {
+      case TypeValueLeaf(_, _, _)                => 1
+      case TypeValueBranch(childs, _, _)         => childs.foldLeft(0) { _ + expandedTypeValueLeafCountFromTypeValueNode(_) }
+      case GlobalTypeAppNode(_, childs, _, _, _) => 1 + childs.foldLeft(0) { _ + expandedTypeValueLeafCountFromTypeValueNode(_) }
+    }
+  
+  def expandedTypeValueLeafCountFromLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T]) =
+    expandedTypeValueLeafCountFromTypeValueNode(term.conjNode)
+
+  private def unexpandedTypeValueLeafCountFromTypeValueNode[T](node: TypeValueNode[T]): Int =
+    node match {
+      case TypeValueLeaf(_, _, _)                => 1
+      case TypeValueBranch(childs, _, _)         => childs.foldLeft(0) { _ + unexpandedTypeValueLeafCountFromTypeValueNode(_) }
+      case GlobalTypeAppNode(_, childs, _, _, _) => 1
+    }
+  
+  def unexpandedTypeValueLeafCountFromLogicalTypeValueTerm[T](term: LogicalTypeValueTerm[T]) =
+    unexpandedTypeValueLeafCountFromTypeValueNode(term.conjNode)
+  
   private def substituteTypeValueLambdasInTypeValueNodes[T](nodes: Iterable[TypeValueNode[T]], argMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], paramLambdas: Map[Int, TypeValueLambda[T]], isConj: Boolean)(newNodeMap: Map[TypeValueIdentity[T], TypeValueNode[T]], newArgMap: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]) =
     nodes.foldLeft(some((newNodeMap, newArgMap, Vector[TypeValueNode[T]]()))) {
       case (Some((newNodeMap, newArgMap, newNodes)), node) =>

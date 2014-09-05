@@ -20,9 +20,7 @@ case class LogicalTypeValueTermInfo[T](
     conjDepthRangeSets: List[TypeValueRangeSet[T]],
     disjDepthRangeSets: List[TypeValueRangeSet[T]],
     allParams: SortedMap[Int, SortedSet[Int]],
-    fieldSetTypeIdents: Map[FieldSetTypeIdentityKey, BuiltinTypeIdentity[T]],
-    expandedLeafCount: Int,
-    unexpandedLeafCount: Int)
+    fieldSetTypeIdents: Map[FieldSetTypeIdentityKey, BuiltinTypeIdentity[T]])
     
 object LogicalTypeValueTermInfo
 {
@@ -92,14 +90,13 @@ object LogicalTypeValueTermInfo
         (info.copy(
             conjRangeSets = conjRangeSets2, conjDepthRangeSets = conjDepthRangeSet2 :: nextConjDepthRangeSets,
             allParams = params ++ info.allParams.map { case (lac, ps) => lac -> (ps ++ params.getOrElse(lac, Set())) },
-            fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair,
-            expandedLeafCount = info.expandedLeafCount + 1, unexpandedLeafCount = info.unexpandedLeafCount + 1), Map(ident -> Map(leafIdx -> paramAppIdxs)), some(range))
+            fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair), Map(ident -> Map(leafIdx -> paramAppIdxs)), some(range))
       case _ =>
         val expandedNode = node.typeValueBranchOrTypeValueLeaf(true, isSupertype, true)
         val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(true, isSupertype, false)
         val (info2, paramAppIdxs, optRange) = fromTypeConjunctionNode(expandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info)
-        val (info3, paramAppIdxs2, optRange2) = fromTypeConjunctionNode(unexpandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info2.copy(expandedLeafCount = info.expandedLeafCount, unexpandedLeafCount = info.unexpandedLeafCount))
-        (info3.copy(expandedLeafCount = info2.expandedLeafCount), paramAppIdxs2 |+| paramAppIdxs, (optRange |@| optRange2) { _ | _ })
+        val (info3, paramAppIdxs2, optRange2) = fromTypeConjunctionNode(unexpandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info2)
+        (info3, paramAppIdxs2 |+| paramAppIdxs, (optRange |@| optRange2) { _ | _ })
     }
   }
   
@@ -149,19 +146,18 @@ object LogicalTypeValueTermInfo
         val disjDepthRangeSet2 = disjDepthRangeSet | TypeValueRangeSet(SortedMap(range -> TypeValueRangeValue.empty))
         (info.copy(disjRangeSets = disjRangeSets2, disjDepthRangeSets = disjDepthRangeSet2 :: nextDisjDepthRangeSets,
             allParams = params ++ info.allParams.map { case (lac, ps) => lac -> (ps ++ params.getOrElse(lac, Set())) },
-            fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair,
-            expandedLeafCount = info.expandedLeafCount + 1, unexpandedLeafCount = info.unexpandedLeafCount + 1), Map(ident -> Map(leafIdx -> paramAppIdxs)), some(range))
+            fieldSetTypeIdents = info.fieldSetTypeIdents ++ fieldSetTypeIdentPair), Map(ident -> Map(leafIdx -> paramAppIdxs)), some(range))
       case _ =>
         val expandedNode = node.typeValueBranchOrTypeValueLeaf(false, isSupertype, true)
         val unexpandedNode = node.typeValueBranchOrTypeValueLeaf(false, isSupertype, false)
         val (info2, paramAppIdxs, optRange) = fromTypeDisjunctionNode(expandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info)
-        val (info3, paramAppIdxs2, optRange2) = fromTypeDisjunctionNode(unexpandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info2.copy(expandedLeafCount = info.expandedLeafCount, unexpandedLeafCount = info.unexpandedLeafCount))
-        (info3.copy(expandedLeafCount = info2.expandedLeafCount), paramAppIdxs2 |+| paramAppIdxs, (optRange |@| optRange2) { _ | _ })
+        val (info3, paramAppIdxs2, optRange2) = fromTypeDisjunctionNode(unexpandedNode, conjTupleTypes, args, isSupertype)(leafIdx)(info2)
+        (info3, paramAppIdxs2 |+| paramAppIdxs, (optRange |@| optRange2) { _ | _ })
     }
   }
   
   def fromTypeValueNodeWithArgs[T](node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean) = {
-    val (info, paramAppIdxs, optRange) = fromTypeConjunctionNode(node, Nil, args, isSupertype)(0)(LogicalTypeValueTermInfo(Map(), Map(), Nil, Nil, SortedMap(), Map(), 0, 0))
+    val (info, paramAppIdxs, optRange) = fromTypeConjunctionNode(node, Nil, args, isSupertype)(0)(LogicalTypeValueTermInfo(Map(), Map(), Nil, Nil, SortedMap(), Map()))
     val disjRangeSets2 = info.disjRangeSets ++ paramAppIdxs.map { 
       case (ident, idxs) => 
         val value = TypeValueRangeValue[T](UnionSet.fromIterable(idxs.keys), UnionSet(), UnionSet.fromIterable(idxs.flatMap { case (i, pais) => pais.map { (i, _) } }), UnionSet(), UnionSet(), none, UnionSet())
