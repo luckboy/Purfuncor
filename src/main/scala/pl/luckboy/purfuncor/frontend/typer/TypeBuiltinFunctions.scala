@@ -147,8 +147,8 @@ object TypeBuiltinFunctions
         override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
           argValues match {
             case Seq(value1, value2) =>
-              val (env2, res1) = value1.typeValueTermS(env)
-              val (env3, res2) = value2.typeValueTermS(env2)
+              val (env2, res1) = envSt.withPartialEvaluationS(true) { value1.typeValueTermS(_) } (env)
+              val (env3, res2) = envSt.withPartialEvaluationS(true) { value2.typeValueTermS(_) } (env2)
               (for {
                 t1 <- res1
                 t2 <- res2
@@ -163,8 +163,8 @@ object TypeBuiltinFunctions
         override def applyS[T, U, V, W, E](argValues: Seq[TypeValue[T, U, V, W]])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
           argValues match {
             case Seq(value1, value2) =>
-              val (env2, res1) = value1.typeValueTermS(env)
-              val (env3, res2) = value2.typeValueTermS(env2)
+              val (env2, res1) = envSt.withPartialEvaluationS(true) { value1.typeValueTermS(_) } (env)
+              val (env3, res2) = envSt.withPartialEvaluationS(true) { value2.typeValueTermS(_) } (env2)
               (for {
                 t1 <- res1
                 t2 <- res2

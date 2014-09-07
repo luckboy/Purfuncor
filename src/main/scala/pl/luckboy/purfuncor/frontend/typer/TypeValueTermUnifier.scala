@@ -483,6 +483,27 @@ object TypeValueTermUnifier
                 }
             } (env3)
         }
+      case (GlobalTypeApp(loc1, args1, sym1), logicalTerm2: LogicalTypeValueTerm[T]) =>
+        val (env4, res) = unifier.withSaveS {
+          envSt.withRecursionCheckingS(Set(loc1)) {
+            env2 =>
+              appForGlobalTypeWithAllocatedTypeParamsS(loc1, args1)(env2) match {
+                case (env3, Success(evaluatedTerm1)) =>
+                  matchesTypeValueTermsS(evaluatedTerm1, term2)(z)(f)(env3)
+                case (env3, Failure(noType))         =>
+                  (env3, noType.failure)
+              }
+          } (_: E)
+        } (env)
+        res match {
+          case Success(x) =>
+            (env4, x.success)
+          case Failure(_) =>
+            logicalTypeValueTermFromTypeValueTermS(globalTypeApp1)(env4) match {
+              case (env5, Success(logicalTerm1)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env5)
+              case (env5, Failure(noType))       => (env5, noType.failure)
+            }
+        }
       case (GlobalTypeApp(loc1, args1, _), _) =>
         envSt.withRecursionCheckingS(Set(loc1)) {
           env2 =>
@@ -636,7 +657,7 @@ object TypeValueTermUnifier
         matchesBuiltinTypeWithTypeValueTermS(term1)(z)(env)
       case (BuiltinType(TypeBuiltinFunction.Nothing, Seq()), _) if typeMatching === TypeMatching.TypeWithSupertype =>
         matchesBuiltinTypeWithTypeValueTermS(term2)(z)(env)
-      case (globalTypeApp1: GlobalTypeApp[T], logicalTerm2: LogicalTypeValueTerm[T]) =>
+      /*case (globalTypeApp1: GlobalTypeApp[T], logicalTerm2: LogicalTypeValueTerm[T]) =>
         logicalTypeValueTermFromTypeValueTermS(globalTypeApp1)(env) match {
           case (env2, Success(logicalTerm1)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
@@ -645,7 +666,7 @@ object TypeValueTermUnifier
         logicalTypeValueTermFromTypeValueTermS(globalTypeApp2)(env) match {
           case (env2, Success(logicalTerm2)) => matchesLogicalTypeValueTermsS(logicalTerm1, logicalTerm2)(z)(f)(env2)
           case (env2, Failure(noType))       => (env2, noType.failure)
-        }
+        }*/
       case (globalTypeApp1: GlobalTypeApp[T], _) =>
         matchesGlobalTypeAppWithTypeValueTermS(globalTypeApp1, term2)(z)(f)(env)
       case (_, globalTypeApp2: GlobalTypeApp[T]) =>
