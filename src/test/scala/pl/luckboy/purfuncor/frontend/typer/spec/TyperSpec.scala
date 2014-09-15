@@ -3674,7 +3674,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                           // T #& ()
                                           types111 should have size(2)
                                           inside(for {
-                                            x1 <- types111.collectFirst { case GlobalTypeApp(loc1111, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc1111 }
+                                            x1 <- types111.collectFirst { case Unittype(loc1111, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc1111 }
                                             _ <- types111.collectFirst { case TupleType(Seq()) => () }
                                           } yield x1) {
                                             case Some(loc1111) =>
@@ -3698,7 +3698,7 @@ h = tuple 2 (construct 0: T) (construct 0: U)
                                           // U #& ()
                                           types121 should have size(2)
                                           inside(for {
-                                            x1 <- types121.collectFirst { case GlobalTypeApp(loc1211, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc1211 }
+                                            x1 <- types121.collectFirst { case Unittype(loc1211, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc1211 }
                                             _ <- types121.collectFirst { case TupleType(Seq()) => () }
                                           } yield x1) {
                                             case Some(loc1211) =>
