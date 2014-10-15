@@ -13,4 +13,8 @@ package object range
     override def compare(x: TypeValueRange, y: TypeValueRange) =
       if(x.maxIdx < y.minIdx) -1 else if(x.minIdx > y.maxIdx) 1 else 0
   }
+  
+  implicit val counterGraphLocationEqual: scalaz.Equal[CounterGraphLocation] = new scalaz.Equal[CounterGraphLocation] {
+    override def equal(a1: CounterGraphLocation, a2: CounterGraphLocation) = a1 == a2
+  }
 }

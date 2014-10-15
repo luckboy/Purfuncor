@@ -21,7 +21,7 @@ object LogicalTypeValueTermUnifier
 {
   private type NodeTupleT[T] = (Map[TypeValueIdentity[T], TypeValueRangeSet[T]], SortedMap[Int, SortedSet[Int]], Map[FieldSetTypeIdentityKey, BuiltinTypeIdentity[T]])
   
-  private type IndexTupleT[T] = (Set[Int], Set[Int], Map[TypeValueRange, Set[Int]], Map[TypeValueRange, Int], Map[Int, Int], Map[Int, Int], Map[Int, Set[Int]])
+  private type IndexTupleT[T] = (Set[Int], Map[Int, Set[Int]], Map[TypeValueRange, Set[Int]], Map[TypeValueRange, Int], Map[Int, Int], Map[Int, Int], Map[Int, Set[Int]])
   
   private def checkOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean, isRoot: Boolean)(leafIdx: Int)(prevParam: Int): (Int, List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]) = {
     val depthRangeSet = depthRangeSets.headOption.getOrElse(TypeValueRangeSet.empty)
@@ -232,7 +232,7 @@ object LogicalTypeValueTermUnifier
       case TypeValueLeaf(ident, _, _) =>
         rangeSets.get(ident).map {
           rs =>
-            val rangeSet = depthRangeSets2.headOption.map(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx).superset).getOrElse(rs.swapLeafIdxPairsWithMyLeafIdx(leafIdx))
+            val rangeSet = depthRangeSets2.headOption.map(rs.withMyLeafIdx(leafIdx).superset).getOrElse(rs.withMyLeafIdx(leafIdx))
             val rangeSet2 = ident match {
               case TypeParamAppIdentity(identParam) => rangeSet.withMyParam(leafIdx, identParam)
               case _                                => rangeSet
@@ -242,54 +242,72 @@ object LogicalTypeValueTermUnifier
     }
   }
   
-  private def checkLeafIndexSetsForTypeConjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int, tuple: (Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])): Option[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])] = {
-    val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myLeafParams) = indexTuple
-    node match {
-      case TypeValueBranch(childs, _, _) =>
-        val optTuple3 = stFoldLeftS(childs)(some(tuple)) {
-          (optTuple2, child, newLeafIdx: Int) =>
-            optTuple2 match {
-              case Some(tuple2) => (newLeafIdx + child.leafCount, checkLeafIndexSetsForTypeDisjunction(indexTuple, child, isSupertype, canExpandGlobalType)(newLeafIdx, tuple2))
-              case None         => (newLeafIdx + child.leafCount, none)
-            }
-        } (leafIdx)._2
-        optTuple3.map {
-          tuple3 => tuple3.copy(_2 = myCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)).map(tuple3._2 |).getOrElse(tuple3._2))
-        }
-      case TypeValueLeaf(ident, paramAppIdx, _) =>
-        checkLeafIndexSetsForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx, tuple)
-      case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
-        checkLeafIndexSetsForTypeConjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
-    }
-  }
-
-  private def checkLeafIndexSetsForTypeDisjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int, tuple: (Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])): Option[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])] = {
+  private def generateCounterGraphForTypeConjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int)(tuple: (CounterGraph[CounterGraphLocation], Set[(CounterGraphLocation, CounterGraphLocation)], Map[Int, TypeValueIdentity[T]], Map[TypeValueRange, Set[Int]], Map[Int, Seq[TypeParamCondition[T]]], Map[Int, TypeValueIdentity[T]])): (CounterGraph[CounterGraphLocation], Set[(CounterGraphLocation, CounterGraphLocation)], Map[Int, TypeValueIdentity[T]], Map[TypeValueRange, Set[Int]], Map[Int, Seq[TypeParamCondition[T]]], Map[Int, TypeValueIdentity[T]]) = {
     val (myLeafIdxs, otherLeafIdxs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myLeafParamAppIdxs) = indexTuple
     node match {
       case TypeValueBranch(childs, _, _) =>
-        val optTuple3 = stFoldLeftS(childs)(none[(Set[TypeValueIdentity[T]], Set[Int], Seq[TypeParamCondition[T]], Set[TypeValueIdentity[T]])]) {
-          (optTuple2, child, newLeafIdx: Int) =>
-            optTuple2 match {
-              case None => (newLeafIdx + child.leafCount, checkLeafIndexSetsForTypeConjunction(indexTuple, child, isSupertype, canExpandGlobalType)(newLeafIdx, tuple))
-              case _    => (newLeafIdx + child.leafCount, optTuple2)
-            }
+        val uRange = TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)
+        val uLoc = CounterGraphLocation(uRange, isSupertype)
+        val tuple4 = stFoldLeftS(childs)(tuple) {
+          (tuple2, child, newLeafIdx: Int) =>
+            val tuple3 = generateCounterGraphForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
+            val vLoc = CounterGraphLocation(TypeValueRange(leafIdx, leafIdx + child.leafCount - 1), isSupertype)
+            (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
         } (leafIdx)._2
-        optTuple3.map {
-          tuple3 => tuple3.copy(_2 = otherCondIdxs.get(TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)).map(tuple3._2 +).getOrElse(tuple3._2))
-        }
+        tuple4.copy(_4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
+      case TypeValueLeaf(_, _, _) =>
+        generateCounterGraphForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx)(tuple)
+      case globalTypeAppNode: GlobalTypeAppNode[T] =>
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
+        generateCounterGraphForTypeConjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx)(tuple)
+    }
+  }
+
+  private def generateCounterGraphForTypeDisjunction[T](indexTuple: IndexTupleT[T], node: TypeValueNode[T], isSupertype: Boolean, canExpandGlobalType: Boolean)(leafIdx: Int)(tuple: (CounterGraph[CounterGraphLocation], Set[(CounterGraphLocation, CounterGraphLocation)], Map[Int, TypeValueIdentity[T]], Map[TypeValueRange, Set[Int]], Map[Int, Seq[TypeParamCondition[T]]], Map[Int, TypeValueIdentity[T]])): (CounterGraph[CounterGraphLocation], Set[(CounterGraphLocation, CounterGraphLocation)], Map[Int, TypeValueIdentity[T]], Map[TypeValueRange, Set[Int]], Map[Int, Seq[TypeParamCondition[T]]], Map[Int, TypeValueIdentity[T]]) = {
+    val (otherLeafIdxs, leafIdxPairs, myCondIdxs, otherCondIdxs, myParams, myParamAppIdxs, myLeafParamAppIdxs) = indexTuple
+    node match {
+      case TypeValueBranch(childs, _, _) =>
+        val uRange = TypeValueRange(leafIdx, leafIdx + node.leafCount - 1)
+        val uLoc = CounterGraphLocation(uRange, isSupertype)
+        val tuple4 = stFoldLeftS(childs)(tuple) {
+          (tuple2, child, newLeafIdx: Int) =>
+            val tuple3 = generateCounterGraphForTypeConjunction(indexTuple, node, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
+            val vLoc = CounterGraphLocation(TypeValueRange(leafIdx, leafIdx + child.leafCount - 1), isSupertype)
+            (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
+        } (leafIdx)._2
+        tuple4.copy(_4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
       case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx).filter { p => myParamAppIdxs.get(leafIdx).map { pai => myLeafParamAppIdxs.getOrElse(p, Set()).contains(pai) }.getOrElse(false) }
         val isOtherLeaf = otherLeafIdxs.contains(leafIdx)
-        if(myLeafIdxs.contains(leafIdx) && (isOtherLeaf || myParam.isDefined || ident.isTypeParamAppIdentity)) {
+        val vLoc = CounterGraphLocation(TypeValueRange(leafIdx, leafIdx), isSupertype)
+        if(leafIdxPairs.contains(leafIdx) && (isOtherLeaf || myParam.isDefined || ident.isTypeParamAppIdentity)) {
           val canAddIdent = isOtherLeaf && !ident.isTypeParamAppIdentity && !myParam.isDefined
-          some(tuple.copy(_1 = if(canAddIdent) tuple._1 + ident else tuple._1, _3 = tuple._3 ++ ((myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }), _4 = tuple._4 + ident))
+          val edges2 = leafIdxPairs.get(leafIdx).toSet.flatMap {
+            _.map { i => (vLoc, CounterGraphLocation(TypeValueRange(i, i), isSupertype)) }
+          }
+          tuple.copy(
+              _1 = tuple._1.withCount(vLoc, 1),
+              _2 = tuple._2 ++ edges2,
+              _3 = if(canAddIdent) tuple._3 + (leafIdx -> ident) else tuple._3,
+              _5 = tuple._5 + (leafIdx -> (tuple._5.getOrElse(leafIdx, Seq()) ++ ((myParam |@| myParamAppIdxs.get(leafIdx)) { TypeParamCondition(_, _, leaf, if(isSupertype) TypeMatching.TypeWithSupertype else TypeMatching.SupertypeWithType) }))),
+              _6 = tuple._6 + (leafIdx -> ident))
         } else
-          none
+          tuple.copy(_1 = tuple._1.withCount(vLoc, 0))
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
-        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(!isSupertype, isSupertype, canExpandGlobalType)
-        checkLeafIndexSetsForTypeDisjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx, tuple)
-    }  
+        val node2 = globalTypeAppNode.typeValueBranchOrTypeValueLeaf(isSupertype, isSupertype, canExpandGlobalType)
+        generateCounterGraphForTypeDisjunction(indexTuple, node2, isSupertype, canExpandGlobalType)(leafIdx)(tuple)
+    }
+  }
+  
+  private def counterGraphWithTwoVarEdgeSets(graph: CounterGraph[CounterGraphLocation], edges1: Set[(CounterGraphLocation, CounterGraphLocation)], edges2: Set[(CounterGraphLocation, CounterGraphLocation)]) = {
+    val swappedEdges2 = edges2.map { _.swap }
+    val intersectedEdges = edges1 & swappedEdges2
+    val otherEdges = (edges1 | swappedEdges2) &~ intersectedEdges
+    val otherVLocs = otherEdges.flatMap { p => Set(p._1, p._2) } -- intersectedEdges.flatMap { p => Set(p._1, p._2) }
+    val graph2 = intersectedEdges.foldLeft(graph) {
+      (newGraph, edge) => newGraph.withTwoEdges(edge._1, edge._2)
+    }
+    otherVLocs.foldLeft(graph2) { _.withCount(_, 0) }
   }
   
   private def fullyCheckOrDistributeSupertypeConjunctionNode[T](node: TypeValueNode[T], nodeTuple: NodeTupleT[T], depthRangeSets: List[TypeValueRangeSet[T]], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]], isSupertype: Boolean, canExpandGlobalType: Boolean) =
@@ -353,13 +371,17 @@ object LogicalTypeValueTermUnifier
     checkTypeValueNodesFromLogicalTypeValueTerms(term1, term2, isFirstTry, canExpandGlobalType).flatMap {
       case ((distributedTerm1, conjRangeSet), (distributedTerm2, disjRangeSet)) =>
         if(!conjRangeSet.isEmpty && !disjRangeSet.isEmpty) {
-          val conjMyLeafIdxs = conjRangeSet.value.myLeafIdxs.toSet
           val disjOtherLeafIdxs = disjRangeSet.value.otherLeafIdxs.toSet
+          val conjOtherLeafIdxSets = conjRangeSet.value.leafIdxPairs.toSet.foldLeft(Map[Int, Set[Int]]()) {
+            case (is, (i, j)) => is |+| Map(i -> Set(j))
+          }
           val conjMyParamAppIdxs = conjRangeSet.value.myParamAppIdxs.toSeq.toMap
           val conjMyParams = conjRangeSet.value.myParams.toSeq.toMap
           val disjMyLeafParamAppIdxs = disjRangeSet.value.myLeafParamAppIdxs.foldLeft(Map[Int, Set[Int]]()) { case (pais, (p, pai)) => pais |+| Map(p -> Set(pai)) }
-          val disjMyLeafIdxs = disjRangeSet.value.myLeafIdxs.toSet
           val conjOtherLeafIdxs = conjRangeSet.value.otherLeafIdxs.toSet
+          val disjOtherLeafIdxSets = disjRangeSet.value.leafIdxPairs.toSet.foldLeft(Map[Int, Set[Int]]()) {
+            case (is, (i, j)) => is |+| Map(i -> Set(j))
+          }
           val disjMyParamAppIdxs = disjRangeSet.value.myParamAppIdxs.toSeq.toMap
           val disjMyParams = disjRangeSet.value.myParams.toSeq.toMap
           val conjMyLeafParamAppIdxs = conjRangeSet.value.myLeafParamAppIdxs.foldLeft(Map[Int, Set[Int]]()) { case (pais, (p, pai)) => pais |+| Map(p -> Set(pai)) }
@@ -370,26 +392,75 @@ object LogicalTypeValueTermUnifier
           val conjOtherCondIdxs = pairs.zipWithIndex.foldLeft(Map[TypeValueRange, Int]()) {
             case (condIdxs, (((_, otherRanges), _), i)) => condIdxs ++ otherRanges.map { _ -> i }.toMap
           }
-          for {
-            conjTuple <- checkLeafIndexSetsForTypeConjunction((conjMyLeafIdxs, disjOtherLeafIdxs, conjMyCondIdxs, Map(), conjMyParams, conjMyParamAppIdxs, disjMyLeafParamAppIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0, (Set(), Set(), Seq(), Set()))
-            disjTuple <- checkLeafIndexSetsForTypeDisjunction((disjMyLeafIdxs, conjOtherLeafIdxs, Map(), conjOtherCondIdxs, disjMyParams, disjMyParamAppIdxs, conjMyLeafParamAppIdxs), distributedTerm2.conjNode, false, canExpandGlobalType)(0, (Set(), Set(), Seq(), Set()))
-          } yield {
-            val idents = conjTuple._1 | disjTuple._1
-            val conds = (conjTuple._2 | disjTuple._2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
-            val idents2 = conjTuple._4 | disjTuple._4
-            val paramConds1 = conjTuple._3 ++ disjTuple._3
-            val params1 = paramConds1.flatMap {
-              case TypeParamCondition(param1, _, TypeValueLeaf(TypeParamAppIdentity(param2), _, _), _) => Set(param1, param2) 
-              case TypeParamCondition(param1, _, _, _) => Set(param1)               
-            }
-            val conjParamConds = (disjMyLeafParamAppIdxs -- params1).flatMap {
-              case (p, pais) => pais.headOption.flatMap { pai => if(idents2.contains(TypeParamAppIdentity(p))) some(TypeParamCondition[T](p, pai, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1), TypeMatching.SupertypeWithType)) else none }
-            }
-            val disjParamConds = (conjMyLeafParamAppIdxs -- params1).flatMap {
-              case (p, pais) => pais.headOption.flatMap { pai => if(idents2.contains(TypeParamAppIdentity(p))) some(TypeParamCondition[T](p, pai, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1), TypeMatching.TypeWithSupertype)) else none }
-            }
-            val paramConds2 = (conjParamConds ++ disjParamConds).toSeq
-            (idents, conds, (paramConds1, paramConds2))
+          val (graph, conjEdges, conjIdents, conjCondIdxs, conjParamConds, conjIdents2) = generateCounterGraphForTypeConjunction((disjOtherLeafIdxs, conjOtherLeafIdxSets, conjMyCondIdxs, Map(), conjMyParams, conjMyParamAppIdxs, disjMyLeafParamAppIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0)((CounterGraph.empty, Set(), Map(), Map(), Map(), Map()))
+          val (graph2, disjEdges, disjIdents, disjCondIdxs, disjParamConds, disjIdents2) = generateCounterGraphForTypeConjunction((conjOtherLeafIdxs, disjOtherLeafIdxSets, Map(), conjOtherCondIdxs, disjMyParams, disjMyParamAppIdxs, conjMyLeafParamAppIdxs), distributedTerm2.conjNode, true, canExpandGlobalType)(0)((graph, Set(), Map(), Map(), Map(), Map()))
+          val graph3 = counterGraphWithTwoVarEdgeSets(graph2, conjEdges, disjEdges)
+          graph3.decreaseCounters.flatMap {
+            graph4 =>
+              val vLoc = CounterGraphLocation(TypeValueRange(0, distributedTerm1.conjNode.leafCount - 1), true)
+              val uLoc = CounterGraphLocation(TypeValueRange(0, distributedTerm2.conjNode.leafCount - 1), false)
+              (for(v <- graph4.vertices.get(vLoc); u <- graph4.vertices.get(uLoc)) yield (v, u)).flatMap {
+                case (v, u) =>
+                  if(v.count > 0 && u.count > 0) {
+                    val conjIdents3 = conjIdents.flatMap {
+                      case (idx, ident) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), true)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) Set(ident) else Set[TypeValueIdentity[T]]()
+                    }.toSet
+                    val disjIdents3 = disjIdents.flatMap {
+                      case (idx, ident) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), false)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) Set(ident) else Set[TypeValueIdentity[T]]()
+                    }.toSet
+                    val conjCondIdxs2 = conjCondIdxs.flatMap {
+                      case (range, condIdxs) =>
+                        val tLoc = CounterGraphLocation(range, true)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) condIdxs else Set[Int]()
+                    }.toSet
+                    val disjCondIdxs2 = disjCondIdxs.flatMap {
+                      case (range, condIdxs) =>
+                        val tLoc = CounterGraphLocation(range, false)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) condIdxs else Set[Int]()
+                    }.toSet
+                    val conjParamConds2 = conjParamConds.flatMap {
+                      case (idx, paramConds) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), true)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) paramConds else Seq()
+                    }.toSeq
+                    val disjParamConds2 = disjParamConds.flatMap {
+                      case (idx, paramConds) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), false)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) paramConds else Seq()
+                    }.toSeq
+                    val conjIdents4 = conjIdents2.flatMap {
+                      case (idx, ident) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), true)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) Set(ident) else Set[TypeValueIdentity[T]]()
+                    }.toSet
+                    val disjIdents4 = disjIdents2.flatMap {
+                      case (idx, ident) =>
+                        val tLoc = CounterGraphLocation(TypeValueRange(idx, idx), false)
+                        if(graph4.vertices.get(tLoc).map { _.count > 0 }.getOrElse(false)) Set(ident) else Set[TypeValueIdentity[T]]()
+                    }.toSet
+                    val idents = conjIdents3 | disjIdents3
+                    val conds = (conjCondIdxs2 | disjCondIdxs2).toSeq.flatMap { pairs.lift(_).map { _._2 } }
+                    val idents2 = conjIdents4 | disjIdents4
+                    val paramConds1 = conjParamConds2 ++ disjParamConds2
+                    val params1 = paramConds1.flatMap {
+                      case TypeParamCondition(param1, _, TypeValueLeaf(TypeParamAppIdentity(param2), _, _), _) => Set(param1, param2) 
+                      case TypeParamCondition(param1, _, _, _) => Set(param1)               
+                    }
+                    val conjParamConds3 = (disjMyLeafParamAppIdxs -- params1).flatMap {
+                      case (p, pais) => pais.headOption.flatMap { pai => if(idents2.contains(TypeParamAppIdentity(p))) some(TypeParamCondition[T](p, pai, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Any, Nil), 0, 1), TypeMatching.SupertypeWithType)) else none }
+                    }
+                    val disjParamConds3 = (conjMyLeafParamAppIdxs -- params1).flatMap {
+                      case (p, pais) => pais.headOption.flatMap { pai => if(idents2.contains(TypeParamAppIdentity(p))) some(TypeParamCondition[T](p, pai, TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Nothing, Nil), 0, 1), TypeMatching.TypeWithSupertype)) else none }
+                    }
+                    val paramConds2 = (conjParamConds3 ++ disjParamConds3).toSeq
+                    some((idents, conds, (paramConds1, paramConds2)))
+                  } else
+                    none
+              }
           }
         } else
           none

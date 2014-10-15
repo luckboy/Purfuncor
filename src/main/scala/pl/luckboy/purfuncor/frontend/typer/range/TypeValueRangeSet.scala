@@ -90,8 +90,8 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
   def withConds(myRange: TypeValueRange, otherRanges: Iterable[TypeValueRange], myTupleTypes: Seq[TupleType[T]]) =
     TypeValueRangeSet(ranges.mapValues { _.withCond(myRange, otherRanges, myTupleTypes) })
     
-  def swapLeafIdxPairsWithMyLeafIdx(leafIdx: Int) =
-    TypeValueRangeSet(ranges.mapValues { v => v.copy(myLeafIdxs = UnionSet(leafIdx), otherLeafIdxs = v.myLeafIdxs, myParamAppIdxs = v.myParamAppIdxs.map { p => (leafIdx, p._2) }) })
+  def withMyLeafIdx(leafIdx: Int) =
+    TypeValueRangeSet(ranges.mapValues { v => v.copy(leafIdxPairs = v.otherLeafIdxs.map(leafIdx ->), myParamAppIdxs = v.myParamAppIdxs.map { p => (leafIdx, p._2) }) })
 
   def withMyParam(leafIdx: Int, param: Int) =
     TypeValueRangeSet(ranges.mapValues { v => v.copy(myParams = UnionSet(leafIdx -> param)) })
@@ -119,19 +119,26 @@ object TypeValueRange
   def full = TypeValueRange(0, Integer.MAX_VALUE)
 }
 
+case class CounterGraphLocation(range: TypeValueRange, isSupertype: Boolean)
+{
+  override lazy val hashCode = range.hashCode ^ isSupertype.hashCode
+}
+
 case class TypeValueRangeValue[T](
-    myLeafIdxs: UnionSet[Int],
     otherLeafIdxs: UnionSet[Int],
+    leafIdxPairs: UnionSet[(Int, Int)],
     myParamAppIdxs: UnionSet[(Int, Int)],
     myParams: UnionSet[(Int, Int)],
     myLeafParamAppIdxs: UnionSet[(Int, Int)],
     otherTupleTypes: Option[List[TupleType[T]]], 
     conds: UnionSet[((TypeValueRange, Iterable[TypeValueRange]), TypeValueRangeCondition[T])])
 {
+  def myLeafIdxs = otherLeafIdxs
+  
   def | (value: TypeValueRangeValue[T]) =
     TypeValueRangeValue[T](
-        myLeafIdxs = myLeafIdxs | value.myLeafIdxs,
         otherLeafIdxs = otherLeafIdxs | value.otherLeafIdxs,
+        leafIdxPairs = leafIdxPairs | value.leafIdxPairs,
         myParamAppIdxs = myParamAppIdxs | value.myParamAppIdxs,
         myParams = myParams | value.myParams,
         myLeafParamAppIdxs = myLeafParamAppIdxs | value.myLeafParamAppIdxs,
