@@ -250,11 +250,13 @@ object LogicalTypeValueTermUnifier
         val uLoc = CounterGraphLocation(uRange, isSupertype)
         val tuple4 = stFoldLeftS(childs)(tuple) {
           (tuple2, child, newLeafIdx: Int) =>
-            val tuple3 = generateCounterGraphForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
-            val vLoc = CounterGraphLocation(TypeValueRange(leafIdx, leafIdx + child.leafCount - 1), isSupertype)
+            val tuple3 = generateCounterGraphForTypeDisjunction(indexTuple, child, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
+            val vLoc = CounterGraphLocation(TypeValueRange(newLeafIdx, newLeafIdx + child.leafCount - 1), isSupertype)
             (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
         } (leafIdx)._2
-        tuple4.copy(_4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
+        tuple4.copy(
+            _1 = if(childs.size > 0) tuple4._1.withCount(uLoc, 1) else tuple4._1,
+            _4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
       case TypeValueLeaf(_, _, _) =>
         generateCounterGraphForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx)(tuple)
       case globalTypeAppNode: GlobalTypeAppNode[T] =>
@@ -271,11 +273,13 @@ object LogicalTypeValueTermUnifier
         val uLoc = CounterGraphLocation(uRange, isSupertype)
         val tuple4 = stFoldLeftS(childs)(tuple) {
           (tuple2, child, newLeafIdx: Int) =>
-            val tuple3 = generateCounterGraphForTypeConjunction(indexTuple, node, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
-            val vLoc = CounterGraphLocation(TypeValueRange(leafIdx, leafIdx + child.leafCount - 1), isSupertype)
+            val tuple3 = generateCounterGraphForTypeConjunction(indexTuple, child, isSupertype, canExpandGlobalType)(newLeafIdx)(tuple2)
+            val vLoc = CounterGraphLocation(TypeValueRange(newLeafIdx, newLeafIdx + child.leafCount - 1), isSupertype)
             (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
         } (leafIdx)._2
-        tuple4.copy(_4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
+        tuple4.copy(
+            _1 = if(childs.size > 0) tuple4._1.withCount(uLoc, childs.size) else tuple4._1,
+            _4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
       case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx).filter { p => myParamAppIdxs.get(leafIdx).map { pai => myLeafParamAppIdxs.getOrElse(p, Set()).contains(pai) }.getOrElse(false) }
         val isOtherLeaf = otherLeafIdxs.contains(leafIdx)
@@ -301,15 +305,17 @@ object LogicalTypeValueTermUnifier
   }
   
   private def counterGraphWithTwoLeafEdgeSets(graph: CounterGraph[CounterGraphLocation], edges1: Set[(CounterGraphLocation, CounterGraphLocation)], edges2: Set[(CounterGraphLocation, CounterGraphLocation)], conjMyParamIdxs: Set[Int], disjMyParamIdxs: Set[Int]) = {
-    val swappedEdges2 = edges2.map { _.swap }.flatMap {
+    val swappedEdges2 = edges2.map { _.swap }
+    val edges = edges1 | swappedEdges2
+    val myParamEdges = edges.flatMap {
       case edge @ (CounterGraphLocation(vRange, _), CounterGraphLocation(uRange, _)) =>
         if((vRange.minIdx == vRange.maxIdx && conjMyParamIdxs.contains(vRange.minIdx)) || (uRange.minIdx == uRange.maxIdx && disjMyParamIdxs.contains(uRange.minIdx)))
-          Set(edge, edge.swap)
-        else
           Set(edge)
+        else
+          Set[(CounterGraphLocation, CounterGraphLocation)]()
     }
-    val intersectedEdges = edges1 & swappedEdges2
-    val otherEdges = (edges1 | swappedEdges2) &~ intersectedEdges
+    val intersectedEdges = (edges1 & swappedEdges2) | myParamEdges
+    val otherEdges = edges &~ intersectedEdges
     val otherVLocs = otherEdges.flatMap { p => Set(p._1, p._2) } -- intersectedEdges.flatMap { p => Set(p._1, p._2) }
     val graph2 = intersectedEdges.foldLeft(graph) {
       (newGraph, edge) => newGraph.withTwoEdges(edge._1, edge._2)
@@ -400,7 +406,7 @@ object LogicalTypeValueTermUnifier
             case (condIdxs, (((_, otherRanges), _), i)) => condIdxs ++ otherRanges.map { _ -> i }.toMap
           }
           val (graph, conjEdges, conjIdents, conjCondIdxSets, conjParamCondLists, conjIdents2, conjMyParamIdxs) = generateCounterGraphForTypeConjunction((disjOtherLeafIdxs, conjOtherLeafIdxSets, conjMyCondIdxs, Map(), conjMyParams, conjMyParamAppIdxs, disjMyLeafParamAppIdxs), distributedTerm1.conjNode, true, canExpandGlobalType)(0)((CounterGraph.empty, Set(), Map(), Map(), Map(), Map(), Set()))
-          val (graph2, disjEdges, disjIdents, disjCondIdxSets, disjParamCondLists, disjIdents2, disjMyParamIdxs) = generateCounterGraphForTypeConjunction((conjOtherLeafIdxs, disjOtherLeafIdxSets, Map(), conjOtherCondIdxs, disjMyParams, disjMyParamAppIdxs, conjMyLeafParamAppIdxs), distributedTerm2.conjNode, false, canExpandGlobalType)(0)((graph, Set(), Map(), Map(), Map(), Map(), Set()))
+          val (graph2, disjEdges, disjIdents, disjCondIdxSets, disjParamCondLists, disjIdents2, disjMyParamIdxs) = generateCounterGraphForTypeDisjunction((conjOtherLeafIdxs, disjOtherLeafIdxSets, Map(), conjOtherCondIdxs, disjMyParams, disjMyParamAppIdxs, conjMyLeafParamAppIdxs), distributedTerm2.conjNode, false, canExpandGlobalType)(0)((graph, Set(), Map(), Map(), Map(), Map(), Set()))
           val graph3 = counterGraphWithTwoLeafEdgeSets(graph2, conjEdges, disjEdges, conjMyParamIdxs, disjMyParamIdxs)
           graph3.decreaseCounters.flatMap {
             graph4 =>
