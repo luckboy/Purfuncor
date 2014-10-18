@@ -30,7 +30,7 @@ object LogicalTypeValueTermUnifier
         val ((prevParam2, _), pairs7) = stFoldLeftS(childs)(List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])]()) {
           (pairs, child, stPair: (Int, Int)) =>
             val (newPrevParam, newLeafIdx) = stPair
-            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeDisjunctionNode(child, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType, isRoot)(newLeafIdx)(newPrevParam)
+            val (newPrevParam2, pairs2) = checkOrDistributeSupertypeDisjunctionNode(child, nodeTuple, depthRangeSets, args, isSupertype, canExpandGlobalType, false)(newLeafIdx)(newPrevParam)
             if(!pairs.isEmpty) {
               val (pairs6, pairIdxs4) = pairs.foldLeft((List[(Option[TypeValueRangeSet[T]], TypeValueNode[T])](), Set[Int]())) {
                 case ((pairs3, pairIdxs), pair @ (optRangeSet, newChild)) =>
