@@ -255,7 +255,7 @@ object LogicalTypeValueTermUnifier
             (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
         } (leafIdx)._2
         tuple4.copy(
-            _1 = if(childs.size > 0) tuple4._1.withCount(uLoc, 1) else tuple4._1,
+            _1 = if(childs.size > 1) tuple4._1.withCount(uLoc, 1) else tuple4._1,
             _4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
       case TypeValueLeaf(_, _, _) =>
         generateCounterGraphForTypeDisjunction(indexTuple, node, isSupertype, canExpandGlobalType)(leafIdx)(tuple)
@@ -278,7 +278,7 @@ object LogicalTypeValueTermUnifier
             (newLeafIdx + child.leafCount, tuple3.copy(_1 = tuple3._1.withTwoEdges(vLoc, uLoc)))
         } (leafIdx)._2
         tuple4.copy(
-            _1 = if(childs.size > 0) tuple4._1.withCount(uLoc, childs.size) else tuple4._1,
+            _1 = if(childs.size > 1) tuple4._1.withCount(uLoc, childs.size) else tuple4._1,
             _4 = tuple4._4 |+| myCondIdxs.get(uRange).map { mcis => Map(uRange -> mcis) }.getOrElse(Map()))
       case leaf @ TypeValueLeaf(ident, _, _) =>
         val myParam = myParams.get(leafIdx).filter { p => myParamAppIdxs.get(leafIdx).map { pai => myLeafParamAppIdxs.getOrElse(p, Set()).contains(pai) }.getOrElse(false) }
