@@ -2649,8 +2649,13 @@ i = h g
               val (_, env) = g3(kindTable, InferredTypeTable.empty).run(typeEnv)
               val (env2, res2) = Typer.inferTypesFromTreeString(s)(NameTree.empty)(f).run(env)
               res2 should be ===(().success.success)
-              inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
-                case Some(tLoc) =>
+              val syms = List(
+                  GlobalSymbol(NonEmptyList("T")),
+                  GlobalSymbol(NonEmptyList("U")))
+              //inside(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo)(GlobalSymbol(NonEmptyList("T")))) {
+              //  case Some(tLoc) =>
+              inside(syms.flatMap(typeGlobalSymTabular.getGlobalLocationFromTable(treeInfoExtractor.typeTreeFromTreeInfo(tree.treeInfo).treeInfo.treeInfo))) {
+                case List(tLoc, uLoc) =>
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("f")))) {
                     case InferredType(TypeParamApp(_, Seq(), 0), Seq(_)) =>
                       ()
@@ -2665,23 +2670,26 @@ i = h g
                   }
                   inside(enval.globalVarTypeFromEnvironment(env2)(GlobalSymbol(NonEmptyList("i")))) {
                     case InferredType(TypeConjunction(types1), argKinds) =>
-                      // \t1 t2 => t1 #& (t2 #Char) #& T
+                      // \t1 t2 => U #& (t2 #Char) #& T
                       types1 should have size(3)
                       inside(for { 
-                        x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
+                        //x1 <- types1.collectFirst { case TypeParamApp(param11, Seq(), 0) => param11 }
+                        x1 <- types1.collectFirst { case Unittype(loc11, Seq(), GlobalSymbol(NonEmptyList("U"))) => loc11 }
                         x2 <- types1.collectFirst { case TypeParamApp(param12, Seq(arg12), 0) => (param12, arg12) }
                         x3 <- types1.collectFirst { case GlobalTypeApp(loc13, Seq(), GlobalSymbol(NonEmptyList("T"))) => loc13 }
                       } yield (x1, x2, x3)) {
-                        case Some((param11, (param12, arg12), loc13)) =>
+                        case Some((loc11, (param12, arg12), loc13)) =>
+			  loc11 should be ===(uLoc)
                           loc13 should be ===(tLoc)
                           inside(arg12) { case TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Char, Seq())) => () }
-                          List(param11, param12).toSet should have size(2)
-                          argKinds should have size(2)
-                          inside(argKinds.lift(param11)) {
-                            case Some(InferredKind(Star(KindType, _))) =>
-                              // *
-                              ()
-                          }
+                          //List(param11, param12).toSet should have size(2)
+                          //argKinds should have size(2)
+                          argKinds should have size(1)
+                          //inside(argKinds.lift(param11)) {
+                          //  case Some(InferredKind(Star(KindType, _))) =>
+                          //    // *
+                          //    ()
+                          //}
                           inside(argKinds.lift(param12)) {
                             case Some(InferredKind(Arrow(Star(KindType, _), Star(KindType, _), _))) =>
                               // * -> *
