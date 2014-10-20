@@ -778,7 +778,7 @@ object LogicalTypeValueTermUnifier
         (term1, term2) match {
           case (LogicalTypeValueTerm(conjNode1, _), LogicalTypeValueTerm(conjNode2, args2)) =>
             (conjNode1.typeValueNodeWithoutTupleTypeValueLeaf, conjNode2.typeValueNodeWithoutTupleTypeValueLeaf) match {
-              case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes, _)) if !tupleTypes.isEmpty =>
+              case (TypeValueLeaf(_, _, _) | TypeValueBranch(_, Seq(), _), TypeValueBranch(Seq(TypeValueLeaf(ident2 @ TypeParamAppIdentity(param2), paramAppIdx2, _)), tupleTypes2, _)) if !tupleTypes2.isEmpty =>
                 term1.normalizedTypeValueTerm match {
                   case Some(normalizedTerm1) =>
                     args2.get(ident2) match {
@@ -788,6 +788,21 @@ object LogicalTypeValueTermUnifier
                         (env2, NoType.fromError[T](FatalError("not found arguments", none, NoPosition)).failure)
                     }
                   case None                  =>
+                    (env2, NoType.fromError(FatalError("can't normalize type value term", none, NoPosition)).failure)
+                }
+              case (TypeValueBranch(Seq(TypeValueLeaf(ident1 @ TypeParamAppIdentity(param1), paramAppIdx1, _)), tupleTypes1, _), GlobalTypeAppNode(loc2, _, _, _, sym2)) if !tupleTypes1.isEmpty =>
+                args2.get(ExpandedGlobalTypeAppIdentity(loc2, sym2)) match {
+                  case Some(argLambdas) =>
+                    envSt.withRecursionCheckingS(Set(loc2)) {
+                      env3 =>
+                        appForGlobalTypeWithAllocatedTypeParamsS(loc2, argLambdas)(env3) match {
+                          case (env4, Success(evaluatedTerm2)) =>
+                            matchesTypeValueTermsS(term1, evaluatedTerm2)(z)(f)(env4)
+                          case (env4, Failure(noType))         =>
+                            (env4, noType.failure)
+                        }
+                    } (env2)
+                  case None             =>
                     (env2, NoType.fromError(FatalError("can't normalize type value term", none, NoPosition)).failure)
                 }
               case _ =>
