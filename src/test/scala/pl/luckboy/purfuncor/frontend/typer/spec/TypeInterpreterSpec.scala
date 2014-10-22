@@ -14,6 +14,7 @@ import org.scalatest.matchers.ShouldMatchers
 import pl.luckboy.purfuncor.common._
 import pl.luckboy.purfuncor.frontend._
 import pl.luckboy.purfuncor.frontend.typer._
+import pl.luckboy.purfuncor.frontend.typer.range._
 import pl.luckboy.purfuncor.frontend.resolver.Symbol
 import pl.luckboy.purfuncor.frontend.resolver.GlobalSymbol
 import pl.luckboy.purfuncor.frontend.resolver.LocalSymbol
@@ -108,16 +109,37 @@ type Z = #Int
 	  res should be ===(().success.success)
       inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("T")))) {
         case EvaluatedTypeValue(term) =>
-          term should be ===(TupleType(Seq(
-              TypeConjunction(Set[TypeValueTerm[Z]](
-                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                  BuiltinType(TypeBuiltinFunction.Zero, Seq[TypeValueTerm[Z]]()))),
-              TupleType(Seq(
-                  BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                  TypeConjunction(Set[TypeValueTerm[Z]](
+          //term should be ===(TupleType(Seq(
+          //    TypeConjunction(Set[TypeValueTerm[Z]](
+          //        BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+          //        BuiltinType(TypeBuiltinFunction.Zero, Seq[TypeValueTerm[Z]]()))),
+          //    TupleType(Seq(
+          //        BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+          //        TypeConjunction(Set[TypeValueTerm[Z]](
+          //            BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+          //            BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
+          //        BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))))))
+          val syms = List(GlobalSymbol(NonEmptyList("V")), GlobalSymbol(NonEmptyList("W")))
+          inside(syms.flatMap(globalSymTabular.getGlobalLocationFromTable(env))) {
+            case List(vLoc, wLoc) =>
+              term should be ===(TupleType[Z](Seq(
+                  LogicalTypeValueTerm[Z](
+                      TypeValueBranch[Z](Seq(
+                          GlobalTypeAppNode(vLoc, Seq(TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Int, Seq()), 0, 1)), Seq(), 2, GlobalSymbol(NonEmptyList("V"))), 
+                          GlobalTypeAppNode(wLoc, Seq(TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Zero, Seq()), 0, 1)), Seq(), 2, GlobalSymbol(NonEmptyList("W")))),Vector(),4), 
+                      Map(ExpandedGlobalTypeAppIdentity(vLoc, GlobalSymbol(NonEmptyList("V"))) -> Seq(TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))),
+                          UnexpandedGlobalTypeAppIdentity(vLoc, GlobalSymbol(NonEmptyList("V"))) -> Seq(TypeValueLambda(Seq(), BuiltinType(TypeBuiltinFunction.Int, Seq()))),
+                          ExpandedGlobalTypeAppIdentity(wLoc, GlobalSymbol(NonEmptyList("W"))) -> Seq(),
+                          UnexpandedGlobalTypeAppIdentity(wLoc, GlobalSymbol(NonEmptyList("W"))) -> Seq(),
+                          BuiltinTypeIdentity(TypeBuiltinFunction.Int, Seq()) -> Seq(),
+                          BuiltinTypeIdentity(TypeBuiltinFunction.Zero, Seq()) -> Seq())),
+                  TupleType(Seq(
                       BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                      BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
-                  BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))))))
+                      TypeConjunction(Set[TypeValueTerm[Z]](
+                          BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+                          BuiltinType(TypeBuiltinFunction.NonZero, Seq[TypeValueTerm[Z]]()))),
+                      BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))))))
+          }
       }
       inside(enval.globalTypeVarValueFromEnvironment(env)(GlobalSymbol(NonEmptyList("U")))) {
         case TypeCombinatorValue(_, _, _) => ()
@@ -247,11 +269,24 @@ type V = #Float
           val (env2, res3) = Typer.interpretTypeTermString("tuple 2 (U T #Char) V")(nameTree)(g2(data)).run(env)
           inside(res3) {
             case Success(EvaluatedTypeValue(term)) =>
-              term should be ===(TupleType(Seq[TypeValueTerm[Z]](
-                  TypeConjunction(Set[TypeValueTerm[Z]](
-                      BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
-                      BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))),
-                  BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))))
+              //term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+              //    TypeConjunction(Set[TypeValueTerm[Z]](
+              //        BuiltinType(TypeBuiltinFunction.Int, Seq[TypeValueTerm[Z]]()),
+              //        BuiltinType(TypeBuiltinFunction.Char, Seq[TypeValueTerm[Z]]()))),
+              //    BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))))
+              inside(globalSymTabular.getGlobalLocationFromTable(env)(GlobalSymbol(NonEmptyList("T")))) {
+                case Some(loc) =>
+                  term should be ===(TupleType(Seq[TypeValueTerm[Z]](
+                      LogicalTypeValueTerm(
+                          TypeValueBranch(Seq(
+                              GlobalTypeAppNode(loc, Seq(TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Int, Seq()), 0, 1)), Seq(), 2, GlobalSymbol(NonEmptyList("T"))),
+                              TypeValueLeaf(BuiltinTypeIdentity(TypeBuiltinFunction.Char, Seq()), 0, 1)), Seq(), 3),
+                          Map(ExpandedGlobalTypeAppIdentity(loc, GlobalSymbol(NonEmptyList("T"))) -> Seq(),
+                              UnexpandedGlobalTypeAppIdentity(loc, GlobalSymbol(NonEmptyList("T"))) -> Seq(),
+                              BuiltinTypeIdentity(TypeBuiltinFunction.Int, Seq()) -> Seq(),
+                              BuiltinTypeIdentity(TypeBuiltinFunction.Char, Seq()) -> Seq())),
+                      BuiltinType(TypeBuiltinFunction.Float, Seq[TypeValueTerm[Z]]()))))
+              }
           }
       }
     }
