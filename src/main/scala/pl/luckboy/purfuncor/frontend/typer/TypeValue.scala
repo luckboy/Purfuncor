@@ -249,11 +249,11 @@ sealed trait TypeValueTerm[T]
     this match {
       case GlobalTypeApp(loc, args, sym) =>
         val (env2, hasRecursiveTypeComb) = envSt.hasRecursiveTypeCombinator(loc)(env)
-        val (env3, res) = if(!hasRecursiveTypeComb)
-          envSt.withPartialEvaluationS(false) { TypeValueTerm.appForGlobalTypeS(loc, args)(_) } (env2)
-        else
-          (env, this.success)
-        (env3, res.map { _.unevaluatedLogicalTypeValueTerm.globalTypeAppForLogicalTypeValueTerm(loc, args, sym) })
+        if(!hasRecursiveTypeComb) {
+          val (env3, res) = envSt.withPartialEvaluationS(false) { TypeValueTerm.appForGlobalTypeS(loc, args)(_) } (env2)
+          (env3, res.map { _.unevaluatedLogicalTypeValueTerm.globalTypeAppForLogicalTypeValueTerm(loc, args, sym) })
+        } else
+          (env, unevaluatedLogicalTypeValueTerm.success)
       case _                             =>
         (env, unevaluatedLogicalTypeValueTerm.success)
     }
