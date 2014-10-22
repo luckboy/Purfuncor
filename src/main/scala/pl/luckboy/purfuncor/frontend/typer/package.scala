@@ -62,6 +62,9 @@ package object typer
     
     override def withClearS[U](f: SymbolTypeEnvironment[T] => (SymbolTypeEnvironment[T], U))(env: SymbolTypeEnvironment[T]) =
       env.withClear(f)
+      
+    override def hasRecursiveTypeCombinator(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
+      (env, env.hasRecursiveTypeComb(loc))
   }
   
   implicit def symbolTypeSimpleTermEvaluator[T]: Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] = new Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {

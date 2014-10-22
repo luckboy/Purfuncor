@@ -21,4 +21,6 @@ trait TypeEnvironmentState[E, L, V]
   
   // This method for leaks of type closures.
   def withClearS[T](f: E => (E, T))(env: E): (E, T)
+  
+  def hasRecursiveTypeCombinator(loc: L)(env: E): (E, Boolean)
 }
