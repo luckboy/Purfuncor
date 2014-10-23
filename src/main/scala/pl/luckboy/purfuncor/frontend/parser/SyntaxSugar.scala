@@ -159,7 +159,7 @@ object SyntaxSugar
     
   def makeConstructor(constr: Constructor, datatypeSym: Symbol, datatypeKind: Option[KindTerm[StarKindTerm[String]]], datatypeArgs: List[TypeArg]) = {
     //
-    // Cj Uj1 ... UjLj extends Vj1 or Cj { fj1: Uj1, ..., fjk1: Ujk1 = xjk1, ..., fjkK: UjkK = xjkK, ..., fjLj: UjLj } extends Vj1
+    // Cj Uj1 ... UjLj extends Vj or Cj { fj1: Uj1, ..., fjk1: Ujk1 = xjk1, ..., fjkK: UjkK = xjkK, ..., fjLj: UjLj } extends Vj
     //
     // will be translated to:
     //
@@ -167,7 +167,7 @@ object SyntaxSugar
     // unittype N Cj.Unittype: k
     // type (Cj.TypeWithoutTuple: k) t1 ... tN = T.BaseType t1 ... tN #& Cj.Unittype t1 ... tN #& Cj.Supertype t1 ... tN
     // type (Cj.Tuple: k) t1 ... tN = (Uj1, ..., UjLj)
-    // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& Cj.Tuple t1 ... tN
+    // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& (Uj1, ..., UjLj)
     // type (Cj.Supertype: k) t1 ... tN = Vj
     //
     // // for named fields
@@ -198,6 +198,7 @@ object SyntaxSugar
     val constructTypeTerm = constr.fieldTypes.foldRight(app(typeVar(constr.sym ++ List("Type"), constr.sym.pos), typeVarsFromTypeArgs(datatypeArgs), constr.sym.pos): Term[TypeSimpleTerm[Symbol, TypeLambdaInfo]]) {
       case (ftt, tt) => App(funTypeFun(constr.sym.pos), NonEmptyList(ftt, tt), constr.sym.pos)
     }
+    val constructTupleType = app(tupleTypeFun(constr.fieldCount, constr.sym.pos), constr.fieldTypes, constr.sym.pos)
     val defs1 = List(
         // _construct.Cj = construct M: \t1 ... tN => Uj1 #-> ... #-> UjLj #-> Cj.Type t1 ... tN
         CombinatorDef(
@@ -233,16 +234,16 @@ object SyntaxSugar
             constr.sym ++ List("Tuple"),
             datatypeKind,
             datatypeArgs,
-            app(tupleTypeFun(constr.fieldCount, constr.sym.pos), constr.fieldTypes, constr.sym.pos)),
-        // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& Cj.Tuple t1 ... tN
+            constructTupleType),
+        // type (Cj.Type: k) t1 ... tN = Cj.TypeWithoutTuple t1 ... tN #& (Uj1, ..., UjLj)
         TypeCombinatorDef(
             constr.sym ++ List("Type"),
             datatypeKind,
-            renamedTypeArgsFromTypeArgs(datatypeArgs, "t"),
+            namedTypeArgsFromTypeArgs(datatypeArgs),
             App(typeConjFun(constr.sym.pos),
                 NonEmptyList(
-                    app(typeVar(constr.sym ++ List("TypeWithoutTuple"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos),
-                    app(typeVar(constr.sym ++ List("Tuple"), constr.sym.pos), renamedTypeVarsFromTypeArgs(datatypeArgs, "t"), constr.sym.pos)),
+                    app(typeVar(constr.sym ++ List("TypeWithoutTuple"), constr.sym.pos), typeVarsFromTypeArgs(datatypeArgs), constr.sym.pos),
+                    constructTupleType),
                 constr.sym.pos)),
         // type (Cj.Supertype: k) t1 ... tN = Vj
         TypeCombinatorDef(
