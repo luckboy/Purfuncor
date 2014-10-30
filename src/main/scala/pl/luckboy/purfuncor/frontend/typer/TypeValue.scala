@@ -248,8 +248,8 @@ sealed trait TypeValueTerm[T]
   def logicalTypeValueTermS[U, V, W, E](env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]]) =
     this match {
       case GlobalTypeApp(loc, args, sym) =>
-        val (env2, hasRecursiveTypeComb) = envSt.hasRecursiveTypeCombinator(loc)(env)
-        if(!hasRecursiveTypeComb) {
+        val (env2, hasApplyingTypeComb) = envSt.hasApplyingTypeCombinator(loc)(env)
+        if(!hasApplyingTypeComb) {
           val (env3, res) = envSt.withPartialEvaluationS(false) { TypeValueTerm.appForGlobalTypeS(loc, args)(_) } (env2)
           (env3, res.map { _.unevaluatedLogicalTypeValueTerm.globalTypeAppForLogicalTypeValueTerm(loc, args, sym) })
         } else

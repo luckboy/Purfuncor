@@ -65,6 +65,9 @@ package object typer
       
     override def hasRecursiveTypeCombinator(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
       (env, env.hasRecursiveTypeComb(loc))
+
+    override def hasApplyingTypeCombinator(loc: GlobalSymbol)(env: SymbolTypeEnvironment[T]) =
+      (env, env.applyingTypeCombSyms.contains(loc))
   }
   
   implicit def symbolTypeSimpleTermEvaluator[T]: Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] = new Evaluator[TypeSimpleTerm[Symbol, T], SymbolTypeEnvironment[T], TypeValue[GlobalSymbol, Symbol, T, SymbolTypeClosure[T]]] {

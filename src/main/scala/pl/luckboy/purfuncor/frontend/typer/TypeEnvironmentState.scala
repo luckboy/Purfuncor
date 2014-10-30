@@ -23,4 +23,6 @@ trait TypeEnvironmentState[E, L, V]
   def withClearS[T](f: E => (E, T))(env: E): (E, T)
   
   def hasRecursiveTypeCombinator(loc: L)(env: E): (E, Boolean)
+
+  def hasApplyingTypeCombinator(loc: L)(env: E): (E, Boolean)
 }
