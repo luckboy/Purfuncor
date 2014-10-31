@@ -480,7 +480,7 @@ object LogicalTypeValueTermUnifier
     }
 
   private def partiallyMatchesSupertypeValueTermWithTypeValueTerm[T](term1: LogicalTypeValueTerm[T], term2: LogicalTypeValueTerm[T], isFirstTry: Boolean) =
-    if(true || term1.statistics.unexpandedLeafCount * 2 > term1.statistics.expandedLeafCount && term2.statistics.unexpandedLeafCount * 2 > term2.statistics.expandedLeafCount)
+    if(term1.statistics.unexpandedLeafCount * 2 > term1.statistics.expandedLeafCount && term2.statistics.unexpandedLeafCount * 2 > term2.statistics.expandedLeafCount)
       morePartiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, isFirstTry, true)
     else
       morePartiallyMatchesSupertypeValueTermWithTypeValueTerm(term1, term2, isFirstTry, false).orElse {
