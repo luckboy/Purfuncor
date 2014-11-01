@@ -181,11 +181,19 @@ object TypeBuiltinFunctions
             case Seq(value1, value2) =>
               val (env2, res1) = value1.typeValueTermS(env)
               val (env3, res2) = value2.typeValueTermS(env2)
-              val retValue = (for {
+              val (env6, retValue) = (for {
                 t1 <- res1
                 t2 <- res2
-              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet1, Vector(t1, t2)))).valueOr(identity)
-              (env3, retValue)
+              } yield (t1, t2)).flatMap {
+                case (t1, t2) =>
+                  val (env4, res3) = t1.logicalTypeValueTermS(env3)
+                  val (env5, res4) = t2.logicalTypeValueTermS(env4)
+                  for {
+                    t3 <- res3
+                    t4 <- res4
+                  } yield (env5, EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet1, Vector(t3, t4))))
+              }.valueOr { (env3, _) }
+              (env6, retValue)
             case _                  =>
               (env, illegalAppNoTypeValue)
           }
@@ -196,11 +204,19 @@ object TypeBuiltinFunctions
             case Seq(value1, value2) =>
               val (env2, res1) = value1.typeValueTermS(env)
               val (env3, res2) = value2.typeValueTermS(env2)
-              val retValue = (for {
+              val (env6, retValue) = (for {
                 t1 <- res1
                 t2 <- res2
-              } yield EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet2, Vector(t1, t2)))).valueOr(identity)
-              (env3, retValue)
+              } yield (t1, t2)).flatMap {
+                case (t1, t2) =>
+                  val (env4, res3) = t1.logicalTypeValueTermS(env3)
+                  val (env5, res4) = t2.logicalTypeValueTermS(env4)
+                  for {
+                    t3 <- res3
+                    t4 <- res4
+                  } yield (env5, EvaluatedTypeValue(BuiltinType(TypeBuiltinFunction.FieldSet2, Vector(t3, t4))))
+              }.valueOr { (env3, _) }
+              (env6, retValue)
             case _                  =>
               (env, illegalAppNoTypeValue)
           }

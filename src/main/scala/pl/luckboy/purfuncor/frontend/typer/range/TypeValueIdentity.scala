@@ -30,9 +30,18 @@ object TypeValueIdentity
         FieldTypeIdentity(i)
       case BuiltinType(bf @ (TypeBuiltinFunction.FieldSet1 | TypeBuiltinFunction.FieldSet2), args) =>
         val argIdents = args.map {
-          case FieldType(i, _)           => FieldSetTypeFieldIdentity(i)
-          case TypeParamApp(param, _, _) => FieldSetTypeParamIdentity(param)
-          case _                         => NoFieldSetTypeArgIdentity
+          case LogicalTypeValueTerm(conjNode, _) =>
+            conjNode match {
+              case TypeValueLeaf(FieldTypeIdentity(i), _, _)                                     =>
+                FieldSetTypeFieldIdentity(i)
+              case GlobalTypeAppNode(_, Seq(TypeValueLeaf(FieldTypeIdentity(i), _, _)), _, _, _) =>
+                FieldSetTypeFieldIdentity(i)
+              case _                                                                             =>
+                NoFieldSetTypeArgIdentity
+            }
+          case FieldType(i, _)                   => FieldSetTypeFieldIdentity(i)
+          case TypeParamApp(param, _, _)         => FieldSetTypeParamIdentity(param)
+          case _                                 => NoFieldSetTypeArgIdentity
         }
         BuiltinTypeIdentity(bf, argIdents)
       case BuiltinType(bf, _) =>
