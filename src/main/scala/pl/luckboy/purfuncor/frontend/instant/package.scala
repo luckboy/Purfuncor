@@ -25,6 +25,9 @@ import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TupleType
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
+import pl.luckboy.purfuncor.frontend.typer.NoTypeValue
+import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
+import pl.luckboy.purfuncor.frontend.typer.SymbolTypeClosure
 import pl.luckboy.purfuncor.frontend.typer.symbolSimpleTermTypeInferrer
 import pl.luckboy.purfuncor.frontend
 import pl.luckboy.purfuncor.common.Tree
@@ -172,9 +175,17 @@ package object instant
                 })
                 res5 <- (res |@| res3) {
                   (definedSupertype, pairs) =>
-                    val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
-                    val tmpType = InferringType(tmpTypeValueTerm)
-                    st(for{
+                    //val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
+                    //val tmpType = InferringType(tmpTypeValueTerm)
+                    st(for {
+                      tmpType <- steS({
+                        (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
+                          val (typeEnv, typeValueRes) = stFoldLeftValidationS(pairs.tail)(pairs.head._1.term.success[NoTypeValue[GlobalSymbol, Symbol, TypeLambdaInfo[U, LocalSymbol], SymbolTypeClosure[TypeLambdaInfo[U, LocalSymbol]]]]) {
+                            (newTypeValueTerm, pair, newTypeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]]) =>
+                              newTypeValueTerm.disjS(pair._1.term)(newTypeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]])
+                          } (typeInferenceEnv2.typeEnv).mapElements(identity, _.map { InferringType(_) })
+                          (typeInferenceEnv2.withTypeEnv(typeEnv), typeResultFromTypeValueResult(typeValueRes))
+                      })
                       _ <- rsteS({
                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
                           (pairs.foldLeft(typeInferenceEnv2) {
