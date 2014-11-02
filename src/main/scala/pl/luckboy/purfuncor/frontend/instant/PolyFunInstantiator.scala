@@ -341,9 +341,11 @@ object PolyFunInstantiator {
       TypeBuiltinFunction.Empty,
       TypeBuiltinFunction.NonEmpty)
     
-  private def containsUnittypeS[L, N, E](term: TypeValueTerm[N])(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Boolean]) = {
+  private def containsUnittypeS[L, N, E](term: TypeValueTerm[N], isConj: Boolean)(err: E => (E, NoType[N]))(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N]): (E, Validation[NoType[N], Boolean]) = {
     term match {
       case BuiltinType(bf, _) if correctTypeBuiltinFunctions.contains(bf) =>
+        (env, false.success)
+      case BuiltinType(bf, _) if bf === TypeBuiltinFunction.Any =>
         (env, false.success)
       case _: GlobalType[N] =>
         (env, true.success)
@@ -358,7 +360,7 @@ object PolyFunInstantiator {
               case BuiltinType(TypeBuiltinFunction.Any, Seq()) =>
                 (newEnv, b.success)
               case _                                           =>
-                containsUnittypeS(term2)(err)(newEnv).mapElements(identity, _.map { _ | b })
+                containsUnittypeS(term2, true)(err)(newEnv).mapElements(identity, _.map { _ | b })
             }
           case ((newEnv, Failure(noType)), _) =>
             (newEnv, noType.failure)
@@ -366,7 +368,7 @@ object PolyFunInstantiator {
       case TypeDisjunction(terms) =>
         terms.foldLeft((env, true.success[NoType[N]])) {
           case ((newEnv, Success(b)), term2)  => 
-            containsUnittypeS(term2)(err)(newEnv) match {
+            containsUnittypeS(term2, false)(err)(newEnv) match {
               case (newEnv2, Success(true))  => (newEnv2, true.success)
               case (newEnv2, Success(false)) => err(newEnv2).mapElements(identity, _.failure)
               case (newEnv2, Failure(noType)) => (newEnv2, noType.failure)
@@ -378,7 +380,7 @@ object PolyFunInstantiator {
           env2 =>
             appForGlobalTypeWithAllocatedTypeParamsS(loc, args)(env2) match {
               case (env3, Success(evaluatedTerm)) =>
-                containsUnittypeS(evaluatedTerm)(err)(env3)
+                containsUnittypeS(evaluatedTerm, isConj)(err)(env3)
               case (env3, Failure(noType))        =>
                 (env3, noType.failure)
             }
@@ -390,7 +392,7 @@ object PolyFunInstantiator {
     
   def checkConstructInferringTypeS[L, N, E](typ: InferringType[N])(env: E)(implicit unifier: Unifier[NoType[N], TypeValueTerm[N], E, Int], envSt: typer.TypeInferenceEnvironmentState[E, L, N], envSt2: TypeInferenceEnvironmentState[E, L, N]) = {
     val (env2, res) = findTupleTypesS(typ.typeValueTerm)(envSt2.incorrectConstructTypeNoTypeS)(env)
-    val (env3, res2) = containsUnittypeS(typ.typeValueTerm)(envSt2.incorrectConstructTypeNoTypeS)(env2)
+    val (env3, res2) = containsUnittypeS(typ.typeValueTerm, false)(envSt2.incorrectConstructTypeNoTypeS)(env2)
     (for(t <- res; b <- res2) yield (t, b)).map {
       case (typeValueTerms, hasUnittype) =>
         unifier.withSaveS {
