@@ -280,6 +280,32 @@ sealed trait TypeValueTerm[T]
   def disjS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
     conjOrDisjS(term) { _ | _ } (env)
     
+  private def conjOrDisjForUnificationS[U, V, W, E](term: TypeValueTerm[T])(f: (TypeValueTerm[T], TypeValueTerm[T]) => TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) = {
+    val (env2, termRes1) = this.logicalTypeValueTermS(env)
+    termRes1.map {
+      case term1 @ LogicalTypeValueTerm(conjNode1, args1) =>
+        val (env3, termRes2) = term.logicalTypeValueTermS(env2)
+        termRes2.map {
+          case term2 @ LogicalTypeValueTerm(conjNode2, args2) =>
+            val leafIdents = args1.keySet & args2.keySet
+            foldLeftOption(leafIdents)(some(Vector[(TypeValueTerm[T], TypeValueTerm[T])]())) {
+              (ps, i) => 
+                (args1.get(i) |@| args2.get(i)) { (_, _) }.flatMap {
+                  case (as1, as2) => (TypeValueTerm.fromTypeValueIdentityWithArgs(i, as1) |@| TypeValueTerm.fromTypeValueIdentityWithArgs(i, as2)) { (tvt1, tvt2) => ps :+ ((tvt1, tvt2)) }
+                }
+            }.map {
+              ps => (env3, (f(term1, term2), ps).success)
+            }.getOrElse { println(leafIdents); (env3, NoTypeValue.fromError[T, U, V, W](FatalError("incorrect type value identity", none, NoPosition)).failure) }
+        }.valueOr { nv => (env2, nv.failure) }
+    }.valueOr { nv => (env2, nv.failure) }
+  }
+    
+  def conjForUnificationS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
+    conjOrDisjForUnificationS(term) { _ & _ } (env)
+
+  def disjForUnificationS[U, V, W, E](term: TypeValueTerm[T])(env: E)(implicit eval: Evaluator[TypeSimpleTerm[U, V], E, TypeValue[T, U, V, W]], envSt: TypeEnvironmentState[E, T, TypeValue[T, U, V, W]], locEqual: Equal[T]) =
+    conjOrDisjForUnificationS(term) { _ | _ } (env)
+
   private def leafTypeValueTermFromTypeValueNodeWithArgs(node: TypeValueNode[T], args: Map[TypeValueIdentity[T], Seq[TypeValueLambda[T]]]): Option[Option[TypeValueTerm[T]]] =
     node match {
       case TypeValueBranch(Seq(child), Seq(), _) =>
@@ -467,6 +493,28 @@ object TypeValueTerm
       terms1.zip(terms2).forall { case (t1, t2) => t1.simplyMatches(t2) }
     else
       false
+      
+  def fromTypeValueIdentityWithArgs[T](ident: TypeValueIdentity[T], args: Seq[TypeValueLambda[T]]) =
+    ident match {
+      case TupleTypeIdentity =>
+        if(args.forall { _.argParams.isEmpty }) some(TupleType(args.map { _.body })) else none
+      case FieldTypeIdentity(i) =>
+        args.headOption.flatMap {
+          arg => if(arg.argParams.isEmpty) some(FieldType(i, arg.body)) else none
+        }
+      case BuiltinTypeIdentity(bf, _) =>
+        if(args.forall { _.argParams.isEmpty }) some(BuiltinType(bf, args.map { _.body })) else none
+      case UnittypeIdentity(loc, sym) =>
+        some(Unittype(loc, args, sym))
+      case GrouptypeIdentity(loc, sym) =>
+        some(Grouptype(loc, args, sym))
+      case UnexpandedGlobalTypeAppIdentity(loc, sym) =>
+        some(GlobalTypeApp(loc, args, sym))
+      case ExpandedGlobalTypeAppIdentity(loc, sym) =>
+        some(GlobalTypeApp(loc, args, sym))
+      case TypeParamAppIdentity(_) =>
+        none
+    }
 }
 
 sealed trait LeafTypeValueTerm[T] extends TypeValueTerm[T]

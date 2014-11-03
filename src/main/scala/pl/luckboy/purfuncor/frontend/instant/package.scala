@@ -24,6 +24,7 @@ import pl.luckboy.purfuncor.frontend.typer.InferredType
 import pl.luckboy.purfuncor.frontend.typer.InferringType
 import pl.luckboy.purfuncor.frontend.typer.TypeConjunction
 import pl.luckboy.purfuncor.frontend.typer.TupleType
+import pl.luckboy.purfuncor.frontend.typer.TypeValueTerm
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeInferenceEnvironment
 import pl.luckboy.purfuncor.frontend.typer.NoTypeValue
 import pl.luckboy.purfuncor.frontend.typer.SymbolTypeEnvironment
@@ -178,13 +179,24 @@ package object instant
                     //val tmpTypeValueTerm = pairs.tail.foldLeft(pairs.head._1.term) { _ | _._1.term }
                     //val tmpType = InferringType(tmpTypeValueTerm)
                     st(for {
-                      tmpType <- steS({
+                      tmpPair2 <- steS({
                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
-                          val (typeEnv, typeValueRes) = stFoldLeftValidationS(pairs.tail)(pairs.head._1.term.success[NoTypeValue[GlobalSymbol, Symbol, TypeLambdaInfo[U, LocalSymbol], SymbolTypeClosure[TypeLambdaInfo[U, LocalSymbol]]]]) {
-                            (newTypeValueTerm, pair, newTypeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]]) =>
-                              newTypeValueTerm.disjS(pair._1.term)(newTypeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]])
-                          } (typeInferenceEnv2.typeEnv).mapElements(identity, _.map { InferringType(_) })
+                          val (typeEnv, typeValueRes) = stFoldLeftValidationS(pairs.tail)((pairs.head._1.term, Vector[(TypeValueTerm[GlobalSymbol], TypeValueTerm[GlobalSymbol])]()).success[NoTypeValue[GlobalSymbol, Symbol, TypeLambdaInfo[U, LocalSymbol], SymbolTypeClosure[TypeLambdaInfo[U, LocalSymbol]]]]) {
+                            (tmpPair, pair, newTypeEnv: SymbolTypeEnvironment[TypeLambdaInfo[U, LocalSymbol]]) =>
+                              val (newTypeValueTerm, newPairs) = tmpPair
+                              newTypeValueTerm.disjForUnificationS(pair._1.term)(newTypeEnv).mapElements(identity, _.map { _.mapElements(identity, newPairs ++ _) })
+                          } (typeInferenceEnv2.typeEnv).mapElements(identity, _.map { p => (InferringType(p._1), p._2) })
                           (typeInferenceEnv2.withTypeEnv(typeEnv), typeResultFromTypeValueResult(typeValueRes))
+                      })
+                      tmpType <- steS({
+                        stFoldLeftValidationS(tmpPair2._2)(().success[NoType[GlobalSymbol]]) {
+                          (_, pair, newTypeInferenceEnv: SymbolTypeInferenceEnvironment[T, U]) =>
+                            val (term1, term2) = pair
+                            symbolSimpleTermTypeInferrer.unifyInfosS(InferringType(term1), InferringType(term2))(newTypeInferenceEnv) match {
+                              case (newTypeInferenceEnv2, noType: NoType[GlobalSymbol]) => (newTypeInferenceEnv2, noType.failure)
+                              case (newTypeInferenceEnv2, _)                            => (newTypeInferenceEnv2, ().success)
+                            }
+                        } (_: SymbolTypeInferenceEnvironment[T, U]).mapElements(identity, _.map { _ => tmpPair2._1 })
                       })
                       _ <- rsteS({
                         (typeInferenceEnv2: SymbolTypeInferenceEnvironment[T, U]) =>
