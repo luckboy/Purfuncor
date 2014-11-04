@@ -22,9 +22,9 @@ case class TypeValueRangeSet[T](ranges: SortedMap[TypeValueRange, TypeValueRange
         rangeSet.ranges.from(from).to(to).foldLeft(newRanges) {
           case (newRanges2, (range2, value2)) =>
             if(range.minIdx >= range2.minIdx && range.maxIdx <= range2.maxIdx)
-              newRanges2 + (range -> (value | value2))
+              newRanges2 + (range -> (value & value2))
             else if(range.minIdx <= range2.minIdx && range.maxIdx >= range2.maxIdx)
-              newRanges2 + (range2 -> (value | value2))
+              newRanges2 + (range2 -> (value & value2))
             else
               newRanges2
         }
@@ -134,6 +134,18 @@ case class TypeValueRangeValue[T](
     conds: UnionSet[((TypeValueRange, Iterable[TypeValueRange]), TypeValueRangeCondition[T])])
 {
   def myLeafIdxs = otherLeafIdxs
+
+  def & (value: TypeValueRangeValue[T]) =
+    TypeValueRangeValue[T](
+        otherLeafIdxs = otherLeafIdxs | value.otherLeafIdxs,
+        leafIdxPairs = leafIdxPairs | value.leafIdxPairs,
+        myParamAppIdxs = myParamAppIdxs | value.myParamAppIdxs,
+        myParams = myParams | value.myParams,
+        myLeafParamAppIdxs = myLeafParamAppIdxs | value.myLeafParamAppIdxs,
+        otherTupleTypes = (otherTupleTypes |@| value.otherTupleTypes) { 
+          (ott1, ott2) => if(ott1.size > ott2.size) ott1 else ott2
+        }.orElse(otherTupleTypes).orElse(value.otherTupleTypes),
+        conds = conds | value.conds)
   
   def | (value: TypeValueRangeValue[T]) =
     TypeValueRangeValue[T](

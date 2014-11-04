@@ -539,7 +539,7 @@ object LogicalTypeValueTermUnifier
             else
               // last other tuple type
               matchesTypeValueTermsS(myTupleType, otherTupleType)(x)(f)(newEnv3).mapElements(identity, (_, true))
-           case ((newEnv3, (newRes2, areRestoredDelayedErrs)), _)      =>
+           case ((newEnv3, (newRes2, areRestoredDelayedErrs)), _)     =>
              (newEnv3, (newRes2, areRestoredDelayedErrs))
         }
         (newEnv4, newRes)
