@@ -84,6 +84,15 @@ i = #2 2 f
       val (typeEnv, res) = Instantiator.transformString(s)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
       inside(res) { case Success(_) => () }
     }
+
+    it should "transform the instances for the bug of the already defined instance for the construct" in {
+      val s = """
+datatype List t = Nil | t :: (List t)
+datatype Tree t = Leaf | Node (Tree t) t (Tree t)
+"""
+      val (typeEnv, res) = Instantiator.transformString(s)(NameTree.empty, InferredKindTable.empty, InferredTypeTable.empty, emptyInstTree, InstanceArgTable.empty)(f3)(g3).run(emptyTypeEnv)
+      inside(res) { case Success(_) => () }
+    }
   }
   
   "An Instantiator" should behave like instantiator(SymbolInstantiationEnvironment.empty[parser.LambdaInfo, parser.TypeLambdaInfo], SymbolTypeEnvironment.empty[TypeLambdaInfo[parser.TypeLambdaInfo, LocalSymbol]], ())(_ => ().successNel)(_ => Instantiator.statefullyTransformToSymbolTree3)(Instantiator.statefullyMakeSymbolInstantiationEnvironment3)(_ => Instantiator.transformToSymbolTerm2)
