@@ -85,7 +85,7 @@ object SyntaxSugar
             typeVar(sym, sym.pos),
             constrs.map { c => typeVar(c.sym ++ List("Type"), c.sym.pos) }),
         // grouptype N T.BaseGrouptype: k
-        UnittypeCombinatorDef(
+        GrouptypeCombinatorDef(
             args.size,
             sym ++ List("BaseGrouptype"),
             kind),
